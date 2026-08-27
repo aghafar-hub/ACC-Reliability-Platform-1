@@ -55,6 +55,12 @@
   - (Implication: likely per-module API/connection channels rather than one
     central data-access layer for everything — to be confirmed as design
     progresses.)
+- **Settings vs. data separation (critical):**
+  - The database must **separate app settings from app data**, to avoid
+    data damage.
+  - **Each module** must have its **own settings sheet(s)** and its own
+    **data sheet(s)** — settings and data are never mixed in the same
+    sheet, and modules never share sheets with each other.
 
 ## Open items (not yet discussed / to ask about later)
 
