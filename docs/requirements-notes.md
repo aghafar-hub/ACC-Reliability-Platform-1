@@ -71,6 +71,19 @@
 - The **user can change their password** afterward (implies a forced/first
   password-change flow is likely expected — to be confirmed).
 
+## Roles & permissions (admin-controlled)
+
+- **App Admin defines each user's role.**
+- **App Admin controls access to everything** — i.e. fine-grained,
+  admin-managed permissions covering:
+  - Who can access what (modules, screens, data).
+  - Who can control/do what (create/edit/approve/delete actions).
+- (Implication: this points to a **role-based access control (RBAC)**
+  system, likely configurable per module too, not just platform-wide — to
+  be confirmed as modules are defined. Also ties back to the RHI/ASEC
+  contractor split noted earlier — roles/access may need to reflect which
+  contractor a user belongs to.)
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
