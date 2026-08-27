@@ -62,6 +62,15 @@
     **data sheet(s)** — settings and data are never mixed in the same
     sheet, and modules never share sheets with each other.
 
+## Authentication & user management
+
+- App has its own **login screen**: email + password (not necessarily tied
+  to Google account login, despite Google Sheets backend — to be confirmed).
+- **App Admin** can **add any user by email**.
+- On creation, a **first password is auto-generated** by the system.
+- The **user can change their password** afterward (implies a forced/first
+  password-change flow is likely expected — to be confirmed).
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
