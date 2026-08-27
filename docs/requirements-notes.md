@@ -84,6 +84,17 @@
   contractor split noted earlier — roles/access may need to reflect which
   contractor a user belongs to.)
 
+## User base (organizations)
+
+- Users will come from **three organizations**:
+  1. **ACC** (Arabian Cement Company — the plant owner)
+  2. **RHI** (contractor, half the plant)
+  3. **ASEC** (contractor, other half of the plant)
+- The **specific role of each organization/user, and how communication/
+  workflow between them happens, will be defined together later** (i.e.
+  still open — not fully specified yet, explicitly deferred by the user to
+  a later part of the discussion).
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
