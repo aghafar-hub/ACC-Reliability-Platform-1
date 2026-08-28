@@ -378,6 +378,27 @@ directly is flagged for the user to resolve, not silently inherited.**
   Lubrication/Analysis module), but **quality takes priority over
   speed** — one month is a soft target, not a hard cutoff to rush for.
 
+## Decisions made (via Q&A round 8)
+
+- **Frontend hosting: GitHub Pages** (Claude's recommendation, accepted by
+  user). Free static hosting served directly from the GitHub repo — matches
+  the original "hosted on GitHub" requirement exactly, simplest to explain
+  and operate, and pairs cleanly with the already-agreed Google Apps
+  Script backend (API/auth/Sheets access) and Google Sheets database.
+  **This closes the hosting decision that the prior AI's docs left open.**
+- **Audit log: basic tracking only** — created-by / modified-by / date
+  fields on records. **No full field-by-field change-history log** despite
+  the full-granular-RBAC decision (these are separate concerns: RBAC
+  controls who can do what; this decision is about how much history is
+  kept afterward).
+- **Multi-role users: allowed.** A single user account can hold more than
+  one role at once, combining permissions (e.g. Reliability Engineer +
+  Manager-level approval). RBAC design must support many-to-many
+  user↔role, not one-role-per-user.
+- **Login security (v1): none of the extras needed.** No auto-logout on
+  inactivity, no 2FA, no failed-attempt lockout for v1 — plain
+  email+password login is sufficient for now.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
