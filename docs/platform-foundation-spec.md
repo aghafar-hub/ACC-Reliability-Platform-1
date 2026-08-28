@@ -170,16 +170,34 @@ A user account can hold **more than one role at once** (e.g. Reliability
 Engineer + Manager-level approval) — permissions combine. RBAC design is
 many-to-many user↔role, not one-role-per-user. **[decided, §8 of notes]**
 
-### 6.2 Organization tagging
+### 6.2 Organization tagging & contractor data isolation
 
 Every user is tagged with an organization: **ACC, RHI, or ASEC.** **App
 Admin manually assigns** this when creating the account — no automatic
-detection from email domain. Equipment/points are also tagged with a
-Contractor (RHI/ASEC) in the real asset data, so org-based data scoping is
-possible (e.g. an RHI Technician's default working set = RHI-tagged
-equipment) — exact scoping rules are part of the permission model below,
-to be populated with real values once each module is designed.
-**[decided, §7 of notes]**
+detection from email domain. **[decided, §7 of notes]**
+
+**Hard data-scoping rule (decided):**
+- Every piece of equipment is already assigned to exactly one O&M
+  contractor (the `Contractor` field in EQUIPMENT_MASTER — RHI or ASEC —
+  already exists in the real data, §7). Every lubrication point and
+  vibration point inherits its equipment's contractor.
+- **An RHI user can never see ASEC equipment or any ASEC-related data
+  (readings, tasks, history, files) — and vice versa.** This is not just a
+  default filter, it is a hard boundary: the equipment, and everything
+  recorded against it, is invisible to the other contractor's users.
+- **All ACC users can see all data for both contractors.** ACC sits above
+  the contractor split — no equipment or data is hidden from an ACC user
+  on contractor grounds.
+- This rule applies **platform-wide, across every module** — it is not
+  something each module redefines. It is enforced at the **Data Scope**
+  layer of the permission model (§6.3) using the equipment's Contractor
+  field, so it applies automatically to any future module without needing
+  to be re-specified.
+- App Admin accounts are implicitly platform-wide for administration
+  purposes (they must be able to manage all users/equipment regardless of
+  contractor), independent of this data-visibility rule.
+
+**[decided — this conversation]**
 
 ### 6.3 Permission granularity — full granular control **[decided, §4 of notes]**
 
@@ -208,7 +226,13 @@ Organization  →  Role  →  Module  →  Screen/Tab  →  Feature  →  Action
 `MODULE_MASTER`, `MODULE_TAB_MASTER`, `FEATURE_MASTER`, `ACTION_MASTER`,
 `SCOPE_MASTER`, `ROLE_PERMISSION` (the assignment table tying a role to
 what it can do, at whatever layer is needed — module/tab/feature/action/
-scope/field). **Time-based access rules** (e.g. access only during
+scope/field). **The Data Scope layer specifically implements the
+contractor isolation rule in §6.2**: for a non-ACC user, every data query
+in every module is automatically filtered to equipment where
+`Contractor = <user's org>`; for an ACC user, no contractor filter is
+applied. This is enforced server-side in each module's Apps Script, not
+just hidden in the UI, so it can't be bypassed by calling the API
+directly. **Time-based access rules** (e.g. access only during
 certain hours) were part of the prior model too — flagging this
 explicitly: do you actually need time-of-day access rules, or was "full
 granular control" mainly about the module/feature/action/field/scope

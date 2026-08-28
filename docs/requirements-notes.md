@@ -454,6 +454,24 @@ directly is flagged for the user to resolve, not silently inherited.**
   decision to make data-size alarms configurable in admin settings too —
   admin-configurable operational controls are a recurring pattern.)
 
+## Decisions made (round 12 — spec review feedback)
+
+User reviewed the Foundation Specification draft and flagged a missing
+**hard data-isolation rule**, now added to the spec (§6.2/§6.3):
+
+- **Every equipment is assigned to exactly one O&M contractor** (already
+  true in the real data — Contractor field RHI/ASEC on EQUIPMENT_MASTER).
+  Lubrication/vibration points inherit their equipment's contractor.
+- **A contractor's users can never see the other contractor's equipment
+  or any related data** (readings, tasks, history, files) — a hard
+  boundary, not just a default filter, enforced server-side in every
+  module, not just per-module.
+- **All ACC users can see all data for both contractors** — ACC has no
+  contractor-based visibility restriction.
+- This is now specified as the concrete implementation of the "Data
+  Scope" layer of the RBAC model (§6.3 of the spec), applying
+  automatically to every module including future ones.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
