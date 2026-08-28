@@ -296,6 +296,29 @@ directly is flagged for the user to resolve, not silently inherited.**
    confirmation. Treat anything load-bearing from those docs as a
    proposal to re-confirm, not an established fact.
 
+## Decisions made (via Q&A round 4 — resolving prior-doc conflicts)
+
+- **User count confirmed: 20–40** (the prior docs' 50–100 assumption is
+  disregarded).
+- **Oil Lubrication module scope: FULL scope wanted**, including
+  everything the prior docs described — route scheduling/assignment/
+  execution, oil **inventory management** (receiving, storage, stock
+  transfers, consumption tracking, purchase forecasting), shutdown
+  lubrication planning, cost management — not just schedule tracking.
+  (This significantly expands the module beyond the original "track
+  lubrication schedule" description — treat the prior docs' DB-003/MS-003
+  scope as the real target scope for this module, subject to further
+  detailed discussion.)
+- **RBAC depth: full granular control needed** — the 9-level permission
+  hierarchy (Company → Role → Module → Tab → Feature → Action → Data
+  Scope → Time Rule → Field Permission) from the prior docs (DB-002) is
+  confirmed as the target model, not simplified down. (User confirmed
+  there is a real reason for this level of control — not yet elaborated,
+  may come up later.)
+- **UI/visual design: fresh design**, not based on the old prototype's
+  look. The old prototype remains a background reference only for what
+  screens/flows exist conceptually, not for visual style.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
