@@ -113,6 +113,38 @@
     points and **multiple** vibration points each (i.e. points are a
     finer-grained sub-asset under each equipment, not 1:1 with equipment).
 
+## Decisions made (via Q&A round 2)
+
+- **Offline requirement (mobile/web PWA):** App **must work offline** —
+  users can view assigned points and enter readings/data with no signal;
+  data queues locally and **syncs automatically once connection returns**.
+  This is a hard requirement given plant areas (kiln, mills, crusher) with
+  poor connectivity. (Significant implication for architecture: needs
+  local storage + sync/conflict-handling logic in the PWA, on top of the
+  Google Apps Script backend.)
+
+- **Lubrication module — workflow:**
+  - Track the **lubrication schedule** — covering both:
+    - **Changing** (routine lubricant change/top-up per schedule), and
+    - **Analysis** (oil sample analysis results).
+  - (Exact wording from user: "Track lubrication schedule (changing or
+    analysis)". Still need finer detail: fields captured, frequency/interval
+    definition, who logs it, overdue handling, pass/fail criteria for
+    analysis — to be discussed further.)
+
+- **Vibration Analysis module — workflow:**
+  - For **each vibration point**, record readings in multiple axes:
+    **vertical, horizontal, "so on"** (i.e. likely also **axial** — the
+    standard third axis — to be confirmed explicitly, not assumed).
+    (Still need finer detail: units, alarm thresholds, how readings are
+    captured — manual entry vs device import, frequency of measurement —
+    to be discussed further.)
+
+- **Equipment structure:** A structured hierarchy **already exists** for
+  the ~2,000 equipment list. User will **share the actual file** for
+  reference rather than describe it verbally. **Action item: waiting on
+  user to share the equipment/hierarchy file.**
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
