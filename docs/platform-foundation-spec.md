@@ -194,6 +194,12 @@ Web App deployment**, bound only to its own spreadsheet(s). Consequences:
   admin manually resets** a locked-out user's password the same way — no
   self-service email reset link. **Together these mean no transactional
   email sending is required anywhere in auth for v1.** **[decided]**
+- **User offboarding: deactivate, never delete.** When a user leaves
+  (e.g. a technician's contract ends), App Admin deactivates the account
+  — login is blocked immediately, but the account and all their
+  historical records remain intact and correctly attributed. Same pattern
+  as Equipment_Status (Active/Inactive rather than physical deletion).
+  **[decided]**
 - **Login security (v1): kept simple.** No auto-logout on inactivity, no
   2FA, no failed-login lockout for v1. Plain email+password is sufficient
   for now. **[decided, §8 of notes]** *(APP-008 proposed a 3-device
@@ -216,7 +222,7 @@ Head/Contractor Engineer/Contractor Technician/App Owner. Reviewed and
 - **Contractor Engineer** (the role the user described as "Supervisor /
   Team Lead," clarified to specifically mean the contractor-side engineer
   overseeing technicians — not a generic supervisor title).
-- **Reliability Engineer**
+- **Reliability Engineer** — in practice ACC staff only (see §6.2)
 - **Manager** (ACC or Contractor)
 
 A user account can hold **more than one role at once** (e.g. Reliability
@@ -249,6 +255,16 @@ detection from email domain. **[decided, §7 of notes]**
 - App Admin accounts are implicitly platform-wide for administration
   purposes (they must be able to manage all users/equipment regardless of
   contractor), independent of this data-visibility rule.
+- **Contractor reassignment:** if a piece of equipment moves from one
+  contractor to the other (e.g. an area's O&M responsibility changes
+  hands), access changes **immediately and totally** — the original
+  contractor loses all visibility into that equipment, **including their
+  own historical work on it**. No retained "legacy access" to what they
+  themselves logged before the handover. **[decided]**
+- **Reliability Engineer role:** in practice this role only exists on the
+  ACC side (contractors don't have this role), so it naturally gets full
+  cross-contractor visibility through the normal ACC rule above — no
+  special-case logic needed. **[decided]**
 
 **[decided — this conversation]**
 
@@ -318,8 +334,9 @@ Platform Core's Asset Master, three sheets:
 Equipment_ID, Equipment_Description, Main_Area, Plant_Area, Sub_Area,
 Contractor (RHI/ASEC), Criticality, Parent_Equipment_ID, Equipment_Status,
 Created_Date, Modified_Date.
-- **Criticality:** keep field as-is; scale has **3 levels** conceptually
-  (only 1 and 2 populated in current data). **[decided, §3 of notes]**
+- **Criticality:** keep field as-is; scale has **3 levels: 1 = High,
+  2 = Medium, 3 = Low** (only High/Medium populated in current data).
+  **[decided]**
 - **Equipment_Status:** app must support **Active** and **Inactive / Out
   of service** (confirmed set, round 11 — "Under maintenance" and
   "Decommissioned" were offered but not selected). **[decided, §11 of
@@ -486,6 +503,13 @@ reached, all already reflected above:
   Script projects and Sheets (should be an admin/service account tied to
   the organization, not a named individual's personal work account, so
   the platform survives staff changes) — not discussed yet.
+- Whether Main_Area / Plant_Area / Sub_Area should become admin-managed
+  reference lists (like Criticality/Status) rather than free text, so new
+  equipment can't introduce typo'd/inconsistent area names — **[PROPOSED]**
+  leaning yes, but not yet explicitly confirmed.
+- Specific browser/OS versions to support on field devices (affects PWA
+  install and push-notification reliability, especially iOS Safari) — not
+  discussed; likely resolved once real device models are confirmed.
 
 ---
 

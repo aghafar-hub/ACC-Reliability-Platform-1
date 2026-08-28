@@ -532,6 +532,24 @@ prior decision from our own discussion, declining APP-008's version):**
   go-live — no separate permanent Test environment. Matches the 1-month
   timeline and 20-40 user scale.
 
+## Round 15 — final foundation gap sweep
+
+- **Criticality labels: High / Medium / Low** (1=High, 2=Medium,
+  3=Low). Closes the previously-open "what does the 3-level scale mean"
+  question.
+- **Contractor reassignment: access is immediate and total.** If
+  equipment moves from one contractor to the other, the original
+  contractor loses all visibility immediately, including their own
+  historical work on that equipment. No retained "legacy access."
+- **Reliability Engineer role: always ACC staff in practice** — the
+  question of cross-contractor visibility for a hypothetically
+  contractor-tagged Reliability Engineer doesn't arise; this role only
+  exists on the ACC side, so it naturally sees both contractors' data via
+  the normal ACC visibility rule (§6.2), not a special exception.
+- **User offboarding: deactivate, not delete.** Login is blocked
+  immediately; the account and their historical records remain, same
+  pattern as Equipment_Status (Active/Inactive rather than deletion).
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
