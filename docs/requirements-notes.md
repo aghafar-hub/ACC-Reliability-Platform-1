@@ -336,6 +336,24 @@ directly is flagged for the user to resolve, not silently inherited.**
 - **Language: full bilingual English + Arabic, with RTL layout for
   Arabic.** Users can switch language.
 
+## Decisions made (via Q&A round 6)
+
+- **Build order:** Build the **shared platform foundation first**
+  (Asset Master + login/admin/RBAC), THEN add modules one at a time on
+  top of it. First module after the foundation: **Oil Lubrication & Oil
+  Analysis**. **Hard requirement restated: the platform must support
+  adding future modules without changing the core platform structure**
+  (reinforces the earlier module-isolation requirement).
+- **Reliability measurements module:** deferred — will be designed later,
+  after the foundation + lubrication/oil analysis module. Not to be
+  detailed now.
+- **Compressors module:** deferred — not fully decided yet, will describe
+  later.
+- **Field devices:** technicians will use a **mix of smartphones, tablets,
+  and laptops at fixed stations** — confirms the app must be responsive
+  across phone/tablet/desktop screen sizes, and offline support matters
+  most for the phone/tablet (mobile, in-plant) use case.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
