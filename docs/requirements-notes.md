@@ -436,6 +436,24 @@ directly is flagged for the user to resolve, not silently inherited.**
 - User asked Claude to recommend what else might be missing before
   writing the spec (see below) rather than listing more items themselves.
 
+## Decisions made (via Q&A round 11)
+
+- **Spec scope confirmed: foundation-only for now.** The formal spec will
+  cover the Platform Core (architecture, hosting, auth, RBAC, asset
+  master, multi-channel/module-isolation design, shared services). Oil
+  Lubrication & Analysis (and every other module) gets its own dedicated
+  Q&A round and its own spec chapter/addendum later, not bundled into
+  this first spec.
+- **Equipment statuses (v1): Active and Inactive / Out of service only.**
+  (User selected these two specifically from the offered options; "Under
+  maintenance/Shutdown" and "Decommissioned/Removed" were offered but not
+  selected — treat the status list as exactly these two unless the user
+  adds more later.)
+- **Backups: automatic scheduled backups, with the schedule/frequency
+  adjustable in App Admin settings.** (Consistent with the earlier
+  decision to make data-size alarms configurable in admin settings too —
+  admin-configurable operational controls are a recurring pattern.)
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
