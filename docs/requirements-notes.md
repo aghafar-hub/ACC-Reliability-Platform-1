@@ -598,6 +598,20 @@ directly fix a row" simplicity.
 User explicitly left the door open to revisit this choice in the future
 if needed — not a permanent commitment, just the right call for now.
 
+## Round 19 — Foundation spec approved, build starting
+
+- **Foundation Specification formally approved** by the Reliability
+  Manager on 2026-08-28. Implementation is authorized to begin.
+- **Google Workspace access for deployment:** user will create and share
+  **limited service-account credentials** (rather than doing manual setup
+  steps themselves) so Claude can deploy the Apps Script projects/Sheets
+  under ACC's Workspace. Credentials to be requested/handled securely —
+  never committed to the repo.
+- **Next up after Foundation code is underway:** Oil Lubrication &
+  Analysis module gets its own dedicated requirements discussion (same
+  depth as the Foundation), then its own spec and sign-off, per the round
+  6 build-order decision.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their

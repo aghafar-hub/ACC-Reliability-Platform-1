@@ -1,6 +1,7 @@
 # ACC Reliability Platform — Foundation Specification (v1)
 
-**Status:** DRAFT — for Reliability Manager review and sign-off
+**Status:** **APPROVED** — signed off by the Reliability Manager on
+2026-08-28. Implementation of the Foundation is authorized.
 **Scope:** Platform Core / foundation only. Feature modules (Oil
 Lubrication & Analysis, Vibration Analysis, Reliability Measurements,
 Compressors, future modules) are each specified separately, later, in
