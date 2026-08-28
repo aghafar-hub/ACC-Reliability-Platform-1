@@ -399,6 +399,25 @@ directly is flagged for the user to resolve, not silently inherited.**
   inactivity, no 2FA, no failed-attempt lockout for v1 — plain
   email+password login is sufficient for now.
 
+## Decisions made (via Q&A round 9)
+
+- **Multi-channel design confirmed:** Each module gets its **own Google
+  Apps Script Web App deployment** (its own endpoint/URL), bound only to
+  its own Sheets. This simultaneously satisfies (a) "multiple channels of
+  communication to avoid overload" and (b) module standalone isolation —
+  one mechanism serves both requirements. **User confirmed this matches
+  their intent.**
+- **Data retention/archiving:** No fixed retention policy decided now.
+  Instead, **App Admin will get a configurable alarm/threshold setting**
+  (in admin settings) that flags when a module's data is approaching a
+  size/performance concern, to be handled **if/when it actually happens**
+  — not pre-built archiving logic for v1.
+- **Formal spec requested:** User wants a **written architecture/
+  requirements document** consolidating everything decided so far, to
+  **review and formally sign off on before any code is written.** This
+  supersedes the earlier "keep it conversational" default — a real spec
+  deliverable is now expected as the next step.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
