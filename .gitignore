@@ -1,0 +1,26 @@
+# Secrets — never commit these
+*.key.json
+service-account*.json
+*credentials*.json
+.env
+.env.*
+.clasp.json
+.clasprc.json
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
