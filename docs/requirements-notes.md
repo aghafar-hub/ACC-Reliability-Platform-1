@@ -319,6 +319,23 @@ directly is flagged for the user to resolve, not silently inherited.**
   look. The old prototype remains a background reference only for what
   screens/flows exist conceptually, not for visual style.
 
+## Decisions made (via Q&A round 5)
+
+- **Google Workspace: ACC has a company Google Workspace account.** The
+  app's Sheets/Drive/Apps Script backend will live under that org (not a
+  personal/free Google account) — important for account provisioning,
+  data ownership, and IT involvement.
+- **Approval flow: varies per module** — not a single platform-wide rule.
+  Each module needs its own definition of what's auto-accepted vs. needs
+  ACC review/approval. To be defined module by module as each module is
+  discussed in detail.
+- **Notifications:** **in-app notifications/dashboard + push notifications
+  (PWA)**. Email notifications not requested. (Note: PWA push notifications
+  have platform caveats — e.g. iOS Safari support is limited/version-
+  dependent — to flag during design, not now.)
+- **Language: full bilingual English + Arabic, with RTL layout for
+  Arabic.** Users can switch language.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
