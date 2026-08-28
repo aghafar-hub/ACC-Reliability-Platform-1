@@ -189,6 +189,11 @@ Web App deployment**, bound only to its own spreadsheet(s). Consequences:
   auto-generated** by the system. The user **changes it** on/after first
   use (a forced-change-on-first-login flow is the natural implementation
   — **[PROPOSED]**, not explicitly specified either way by the user).
+- **First password delivery: shown to admin on screen, relayed manually**
+  (in person/phone/WhatsApp) — no automated email. **Password recovery:
+  admin manually resets** a locked-out user's password the same way — no
+  self-service email reset link. **Together these mean no transactional
+  email sending is required anywhere in auth for v1.** **[decided]**
 - **Login security (v1): kept simple.** No auto-logout on inactivity, no
   2FA, no failed-login lockout for v1. Plain email+password is sufficient
   for now. **[decided, §8 of notes]** *(APP-008 proposed a 3-device
@@ -346,6 +351,18 @@ equipment/points am I working with") but **owned and edited only through
 Platform Core's admin screens** — modules don't get their own copies of
 equipment/point master data.
 
+**Initial data migration [decided]:** the real Excel export (1,892
+equipment / 924 lube points / 1,765 vibration points) needs to get into
+these Sheets when the Foundation is built. Rather than a one-off manual
+load, build a **lightweight guided import tool** as part of Asset Master
+admin functionality: App Admin uploads the Excel/CSV, previews the parsed
+rows, confirms, and it loads into the three master sheets. Kept
+intentionally simpler than the prior AI docs' proposal (no formal
+new/changed/duplicate-conflict classification engine for v1) — this
+exists because the equipment list will keep changing over time (new
+equipment, status/criticality updates), so a reusable path is worth
+building once rather than editing Sheets by hand indefinitely.
+
 ---
 
 ## 8. Offline & sync (PWA)
@@ -419,6 +436,14 @@ change:
 
 ---
 
+## 11a. Environments
+
+**Single production setup** — one set of Sheets, Apps Script deployments,
+and GitHub Pages site. No separate permanent Test environment for v1.
+Changes are tested carefully before go-live and before any release that
+touches real plant data, matching the 1-month timeline and 20-40 user
+scale. **[decided]**
+
 ## 12. Prior-documentation conflicts — resolution record
 
 A prior AI-authored 93-file doc set + non-functional prototype was
@@ -454,6 +479,13 @@ reached, all already reflected above:
 - Oil Analysis lab-report intake mechanism (upload + manual entry vs. some
   form of automated extraction) — belongs to the Oil Lubrication & Analysis
   module spec.
+- Custom domain for the GitHub Pages site (e.g. a subdomain under ACC's
+  own domain) vs. the default `github.io` URL — not discussed yet; a
+  custom domain needs ACC IT to configure DNS.
+- Which Google account within ACC's Workspace owns/deploys the Apps
+  Script projects and Sheets (should be an admin/service account tied to
+  the organization, not a named individual's personal work account, so
+  the platform survives staff changes) — not discussed yet.
 
 ---
 

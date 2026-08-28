@@ -508,6 +508,30 @@ prior decision from our own discussion, declining APP-008's version):**
    offline/sync is built into the Foundation itself, before any module
    ships, per the original round-2 hard requirement.**
 
+## Round 14 — foundation gaps closed
+
+- **First password delivery:** admin sees the auto-generated password on
+  screen when creating the user and **relays it manually** (in person,
+  phone, WhatsApp, etc.) — no email system needed for this.
+- **Password recovery:** **admin manually resets** a locked-out user's
+  password the same way — no self-service email reset flow needed. (Both
+  of these mean **no transactional email sending is required for auth at
+  all** — consistent with "no email notifications" from round 5.)
+- **Data migration:** user asked for Claude's recommendation. **Decision:
+  build a lightweight guided import tool** (not a one-off manual load) as
+  part of Asset Master admin functionality — App Admin uploads the
+  Excel/CSV, previews the rows, confirms, and it loads into
+  EQUIPMENT_MASTER/LP_POINT_MASTER/VIB_POINT_MASTER. Rationale: the
+  equipment list will keep changing over time (new equipment, status
+  changes, criticality updates), so a reusable import path is worth the
+  modest extra upfront cost rather than a fragile one-time manual data
+  entry that's hard to verify. Kept intentionally **simpler** than the
+  prior AI docs' elaborate import workflow (no formal new/changed/
+  duplicate classification engine for v1) — just upload, preview, confirm.
+- **Environments: single production setup**, tested carefully before
+  go-live — no separate permanent Test environment. Matches the 1-month
+  timeline and 20-40 user scale.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
