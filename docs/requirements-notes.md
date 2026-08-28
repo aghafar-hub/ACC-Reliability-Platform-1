@@ -418,6 +418,24 @@ directly is flagged for the user to resolve, not silently inherited.**
   supersedes the earlier "keep it conversational" default — a real spec
   deliverable is now expected as the next step.
 
+## Decisions made (via Q&A round 10)
+
+- **Shared "Platform Core / Services" layer confirmed:** while each
+  feature module (Lubrication, Vibration, Compressors, etc.) keeps its
+  own isolated settings+data sheets and its own Apps Script channel (per
+  earlier decisions), things that are inherently **cross-cutting** —
+  e.g. **notifications** and **settings/admin framework** — should live as
+  **general shared services inside the main platform core**, rather than
+  every module re-implementing its own version. i.e. the platform has a
+  **Platform Core** (users/roles/auth, asset master, notifications engine,
+  admin/settings framework, language switch, etc.) that all feature
+  modules plug into, alongside their own isolated module-specific data.
+  **This is a refinement of the isolation requirement, not a reversal**:
+  module *business data* stays isolated; shared *infrastructure services*
+  are centralized once and reused.
+- User asked Claude to recommend what else might be missing before
+  writing the spec (see below) rather than listing more items themselves.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
