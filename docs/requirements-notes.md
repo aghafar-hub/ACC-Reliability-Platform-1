@@ -209,6 +209,93 @@ than inheriting it silently.
       being a property of the point itself. **Needs explicit confirmation
       from the user — not to be assumed.**
 
+## Decisions made (via Q&A round 3 — spreadsheet clarifications)
+
+- **Vibration axis:** Confirmed — **only points where Family = RMS** get
+  three-axis readings (vertical, horizontal, axial). SPM and Gs families
+  are not necessarily 3-axis (exact structure for those still to confirm
+  if needed later).
+- **Criticality scale:** Keep the field **as-is for now**, but the
+  intended scale has **3 levels** (current export only populates 1 and 2;
+  level 3 exists conceptually but isn't used in the data yet).
+- **Equipment status:** Confirmed — **must support multiple statuses**
+  (not just "Active"). Exact status list (Inactive, Decommissioned, Under
+  Construction, etc.) still to be defined.
+
+## Prior AI doc-set digest — key findings & conflicts (background review)
+
+A background review of the full 93-file prior doc set + prototype came
+back. Full findings below; **per the user's instruction, this is a
+guideline only — anything that conflicts with what the user told me
+directly is flagged for the user to resolve, not silently inherited.**
+
+**Matches / reusable:**
+- Backend = Google Apps Script, DB = Google Sheets, Drive = file storage
+  — matches our ground truth.
+- PWA (not native), offline-capable — matches our ground truth.
+- Vibration reading model (Reading_Direction: Horizontal/Vertical/Axial)
+  — matches the round-3 clarification above.
+- Org/contractor model (ACC/RHI/ASEC, "Contractor Isolation") broadly
+  compatible with what the user described.
+- Auth model (email+password, admin-generated first password,
+  Must_Change_Password flag) — matches what the user described.
+- A **prototype UI exists** (React+TS style, but built as static HTML/JS
+  for demo): role-adaptive dashboard, My Work/Review queue, Oil
+  Lubrication offline package + sync/conflict simulation, Oil Analysis OCR
+  review grid, Vibration Alert/Danger review, Owner Center admin config,
+  EN/AR bilingual + RTL toggle, light/dark theme, responsive layouts.
+  **Explicitly non-functional** (no real backend/auth/Sheets/offline — all
+  simulated in-browser, resets on reload). Useful only as a **visual/UX
+  reference**, not reusable code.
+
+**Conflicts / gaps to resolve with the user (not yet resolved):**
+1. **User scale mismatch:** prior docs assume **50 expected / 100 max
+   users**, everywhere (capacity, test plans, etc.) — conflicts with what
+   the user told me directly (**20–40 users**). Need to confirm 20–40 is
+   correct and disregard the prior sizing assumption.
+2. **Module isolation directly contradicted:** prior docs (PF-017)
+   explicitly say modules *may* share spreadsheets/deployments "when
+   separation would add complexity without operational benefit," and
+   identity/auth is one shared database for all modules. This is the
+   **opposite** of the user's explicit hard requirement (each module gets
+   its own settings+data sheets; one module's failure must not crash the
+   rest). **User's stated requirement stands — flagging the conflict, not
+   changing course.**
+3. **"Compressors" and "Reliability measurements" modules are absent**
+   from the prior doc set — "Compressors" isn't mentioned at all;
+   "Reliability measurements" appears to map to a "Reliability
+   Engineering" module that the prior effort explicitly **excluded** from
+   v1. Nothing to inherit for these two modules — user still wants them
+   per earlier conversation, will need to be defined from scratch.
+4. **Hosting decision was never actually closed** in the prior docs
+   despite being flagged as critical — "GitHub Pages" appears once in a
+   draft doc, not in any frozen/approved doc; the prior project's own
+   tracking lists hosting as an unresolved blocker. Needs a fresh decision
+   here (frontend static hosting choice, on top of the already-agreed
+   Google Apps Script backend).
+5. **Oil Lubrication module scope creep:** prior docs define a
+   **much larger** scope than "track lubrication schedule (changing or
+   analysis)" — full route scheduling/assignment/execution, oil
+   **inventory management** (receiving, storage, stock transfers,
+   consumption tracking, forecasting, purchase planning), shutdown
+   lubrication planning, cost management. **Needs explicit confirmation:
+   does the user want this full scope, or just schedule/task tracking as
+   originally described?**
+6. **RBAC complexity:** prior docs propose a **9-level permission
+   hierarchy** (Company → Role → Module → Tab → Feature → Action → Data
+   Scope → Time Rule → Field Permission) with many supporting tables —
+   likely over-built for a 20–40 user internal tool. **Needs explicit
+   confirmation: does the user want this level of granularity, or a
+   simpler role/org-based model?**
+7. **Criticality scale in prior docs:** only defines 2 levels
+   (1=High, 2=Medium, no "Low") — user has now confirmed (round 3 above)
+   the real scale has 3 levels, so prior docs are incomplete here too.
+8. General pattern: several "decisions" in the prior docs' own
+   Q&A log look like the **prior AI proposing and then recording its own
+   proposal as confirmed**, rather than a clear independent user
+   confirmation. Treat anything load-bearing from those docs as a
+   proposal to re-confirm, not an established fact.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
