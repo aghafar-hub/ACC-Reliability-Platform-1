@@ -472,6 +472,42 @@ User reviewed the Foundation Specification draft and flagged a missing
   Scope" layer of the RBAC model (§6.3 of the spec), applying
   automatically to every module including future ones.
 
+## Round 13 — second prior-AI document (APP-008) reviewed
+
+User supplied `APP-008_COMPLETE_APPLICATION_CONSTRUCTION_AND_RULES_SPECIFICATION.md`,
+a much more mature/detailed consolidated spec from the same prior AI
+effort. Read carefully; compared against everything decided so far.
+
+**Adopted directly (plain facts, no conflict, folded into the spec):**
+- Timezone Africa/Cairo, date format DD/MM/YYYY, 24-hour time, metric
+  units, default language English (bilingual switch stands).
+- Navigation IA: Dashboard + My Work + Assets + Module Workspaces +
+  Reports + Owner Center **[PROPOSED, not yet explicitly confirmed]**.
+- Visual direction "Structured Industrial" (professional, dense, no emoji
+  icons) — a style direction, not the rejected prototype's actual design;
+  consistent with "design fresh." **[PROPOSED]**.
+- Confirms contractor isolation is absolute/backend-enforced — matches
+  what the user told me directly (round 12).
+
+**Conflicts raised and resolved (user chose in every case to keep the
+prior decision from our own discussion, declining APP-008's version):**
+1. **Roles:** APP-008 proposes 7 granular roles (App Owner, ACC Manager,
+   ACC Engineer, Contractor Manager, Contractor Section Head, Contractor
+   Engineer, Contractor Technician). **Declined — the 5-role list from
+   round 7 stands** (Technician, Contractor Engineer, Reliability
+   Engineer, Manager ACC/Contractor, App Admin).
+2. **Audit depth:** APP-008 requires full state-transition audit (actor/
+   timestamp/reason/prev-state/new-state) on every approval/correction/
+   rejection/closure. **Declined — basic created-by/modified-by tracking
+   from round 8 stands.**
+3. **Session/device limits:** APP-008 specifies max 3 devices/user + 30-
+   min idle auto-logout. **Declined — "no login security extras for v1"
+   from round 8 stands.**
+4. **Offline build sequencing:** APP-008 sequences offline/sync as a later
+   phase (after Oil Lubrication's online workflow ships). **Declined —
+   offline/sync is built into the Foundation itself, before any module
+   ships, per the original round-2 hard requirement.**
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their

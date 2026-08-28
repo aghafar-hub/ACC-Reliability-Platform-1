@@ -33,6 +33,47 @@ Everything else states a decision you already made.
 
 ---
 
+## 1a. Platform defaults
+
+Adopted from a second prior-AI reference document (`APP-008`, supplied
+2026-08-28) — these are plain locale/format facts, not judgment calls, so
+folded in directly rather than re-asked:
+
+- Timezone: `Africa/Cairo`
+- Date format: `DD/MM/YYYY`; Time format: 24-hour
+- Units: metric engineering units
+- Default language: **English** (bilingual EN/AR switch per §9, Arabic
+  gets full RTL)
+- Themes: user-selectable Light/Dark, stored per user
+
+## 1b. Information architecture **[PROPOSED, from APP-008]**
+
+`Dashboard + My Work + Assets + Module Workspaces + Reports + Owner Center`
+
+- **Dashboard** — role-adaptive home.
+- **My Work** — one unified queue of everything the user is authorized to
+  act on, across modules.
+- **Assets** — cross-module equipment context (an equipment's lubrication
+  points, vibration points, and history in one place, per the Asset
+  Master owned by Platform Core, §7).
+- **Module Workspaces** — Oil Lubrication, Vibration Analysis, etc., each
+  specialized to that discipline.
+- **Reports** — governed analysis/export.
+- **Owner Center** — admin configuration (§10 below).
+
+This structure isn't something you dictated directly, but it's a
+sensible, non-conflicting shape for the navigation — flag if you'd rather
+discuss it before it's treated as settled.
+
+## 1c. Visual direction **[PROPOSED, from APP-008 — separate from the rejected prototype]**
+
+"Structured Industrial": professional industrial-engineering character,
+purposeful information density, strong hierarchy, controlled spacing —
+professional vector icons, **no emoji UI icons**. This is a style
+*direction*, not a reused design — consistent with your "design fresh"
+decision (the actual old prototype screens/components/styling are still
+explicitly not reused).
+
 ## 2. Architecture overview
 
 ```
@@ -150,13 +191,20 @@ Web App deployment**, bound only to its own spreadsheet(s). Consequences:
   — **[PROPOSED]**, not explicitly specified either way by the user).
 - **Login security (v1): kept simple.** No auto-logout on inactivity, no
   2FA, no failed-login lockout for v1. Plain email+password is sufficient
-  for now. **[decided, §8 of notes]**
+  for now. **[decided, §8 of notes]** *(APP-008 proposed a 3-device
+  session limit and 30-minute idle auto-logout — reviewed and
+  **declined**; no extras for v1 stands.)*
 
 ---
 
 ## 6. Roles & permissions (RBAC)
 
 ### 6.1 Roles (v1 target set)
+
+*(A second prior-AI document, APP-008, proposed a more granular 7-role
+split — ACC Manager/ACC Engineer/Contractor Manager/Contractor Section
+Head/Contractor Engineer/Contractor Technician/App Owner. Reviewed and
+**declined** — the 5-role list below stands.)*
 
 - **App Admin** — full platform control (see §6.3).
 - **Technician** — field data entry (RHI/ASEC).
@@ -249,6 +297,9 @@ reusable "permission templates" to speed up assigning similar roles).
 records. No full field-by-field change-history log for v1. (Separate
 decision from permission granularity: RBAC controls who can do what: this
 controls how much history is kept afterward.) **[decided, §8 of notes]**
+*(APP-008 proposed a stricter state-transition audit — actor/timestamp/
+reason/previous-state/new-state on every approval, correction, rejection,
+and closure. Reviewed and **declined** — basic tracking stands.)*
 
 ---
 
@@ -302,7 +353,12 @@ equipment/point master data.
 - The PWA **must work fully offline** for viewing assigned data and
   entering readings/tasks — critical given poor connectivity in kiln/mill
   areas. Data queues locally and **syncs automatically once connection
-  returns.** **[decided, §2 of notes]**
+  returns.** **[decided, §2 of notes]** **Offline/sync is built as part of
+  the Foundation itself, before any feature module ships** — not deferred
+  to a later phase. *(APP-008 proposed sequencing offline/sync as a later
+  phase, built only after Oil Lubrication's online workflow already
+  works. Reviewed and **declined** — offline-first-in-the-foundation
+  stands, even though this is more work upfront than a phased approach.)*
 - **[PROPOSED mechanism]**: local browser storage (IndexedDB) holds a
   queue of pending writes plus a cached copy of the user's relevant
   reference data (their assigned equipment/points, current module
