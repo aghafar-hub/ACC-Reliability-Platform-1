@@ -354,6 +354,30 @@ directly is flagged for the user to resolve, not silently inherited.**
   across phone/tablet/desktop screen sizes, and offline support matters
   most for the phone/tablet (mobile, in-plant) use case.
 
+## Decisions made (via Q&A round 7)
+
+- **User roles (v1 target set):**
+  - **Technician** (field data entry — RHI/ASEC)
+  - **Supervisor / Team Lead** — clarified by user as effectively the
+    **"Contractor Engineer"** role (i.e. this role = contractor-side
+    engineer overseeing technicians, not a separate generic supervisor)
+  - **Reliability Engineer**
+  - **Manager (ACC / Contractor)**
+  - (Plus the previously-established **App Admin** role, handled
+    separately from this list.)
+- **Org assignment (ACC/RHI/ASEC):** **Admin manually assigns** each
+  user's organization when creating the account — no automatic detection
+  from email domain.
+- **Oil Analysis intake:** Today, results come from an **external lab as
+  a report (PDF/Excel) per sample**. The app needs to capture/attach these
+  lab reports (implies file upload + likely need to extract or manually
+  transcribe key values from the report — exact mechanism, e.g. OCR vs.
+  manual entry alongside the attached file, still to be detailed when this
+  module is designed).
+- **Timeline:** target **one month max** for v1 (foundation + Oil
+  Lubrication/Analysis module), but **quality takes priority over
+  speed** — one month is a soft target, not a hard cutoff to rush for.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
