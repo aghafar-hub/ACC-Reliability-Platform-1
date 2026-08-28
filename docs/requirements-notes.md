@@ -560,6 +560,30 @@ prior decision from our own discussion, declining APP-008's version):**
   the platform should support a future third contractor without a code
   change.
 
+## Round 17 — Claude's durability/reliability recommendations (as designer)
+
+User explicitly asked Claude to act as the app's designer and recommend
+what's missing for a "perfect and durable" app. Presented a set of
+hardening recommendations; reviewed and decided item by item:
+
+**Adopted:**
+- Automated contractor-isolation regression check before any deployment.
+- Lightweight per-module staging deployments (Apps Script versioned
+  deployments — test URL before promoting to live URL).
+- Platform Health panel in Owner Center (quota usage, error rates, last
+  backup status).
+- Periodic backup restore drills (not just confirming backups exist).
+- Minimum of 2 active App Admin accounts, enforced.
+- Friendly, safe error handling everywhere (no raw errors/blank screens).
+- Duplicate-submission protection (idempotent writes) — especially for
+  offline sync retries.
+- On-demand full data export tool, beyond scheduled backups.
+
+**Declined:**
+- Server-side record locking / concurrency control for simultaneous
+  edits — kept the online editing model consistent with the existing
+  last-write-wins default already decided for offline sync conflicts.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their

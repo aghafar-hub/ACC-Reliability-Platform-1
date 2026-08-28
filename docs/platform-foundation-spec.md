@@ -461,6 +461,64 @@ change:
 
 ---
 
+## 10a. Reliability & durability hardening
+
+Claude's recommendations, as the platform's designer, for what separates
+a demo from something that survives years of real plant use. Reviewed
+item by item with the user; adopted items below.
+
+- **Automated contractor-isolation regression check.** Before any
+  deployment (Platform Core or any module) goes live, an automated check
+  verifies an RHI-tagged test user cannot see ASEC-tagged test data and
+  vice versa, and an ACC test user can see both. This is the platform's
+  single most sensitive rule (§6.2) — this check ensures it can never
+  silently regress as new modules get added over the platform's life,
+  without relying on someone remembering to test it by hand every time.
+  **[decided]**
+- **Lightweight staging deployments.** Each module's Apps Script (and
+  Platform Core's) uses Apps Script's own versioned-deployment feature: a
+  new version can be deployed to a separate "test" URL and manually
+  verified before being promoted to the "live" URL the PWA actually
+  calls. This catches code-level bugs before real users see them, without
+  the cost of a second full environment (separate Sheets) — consistent
+  with the earlier "single production setup" decision (§11a), just adding
+  a safety gate in front of it. **[decided — PROPOSED mechanism]**
+- **Platform Health panel in Owner Center.** Surfaces Apps Script quota
+  usage, error rates, and last-backup status/timestamp, so problems are
+  visible before they cause an outage rather than after. **[decided]**
+- **Periodic backup restore drills.** On a schedule, an actual restore
+  from a backup is performed and verified — not just confirming a backup
+  file was created. Catches "the backup exists but doesn't actually work"
+  before it matters. **[decided]**
+- **Minimum of 2 active App Admin accounts, enforced.** The platform
+  should warn (or block deactivating the second-to-last admin) if the
+  number of active App Admin accounts would drop below 2 — avoiding a
+  single point of failure where losing one admin account locks everyone
+  out of administration. **[decided]**
+- **Friendly, safe error handling everywhere.** No raw Apps Script/Google
+  Sheets error message or blank screen is ever shown to a user — every
+  failure gets a clear message and a way to retry or recover. **[decided]**
+- **Duplicate-submission protection (idempotent writes).** Every write
+  carries a client-generated operation ID; the backend treats a repeated
+  ID as already-done rather than creating a duplicate record. Especially
+  important given offline sync retries (§8) and flaky field connectivity
+  in general — a double-tapped submit or a retried sync should never
+  create two lubrication tasks or two readings. **[decided]**
+- **On-demand full data export tool.** Beyond scheduled backups (§10),
+  App Admin can trigger a full export of all platform data at any time —
+  useful for reporting, audits, or migrating data if ever needed.
+  **[decided]**
+
+**Reviewed and declined:** server-side record locking / optimistic
+concurrency control for simultaneous edits to the same record. Left
+out — this keeps the online editing model consistent with the
+already-decided **last-write-wins** default for offline sync conflicts
+(§8), rather than having two different concurrency behaviors depending on
+whether the conflicting edit came from offline sync or two people editing
+online at the same time.
+
+---
+
 ## 11. Settings vs. data separation
 
 - The database **separates app settings from app data** platform-wide, to
@@ -539,7 +597,8 @@ Approving this document means:
    Google Sheets, module isolation model) is authorized to be built.
 2. Platform Core (auth, roles/permissions structure, asset master,
    notifications engine, admin settings, language switch) is authorized
-   to be built, per §5–§11.
+   to be built, per §5–§11, including the durability/reliability
+   hardening in §10a.
 3. **No feature module (Lubrication, Vibration, etc.) starts implementation
    yet** — those still need their own requirements discussion first.
 4. Items marked **[PROPOSED]** above are Claude's technical design choices
