@@ -145,6 +145,70 @@
   reference rather than describe it verbally. **Action item: waiting on
   user to share the equipment/hierarchy file.**
 
+## Prior work supplied by user (2026-08-28)
+
+User previously used another AI agent to produce project documentation and
+a prototype, plus a real equipment export. Treated as **guideline only,
+not fully trusted** — we keep verifying independently with the user rather
+than inheriting it silently.
+
+- `Reliability_app.zip` — 93 files: ADRs, platform/database/module
+  standards, test standards, project-management session logs, and a
+  working HTML/JS/CSS prototype (`11_PROTOTYPE/SESSION_07_HIGH_RISK_PROTOTYPE/`).
+  A background review agent is digesting this for tech-stack choices,
+  proposed module data models, proposed security/RBAC model, open items
+  the prior AI itself flagged, and conflicts with what ACC's reliability
+  manager has told us directly. Findings to be added here once back.
+- `ACC_PLATFORM_ASSET_MASTER_DB_v3.xlsx` — **real exported equipment data**,
+  inspected directly (3 sheets):
+  - **EQUIPMENT_MASTER** — 1,892 rows. Columns: Equipment_ID,
+    Equipment_Description, Main_Area, Plant_Area, Sub_Area, Contractor,
+    Criticality, Parent_Equipment_ID, Equipment_Status, Created_Date,
+    Modified_Date.
+    - Main_Area values: Line1 (583), Line2 (477), CM1 (431), CM2 (401).
+    - Plant_Area values (20): RawMill1/2, PackingArea1/2, CementMill1-4,
+      Kiln1/2, CoalMill1/2, ClinkerArea1/2, RMCrusher, HotDisc, GyCrusher,
+      AFR, Gypsum Conv, AFShredding.
+    - Contractor: RHI 1,060 / ASEC 832 — **confirms the RHI/ASEC split is
+      recorded per-equipment**, not just per-user.
+    - Criticality: only values seen are 1 (72) and 2 (1,820) — meaning of
+      the scale (binary critical/non-critical? or a larger scale with only
+      1–2 populated so far?) not yet confirmed.
+    - Equipment_Status: only "Active" appears in the export — other
+      possible values (Inactive/Decommissioned/etc.) not yet confirmed.
+    - Equipment_ID format example: `111.AF040` (area-code.tag). Has
+      Parent_Equipment_ID for parent/child equipment relationships.
+  - **LP_POINT_MASTER** (lubrication points) — 924 rows. Columns: LP_ID,
+    Equipment_ID, Lubrication_Location, Point_Code, Lubrication_Point,
+    Position, Component_Brand, Operating_Temperature_C, Lubricant_Type,
+    Lubricant_Brand, Lubricant_Quantity_L, Oil_Analysis_Required,
+    Oil_Analysis_Interval, Oil_Change_Interval, Contractor, LP_Status,
+    Created_Date, Modified_Date, Source_Row, Source_LP_ID.
+    - Oil_Analysis_Required: Yes 140 / No 784 — only points flagged "Yes"
+      have an Oil_Analysis_Interval; others may instead have an
+      Oil_Change_Interval (e.g. "2 Y"). Confirms the module needs to
+      handle **two distinct schedules per point** (change vs. analysis),
+      matching what the user said earlier, but exact rule for
+      which applies when isn't fully clear yet from the data alone.
+    - Contractor: ASEC 463 / RHI 461 — again split per point.
+  - **VIB_POINT_MASTER** (vibration points) — 1,765 rows. Columns: VIB_ID,
+    Equipment_ID, Position_Code, Family, Point_Description, VIB_Status,
+    Created_Date, Modified_Date.
+    - Family values: RMS 817 / SPM 759 / Gs 189 — these look like
+      **measurement-type families** (e.g. RMS velocity, SPM/shock-pulse
+      for bearing condition, Gs/acceleration), not axis labels.
+    - Position_Code values (20, e.g. MDE/MNDE/FDE/FNDE/CDE/CNDE/BLDE/...) —
+      look like **motor/fan/coupling/bearing drive-end vs non-drive-end**
+      location codes.
+    - **No axis field (vertical/horizontal/axial) exists in the point
+      master at all.** This appears to conflict with the user's earlier
+      statement that "each vibration point we record vertical, horizontal,
+      so on" — it looks more like axis (V/H/A) would be captured per
+      *reading*, layered on top of a point that already encodes location
+      (Position_Code) + measurement family (RMS/SPM/Gs), rather than axis
+      being a property of the point itself. **Needs explicit confirmation
+      from the user — not to be assumed.**
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
