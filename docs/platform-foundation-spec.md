@@ -368,6 +368,25 @@ equipment/points am I working with") but **owned and edited only through
 Platform Core's admin screens** — modules don't get their own copies of
 equipment/point master data.
 
+**Asset Master write authority: App Admin only. [decided]** Only App
+Admin can:
+- Add new equipment (and, by extension, its lubrication/vibration points).
+- Add a new contractor to the platform.
+- Change which contractor a piece of equipment is assigned to.
+
+No other role — not ACC Manager, not Reliability Engineer, not anyone —
+can create equipment, add contractors, or reassign equipment's contractor.
+This is a hard write-authority rule, not just a UI default, enforced
+server-side.
+
+**Contractors are an admin-managed list, not hardcoded to RHI/ASEC.**
+Since App Admin can "add new contractors," the platform must treat
+Contractor as an editable reference list (a `CONTRACTOR_MASTER` sheet in
+Platform Core — **[PROPOSED]**) rather than a fixed two-value field. This
+means a third (or later) O&M contractor can be introduced in the future
+without a code change — consistent with the "add things later without
+changing the core" principle applied elsewhere.
+
 **Initial data migration [decided]:** the real Excel export (1,892
 equipment / 924 lube points / 1,765 vibration points) needs to get into
 these Sheets when the Foundation is built. Rather than a one-off manual

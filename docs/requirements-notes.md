@@ -550,6 +550,16 @@ prior decision from our own discussion, declining APP-008's version):**
   immediately; the account and their historical records remain, same
   pattern as Equipment_Status (Active/Inactive rather than deletion).
 
+## Round 16 — Asset Master write authority
+
+- **Only App Admin can:** add new equipment, add new contractors, or
+  change which contractor a piece of equipment is assigned to. No other
+  role can do any of these three things.
+- **Implication:** Contractor must be an admin-managed reference list
+  (not hardcoded to RHI/ASEC), since App Admin can add new contractors —
+  the platform should support a future third contractor without a code
+  change.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
