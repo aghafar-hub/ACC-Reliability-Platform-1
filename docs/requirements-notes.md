@@ -95,6 +95,24 @@
   still open — not fully specified yet, explicitly deferred by the user to
   a later part of the discussion).
 
+## Decisions made (via Q&A round 1)
+
+- **Backend:** Google Apps Script will serve as the backend (runs inside
+  Google's infra next to the Sheets; handles auth, permission checks, and
+  safe writes to Sheets — a static GitHub Pages site alone cannot do this
+  securely since it can't hold secrets or run server logic).
+- **Mobile app:** A **mobile-friendly web app (PWA)** — same web app,
+  responsive, "add to home screen" — not a separate installable
+  Android/iOS build. No offline mode implied by this choice (to revisit if
+  connectivity in kiln/mill areas turns out to be a problem).
+- **Scale:**
+  - **20–40 users max.**
+  - **~2,000 pieces of equipment**, already listed/prepared.
+  - Equipment already broken down into **lubrication points** and
+    **vibration points** — one equipment can have **multiple** lubrication
+    points and **multiple** vibration points each (i.e. points are a
+    finer-grained sub-asset under each equipment, not 1:1 with equipment).
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
