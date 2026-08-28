@@ -113,7 +113,12 @@ explicitly not reused).
   **[decided, §1]**
 - **Database: Google Sheets.** File storage (e.g. lab report attachments,
   photos): **Google Drive.** Both live under **ACC's company Google
-  Workspace account** — not a personal/free Google account. **[decided]**
+  Workspace account** — not a personal/free Google account. **[decided —
+  reconsidered against Firestore/Supabase/Cloud SQL alternatives and
+  explicitly reconfirmed. Sheets needs no billing account and keeps data
+  directly viewable/editable by an admin; the trade-offs are accepted and
+  already hardened against in §10a. Revisitable in the future if the
+  platform outgrows it, but not a decision to revisit now.]**
 - **Frontend framework: [PROPOSED]** React + TypeScript, built as an
   installable PWA (service worker + manifest), responsive across
   phone/tablet/desktop. This was the prior doc set's baseline choice and

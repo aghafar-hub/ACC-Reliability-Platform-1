@@ -584,6 +584,20 @@ hardening recommendations; reviewed and decided item by item:
   edits — kept the online editing model consistent with the existing
   last-write-wins default already decided for offline sync conflicts.
 
+## Round 18 — database choice reconsidered and confirmed
+
+User asked about alternatives to Google Sheets (Firebase/Firestore,
+Cloud SQL, Supabase, Airtable). Discussed trade-offs in depth, including
+that Firestore would need a Google Cloud Billing account with a payment
+method on file (even to stay within the free tier), would replace Sheets
+entirely (not just Apps Script), would ripple through §2/§3/§4/§7/§10a of
+the spec, and would lose the "any admin can open a spreadsheet and
+directly fix a row" simplicity.
+
+**Decision: keep Google Sheets as the database, as already specified.**
+User explicitly left the door open to revisit this choice in the future
+if needed — not a permanent commitment, just the right call for now.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their
