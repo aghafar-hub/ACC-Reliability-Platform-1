@@ -7,8 +7,8 @@ export default function Dashboard() {
     <div>
       <h1>Dashboard</h1>
       <p>
-        Signed in as {claims?.email}. Use the sidebar to open Oil Analysis — Vibration Analysis is still its own
-        separate app for now.
+        Signed in as {claims?.email}. Use the sidebar to open Vibration Analysis or Oil Analysis — each is a
+        separate app, copied in as-is.
       </p>
     </div>
   );

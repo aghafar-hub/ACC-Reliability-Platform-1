@@ -5,12 +5,13 @@ export type NavItem = {
   external?: boolean;
 };
 
-// Oil Analysis is now a real route in this app (single-app integration —
-// see docs/oil-analysis-module-notes.md). Vibration Analysis stays a
-// separate app for now: it has no backend built against the new schema
-// yet, so folding it into this shell is future work, not a regression.
+// Reverted to linking both as-is copied apps externally, per instruction
+// to step back and edit from the original apps rather than the new
+// single-app-integration build. The new Oil Analysis module (routes,
+// pages, backends) is untouched and still reachable directly at
+// /oil-analysis — just not linked from the sidebar for now.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/' },
-  { label: 'Oil Analysis', to: '/oil-analysis' },
   { label: 'Vibration Analysis', to: 'apps/vibration-analysis/', external: true },
+  { label: 'Oil Analysis', to: 'apps/oil-analysis/', external: true },
 ];
