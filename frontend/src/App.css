@@ -20,4 +20,10 @@
 .app-content--embedded {
   margin: -2rem;
   contain: layout;
+  /* Both embedded apps set their own font sizes in fixed px throughout —
+     not something this project's source can reach (they're pre-built
+     bundles, see each app's own vite.embed.config.js). zoom scales the
+     whole rendered subtree (text, icons, padding) proportionally instead,
+     without touching either app's own code. */
+  zoom: 0.9;
 }

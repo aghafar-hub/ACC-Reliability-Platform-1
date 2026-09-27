@@ -27,7 +27,7 @@
 }
 
 .sidebar-logo {
-  height: 64px;
+  height: 84px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -46,8 +46,9 @@
 }
 
 .sidebar-logo-full {
-  height: 30px;
+  height: 64px;
   width: auto;
+  max-width: 210px;
   object-fit: contain;
   display: none;
   position: absolute;
@@ -73,11 +74,21 @@
 .sidebar-link {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
+  width: 100%;
   padding: 0.65rem 1.25rem;
   color: #cbd5e1;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.87rem;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-rail:hover .sidebar-link {
+  gap: 12px;
 }
 
 .sidebar-link:hover {
@@ -98,13 +109,21 @@
   width: 18px;
 }
 
+/* Collapses to zero width (not just opacity) when the rail isn't hovered,
+   so a bordered element around icon+label (like .sidebar-logout) doesn't
+   keep the label's full-width invisible box in its layout — that was
+   clipping the Sign out pill asymmetrically against the collapsed rail. */
 .sidebar-link-label {
   opacity: 0;
-  transition: opacity 0.1s ease;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.1s ease, max-width 0.16s ease;
 }
 
 .sidebar-rail:hover .sidebar-link-label {
   opacity: 1;
+  max-width: 200px;
 }
 
 .sidebar-subnav {
@@ -123,12 +142,12 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 0.45rem 1.25rem 0.45rem 2.5rem;
+  padding: 0.4rem 1.25rem 0.4rem 2.5rem;
   color: #94a3b8;
   background: transparent;
   border: none;
   text-align: left;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   cursor: pointer;
   font-family: inherit;
 }
@@ -157,7 +176,7 @@
 }
 
 .sidebar-user {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: #94a3b8;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -175,7 +194,7 @@
 .sidebar-logout {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0;
   background: transparent;
   border: 1px solid #334155;
   color: #cbd5e1;
@@ -183,10 +202,21 @@
   padding: 0.5rem 0.6rem;
   margin: 0 1.25rem;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   flex-shrink: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+
+/* .sidebar-nav-root is always 248px wide (only the outer rail visually
+   clips it to 68px when collapsed — see the comment up top), so this
+   button is always stretched to that full width by the footer's flex
+   column; centering its content would center within that hidden width,
+   landing outside the visible 68px strip. Left-aligned (the flex
+   default) keeps the icon inside the visible strip either way, matching
+   every other sidebar icon above it. */
+.sidebar-rail:hover .sidebar-logout {
+  gap: 8px;
 }
 
 .sidebar-logout svg {
@@ -195,4 +225,21 @@
 
 .sidebar-logout:hover {
   background: #1e293b;
+}
+
+.theme-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: transparent;
+}
+
+.theme-popover {
+  position: fixed;
+  left: 76px;
+  z-index: 201;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  padding: 0.85rem;
 }

@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useEmbeddedNav } from '../embeddedNav';
 import { getPlatformTheme, persistPlatformTheme, THEME_PREVIEWS } from '../theme';
-import './Settings.css';
+import './ThemePicker.css';
 
-// Platform-level Settings — currently just the shared theme picker that used
-// to live separately inside each module's own Settings (see each app's own
-// Settings.jsx, which now hides its Theme section and points here instead).
-// Picking a theme here applies instantly to whichever module is currently
-// mounted (via embeddedNav's pushTheme) and is written into both modules'
-// own storage so it's already correct next time either one is opened too.
-export default function Settings() {
+// The shared theme picker — used inside the sidebar's Settings popover (see
+// Sidebar.tsx). Picking a theme applies instantly to whichever module is
+// currently mounted (via embeddedNav's pushTheme) and is written into both
+// modules' own storage so it's already correct next time either one is
+// opened too. Rendered as a popover rather than a routed page specifically
+// so choosing a theme never unmounts whatever module you're currently on —
+// that's what makes "instant" actually visible in place, not just true on
+// next visit.
+export default function ThemePicker() {
   const embeddedNav = useEmbeddedNav();
   const [activeTheme, setActiveTheme] = useState(() => getPlatformTheme());
 
@@ -20,11 +22,9 @@ export default function Settings() {
   }
 
   return (
-    <div>
-      <h1>Settings</h1>
-      <p className="settings-intro">
-        Choose a colour theme for Vibration Analysis and Oil Analysis. Applies instantly.
-      </p>
+    <div className="theme-picker">
+      <p className="theme-picker-title">Theme</p>
+      <p className="theme-picker-intro">Applies instantly, on every tab and module.</p>
       <div className="theme-grid">
         {THEME_PREVIEWS.map((theme) => {
           const active = theme.name === activeTheme;

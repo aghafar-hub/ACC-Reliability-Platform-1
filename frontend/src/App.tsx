@@ -13,7 +13,6 @@ import NewRoutinePage from './pages/oil-analysis/NewRoutinePage';
 import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
 import RoutineDetailPage from './pages/oil-analysis/RoutineDetailPage';
 import RoutinesListPage from './pages/oil-analysis/RoutinesListPage';
-import Settings from './pages/Settings';
 import './App.css';
 
 function AppShell() {
@@ -26,7 +25,6 @@ function AppShell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/oil-analysis" element={<EmbeddedOilAnalysis />} />
             <Route path="/vibration-analysis" element={<EmbeddedVibrationAnalysis />} />
-            <Route path="/settings" element={<Settings />} />
             {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
             <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
               <Route index element={<Navigate to="routines" replace />} />
