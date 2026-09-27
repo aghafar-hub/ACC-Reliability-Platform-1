@@ -427,12 +427,12 @@ only through Platform Core's admin screens.**
 No other role — not ACC Manager, not Reliability Engineer, not anyone —
 can create equipment, add contractors, or reassign equipment's contractor.
 This is a hard write-authority rule, not just a UI default, enforced
-server-side. **Open question, not yet decided:** now that LP_POINT_MASTER
-and VIB_POINT_MASTER are module-owned rather than centralized, does
-adding/editing a *lubrication or vibration point* (as opposed to the
-equipment itself) still require App Admin specifically, or can a
-module's own RBAC (e.g. Reliability Engineer, Contractor Engineer) grant
-that within the module? Not yet asked.
+server-side. **Point-level write authority: confirmed App Admin only,
+same as equipment.** Now that LP_POINT_MASTER and VIB_POINT_MASTER are
+module-owned rather than centralized (§7 above), adding/editing an LP or
+VIB point still requires App Admin specifically — no module role (not
+Reliability Engineer, not Contractor Engineer) gets write access to a
+point register. **[decided]**
 
 **Contractors are an admin-managed list, not hardcoded to RHI/ASEC.**
 Since App Admin can "add new contractors," the platform must treat

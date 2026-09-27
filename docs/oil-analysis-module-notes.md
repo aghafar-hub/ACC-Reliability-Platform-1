@@ -349,13 +349,38 @@ not separate apps behind a login screen. Clarified via follow-up:
   short (Dashboard, Vibration Analysis, Oil Analysis, ...), each
   module's internal structure stays visible but nested under it.
 
+## Round 10 — database schema draft reviewed, 3 of 4 open items resolved
+
+User reviewed `docs/oil-analysis-database-schema.md`:
+
+1. **Point-level write authority: App Admin only** — confirmed, matches
+   equipment-level authority exactly. No module role gets write access
+   to `OA_LP_REGISTER`. Recorded in the Foundation spec §7.
+2. **`ROLE_PERMISSION` starting shape: agreed** — role + module + action,
+   no tab/feature/field layers yet.
+3. **Approval workflow: user asked for more explanation before
+   deciding** — see next message in the conversation for the concrete
+   options/examples given.
+4. **332.FN400 + 6 compressors: confirmed** — both get added to
+   `OA_LP_REGISTER` in the initial import.
+
+Also: user re-uploaded `ACC_PLATFORM_ASSET_MASTER_DB_v3.xlsx` — an
+updated copy (`EQUIPMENT_MASTER` now 1,894 rows, up from 1,892;
+`LP_POINT_MASTER` already carries the fuller 935-point schema).
+Confirmed both the 6 compressors and `332.FN400` already exist in
+`EQUIPMENT_MASTER`, but their LP entries aren't in `LP_POINT_MASTER` yet
+— consistent with "agreed, not yet applied."
+
 ## Open items (to ask about next, before any implementation)
 
+- **Approval workflow for Oil Analysis — explaining with concrete
+  options now, not yet decided.**
 - Confirm the shared-secret token verification mechanism (still needed
   even with single-app integration — Platform Core issues the session,
   and each module's backend, though bundled together in the frontend,
   still calls its own separate Apps Script API and needs to verify the
-  session independently) — proposed but not yet re-confirmed under this
-  new integration approach.
+  session independently) — proposed but not yet re-confirmed under the
+  single-app integration approach.
+
 
 

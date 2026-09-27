@@ -180,17 +180,14 @@ of the old suffixed equipment code)
 
 ## Open items before this can be built
 
-1. **Point-level write authority** (flagged in the Foundation spec §7):
-   does adding/editing an LP require App Admin specifically, or can
-   Reliability Engineer / Contractor Engineer do it within the module?
-2. **`ROLE_PERMISSION` starting values** — which of the 5 roles gets
-   which actions (View/Create/Edit/Approve/Delete) on Oil Analysis
-   specifically? Not yet mapped.
-3. **Approval workflow for Oil Analysis specifically** — earlier decided
-   this "varies per module, define when each module is designed" (spec
-   §5 of notes). Now's that moment: does a Technician's change/top-up
-   event or a sample entry need Contractor Engineer / ACC review before
-   it's final, or is it accepted immediately like routine lubrication
-   work?
-4. **332.FN400 and the 6 compressors** get added to OA_LP_REGISTER as
-   part of the initial import, per the already-confirmed decisions.
+1. ~~Point-level write authority~~ **RESOLVED: App Admin only** — adding/
+   editing an LP requires App Admin, same as equipment itself. No module
+   role gets write access to `OA_LP_REGISTER`.
+2. ~~`ROLE_PERMISSION` starting values~~ **AGREED** — simplified v1 shape
+   (role + module + action) confirmed as the starting structure.
+3. **Approval workflow for Oil Analysis — still open, needs more detail
+   before deciding (see module notes for the explanation with
+   examples).**
+4. ~~332.FN400 and the 6 compressors~~ **CONFIRMED** — both get added to
+   `OA_LP_REGISTER` as part of the initial import.
+
