@@ -95,20 +95,38 @@ have changed, or codes don't align 1:1. Needs the matching exercise
   isolation will eventually be wired into these same copies too, rather
   than a separate fresh build.
 
+## Decisions made (round 2)
+
+- **Change/top-up event fields:** Event type (Change / Top-up), Quantity
+  used (**pre-filled from the LP's registered `Lubricant_Quantity_L`**,
+  editable rather than typed from scratch each time), Done by /
+  Contractor, Condition notes. Oil brand/type used and an optional photo
+  are included by default as previously stated.
+- **Due-date relationship for the 151 dual-tracked points confirmed:** a
+  good/normal sample result can **defer or extend** the change-due date
+  (matches the old sheet's own header note: "if frequency changes due to
+  oil analysis, max changing is 2 years" — i.e. analysis results govern
+  the real change date, up to a hard cap). Sampling-due and change-due
+  are not fully independent for these points — analysis outcome feeds
+  into the change date.
+- **Foundation integration confirmed:** the Foundation's login/RBAC/
+  contractor-isolation (already approved in the platform spec) **will
+  eventually be wired directly into these same `apps/vibration-analysis`
+  and `apps/oil-analysis` copies** — not built as separate fresh modules
+  from scratch. These copies are the real, permanent modules going
+  forward.
+- **Universal Oil Change Log: user asked for more explanation before
+  deciding — not yet confirmed.** See clarification below.
+
 ## Open items (to ask about next, before any implementation)
 
+- **Universal Oil Change Log design** — still open, needs a clearer
+  explanation with a concrete example before the user can decide (see
+  next message in the conversation).
 - The 153-vs-151 discrepancy — resolve by actually running the matching
   exercise and showing the user what doesn't line up.
-- Exact fields for a change/top-up event record (date, quantity, oil
-  brand/type at time of change, done-by/contractor, condition notes,
-  evidence photo?).
-- Whether the Oil Change Log becomes **universal** across all 935 LPs
-  (both the 151 analysis-required and the ~784 change-only), with oil
-  *analysis* (sampling/lab reports) remaining a separate, additional
-  workflow layered only on top of the 151 — or something else.
-- How due-dates/overdue status get computed for analysis-required points:
-  from `Oil_Analysis_Interval` (sampling due), from `Oil_Change_Interval`
-  (change due), or both tracked independently per point.
-- Confirm whether Foundation auth/RBAC/contractor-isolation is intended
-  to land on these same module copies eventually (per the scope
-  clarification above) — affects how much to design now vs. later.
+- Whether "a good sample result can defer/extend the change date" has a
+  precise rule (e.g. always push to +1 interval? reset to a fresh full
+  interval? capped at the 2-year max regardless?) — confirmed the
+  *direction*, not yet the exact formula.
+
