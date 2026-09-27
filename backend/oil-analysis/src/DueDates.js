@@ -15,6 +15,18 @@
  * > Day timer) once this project is deployed. See docs/deployment-guide.md.
  */
 
+/**
+ * Public entry point for the daily trigger. Apps Script's Trigger UI hides
+ * any function ending in "_" from its "Select function to run" picker —
+ * every function in this codebase uses that suffix to mean "internal, not
+ * a public entry point" (same reason doPost/doGet in Code.gs don't have
+ * one), so checkDueDates_ itself will never show up there. Bind the
+ * trigger to this wrapper instead.
+ */
+function runDailyDueDateCheck() {
+  return checkDueDates_();
+}
+
 function checkDueDates_() {
   var checkWindowMonths = Number(getSetting_('SamplingCheckWindowMonths', 6));
   var lpRows = readSheetAsObjects_(getSheet_(SHEET_NAMES.OA_LP_REGISTER))
