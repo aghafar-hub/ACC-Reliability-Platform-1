@@ -47,7 +47,4 @@ function doGet(e) {
   });
 }
 
-// TODO: requireSession_ pairs with issueSessionToken_ in Auth.js.
-function requireSession_(sessionToken) {
-  throw new Error('Not yet implemented — see Task: Build Apps Script backend: auth & session');
-}
+// requireSession_ (and issueSessionToken_, used by Auth.js's login_) live in Session.js.

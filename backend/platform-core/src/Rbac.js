@@ -38,9 +38,14 @@ function getContractorScope_(userId) {
 /**
  * Asset Master write authority is App Admin only (spec §7) — a stricter
  * check than the general permission chain above, called directly by
- * AssetMaster.js write functions.
- * TODO: implement.
+ * AssetMaster.js write functions and by Code.js for admin-only actions
+ * (createUser, adminResetPassword).
  */
 function requireAppAdmin_(userId) {
-  throw new Error('Not yet implemented — see Task: Build Apps Script backend: RBAC engine');
+  var rows = readSheetAsObjects_(getSheet_(SHEET_NAMES.USER_ROLES))
+    .filter(function (r) { return r.UserId === userId; });
+  var isAdmin = rows.some(function (r) { return r.RoleId === 'ROLE-ADMIN'; });
+  if (!isAdmin) {
+    throw new Error('App Admin permission required.');
+  }
 }

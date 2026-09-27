@@ -427,5 +427,52 @@ built against it.
 
 - None outstanding. Ready for implementation to begin.
 
+## Round 14 — implementation: Google Sheets confirmed, backends built
+
+The two seed workbooks were uploaded to Google Drive and converted to
+native Google Sheets (needed for `SpreadsheetApp.openById()` — a raw
+uploaded `.xlsx` won't open). Confirmed via Drive metadata
+(`mimeType: application/vnd.google-apps.spreadsheet`) on both:
+
+- **Platform Core** — "ACC Reliability Data Base"
+  `1yQHakVTPkPQFOs_QXscEXBwySqZU8OR5kmRGbA48UAg`
+- **Oil Analysis** — "Oil Lubrication Data Base"
+  `1YCSMaVuXHjMuXFEcfzKrDmlq43_KLyDoGO7ME_1B4dk`
+
+Both real backends were then built against the schema in
+`docs/oil-analysis-database-schema.md`:
+
+- Platform Core: session token issuance/verification (`Session.js`) —
+  signed token carrying `{uid, email, org, roles}`, captured at login so
+  every module can verify locally with no callback. `requireAppAdmin_`
+  wired to `USER_ROLES`.
+- Oil Analysis: full backend (`backend/oil-analysis/`) — LP register
+  read/query + App-Admin-only writes, the full Routine workflow
+  (create → technician executes items → submit → Contractor
+  Engineer/Manager approves, writing `OA_CHANGE_LOG`/`OA_SAMPLES` only on
+  approval → ACC comment, never blocking), and the due-date auto-flag
+  sweep (`DueDates.js`, meant for a daily time trigger).
+
+Two implementation details not explicitly discussed before, decided as
+reasonable defaults rather than blocking on them — flagging for your
+review:
+
+1. **Who can create/approve a Routine, by org**: a Contractor
+   Engineer/Manager can only create or approve a Routine for their own
+   contractor (`requireContractorMatch_` in `Rbac.js`) — an ACC Manager
+   cannot create or approve a contractor's Routine, only comment (ACC's
+   confirmed role). If ACC Managers actually do need to create Routines
+   too, that's a quick rule change, not a redesign.
+2. **`OA_LP_REGISTER`'s legacy `Contractor` values** are the old app's
+   bare codes (`RHI`/`ASEC`), not Platform Core's `OrgId`
+   (`ORG-RHI`/`ORG-ASEC`) that session tokens carry — a mapping
+   (`orgIdForContractorCode_` in `Config.js`) bridges the two rather than
+   rewriting 942 rows of migrated data.
+
+Genuinely open (not decided, needs a real answer before it's built — see
+`docs/deployment-guide.md` §4 for the full list): lab-report data entry
+into `OA_SAMPLES` after a sample is taken, and whether a Routine rejection
+path (Contractor Engineer sending work back to the technician) is needed.
+
 
 

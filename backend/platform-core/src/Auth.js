@@ -130,9 +130,4 @@ function adminResetPassword_(userId) {
   });
 }
 
-// TODO: issueSessionToken_ / validateSessionToken_ — simple signed-token
-// scheme (no 2FA/idle-timeout/device-limit per the v1 decision), to be
-// implemented alongside Code.js's request-auth wrapper.
-function issueSessionToken_(userId) {
-  throw new Error('Not yet implemented — see Task: Build Apps Script backend: auth & session');
-}
+// issueSessionToken_ / requireSession_ live in Session.js.
