@@ -1,43 +1,44 @@
 import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
-import { VIBRATION_SUB_TABS } from '../navigation';
 
 type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge }) => () => void;
 
-// navigation.ts's VIBRATION_SUB_TABS — every entry is "native" (a page this
-// embedded app itself knows how to show) today, registered with the shared
-// sidebar (see embeddedNav.tsx) so navigating between this app's own
-// sections happens via the unified sidebar instead of its own (hidden)
-// internal one.
-const VIBRATION_ANALYSIS_PAGES = VIBRATION_SUB_TABS.filter((t) => !t.to);
+const MODULE_ID = 'vibration-analysis';
+const BASE_ROUTE = '/vibration-analysis';
 
 // See EmbeddedOilAnalysis.tsx for the full rationale — same pattern,
 // loading apps/vibration-analysis's own pre-built embed bundle (see
-// apps/vibration-analysis/vite.embed.config.js) and registering its page
-// list with the shared sidebar.
+// apps/vibration-analysis/vite.embed.config.js), rendered as a persistent
+// sibling of <Routes> that mounts once (lazily, on first visit) and then
+// stays mounted — hidden via CSS, never unmounted — for the rest of the
+// session, so switching tabs and coming back never loses its synced data.
 export default function EmbeddedVibrationAnalysis() {
   const containerRef = useRef<HTMLDivElement>(null);
   const embeddedNav = useEmbeddedNav();
+  const location = useLocation();
+  const startedRef = useRef(false);
+  const visible = location.pathname === BASE_ROUTE;
 
   useEffect(() => {
-    let cancelled = false;
-    let unmount: (() => void) | undefined;
-    const navBridge: NavBridge = { onNavigate: (page) => embeddedNav.setActivePage(page) };
-    embeddedNav.register('vibration-analysis', VIBRATION_ANALYSIS_PAGES, navBridge);
+    if (!visible || startedRef.current) return;
+    startedRef.current = true;
+
+    const navBridge: NavBridge = { onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page) };
+    embeddedNav.register(MODULE_ID, navBridge);
 
     const modulePath = `${import.meta.env.BASE_URL}apps/vibration-analysis/embed.js`;
     import(/* @vite-ignore */ modulePath).then((mod: { mountVibrationAnalysis: MountFn }) => {
-      if (cancelled || !containerRef.current) return;
-      unmount = mod.mountVibrationAnalysis(containerRef.current, { navBridge });
+      if (!containerRef.current) return;
+      mod.mountVibrationAnalysis(containerRef.current, { navBridge });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, the first time `visible` turns true; embeddedNav's identity is stable enough for this one-shot read
+  }, [visible]);
 
-    return () => {
-      cancelled = true;
-      unmount?.();
-      embeddedNav.unregister('vibration-analysis');
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once, see EmbeddedOilAnalysis.tsx
+  useEffect(() => {
+    return () => embeddedNav.unregister(MODULE_ID);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally empty: only runs on true unmount (e.g. logout), see EmbeddedOilAnalysis.tsx
   }, []);
 
-  return <div ref={containerRef} className="app-content--embedded" />;
+  return <div ref={containerRef} className="app-content--embedded" style={visible ? undefined : { display: 'none' }} />;
 }

@@ -21,6 +21,8 @@ export type NavItem = {
   to: string;
   icon: string;
   subTabs?: SubTab[];
+  /** Set only when subTabs exist — the id EmbeddedOilAnalysis.tsx/EmbeddedVibrationAnalysis.tsx register with embeddedNav.tsx, for native sub-tab clicks. */
+  moduleId?: string;
 };
 
 // Ids match apps/vibration-analysis/src/App.jsx's own `page` states exactly
@@ -59,8 +61,14 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/', icon: 'dashboard' },
   { label: 'My Work', to: '/my-work', icon: 'action' },
   { label: 'Equipment', to: '/equipment', icon: 'registry' },
-  { label: 'Vibration Analysis', to: '/vibration-analysis', icon: 'graphs', subTabs: VIBRATION_SUB_TABS },
-  { label: 'Oil Lubrication', to: '/oil-analysis', icon: 'droplet', subTabs: OIL_SUB_TABS },
+  {
+    label: 'Vibration Analysis',
+    to: '/vibration-analysis',
+    icon: 'graphs',
+    subTabs: VIBRATION_SUB_TABS,
+    moduleId: 'vibration-analysis',
+  },
+  { label: 'Oil Lubrication', to: '/oil-analysis', icon: 'droplet', subTabs: OIL_SUB_TABS, moduleId: 'oil-analysis' },
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
   { label: 'Compressors', to: '/compressors', icon: 'sync' },
 ];

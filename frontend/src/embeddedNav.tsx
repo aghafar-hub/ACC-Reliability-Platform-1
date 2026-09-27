@@ -1,7 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
-export type EmbeddedPage = { id: string; label: string; icon: string };
-
 /**
  * navBridge is a plain JS object (not React state) handed to an embedded
  * app's mount function — see each app's own src/embed.jsx. It's the seam across
@@ -14,56 +12,63 @@ export type NavBridge = {
   onNavigate?: (pageId: string) => void;
   // Set by the embedded app itself (see each app's ThemeContext/App) so the
   // platform Settings page can push a live theme change into whichever
-  // module is currently mounted — mirrors the navigate/onNavigate pair
+  // module(s) are currently mounted — mirrors the navigate/onNavigate pair
   // above, but for theme instead of page navigation.
   setTheme?: (themeName: string) => void;
 };
 
-type EmbeddedNavState = {
-  moduleId: string | null;
-  pages: EmbeddedPage[];
-  activePage: string | null;
-  navigateTo: (pageId: string) => void;
-};
+type ModuleEntry = { bridge: NavBridge; activePage: string | null };
 
-type EmbeddedNavContextValue = EmbeddedNavState & {
-  register: (moduleId: string, pages: EmbeddedPage[], bridge: NavBridge) => void;
-  setActivePage: (pageId: string) => void;
+// Keyed by moduleId ('oil-analysis' / 'vibration-analysis') rather than
+// tracking a single "current" module — both embedded apps stay mounted for
+// the whole session once first visited (see EmbeddedOilAnalysis.tsx /
+// EmbeddedVibrationAnalysis.tsx), just hidden via CSS when not the active
+// route, specifically so switching away and back never loses their synced
+// data or re-triggers a sync. That means more than one can be registered
+// at once, so callers (Sidebar's native sub-tabs) always name which module
+// they mean.
+type EmbeddedNavContextValue = {
+  activePageFor: (moduleId: string) => string | null;
+  register: (moduleId: string, bridge: NavBridge) => void;
   unregister: (moduleId: string) => void;
-  // Live-pushes a theme change to whichever embedded app is currently
-  // mounted (no-op if none is, or if it hasn't wired navBridge.setTheme —
-  // either way the choice is still persisted separately, see theme.ts).
+  setActivePage: (moduleId: string, pageId: string) => void;
+  navigateTo: (moduleId: string, pageId: string) => void;
+  // Live-pushes a theme change to every currently-registered module (no-op
+  // for one that hasn't wired navBridge.setTheme — either way the choice is
+  // still persisted separately, see theme.ts).
   pushTheme: (themeName: string) => void;
 };
 
 const EmbeddedNavContext = createContext<EmbeddedNavContextValue | null>(null);
 
 export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
-  const [moduleId, setModuleId] = useState<string | null>(null);
-  const [pages, setPages] = useState<EmbeddedPage[]>([]);
-  const [activePage, setActivePageState] = useState<string | null>(null);
-  const [bridge, setBridge] = useState<NavBridge | null>(null);
+  const [modules, setModules] = useState<Record<string, ModuleEntry>>({});
 
   const value = useMemo<EmbeddedNavContextValue>(
     () => ({
-      moduleId,
-      pages,
-      activePage,
-      navigateTo: (pageId: string) => bridge?.navigate?.(pageId),
-      register: (id, pageList, navBridge) => {
-        setModuleId(id);
-        setPages(pageList);
-        setBridge(navBridge);
+      activePageFor: (moduleId) => modules[moduleId]?.activePage ?? null,
+      register: (moduleId, bridge) => {
+        setModules((prev) => ({ ...prev, [moduleId]: { bridge, activePage: prev[moduleId]?.activePage ?? null } }));
       },
-      setActivePage: (pageId: string) => setActivePageState(pageId),
-      unregister: (id: string) => {
-        setModuleId((current) => (current === id ? null : current));
-        setPages((current) => (moduleId === id ? [] : current));
-        setBridge((current) => (moduleId === id ? null : current));
+      unregister: (moduleId) => {
+        setModules((prev) => {
+          if (!(moduleId in prev)) return prev;
+          const next = { ...prev };
+          delete next[moduleId];
+          return next;
+        });
       },
-      pushTheme: (themeName: string) => bridge?.setTheme?.(themeName),
+      setActivePage: (moduleId, pageId) => {
+        setModules((prev) =>
+          prev[moduleId] ? { ...prev, [moduleId]: { ...prev[moduleId], activePage: pageId } } : prev,
+        );
+      },
+      navigateTo: (moduleId, pageId) => modules[moduleId]?.bridge.navigate?.(pageId),
+      pushTheme: (themeName) => {
+        Object.values(modules).forEach((m) => m.bridge.setTheme?.(themeName));
+      },
     }),
-    [moduleId, pages, activePage, bridge],
+    [modules],
   );
 
   return <EmbeddedNavContext.Provider value={value}>{children}</EmbeddedNavContext.Provider>;

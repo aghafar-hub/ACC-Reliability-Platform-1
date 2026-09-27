@@ -41,12 +41,17 @@ function ShellRoot() {
     <div className="app-shell" style={themeVars}>
       <Sidebar />
       <main className="app-content">
+        {/* Rendered unconditionally, outside <Routes> — each mounts itself
+            lazily on first visit and then stays mounted (hidden via CSS)
+            for the rest of the session; see their own file comments for
+            why. Neither has a matching <Route> below on purpose: these ARE
+            the content for /oil-analysis and /vibration-analysis. */}
+        <EmbeddedVibrationAnalysis />
+        <EmbeddedOilAnalysis />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/my-work" element={<ComingSoon title="My Work" />} />
           <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
-          <Route path="/vibration-analysis" element={<EmbeddedVibrationAnalysis />} />
-          <Route path="/oil-analysis" element={<EmbeddedOilAnalysis />} />
           <Route path="/oil-analysis/routines" element={<ComingSoon title="Routines" />} />
           <Route path="/oil-analysis/inventory" element={<ComingSoon title="Oil Inventory" />} />
           <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
