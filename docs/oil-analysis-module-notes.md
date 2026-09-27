@@ -251,11 +251,38 @@ contractor data as pre-filled.
 **ID mapping/reconciliation exercise is now effectively complete**
 pending the one `332.FN400` follow-up.
 
+## Round 6 — both remaining items resolved
+
+- **`LP-332.FN400-GB` confirmed** — add it as proposed (Point_Code `GB`,
+  "Main EP Fan Gear drive", `MOBIL SHC 632`, `Yes`/6-month analysis
+  interval, area `RM2`, contractor `RHI`).
+- **Change-due extension rule for the 151 dual-tracked points —
+  confirmed, event-driven (not a fixed formula):**
+  1. Hard cap stays **2 years** for change-due on these points.
+  2. As a point approaches its 2-year change-due date, the system checks
+     whether an oil analysis sample has been taken **in the last 6
+     months**. If not, it **triggers an oil-analysis request** for that
+     point (a sampling task) rather than just letting it run out.
+  3. Once that analysis result is in:
+     - **Normal/OK → the change-due date extends by a full 2 years.**
+     - **Not OK → follow the analysis's own recommended action.** If
+       that recommendation is "change oil," a change task is generated
+       from it. (Doesn't have to be "change" specifically — whatever the
+       analysis recommends drives what happens next.)
+  - **Minor detail not yet pinned down** (low-stakes, can settle at
+    build time): whether the 2-year extension counts from the analysis
+    result date or from the original due date — since the trigger fires
+    within 6 months of the deadline either way, the difference is small.
+
+Both items from the previous open-items list are now resolved. **ID
+reconciliation and the core Oil Change Log design are complete** pending
+the actual database/schema design work.
+
 ## Open items (to ask about next, before any implementation)
 
-- Confirm the proposed `LP-332.FN400-GB` entry (above) before it's added.
-- Whether "a good sample result can defer/extend the change date" has a
-  precise rule (e.g. always push to +1 interval? reset to a fresh full
-  interval? capped at the 2-year max regardless?) — confirmed the
-  *direction*, not yet the exact formula.
+- None outstanding from this round — ready to move to concrete database
+  design (sheet schemas, RBAC/contractor-isolation wiring into
+  `apps/oil-analysis`) whenever the user gives the go-ahead, per the
+  "discuss fully, then apply all changes at once" instruction this
+  whole module notes file has followed so far.
 
