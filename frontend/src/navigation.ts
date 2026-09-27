@@ -5,13 +5,12 @@ export type NavItem = {
   external?: boolean;
 };
 
-// Sub-app links are relative (no leading slash) so they resolve correctly
-// under whatever base path this app itself is served from (e.g. "/" in
-// local dev, "/ACC-Reliability-Platform-1/" on GitHub Pages) without
-// hardcoding that base here.
+// Oil Analysis is now a real route in this app (single-app integration —
+// see docs/oil-analysis-module-notes.md). Vibration Analysis stays a
+// separate app for now: it has no backend built against the new schema
+// yet, so folding it into this shell is future work, not a regression.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/' },
+  { label: 'Oil Analysis', to: '/oil-analysis' },
   { label: 'Vibration Analysis', to: 'apps/vibration-analysis/', external: true },
-  { label: 'Oil Analysis', to: 'apps/oil-analysis/', external: true },
 ];
-

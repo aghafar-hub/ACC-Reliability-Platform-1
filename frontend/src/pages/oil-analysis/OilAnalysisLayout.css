@@ -1,0 +1,29 @@
+.oa-layout h1 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+  text-align: left;
+}
+
+.oa-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.oa-tab {
+  padding: 0.5rem 0.9rem;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  border-bottom: 2px solid transparent;
+}
+
+.oa-tab--active {
+  color: var(--text-h);
+  border-bottom-color: var(--accent);
+}
+
+.oa-section {
+  text-align: left;
+}

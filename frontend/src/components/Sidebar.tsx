@@ -1,15 +1,11 @@
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import { NAV_ITEMS } from '../navigation';
 import './Sidebar.css';
 
-/**
- * Vibration Analysis and Oil Analysis are separate standalone apps
- * (spec: "apps/" copied in as-is, never edited) — their nav items use a
- * plain <a> so the browser does a full navigation to that app's own
- * built page, rather than <NavLink>, which would try to route to them
- * as if they were part of this SPA.
- */
 export default function Sidebar() {
+  const { claims, logout } = useAuth();
+
   return (
     <nav className="sidebar" aria-label="Primary">
       <div className="sidebar-brand">ACC Reliability</div>
@@ -24,11 +20,9 @@ export default function Sidebar() {
           ) : (
             <li key={item.to}>
               <NavLink
-                className={({ isActive }) =>
-                  isActive ? 'sidebar-link sidebar-link--active' : 'sidebar-link'
-                }
+                className={({ isActive }) => (isActive ? 'sidebar-link sidebar-link--active' : 'sidebar-link')}
                 to={item.to}
-                end
+                end={item.to === '/'}
               >
                 {item.label}
               </NavLink>
@@ -36,6 +30,12 @@ export default function Sidebar() {
           ),
         )}
       </ul>
+      <div className="sidebar-footer">
+        {claims && <span className="sidebar-user">{claims.email}</span>}
+        <button className="sidebar-logout" onClick={logout} type="button">
+          Sign out
+        </button>
+      </div>
     </nav>
   );
 }

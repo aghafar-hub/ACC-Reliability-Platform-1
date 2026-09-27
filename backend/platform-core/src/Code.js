@@ -33,6 +33,8 @@ function doPost(e) {
       case 'adminResetPassword':
         requireAppAdmin_(session.userId);
         return ok_(adminResetPassword_(body.userId));
+      case 'listOrgUsers':
+        return ok_(listOrgUsers_(session));
       // Additional actions (Asset Master, RBAC admin, settings) are wired
       // up as their implementations land — see the open backend tasks.
       default:

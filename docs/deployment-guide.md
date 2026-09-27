@@ -1,9 +1,12 @@
-# Deployment guide — Apps Script backends
+# Deployment guide — Apps Script backends and frontend config
 
-Status: Platform Core and Oil Analysis backends are code-complete for the
-features designed so far (see `docs/platform-foundation-spec.md` and
-`docs/oil-analysis-module-notes.md`). Vibration Analysis has no backend
-code yet — that module hasn't had its own schema/requirements pass.
+Status: Platform Core and Oil Analysis backends are deployed and live
+(both Web Apps confirmed responding). The frontend now has a real login,
+app shell, and full Oil Analysis screens (LP register + the Routine
+workflow) built against them — see
+`docs/oil-analysis-module-notes.md` for what's built vs. still open.
+Vibration Analysis has no backend code yet — that module hasn't had its
+own schema/requirements pass, so it stays a separate linked app for now.
 
 This doc is the steps to actually stand these up against the two Google
 Sheets you created:
@@ -74,12 +77,12 @@ Same steps, against the "Oil Lubrication Data Base" Sheet instead:
 
 ### Install the due-date sweep trigger
 
-`checkDueDates_` (in `DueDates.js`) needs to run daily so approaching
-2-year caps with no recent sample get flagged automatically. In this
-project's Apps Script editor:
+The daily sweep needs a trigger. Apps Script's Trigger picker hides any
+function ending in `_` (every internal function in this codebase does),
+so bind the trigger to the small public wrapper instead:
 
 **Triggers (clock icon) → Add Trigger**:
-- Function: `checkDueDates_`
+- Function: `runDailyDueDateCheck` (not `checkDueDates_` — it won't appear in the list)
 - Event source: Time-driven
 - Type: Day timer (pick any off-peak hour, e.g. 2–3am)
 
@@ -87,9 +90,51 @@ project's Apps Script editor:
 
 Open "ACC Reliability Data Base" → `MODULE_REGISTRY` sheet → find the
 `oil-analysis` row → paste the Oil Analysis Web App URL into `EndpointUrl`.
-This is how the frontend discovers where to send Oil Analysis requests.
+Kept as a record — the frontend itself reads both URLs from its own build
+config (below), not by fetching this sheet at runtime.
 
-## 4. What's still open after this
+## 4. Frontend configuration
+
+The frontend (`frontend/`) is a single Vite/React app that talks to both
+Web Apps directly. It reads their URLs from env vars — never hardcoded in
+source, same principle as the backends' Script Properties.
+
+**Local development**: copy `frontend/.env.example` to `frontend/.env.local`
+(gitignored) and fill in both deployed Web App URLs:
+
+```
+VITE_PLATFORM_CORE_URL=https://script.google.com/macros/s/.../exec
+VITE_OIL_ANALYSIS_URL=https://script.google.com/macros/s/.../exec
+```
+
+Then `npm run dev` inside `frontend/`.
+
+**CI build (GitHub Pages)**: `.github/workflows/deploy.yml` reads the same
+two variables from the repository's Actions configuration rather than a
+committed file (these URLs aren't secret — every real permission check
+still happens server-side per request — but the repo's `.gitignore`
+blocks committing any `.env.*` file on principle, and CI config is the
+cleaner place for deploy-time values anyway). Before the next deploy, add
+two **repository variables** (GitHub repo → Settings → Secrets and
+variables → Actions → **Variables** tab, not Secrets):
+
+- `VITE_PLATFORM_CORE_URL` = the Platform Core Web App URL
+- `VITE_OIL_ANALYSIS_URL` = the Oil Analysis Web App URL
+
+Without these set, the production build fails fast with a clear error
+(`config.ts`'s `requireEnv`) rather than silently shipping a broken app.
+
+**Not yet tested against the live backends**: this sandbox's network
+egress blocks `script.google.com` entirely, so the login → dashboard →
+Oil Analysis flow could only be verified with the UI shell (screenshots,
+no console errors, clean error-handling when the fetch is blocked) — not
+an actual authenticated round trip. Once you add the repository variables
+and the next deploy runs (or you test locally with `.env.local`), do a
+real login with the seed App Admin account and confirm the LP register
+and Routines screens actually load data — that's the one thing this
+session couldn't verify directly.
+
+## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
   requirements/schema pass like Oil Analysis got, before any Apps Script
@@ -109,6 +154,20 @@ This is how the frontend discovers where to send Oil Analysis requests.
   role checks directly (Technician/Contractor Engineer/Manager/ACC) rather
   than going through that table, which is fine for now but means
   `ROLE_PERMISSION` isn't actually wired to anything yet.
-- **Frontend**: still on the old full-page-link sidebar, not yet reworked
-  into the agreed single-app integration (Option B), and has no screens at
-  all yet for the Routine workflow described here.
+- **Frontend gaps**: login, the shared app shell, and the full Oil
+  Analysis workflow (LP register, Routines create/execute/submit/approve/
+  comment) are now built (single-app integration, Option B). Still
+  missing: the multi-palette theme switcher (spec §1a) — the app uses one
+  fixed light theme for now; offline/PWA sync (`idb` is a dependency but
+  nothing uses it yet — every screen requires a live connection); LP
+  register admin editing UI (the backend supports it —
+  `createLpPoint_`/`updateLpPoint_` — but there's no screen for it yet,
+  App Admins would need to edit the Sheet directly); and lab-report entry
+  once that's designed (see above). Vibration Analysis stays a plain
+  external link in the sidebar until its own backend exists.
+- **Technician-org cross-check**: `createRoutine_` trusts the creator's
+  own org match but can't independently verify the *assigned* technician
+  belongs to that same contractor (Oil Analysis has no access to Platform
+  Core's `USERS` sheet) — noted in `Routines.js`. Low risk since only
+  Contractor Engineers/Managers can create Routines in the first place,
+  but worth knowing if something looks off in practice.

@@ -470,9 +470,40 @@ review:
    rewriting 942 rows of migrated data.
 
 Genuinely open (not decided, needs a real answer before it's built — see
-`docs/deployment-guide.md` §4 for the full list): lab-report data entry
+`docs/deployment-guide.md` §5 for the full list): lab-report data entry
 into `OA_SAMPLES` after a sample is taken, and whether a Routine rejection
 path (Contractor Engineer sending work back to the technician) is needed.
+
+## Round 15 — both backends deployed; frontend rework built
+
+Both Apps Script Web Apps are live and confirmed responding (a real gotcha
+hit along the way: Apps Script's Trigger picker hides any function ending
+in `_`, so the daily due-date sweep needed a small public wrapper,
+`runDailyDueDateCheck`, added in `DueDates.js` — see
+`docs/deployment-guide.md` §3).
+
+The frontend was then reworked into the agreed single-app integration
+(Option B, decided earlier this session): real login against Platform
+Core (session persisted client-side, force-changes a temp password on
+first use), a shared app shell with the sidebar now linking to Oil
+Analysis as a real route rather than a full-page link, and the complete
+Oil Analysis workflow as actual screens — LP register (search/browse),
+Routines list, Routine detail (technician executes/submits items,
+Contractor Engineer/Manager approves, ACC comments), and a New Routine
+form (technician picker, LP point picker, per-item type). Vibration
+Analysis is deliberately left as an external link — no backend exists for
+it yet, so folding it in would just be UI with nothing behind it.
+
+One small backend addition was needed to support this:
+`listOrgUsers_` in Platform Core (`backend/platform-core/src/Users.js`),
+so a Contractor Engineer's "assign technician" picker has real users to
+choose from — scoped to the caller's own org, same contractor-isolation
+rule as everything else.
+
+Full list of what's still open (theme switcher, offline sync, LP register
+admin-edit UI, lab-report entry, Routine rejection, Vibration Analysis) is
+in `docs/deployment-guide.md` §5 — not repeated here to avoid the two
+docs drifting out of sync.
 
 
 

@@ -28,6 +28,9 @@ jobs:
 
       - name: Build main frontend
         working-directory: frontend
+        env:
+          VITE_PLATFORM_CORE_URL: ${{ vars.VITE_PLATFORM_CORE_URL }}
+          VITE_OIL_ANALYSIS_URL: ${{ vars.VITE_OIL_ANALYSIS_URL }}
         run: |
           npm install
           npx vite build --base=/${{ github.event.repository.name }}/
