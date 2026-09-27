@@ -177,10 +177,83 @@ LP_IDs. Full row-by-row results sent to the user as a CSV. Summary:
 - **Waiting on:** the user filling in and returning the review workbook
   before any of this gets applied to a real database structure.
 
+## Round 5 — ambiguous matches resolved (review workbook returned)
+
+User filled in and returned `oil-analysis-ambiguous-review.xlsx`. All 41
+ambiguous cases accounted for — 40 confirmed mappings, 1 flagged as new
+equipment. Full confirmed mapping:
+
+| Old code | Resolved to |
+|---|---|
+| 123.BC100 | LP-123.BC100-GB |
+| 123.BC200 | LP-123.BC200-GB |
+| 131.BC100 | LP-131.BC100-GB |
+| 131.BC500 (M01) | LP-131.BC500-GB-R |
+| 131.BC500 (M02) | LP-131.BC500-GB-L |
+| 131.RE300 | LP-131.RE300-TUT |
+| 321.BE220 | LP-321.BE220-GB |
+| 321.LQ120 (T) | LP-321.LQ120-HY |
+| 321.LQ145 (T) | LP-321.LQ145-HY |
+| 321.RF090 | LP-321.RF090-GB |
+| R2.322.BE220 | LP-322.BE220-GB |
+| R2.322.LQ120(T) | LP-322.LQ120-HY |
+| R2.322.LQ145 (T) | LP-322.LQ145-HY |
+| R2.322.RF090 | LP-322.RF090-GB |
+| 341.BE040 L / R | LP-341.BE040-GB-L / -GB-R |
+| 342.BE050 L / R | LP-342.BE050-GB-L / -GB-R |
+| 351.BE350 L / R | LP-351.BE350-GB-L / -GB-R |
+| 352.BE340 L / R | LP-352.BE340-GB-L / -GB-R |
+| 431.HT120 | LP-431.HT120-HY |
+| 431.HT120(BE) | LP-431.HT120-BRG |
+| R2.432.HT120(T) | LP-432.HT120-HY |
+| R2.432.HT120(BE) | LP-432.HT120-BRG |
+| 461.LQ145 | LP-461.LQ145-HY |
+| 462.LQ145 | LP-462.LQ145-HY |
+| 471.AC100 | LP-471.AC100-GB |
+| R2.472.AC100 | LP-472.AC100-GB |
+| 531/532/533/534.BE220 | LP-{code}-GB (main gearbox, each) |
+| 534.LQ145 - Gearbox | LP-534.LQ145-GB-HY |
+| 534.LQ145 - Girth Gear | LP-534.LQ145-GG-HY |
+| 541/542/543/544.BE180 | LP-{code}-GB (main gearbox, each) |
+
+**Pattern A/B resolution confirmed in practice:** as the user said it
+would, every multi-point bucket-elevator/hoist case (BE220/BE180 series)
+resolved to the **main Gear Box (`GB`)** point specifically — the other
+sub-points (overrunning clutch, backstop, auxiliary gearbox, hydraulic
+coupling) get no migrated history, consistent with the "default to the
+main gearbox" pattern, just confirmed case-by-case rather than applied
+blindly.
+
+**Exception — `332.FN400`: NOT a match.** User's note: "treat this as
+new equipment, the old 322.FN400 is different" — this old code needs a
+genuinely new equipment/LP entry created (same treatment as the missing
+compressors), not mapped to the existing `332.FN400` candidates found
+during matching (which the user determined are actually a different,
+already-covered asset). **Root cause confirmed:** equipment `332.FN400`
+already exists in the new register with two bearing points (`Fr.B`/
+`Fx.B` — Free/Fixed Bearing), which is exactly where the *other* two old
+codes for this equipment (`R2.332.FN400(Fr.B)`/`(Fx.B)`, "Final fan
+free/fixed bearings") already matched cleanly. But the plain
+`332.FN400` old code is a **different point on the same equipment** —
+"Main EP Fan Gear drive L#2" (a gearbox), described in the old sheet
+with `MOBIL SHC 632`, 6-month interval, area `RM2`, contractor `RHI` —
+and the new register has no gearbox point for this equipment at all.
+**Proposed new LP** (needs confirmation, not yet added):
+`LP-332.FN400-GB`, Point_Code `GB`, Lubrication_Point "Main EP Fan Gear
+drive", Lubricant_Type `MOBIL SHC 632`, Oil_Analysis_Required `Yes`,
+Oil_Analysis_Interval `6 Months`, Area `RM2`, Contractor `RHI`.
+
+**Missing compressors (Tab 2): accepted as proposed**, no corrections
+made — one placeholder `AC` point per compressor, `Oil_Analysis_Required
+= Yes`, `Oil_Analysis_Interval = "If needed"`, real lubricant/area/
+contractor data as pre-filled.
+
+**ID mapping/reconciliation exercise is now effectively complete**
+pending the one `332.FN400` follow-up.
+
 ## Open items (to ask about next, before any implementation)
 
-- The 153-vs-151 discrepancy — resolve by actually running the matching
-  exercise and showing the user what doesn't line up.
+- Confirm the proposed `LP-332.FN400-GB` entry (above) before it's added.
 - Whether "a good sample result can defer/extend the change date" has a
   precise rule (e.g. always push to +1 interval? reset to a fresh full
   interval? capped at the 2-year max regardless?) — confirmed the
