@@ -11,19 +11,23 @@ const CONFIG_KEY = "app_config_v3"; // original `Ua`
 const LOGO_KEY = "app_logo_url"; // original `Va`
 export const THRESHOLDS_KEY = "vib_thresholds_v3"; // per-equipment RMS/SPM limit overrides
 
-// The production Google Apps Script Web App URL shipped hardcoded in the
-// original bundle (its `Vl` constant) — used as the default `webhookUrl`
-// until Settings → Configuration overrides it, and as the placeholder text
-// in that field.
+// The production Google Apps Script Web App URL — used as the default
+// `webhookUrl` until Settings → Configuration overrides it, and as the
+// placeholder text in that field.
 export const DEFAULT_WEBHOOK_URL =
-  "https://script.google.com/macros/s/AKfycbzZdGU1307BiHsHGSsZmwC-7JwZWKJoMzRiRCdUFkHySdRkRxRT6dQp3y1sS1leAPu9/exec";
+  "https://script.google.com/macros/s/AKfycbzBSXj7ugvqgd_KnTPOXpISmTDeQ4aB3CcIaMAg4RUnbJ6fZO03uOCqS8ekxlxLPaW9Kw/exec";
+
+// The production Google Sheet this webhook reads/writes — used as the
+// default `googleSheetUrl` (the "Open Sheet" button target) until Settings
+// overrides it.
+export const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1c7neGwXKqJWGVNG4u5vIv9hQKZEr76WQD3XHEvlZUAU/edit";
 
 // Default logo (Arabian Cement, hosted on Google Drive) — original `fn`.
 export const DEFAULT_LOGO_URL = "https://drive.google.com/uc?export=view&id=18yKS0deihECxq7i-XD4aXNM49KazppDx";
 
 export const DEFAULT_CONFIG = {
   webhookUrl: DEFAULT_WEBHOOK_URL,
-  googleSheetUrl: "",
+  googleSheetUrl: DEFAULT_SHEET_URL,
   contractors: "RHI,ASEC",
   // Both fields exist in the original's default config object and are shown
   // nowhere in the UI (no Settings control reads or writes them) — no

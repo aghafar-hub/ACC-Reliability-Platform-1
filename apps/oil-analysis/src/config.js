@@ -1,11 +1,23 @@
 const KEY = "acc_oilapp_config";
 
+// The production Google Apps Script Web App URL and the Google Sheet it
+// reads/writes — used as defaults until Settings → Configuration overrides
+// them, same pattern as apps/vibration-analysis/src/config.js.
+export const DEFAULT_WEBHOOK_URL =
+  "https://script.google.com/macros/s/AKfycbx3GDHY_1njtZ5wO5684BuYyslzuzB7GvAchJQtnBCynVOCLxfJ0ZnNm9oXWhqk36Lt/exec";
+export const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ckDYD5vjRIyFc7vBK1cqHJHhlI8KuwmRtucgtrfZXto/edit";
+
+const DEFAULT_CONFIG = {
+  webhookUrl: DEFAULT_WEBHOOK_URL,
+  sheetUrl: DEFAULT_SHEET_URL,
+};
+
 export function loadConfig() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : {};
+    return raw ? { ...DEFAULT_CONFIG, ...JSON.parse(raw) } : { ...DEFAULT_CONFIG };
   } catch {
-    return {};
+    return { ...DEFAULT_CONFIG };
   }
 }
 
