@@ -1,0 +1,68 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - claude/cement-factory-reliability-app-nyl3f1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build main frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npx vite build --base=/${{ github.event.repository.name }}/
+
+      - name: Build Vibration Analysis (as-is app, base path only — no source changes)
+        working-directory: apps/vibration-analysis
+        run: |
+          npm install
+          npx vite build --base=/${{ github.event.repository.name }}/apps/vibration-analysis/
+
+      - name: Build Oil Analysis (as-is app, base path only — no source changes)
+        working-directory: apps/oil-analysis
+        run: |
+          npm install
+          npx vite build --base=/${{ github.event.repository.name }}/apps/oil-analysis/
+
+      - name: Assemble combined site
+        run: |
+          mkdir -p site/apps
+          cp -r frontend/dist/. site/
+          cp -r apps/vibration-analysis/dist site/apps/vibration-analysis
+          cp -r apps/oil-analysis/dist site/apps/oil-analysis
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
