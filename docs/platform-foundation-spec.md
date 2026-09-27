@@ -274,15 +274,26 @@ detection from email domain. **[decided, §7 of notes]**
 
 **[decided — this conversation]**
 
-### 6.3 Permission granularity — full granular control **[decided, §4 of notes]**
+### 6.3 Permission granularity
 
-You confirmed the platform needs **full granular, admin-controlled
-permissions**, not a simplified role+org model — you noted there's a
-specific reason for this that hasn't been elaborated yet. The proposed
-structure (adapted from the prior doc set, which had already modeled this
-in detail) is a chain of permission layers, each admin-editable, evaluated
-top to bottom (a denial at any layer blocks access, nothing is accessible
-without an explicit grant):
+**v1 build approach — simplified, revisiting §4 of notes.** Starting the
+actual build with **role + org + the hard contractor-isolation rule
+(§6.2)** — not the full 8-layer chain below yet. The earlier "full
+granular control" decision stands as the long-term target and the reason
+for it was never fully explained, but for the first real implementation
+(Oil Analysis), the user chose to start simpler and add module/tab/
+feature/field-level granularity once there's a concrete need for it,
+rather than building all of it speculatively. **[decided, this
+conversation]**
+
+**Time-of-day access rules: confirmed NOT needed.** Settles the
+previously-open question — "full granular control" was about the
+module/feature/action/field/scope layers, not time-of-day restrictions.
+**[decided, this conversation]**
+
+The full chain remains the eventual target, each layer admin-editable,
+evaluated top to bottom (a denial at any layer blocks access, nothing
+accessible without an explicit grant), for when it's actually needed:
 
 ```
 Organization  →  Role  →  Module  →  Screen/Tab  →  Feature  →  Action
@@ -307,12 +318,10 @@ in every module is automatically filtered to equipment where
 `Contractor = <user's org>`; for an ACC user, no contractor filter is
 applied. This is enforced server-side in each module's Apps Script, not
 just hidden in the UI, so it can't be bypassed by calling the API
-directly. **Time-based access rules** (e.g. access only during
-certain hours) were part of the prior model too — flagging this
-explicitly: do you actually need time-of-day access rules, or was "full
-granular control" mainly about the module/feature/action/field/scope
-layers? Worth a direct answer before this gets built, since it's extra
-complexity if unused.
+directly. For v1, `ROLE_PERMISSION` only needs to go down to the
+Module/Action layer (matching the simplified approach above) — the
+Tab/Feature/Field layers can be added to the same table shape later
+without a schema change.
 
 App Admin manages all of this through the admin/settings screens in
 Platform Core (create roles, assign permissions per layer, create

@@ -278,11 +278,41 @@ Both items from the previous open-items list are now resolved. **ID
 reconciliation and the core Oil Change Log design are complete** pending
 the actual database/schema design work.
 
+## Round 7 — login/RBAC brought forward, decided
+
+User asked to review the Foundation's login/RBAC decisions before
+starting any implementation. Reviewed §5–§6 of
+`docs/platform-foundation-spec.md` with the user; three decisions:
+
+- **Login is platform-wide, built once, shared across all modules —
+  not an oil-analysis-specific login.** This is Platform Core's auth
+  (§5 of the spec), built now as its own standalone piece of work rather
+  than waiting for the rest of Platform Core, and every module —
+  starting with Oil Analysis — authenticates against it.
+- **RBAC v1 scope simplified**: role + org + the hard contractor-
+  isolation rule, not the full 8-layer permission chain. Full
+  granularity remains the long-term target (spec §6.3, updated) but is
+  deferred until there's a concrete need for module/tab/feature/field-
+  level control.
+- **Time-of-day access rules: confirmed not needed** — closes a
+  question that had been open since the original Foundation discussion.
+
+**Open technical question, not yet decided:** Platform Core and
+`apps/oil-analysis` are separate Apps Script Web App deployments (per
+the architecture's module-isolation model, spec §2–§4). For
+oil-analysis to accept a login session issued by Platform Core, its
+backend needs to verify that session without necessarily calling back to
+Platform Core on every request. **[PROPOSED, needs confirmation]**:
+Platform Core issues a signed session token; both Apps Script projects
+share a signing secret (stored in each project's Script Properties, never
+in code/Sheets); oil-analysis's backend verifies the token's signature
+locally. Keeps the two backends independently deployable (matches the
+module-isolation requirement) without a live call to Platform Core on
+every oil-analysis request.
+
 ## Open items (to ask about next, before any implementation)
 
-- None outstanding from this round — ready to move to concrete database
-  design (sheet schemas, RBAC/contractor-isolation wiring into
-  `apps/oil-analysis`) whenever the user gives the go-ahead, per the
-  "discuss fully, then apply all changes at once" instruction this
-  whole module notes file has followed so far.
+- Confirm the shared-secret token verification mechanism above (or
+  propose an alternative) before it gets built.
+
 
