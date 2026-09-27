@@ -5,13 +5,14 @@ export type NavItem = {
   external?: boolean;
 };
 
-// Reverted to linking both as-is copied apps externally, per instruction
-// to step back and edit from the original apps rather than the new
-// single-app-integration build. The new Oil Analysis module (routes,
-// pages, backends) is untouched and still reachable directly at
-// /oil-analysis — just not linked from the sidebar for now.
+// Both as-is copied apps are mounted in place (their own unchanged code,
+// UI, backend, and login — see EmbeddedOilAnalysis.tsx /
+// EmbeddedVibrationAnalysis.tsx) rather than linked out to as separate
+// pages, per the single-app-integration decision. The new Routine-based
+// Oil Analysis module built this session is parked at /oil-analysis-new,
+// not linked here for now.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', to: '/' },
-  { label: 'Vibration Analysis', to: 'apps/vibration-analysis/', external: true },
-  { label: 'Oil Analysis', to: 'apps/oil-analysis/', external: true },
+  { label: 'Vibration Analysis', to: '/vibration-analysis' },
+  { label: 'Oil Analysis', to: '/oil-analysis' },
 ];

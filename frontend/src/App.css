@@ -8,3 +8,16 @@
   padding: 2rem;
   box-sizing: border-box;
 }
+
+/* An embedded as-is app expects to own the full viewport edge-to-edge
+   (its own Sidebar/TopBar are laid out that way) — cancel the shared
+   content padding for it rather than letting it render inset/boxed in.
+   `contain: layout` also makes this element the containing block for any
+   `position: fixed` descendant (CSS Containment spec) — the embedded
+   app's own sidebar uses position:fixed assuming it owns the whole page,
+   which without this would render pinned to the real viewport and overlap
+   our outer sidebar instead of staying inside its own content area. */
+.app-content--embedded {
+  margin: -2rem;
+  contain: layout;
+}

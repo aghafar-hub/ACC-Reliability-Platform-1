@@ -12,6 +12,7 @@ service-account*.json
 node_modules/
 dist/
 dist-ssr/
+dist-embed/
 *.local
 
 # Editor

@@ -26,33 +26,49 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install dependencies (all three projects)
+        run: |
+          npm install --prefix frontend
+          npm install --prefix apps/vibration-analysis
+          npm install --prefix apps/oil-analysis
+
       - name: Build main frontend
         working-directory: frontend
         env:
           VITE_PLATFORM_CORE_URL: ${{ vars.VITE_PLATFORM_CORE_URL }}
           VITE_OIL_ANALYSIS_URL: ${{ vars.VITE_OIL_ANALYSIS_URL }}
-        run: |
-          npm install
-          npx vite build --base=/${{ github.event.repository.name }}/
+        run: npx vite build --base=/${{ github.event.repository.name }}/
 
-      - name: Build Vibration Analysis (as-is app, base path only — no source changes)
+      - name: Build Vibration Analysis standalone (still directly reachable too — no source changes)
         working-directory: apps/vibration-analysis
-        run: |
-          npm install
-          npx vite build --base=/${{ github.event.repository.name }}/apps/vibration-analysis/
+        run: npx vite build --base=/${{ github.event.repository.name }}/apps/vibration-analysis/
 
-      - name: Build Oil Analysis (as-is app, base path only — no source changes)
+      # This app's own React 18 + every dependency bundled into one
+      # self-contained module (see vite.embed.config.js) — what the main
+      # frontend loads at runtime to mount this app in place (see
+      # apps/vibration-analysis/src/embed.jsx and
+      # frontend/src/pages/EmbeddedVibrationAnalysis.tsx). No --base flag:
+      # this build's own internal imports are all relative.
+      - name: Build Vibration Analysis embed bundle
+        working-directory: apps/vibration-analysis
+        run: npm run build:embed
+
+      - name: Build Oil Analysis standalone (still directly reachable too — no source changes beyond the embed.jsx adapter)
         working-directory: apps/oil-analysis
-        run: |
-          npm install
-          npx vite build --base=/${{ github.event.repository.name }}/apps/oil-analysis/
+        run: npx vite build --base=/${{ github.event.repository.name }}/apps/oil-analysis/
+
+      - name: Build Oil Analysis embed bundle
+        working-directory: apps/oil-analysis
+        run: npm run build:embed
 
       - name: Assemble combined site
         run: |
           mkdir -p site/apps
           cp -r frontend/dist/. site/
           cp -r apps/vibration-analysis/dist site/apps/vibration-analysis
+          cp -r apps/vibration-analysis/dist-embed/. site/apps/vibration-analysis/
           cp -r apps/oil-analysis/dist site/apps/oil-analysis
+          cp -r apps/oil-analysis/dist-embed/. site/apps/oil-analysis/
 
       - uses: actions/configure-pages@v5
 
