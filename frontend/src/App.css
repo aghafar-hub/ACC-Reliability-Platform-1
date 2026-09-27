@@ -1,12 +1,29 @@
 .app-shell {
   display: flex;
   min-height: 100vh;
+  background: var(--shell-bg);
 }
 
 .app-content {
   flex: 1;
   padding: 2rem;
   box-sizing: border-box;
+  background: var(--shell-bg);
+  color: var(--shell-text);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settings-intro {
+  color: var(--shell-text-secondary);
+  margin-bottom: 1.25rem;
+}
+
+/* index.css's own h1/h2 rule (leftover from the starter template) sets a
+   fixed dark color that doesn't adapt to the chosen theme — overridden
+   here (higher specificity) so headings stay legible on dark palettes too. */
+.app-content h1,
+.app-content h2 {
+  color: var(--shell-text);
 }
 
 /* An embedded as-is app expects to own the full viewport edge-to-edge

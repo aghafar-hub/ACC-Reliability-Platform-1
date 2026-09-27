@@ -1,16 +1,19 @@
 /* Pushes the main content over as it expands (rather than overlaying on
    top of it) — real content must never end up hidden behind the sidebar,
-   even during the hover-expand transition. */
+   even during the hover-expand transition. Colors read from --shell-*
+   custom properties (set in App.tsx from the chosen theme — see
+   shellTheme.tsx), falling back to the original dark-navy values so the
+   sidebar still renders correctly if those vars are ever unset. */
 .sidebar-rail {
   width: 68px;
   flex-shrink: 0;
   overflow: hidden;
   white-space: nowrap;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--shell-sidebar-bg, #0f172a);
+  color: var(--shell-text, #e2e8f0);
   display: flex;
   flex-direction: column;
-  transition: width 0.16s ease;
+  transition: width 0.16s ease, background 0.15s ease, color 0.15s ease;
   z-index: 100;
 }
 
@@ -27,28 +30,29 @@
 }
 
 .sidebar-logo {
-  height: 84px;
+  height: 100px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   padding: 0 14px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--shell-border, #1e293b);
   position: relative;
 }
 
-/* No background behind either mark — both images are transparent PNGs,
-   placed directly on the sidebar's own dark background. */
+/* No background behind either mark — both images are transparent PNGs
+   (the full lockup also carries its own dark backing box behind its own
+   text, so it stays legible against any sidebar color). */
 .sidebar-logo-mark {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
   display: block;
 }
 
 .sidebar-logo-full {
-  height: 64px;
+  height: 84px;
   width: auto;
-  max-width: 210px;
+  max-width: 216px;
   object-fit: contain;
   display: none;
   position: absolute;
@@ -68,6 +72,11 @@
   margin: 0;
   padding: 8px 0;
   overflow-y: auto;
+  /* Explicit (not left to compute from overflow-y:auto) — otherwise the
+     browser treats overflow-x:visible as auto too whenever overflow-y is
+     scrolling, which showed up as a stray horizontal scrollbar whenever
+     this list's content came out even a pixel wider than the rail. */
+  overflow-x: hidden;
   flex: 1;
 }
 
@@ -77,7 +86,7 @@
   gap: 0;
   width: 100%;
   padding: 0.65rem 1.25rem;
-  color: #cbd5e1;
+  color: var(--shell-text, #cbd5e1);
   text-decoration: none;
   font-size: 0.87rem;
   background: transparent;
@@ -92,13 +101,13 @@
 }
 
 .sidebar-link:hover {
-  background: #1e293b;
-  color: #fff;
+  background: var(--shell-border, #1e293b);
+  color: var(--shell-text, #fff);
 }
 
 .sidebar-link--active {
-  background: #1d4ed8;
-  color: #fff;
+  background: var(--shell-accent, #1d4ed8);
+  color: var(--shell-accent-text, #fff);
 }
 
 .sidebar-link-icon {
@@ -143,7 +152,7 @@
   gap: 10px;
   width: 100%;
   padding: 0.4rem 1.25rem 0.4rem 2.5rem;
-  color: #94a3b8;
+  color: var(--shell-text-secondary, #94a3b8);
   background: transparent;
   border: none;
   text-align: left;
@@ -153,19 +162,19 @@
 }
 
 .sidebar-sublink:hover {
-  background: #1e293b;
-  color: #fff;
+  background: var(--shell-border, #1e293b);
+  color: var(--shell-text, #fff);
 }
 
 .sidebar-sublink--active {
-  color: #60a5fa;
+  color: var(--shell-accent, #60a5fa);
   font-weight: 600;
 }
 
 .sidebar-footer {
   flex-shrink: 0;
   padding: 0.5rem 0 1rem;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid var(--shell-border, #1e293b);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -177,7 +186,7 @@
 
 .sidebar-user {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--shell-text-secondary, #94a3b8);
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0;
@@ -196,8 +205,8 @@
   align-items: center;
   gap: 0;
   background: transparent;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  border: 1px solid var(--shell-border, #334155);
+  color: var(--shell-text, #cbd5e1);
   border-radius: 6px;
   padding: 0.5rem 0.6rem;
   margin: 0 1.25rem;
@@ -224,22 +233,5 @@
 }
 
 .sidebar-logout:hover {
-  background: #1e293b;
-}
-
-.theme-popover-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: transparent;
-}
-
-.theme-popover {
-  position: fixed;
-  left: 76px;
-  z-index: 201;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  padding: 0.85rem;
+  background: var(--shell-border, #1e293b);
 }
