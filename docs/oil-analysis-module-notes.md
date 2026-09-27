@@ -396,15 +396,26 @@ Two new questions this raised, not yet asked:
 2. Can a Technician hold more than one open Routine at once, or does a
    new one wait until the current one is submitted?
 
+## Round 12 — Routine questions resolved
+
+1. **Routine creation: Contractor Engineer or Manager** — both roles can
+   create/assign a routine, not Contractor Engineer only.
+2. **Multiple open Routines per Technician: allowed** — a new routine
+   doesn't wait for the current one to be submitted first.
+
+Both applied to `docs/oil-analysis-database-schema.md`. **The Oil
+Analysis database schema is now fully resolved** — no open items
+remaining in that document.
+
 ## Open items (to ask about next, before any implementation)
 
-- The two new Routine questions above.
 - Confirm the shared-secret token verification mechanism (still needed
   even with single-app integration — Platform Core issues the session,
   and each module's backend, though bundled together in the frontend,
   still calls its own separate Apps Script API and needs to verify the
   session independently) — proposed but not yet re-confirmed under the
-  single-app integration approach.
+  single-app integration approach. This is the one remaining item before
+  implementation can start.
 
 
 

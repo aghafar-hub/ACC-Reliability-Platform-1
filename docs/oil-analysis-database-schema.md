@@ -114,7 +114,7 @@ an oil sample — goes through a **Routine**, not a direct write. Same
 approval shape for both, confirmed by the user:
 
 ```
-Contractor Engineer creates Routine, assigns Technician
+Contractor Engineer or Manager creates Routine, assigns Technician
         ↓
 Technician notified → executes each item:
   - sees the required oil type for that LP
@@ -132,7 +132,7 @@ ACC Engineer notified → may add a comment (never blocks, never required)
 | Column | Notes |
 |---|---|
 | RoutineId | |
-| CreatedBy | Contractor Engineer UserId |
+| CreatedBy | Contractor Engineer or Manager UserId |
 | AssignedTo | Technician UserId |
 | Contractor | |
 | CreatedDate | |
@@ -251,10 +251,9 @@ collection and lab results are two different moments in time.
    and sample-taking.
 4. ~~332.FN400 and the 6 compressors~~ **CONFIRMED** — both get added to
    `OA_LP_REGISTER` as part of the initial import.
-5. **New, from the Routine design:** who can create a Routine — is it
-   Contractor Engineer only, or can a Manager also create one? Not yet
-   asked.
-6. **New:** can a Technician be assigned more than one open Routine at a
-   time, or does a new one wait until the current one is submitted? Not
-   yet asked.
+5. ~~Who can create a Routine~~ **RESOLVED: Contractor Engineer or
+   Manager** — both roles can create/assign routines.
+6. ~~Multiple open Routines per Technician~~ **RESOLVED: allowed** — a
+   Technician can hold more than one open Routine at a time; a new one
+   doesn't wait for the current one to be submitted.
 
