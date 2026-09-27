@@ -237,6 +237,18 @@ Web App deployment**, bound only to its own spreadsheet(s). Consequences:
   for now. **[decided, §8 of notes]** *(APP-008 proposed a 3-device
   session limit and 30-minute idle auto-logout — reviewed and
   **declined**; no extras for v1 stands.)*
+- **Login is platform-wide, shared by every module — built once in
+  Platform Core, not per module.** Confirmed while designing the Oil
+  Analysis module (`docs/oil-analysis-module-notes.md`). **[decided]**
+- **Cross-module session verification mechanism [decided]:** Platform
+  Core issues a signed session token on login. Each module's own Apps
+  Script backend (separate deployment, per §2–§4's module isolation)
+  verifies that token's signature **locally**, using a secret shared
+  between the Apps Script projects — stored in each project's own Script
+  Properties, never in code or in any Sheet. No live call back to
+  Platform Core is needed on every module request. This is what lets
+  login be genuinely shared while every module's backend stays
+  independently deployable.
 
 ---
 

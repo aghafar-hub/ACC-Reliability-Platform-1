@@ -407,15 +407,25 @@ Both applied to `docs/oil-analysis-database-schema.md`. **The Oil
 Analysis database schema is now fully resolved** — no open items
 remaining in that document.
 
+## Round 13 — session verification mechanism confirmed
+
+**Confirmed:** Platform Core issues a signed session token on login;
+each module's backend (starting with Oil Analysis) verifies that
+token's signature locally using a secret shared between the Apps Script
+projects (stored in each project's own Script Properties, never in code
+or Sheets) — no live call back to Platform Core needed on every request.
+Keeps both backends independently deployable, matching the
+module-isolation architecture, while still sharing one login.
+
+**This was the last open item.** Requirements discussion for Oil
+Analysis's Foundation-integrated login/RBAC, database schema, and
+approval workflow is now complete. Ready to move to implementation:
+Platform Core's real auth/session backend, then the Oil Analysis module
+built against it.
+
 ## Open items (to ask about next, before any implementation)
 
-- Confirm the shared-secret token verification mechanism (still needed
-  even with single-app integration — Platform Core issues the session,
-  and each module's backend, though bundled together in the frontend,
-  still calls its own separate Apps Script API and needs to verify the
-  session independently) — proposed but not yet re-confirmed under the
-  single-app integration approach. This is the one remaining item before
-  implementation can start.
+- None outstanding. Ready for implementation to begin.
 
 
 
