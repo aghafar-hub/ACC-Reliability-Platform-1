@@ -1,3 +1,4 @@
+import AccountsPanel from '../components/AccountsPanel';
 import ThemePicker from '../components/ThemePicker';
 
 // Platform-level Settings — the shared theme picker that used to live
@@ -7,6 +8,9 @@ import ThemePicker from '../components/ThemePicker';
 // the Sidebar and every shell page immediately, in addition to whichever
 // embedded module is open, and persists so both modules also start on the
 // right theme next time either is opened.
+//
+// AccountsPanel (App Admin only — renders nothing for anyone else) is the
+// "App Admin can add any account" piece from docs/requirements-notes.md.
 export default function Settings() {
   return (
     <div>
@@ -15,6 +19,7 @@ export default function Settings() {
         Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
       </p>
       <ThemePicker />
+      <AccountsPanel />
     </div>
   );
 }

@@ -10,6 +10,7 @@ export default function Login() {
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -18,7 +19,7 @@ export default function Login() {
     setError(null);
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(email, password, remember);
       const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/';
       navigate(from, { replace: true });
     } catch (err) {
@@ -31,7 +32,7 @@ export default function Login() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>ACC Reliability</h1>
+        <img src={`${import.meta.env.BASE_URL}brand/acc-logo-full.png`} alt="ACC Reliability" className="auth-logo" />
         <label>
           Email
           <input
@@ -52,6 +53,10 @@ export default function Login() {
             required
             autoComplete="current-password"
           />
+        </label>
+        <label className="auth-remember">
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+          Keep me signed in
         </label>
         {error && <p className="auth-error">{error}</p>}
         <button type="submit" disabled={submitting}>

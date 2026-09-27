@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { changePassword as apiChangePassword, login as apiLogin } from '../api/platformCore';
 import { decodeSessionClaims, type SessionClaims } from './session';
 
@@ -10,26 +10,56 @@ type AuthState = {
   sessionToken: string | null;
   claims: SessionClaims | null;
   mustChangePassword: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, remember: boolean) => Promise<void>;
   completeChangePassword: (newPassword: string) => Promise<void>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
 
+// "Keep me signed in" (Login.tsx's checkbox) chooses which storage a
+// session lands in: localStorage survives closing the browser, sessionStorage
+// doesn't. Read both so a session from either one is picked up; write to
+// whichever one the checkbox chose, clearing the other so a stale copy can't
+// linger and confuse a later read.
 function readStored(): StoredSession | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const fromLocal = localStorage.getItem(STORAGE_KEY);
+    if (fromLocal) return JSON.parse(fromLocal);
+  } catch {
+    // ignore — fall through to sessionStorage
+  }
+  try {
+    const fromSession = sessionStorage.getItem(STORAGE_KEY);
+    return fromSession ? JSON.parse(fromSession) : null;
   } catch {
     return null;
   }
 }
 
-function writeStored(value: StoredSession | null) {
+function wasRememberedStorage(): boolean {
   try {
-    if (value) localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-    else localStorage.removeItem(STORAGE_KEY);
+    return !!localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return true; // default to "remembered" for a fresh session with no prior choice yet
+  }
+}
+
+function writeStored(value: StoredSession | null, remember: boolean) {
+  try {
+    if (!value) {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    const json = JSON.stringify(value);
+    if (remember) {
+      localStorage.setItem(STORAGE_KEY, json);
+      sessionStorage.removeItem(STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(STORAGE_KEY, json);
+      localStorage.removeItem(STORAGE_KEY);
+    }
   } catch {
     // Best-effort — a private window or blocked storage just means no persistence across reloads.
   }
@@ -37,14 +67,16 @@ function writeStored(value: StoredSession | null) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [stored, setStored] = useState<StoredSession | null>(() => readStored());
+  const rememberRef = useRef<boolean>(wasRememberedStorage());
   const claims = useMemo(() => (stored ? decodeSessionClaims(stored.sessionToken) : null), [stored]);
 
   useEffect(() => {
-    writeStored(stored);
+    writeStored(stored, rememberRef.current);
   }, [stored]);
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, remember: boolean) {
     const result = await apiLogin(email, password);
+    rememberRef.current = remember;
     setStored({ sessionToken: result.sessionToken, mustChangePassword: result.mustChangePassword });
   }
 

@@ -1,0 +1,99 @@
+.accounts-panel {
+  margin-top: 2rem;
+  max-width: 760px;
+}
+
+.accounts-panel-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--shell-text);
+}
+
+.accounts-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.accounts-form input[type='email'] {
+  flex: 1;
+  min-width: 220px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--shell-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.accounts-form select {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--shell-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.accounts-form button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--shell-accent, #1d4ed8);
+  color: var(--shell-accent-text, #fff);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.accounts-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.accounts-temp-password {
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  color: #065f46;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.accounts-temp-password code {
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.accounts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.accounts-table th,
+.accounts-table td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--shell-border, #e2e8f0);
+}
+
+.accounts-table th {
+  color: var(--shell-text-secondary);
+  font-weight: 600;
+}
+
+.accounts-table button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--shell-border, #e2e8f0);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shell-text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.accounts-table button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

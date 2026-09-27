@@ -22,12 +22,31 @@
   text-align: center;
 }
 
+.auth-logo {
+  display: block;
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  margin: 0 auto 0.5rem;
+}
+
 .auth-card label {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   font-size: 0.85rem;
   text-align: left;
+}
+
+.auth-remember {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+}
+
+.auth-remember input[type='checkbox'] {
+  width: auto;
+  margin: 0;
 }
 
 .auth-card input {
