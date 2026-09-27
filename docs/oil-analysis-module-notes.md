@@ -333,6 +333,22 @@ not separate apps behind a login screen. Clarified via follow-up:
   remounted as routes in the shared shell instead). Recorded in
   `docs/platform-foundation-spec.md` §1b.
 
+## Round 9 — theme unification and in-module navigation decided
+
+- **Theme: one unified theme system, multiple palette choices kept.**
+  Not a reduction to just Light/Dark — merge into one shared theming
+  mechanism used app-wide, offering multiple selectable palettes (the
+  existing palette lists from both modules, deduplicated/combined rather
+  than picking one module's set over the other's). **Theme control moves
+  to platform-level Settings** — a single shared place to change theme,
+  not duplicated inside each module's own Settings page anymore.
+- **In-module navigation: secondary nav within the module's content
+  area.** Click "Oil Analysis" in the main sidebar → a secondary nav/tabs
+  for that module's own pages (Dashboard, Add Sample, Action Tracker,
+  etc.) appears nested in the content area — the main sidebar stays
+  short (Dashboard, Vibration Analysis, Oil Analysis, ...), each
+  module's internal structure stays visible but nested under it.
+
 ## Open items (to ask about next, before any implementation)
 
 - Confirm the shared-secret token verification mechanism (still needed
@@ -341,13 +357,5 @@ not separate apps behind a login screen. Clarified via follow-up:
   still calls its own separate Apps Script API and needs to verify the
   session independently) — proposed but not yet re-confirmed under this
   new integration approach.
-- Theme/branding: each module currently ships its own elaborate theme
-  system (vibration: 8 palettes, oil analysis: 10 palettes) — does the
-  unified app keep multiple selectable palettes, or standardize on the
-  Foundation's single Light/Dark model (spec §1a)? Not yet asked.
-- How each module's own internal page navigation (e.g. vibration's
-  Dashboard/New Reading/Equipment Register/etc.) nests within the shared
-  sidebar — as a secondary in-content nav, or folded into the main
-  sidebar itself? Not yet asked.
 
 

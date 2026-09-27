@@ -52,7 +52,12 @@ folded in directly rather than re-asked:
 - Units: metric engineering units
 - Default language: **English** (bilingual EN/AR switch per §9, Arabic
   gets full RTL)
-- Themes: user-selectable Light/Dark, stored per user
+- **Themes: unified theme system, multiple selectable palettes** (not
+  just Light/Dark) — one shared theming mechanism used app-wide,
+  combining the palette choices from the modules being integrated
+  (spec §1b), controlled from a single platform-level Settings screen
+  rather than duplicated per module. User-selectable, stored per user.
+  **[decided — updates the earlier Light/Dark-only default]**
 
 ## 1b. Information architecture **[PROPOSED, from APP-008]**
 
