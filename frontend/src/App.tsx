@@ -5,6 +5,7 @@ import { AuthProvider } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
 import { EmbeddedNavProvider } from './embeddedNav';
 import ChangePassword from './pages/ChangePassword';
+import ComingSoon from './pages/ComingSoon';
 import Dashboard from './pages/Dashboard';
 import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
 import EmbeddedVibrationAnalysis from './pages/EmbeddedVibrationAnalysis';
@@ -42,8 +43,14 @@ function ShellRoot() {
       <main className="app-content">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/oil-analysis" element={<EmbeddedOilAnalysis />} />
+          <Route path="/my-work" element={<ComingSoon title="My Work" />} />
+          <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
           <Route path="/vibration-analysis" element={<EmbeddedVibrationAnalysis />} />
+          <Route path="/oil-analysis" element={<EmbeddedOilAnalysis />} />
+          <Route path="/oil-analysis/routines" element={<ComingSoon title="Routines" />} />
+          <Route path="/oil-analysis/inventory" element={<ComingSoon title="Oil Inventory" />} />
+          <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
+          <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
           <Route path="/settings" element={<Settings />} />
           {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
           <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>

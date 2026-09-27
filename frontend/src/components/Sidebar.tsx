@@ -1,20 +1,62 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useEmbeddedNav } from '../embeddedNav';
 import { Icon, TablerIcon } from '../icons';
-import { NAV_ITEMS } from '../navigation';
+import { NAV_ITEMS, type SubTab } from '../navigation';
 import './Sidebar.css';
 
-const TOP_ICON: Record<string, string> = {
-  '/': 'dashboard',
-  '/vibration-analysis': 'graphs',
-  '/oil-analysis': 'droplet',
-};
+function SubTabIcon({ icon, size }: { icon: string; size: number }) {
+  return icon.startsWith('ti-') ? <TablerIcon className={icon} size={size} /> : <Icon name={icon} size={size} />;
+}
+
+// A "native" sub-tab (no `to`) is a page the embedded legacy app itself
+// renders — clicking it calls into that app's own navigate function via
+// navBridge (see embeddedNav.tsx), which only works while that app is
+// actually mounted (i.e. the current route is exactly baseRoute, the
+// module's own top-level route). If it isn't — e.g. a routed sub-tab like
+// Routines is showing instead — the bridge is gone, so this falls back to
+// a real navigation to baseRoute, mounting the embedded app fresh (at its
+// own default page) rather than silently doing nothing. A "routed" sub-tab
+// (has `to`) is just a real route in this app, unaffected by any of this.
+// See navigation.ts's file comment for why both kinds exist side by side.
+function SubTabItem({ tab, baseRoute }: { tab: SubTab; baseRoute: string }) {
+  const embeddedNav = useEmbeddedNav();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  if (tab.to) {
+    return (
+      <NavLink
+        className={({ isActive }) => (isActive ? 'sidebar-sublink sidebar-sublink--active' : 'sidebar-sublink')}
+        to={tab.to}
+      >
+        <span className="sidebar-link-icon">
+          <SubTabIcon icon={tab.icon} size={15} />
+        </span>
+        <span className="sidebar-link-label">{tab.label}</span>
+      </NavLink>
+    );
+  }
+
+  const embeddedAppMounted = location.pathname === baseRoute;
+
+  return (
+    <button
+      type="button"
+      className={tab.id === embeddedNav.activePage ? 'sidebar-sublink sidebar-sublink--active' : 'sidebar-sublink'}
+      onClick={() => (embeddedAppMounted ? embeddedNav.navigateTo(tab.id) : navigate(baseRoute))}
+    >
+      <span className="sidebar-link-icon">
+        <SubTabIcon icon={tab.icon} size={15} />
+      </span>
+      <span className="sidebar-link-label">{tab.label}</span>
+    </button>
+  );
+}
 
 export default function Sidebar() {
   const { claims, logout } = useAuth();
   const location = useLocation();
-  const embeddedNav = useEmbeddedNav();
 
   return (
     <div className="sidebar-rail">
@@ -30,9 +72,8 @@ export default function Sidebar() {
 
         <ul className="sidebar-nav">
           {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
-            const showSubTabs = isActive && embeddedNav.moduleId && embeddedNav.pages.length > 0;
+            const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
+            const showSubTabs = isActive && !!item.subTabs?.length;
 
             return (
               <li key={item.to}>
@@ -44,33 +85,16 @@ export default function Sidebar() {
                   end={item.to === '/'}
                 >
                   <span className="sidebar-link-icon">
-                    <Icon name={TOP_ICON[item.to] ?? 'dashboard'} size={18} />
+                    <Icon name={item.icon} size={18} />
                   </span>
                   <span className="sidebar-link-label">{item.label}</span>
                 </NavLink>
 
                 {showSubTabs && (
                   <ul className="sidebar-subnav">
-                    {embeddedNav.pages.map((page) => (
-                      <li key={page.id}>
-                        <button
-                          type="button"
-                          className={
-                            page.id === embeddedNav.activePage
-                              ? 'sidebar-sublink sidebar-sublink--active'
-                              : 'sidebar-sublink'
-                          }
-                          onClick={() => embeddedNav.navigateTo(page.id)}
-                        >
-                          <span className="sidebar-link-icon">
-                            {embeddedNav.moduleId === 'oil-analysis' ? (
-                              <TablerIcon className={page.icon} size={15} />
-                            ) : (
-                              <Icon name={page.icon} size={15} />
-                            )}
-                          </span>
-                          <span className="sidebar-link-label">{page.label}</span>
-                        </button>
+                    {item.subTabs!.map((tab) => (
+                      <li key={tab.id}>
+                        <SubTabItem tab={tab} baseRoute={item.to} />
                       </li>
                     ))}
                   </ul>
@@ -90,7 +114,7 @@ export default function Sidebar() {
             <span className="sidebar-link-icon">
               <Icon name="settings" size={18} />
             </span>
-            <span className="sidebar-link-label">Settings</span>
+            <span className="sidebar-link-label">General Settings</span>
           </NavLink>
           {claims && <span className="sidebar-user">{claims.email}</span>}
           <button className="sidebar-logout" onClick={logout} type="button" title="Sign out">

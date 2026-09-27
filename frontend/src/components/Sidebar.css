@@ -146,6 +146,10 @@
   display: block;
 }
 
+/* Shared by both kinds of sub-tab (see Sidebar.tsx's SubTabItem) — a
+   "native" one renders as a <button>, a "routed" one as a NavLink <a>, so
+   this resets anchor-specific defaults (text-decoration) alongside the
+   button ones (background/border/font) that were already here. */
 .sidebar-sublink {
   display: flex;
   align-items: center;
@@ -156,6 +160,7 @@
   background: transparent;
   border: none;
   text-align: left;
+  text-decoration: none;
   font-size: 0.78rem;
   cursor: pointer;
   font-family: inherit;

@@ -1,23 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
+import { OIL_SUB_TABS } from '../navigation';
 
 type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge }) => () => void;
 
-// Matches apps/oil-analysis/src/components/Sidebar.jsx's own NAV array
-// exactly (id/label/Tabler icon class) — this is what renders as the
-// unified sidebar's sub-tabs under "Oil Analysis" while this page is open.
-const OIL_ANALYSIS_PAGES = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'ti-layout-dashboard' },
-  { id: 'equipment', label: 'Equipment', icon: 'ti-engine' },
-  { id: 'oilreport', label: 'Oil Analysis Report', icon: 'ti-file-analytics' },
-  { id: 'upload', label: 'Add Sample', icon: 'ti-plus' },
-  { id: 'actions', label: 'Action Tracker', icon: 'ti-checklist' },
-  { id: 'oilchange', label: 'Oil Change Log', icon: 'ti-oil' },
-  { id: 'reports', label: 'Reports', icon: 'ti-report' },
-  { id: 'tracker', label: 'Sample Tracker', icon: 'ti-timeline' },
-  { id: 'howto', label: 'How to Use', icon: 'ti-help-circle' },
-  { id: 'settings', label: 'Settings', icon: 'ti-settings' },
-];
+// The native subset of navigation.ts's OIL_SUB_TABS (excludes "Routines"/
+// "Oil Inventory", which route elsewhere instead of being pages this
+// embedded app itself knows how to show) — registered with the shared
+// sidebar (see embeddedNav.tsx) so navigating between this app's own
+// sections happens via the unified sidebar instead of its own (hidden)
+// internal one.
+const OIL_ANALYSIS_PAGES = OIL_SUB_TABS.filter((t) => !t.to);
 
 // Loads the as-is copied app's own pre-built embed bundle (its own React
 // 18 + every dependency bundled in — see

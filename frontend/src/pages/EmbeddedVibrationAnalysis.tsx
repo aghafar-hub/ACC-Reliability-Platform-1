@@ -1,24 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
+import { VIBRATION_SUB_TABS } from '../navigation';
 
 type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge }) => () => void;
 
-// Matches apps/vibration-analysis/src/navigation.js's own NAV_ITEMS exactly
-// (key/label/icon name — icon names match keys in frontend/src/icons.tsx,
-// copied from that app's own components/icons.jsx) — this is what renders
-// as the unified sidebar's sub-tabs under "Vibration Analysis" while this
-// page is open.
-const VIBRATION_ANALYSIS_PAGES = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { id: 'newreading', label: 'New Reading', icon: 'plus' },
-  { id: 'equipreg', label: 'Equipment Register', icon: 'registry' },
-  { id: 'registry', label: 'Equipment Readings', icon: 'graphs' },
-  { id: 'graphs', label: 'Graphs Dashboard', icon: 'graphs' },
-  { id: 'compliance', label: 'Compliance Tracker', icon: 'compliance' },
-  { id: 'actions', label: 'Action Tracker', icon: 'action' },
-  { id: 'limits', label: 'Limits Settings', icon: 'limits' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
-];
+// navigation.ts's VIBRATION_SUB_TABS — every entry is "native" (a page this
+// embedded app itself knows how to show) today, registered with the shared
+// sidebar (see embeddedNav.tsx) so navigating between this app's own
+// sections happens via the unified sidebar instead of its own (hidden)
+// internal one.
+const VIBRATION_ANALYSIS_PAGES = VIBRATION_SUB_TABS.filter((t) => !t.to);
 
 // See EmbeddedOilAnalysis.tsx for the full rationale — same pattern,
 // loading apps/vibration-analysis's own pre-built embed bundle (see
