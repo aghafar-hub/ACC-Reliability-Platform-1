@@ -155,6 +155,28 @@ LP_IDs. Full row-by-row results sent to the user as a CSV. Summary:
   separately flagged some of these same compressor codes as missing from
   the master DB — real data gap, not a matching error.
 
+## Round 4 — resolution mechanism for ambiguous matches
+
+- **Patterns A/B/C/D all resolved the same way**, per user's explicit
+  instruction: built a review workbook (`oil-analysis-ambiguous-review.xlsx`,
+  sent to user) — Tab 1 lists every ambiguous old code with its candidate
+  LP_IDs as grouped/color-banded rows and a tickbox column; user ticks
+  the one correct LP_ID per old code (worked example given: for
+  `531.BE220`-style bucket elevators, the user said the oil-analysis
+  history is related to the main Gear Box, so they'll tick `GB` and
+  leave the rest unticked).
+- **6 missing compressors: confirmed — add them to the register now.**
+  Caught and corrected a real mistake before sending: since these came
+  from the OLD oil-analysis Equipment Registry (which only ever lists
+  analysis-required equipment), they must be `Oil_Analysis_Required =
+  Yes` with `Oil_Analysis_Interval = "If needed"` (pulled from that old
+  sheet's own "Interval" column) — not change-only. Tab 2 of the same
+  workbook proposes one placeholder LP per compressor (real data
+  pre-filled: lubricant type, area, contractor from the old sheet), for
+  the user to confirm or correct the point-level breakdown.
+- **Waiting on:** the user filling in and returning the review workbook
+  before any of this gets applied to a real database structure.
+
 ## Open items (to ask about next, before any implementation)
 
 - The 153-vs-151 discrepancy — resolve by actually running the matching
