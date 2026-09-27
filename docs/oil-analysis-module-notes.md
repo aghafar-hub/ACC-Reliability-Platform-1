@@ -115,14 +115,18 @@ have changed, or codes don't align 1:1. Needs the matching exercise
   and `apps/oil-analysis` copies** — not built as separate fresh modules
   from scratch. These copies are the real, permanent modules going
   forward.
-- **Universal Oil Change Log: user asked for more explanation before
-  deciding — not yet confirmed.** See clarification below.
+- **Universal Oil Change Log: confirmed.** One log/table covers all 935
+  LPs. Concrete example used to confirm: equipment `123.BC100` has
+  `LP-123.BC100-GB` (Yes, 6-month sampling, change date driven by
+  analysis) and `LP-123.BC100-HC` (No, flat 2-year interval) — both
+  appear as rows in the same log, each computing its own due-date
+  differently, so anyone looking at one equipment sees everything due on
+  it in one place. Oil analysis itself (sampling/lab reports) stays a
+  separate workflow layered only on the analysis-required rows, but
+  feeds its result into that row's shared-log due-date.
 
 ## Open items (to ask about next, before any implementation)
 
-- **Universal Oil Change Log design** — still open, needs a clearer
-  explanation with a concrete example before the user can decide (see
-  next message in the conversation).
 - The 153-vs-151 discrepancy — resolve by actually running the matching
   exercise and showing the user what doesn't line up.
 - Whether "a good sample result can defer/extend the change date" has a
