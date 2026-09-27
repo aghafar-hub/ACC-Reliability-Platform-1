@@ -98,8 +98,8 @@ per the Part-1/Part-2 split just confirmed)
 | Area | e.g. RM#1, Kiln#1 |
 | Manufacturer / Model | |
 | Operating_Temperature_C | |
-| Lubricant_Type / Lubricant_Brand | |
-| Lubricant_Quantity_L | pre-fills the change-event Quantity field |
+| Lubricant_Type / Lubricant_Brand | shown to the Technician during routine execution so they use the right oil |
+| Lubricant_Quantity_L | pre-fills the routine item's Quantity field |
 | Oil_Analysis_Required | Yes/No |
 | Oil_Analysis_Interval | e.g. "6 Months", only meaningful if required=Yes |
 | Oil_Change_Interval | e.g. "2 Y", "As needed" — only meaningful if required=No |
@@ -107,12 +107,65 @@ per the Part-1/Part-2 split just confirmed)
 | LP_Status | Active/Inactive |
 | Created_Date / Modified_Date | |
 
-**OA_CHANGE_LOG** (new — the universal, event-history redesign, replacing
-the old Last-Change/Next-Due-only sheet)
+### Routines — the real workflow entry point (round 11)
+
+Everything that happens to a lubrication point — a change/top-up **or**
+an oil sample — goes through a **Routine**, not a direct write. Same
+approval shape for both, confirmed by the user:
+
+```
+Contractor Engineer creates Routine, assigns Technician
+        ↓
+Technician notified → executes each item:
+  - sees the required oil type for that LP
+  - logs what was actually done (date, quantity if changed / sample taken)
+  - OR marks an item "not implemented" + reason
+        ↓
+Technician submits the completed Routine
+        ↓
+Contractor Engineer notified → reviews → Approves
+        ↓ (approval is what actually writes OA_CHANGE_LOG / OA_SAMPLES)
+ACC Engineer notified → may add a comment (never blocks, never required)
+```
+
+**OA_ROUTINES** — the work order itself
+| Column | Notes |
+|---|---|
+| RoutineId | |
+| CreatedBy | Contractor Engineer UserId |
+| AssignedTo | Technician UserId |
+| Contractor | |
+| CreatedDate | |
+| Status | Assigned → InProgress → SubmittedForReview → Approved |
+| SubmittedDate | when the Technician finished/submitted |
+| ApprovedBy / ApprovedDate | Contractor Engineer — the real approval gate |
+| ACC_Comment / ACC_CommentBy / ACC_CommentDate | optional, never blocking |
+
+**OA_ROUTINE_ITEMS** — one row per LP point in that routine
+| Column | Notes |
+|---|---|
+| RoutineItemId | |
+| RoutineId | FK → OA_ROUTINES |
+| LP_ID | FK → OA_LP_REGISTER |
+| ItemType | Change / Top-up / Sample |
+| RequiredOilType | denormalized from OA_LP_REGISTER at assignment time, shown to the Technician |
+| Implemented | Yes/No |
+| NotImplementedReason | required if Implemented = No |
+| ActualDate | |
+| ActualQuantity | Change/Top-up items only |
+| SampleTaken | Sample items only — records that the physical sample was collected; the lab chemistry result (see OA_SAMPLES) can arrive later, separately |
+| CreatedDate / ModifiedDate | |
+
+**OA_CHANGE_LOG** (unchanged shape from the earlier draft, but now
+**populated only when a Routine is approved** — a Change/Top-up
+`OA_ROUTINE_ITEM` becomes a real `OA_CHANGE_LOG` row at the moment
+`OA_ROUTINES.Status` becomes Approved, not when the Technician submits
+it)
 | Column | Notes |
 |---|---|
 | EventId | |
 | LP_ID | FK → OA_LP_REGISTER — covers **all 935 points**, not just the 151 analysis-required |
+| RoutineItemId | FK → OA_ROUTINE_ITEMS — traceability back to who did the work and who approved it |
 | EventType | Change / Top-up |
 | EventDate | |
 | QuantityUsed | pre-filled from OA_LP_REGISTER.Lubricant_Quantity_L, editable |
@@ -131,20 +184,27 @@ overdue on the log):
 - Analysis-required points (Yes), capped at `ChangeDueCapYears` (2
   years): as the cap approaches, if no OA_SAMPLES row exists for this
   LP_ID within `SamplingCheckWindowMonths` (6 months) of the cap date, an
-  analysis request is triggered (see OA_SAMPLES below). A normal result
-  extends `NextDueDate` by a fresh `ChangeDueCapYears`; an abnormal
-  result's recommended action drives what happens next (§ below).
+  analysis request is triggered — i.e. a sampling Routine gets created
+  for that LP. A normal result extends `NextDueDate` by a fresh
+  `ChangeDueCapYears`; an abnormal result's recommended action drives
+  what happens next (§ below).
 
 **OA_SAMPLES** (oil analysis samples — only for LP_IDs where
 Oil_Analysis_Required = Yes; fields carried over from the old
 `Data_Entry` sheet's real chemistry columns, now keyed on LP_ID instead
-of the old suffixed equipment code)
+of the old suffixed equipment code). **Created when a Sample
+`OA_ROUTINE_ITEM` is approved** (SampleId, LP_ID, SampleDate, DoneBy,
+RoutineItemId populated at that point); the chemistry/rating columns
+below are filled in **separately, whenever the lab report actually
+arrives** (manual entry or the old app's PDF-import pattern) — sample
+collection and lab results are two different moments in time.
 | Column | Notes |
 |---|---|
 | SampleId | |
 | LP_ID | FK → OA_LP_REGISTER |
+| RoutineItemId | FK → OA_ROUTINE_ITEMS — the routine that collected this sample |
 | SampleDate | |
-| ReportStatus | Alert / Caution / Normal / Missing |
+| ReportStatus | Alert / Caution / Normal / Missing (blank until the lab report arrives) |
 | ContaminationRating / EquipmentRating / LubricantRating | |
 | ParticleCount_4um / _6um / _14um | |
 | PQIndex | |
@@ -185,9 +245,16 @@ of the old suffixed equipment code)
    role gets write access to `OA_LP_REGISTER`.
 2. ~~`ROLE_PERMISSION` starting values~~ **AGREED** — simplified v1 shape
    (role + module + action) confirmed as the starting structure.
-3. **Approval workflow for Oil Analysis — still open, needs more detail
-   before deciding (see module notes for the explanation with
-   examples).**
+3. ~~Approval workflow~~ **RESOLVED — Routine-based, round 11 above**:
+   Contractor Engineer creates & approves, Technician executes, ACC
+   comments only (never blocks). Applies identically to change/top-up
+   and sample-taking.
 4. ~~332.FN400 and the 6 compressors~~ **CONFIRMED** — both get added to
    `OA_LP_REGISTER` as part of the initial import.
+5. **New, from the Routine design:** who can create a Routine — is it
+   Contractor Engineer only, or can a Manager also create one? Not yet
+   asked.
+6. **New:** can a Technician be assigned more than one open Routine at a
+   time, or does a new one wait until the current one is submitted? Not
+   yet asked.
 

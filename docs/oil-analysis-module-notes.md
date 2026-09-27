@@ -371,10 +371,34 @@ Confirmed both the 6 compressors and `332.FN400` already exist in
 `EQUIPMENT_MASTER`, but their LP entries aren't in `LP_POINT_MASTER` yet
 — consistent with "agreed, not yet applied."
 
+## Round 11 — approval workflow: Routine-based, resolved
+
+User confirmed the real workflow, applying identically to both
+change/top-up and sample-taking:
+
+`Contractor Engineer creates a Routine, assigns a Technician → Technician
+notified, executes each point (sees required oil type, logs what was
+done, or marks "not implemented" + reason) → submits → Contractor
+Engineer reviews and approves (this is what actually writes the data) →
+ACC Engineer notified, may comment, never blocks/required.`
+
+Schema updated in `docs/oil-analysis-database-schema.md` (round 11
+section): added `OA_ROUTINES` (the work order) and `OA_ROUTINE_ITEMS`
+(one row per LP point in it). `OA_CHANGE_LOG` rows now only get created
+when a Change/Top-up routine item is **approved**, not when submitted.
+`OA_SAMPLES` rows get created (SampleId/LP_ID/SampleDate) when a Sample
+routine item is approved, with the actual lab chemistry/rating columns
+filled in separately whenever the lab report arrives later — sample
+collection and lab results are two different moments.
+
+Two new questions this raised, not yet asked:
+1. Who can create a Routine — Contractor Engineer only, or also Manager?
+2. Can a Technician hold more than one open Routine at once, or does a
+   new one wait until the current one is submitted?
+
 ## Open items (to ask about next, before any implementation)
 
-- **Approval workflow for Oil Analysis — explaining with concrete
-  options now, not yet decided.**
+- The two new Routine questions above.
 - Confirm the shared-secret token verification mechanism (still needed
   even with single-app integration — Platform Core issues the session,
   and each module's backend, though bundled together in the frontend,
