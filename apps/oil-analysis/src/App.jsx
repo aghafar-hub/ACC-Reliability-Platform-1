@@ -23,16 +23,27 @@ import * as api from "./api";
 
 let toastId = 0;
 
-export default function App() {
+// navBridge (only passed when mounted embedded — see src/embed.jsx) is a
+// plain JS object, not React state: the embedding shell runs its own
+// separate React root (React 19; this app is React 18), so there's no
+// single component tree to pass state through in the usual way. Instead:
+// this app writes navBridge.navigate = <its own internal navigate fn> so
+// the outer shell can drive it, and calls navBridge.onNavigate(page) so
+// the outer shell's sidebar can mirror the active page. Whenever navBridge
+// is present at all, this app skips rendering its own Sidebar, since the
+// outer shell renders a unified one instead. Standalone builds never pass
+// navBridge, so none of this changes anything about how this app runs on
+// its own.
+export default function App({ navBridge } = {}) {
   const [config, setConfig] = useState(() => loadConfig());
   return (
     <ThemeProvider themeName={config.themeName || DEFAULT_THEME}>
-      <AppShell config={config} setConfig={setConfig} />
+      <AppShell config={config} setConfig={setConfig} navBridge={navBridge} />
     </ThemeProvider>
   );
 }
 
-function AppShell({ config, setConfig }) {
+function AppShell({ config, setConfig, navBridge }) {
   const { T } = useTheme();
   const [page, setPage] = useState("dashboard");
   const [selectedEquipment, setSelectedEquipment] = useState(null);
@@ -373,6 +384,12 @@ function AppShell({ config, setConfig }) {
     setMobileNavOpen(false);
   }
 
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.navigate = navigate;
+    navBridge.onNavigate?.(page);
+  });
+
   const cacheInfo = readCache("samples");
 
   return (
@@ -438,32 +455,36 @@ function AppShell({ config, setConfig }) {
           .topbar-actions .ti + span { display: none; }
         }
       `}</style>
-      <div
-        className={`app-sidebar${mobileNavOpen ? " open" : ""}`}
-        style={{
-          width: 220,
-          background: T.sidebarBg,
-          borderRight: `1px solid ${T.border}`,
-          display: "flex",
-          flexDirection: "column",
-          flexShrink: 0,
-        }}
-      >
-        <Sidebar
-          page={page}
-          onNavigate={navigate}
-          alertCount={alertCount}
-          openActionsCount={openActionsCount}
-          syncState={syncState}
-          syncMsg={syncMsg}
-          logoUrl={config.logoUrl}
-          hasCache={config.enableCache !== false && !!cacheInfo}
-          cacheAgeMinutes={cacheInfo?.ageMinutes || 0}
-          onFullSync={runSync}
-          onQuickSync={runSync}
-        />
-      </div>
-      <div className={`sidebar-backdrop${mobileNavOpen ? " open" : ""}`} onClick={() => setMobileNavOpen(false)} />
+      {!navBridge && (
+        <div
+          className={`app-sidebar${mobileNavOpen ? " open" : ""}`}
+          style={{
+            width: 220,
+            background: T.sidebarBg,
+            borderRight: `1px solid ${T.border}`,
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+          }}
+        >
+          <Sidebar
+            page={page}
+            onNavigate={navigate}
+            alertCount={alertCount}
+            openActionsCount={openActionsCount}
+            syncState={syncState}
+            syncMsg={syncMsg}
+            logoUrl={config.logoUrl}
+            hasCache={config.enableCache !== false && !!cacheInfo}
+            cacheAgeMinutes={cacheInfo?.ageMinutes || 0}
+            onFullSync={runSync}
+            onQuickSync={runSync}
+          />
+        </div>
+      )}
+      {!navBridge && (
+        <div className={`sidebar-backdrop${mobileNavOpen ? " open" : ""}`} onClick={() => setMobileNavOpen(false)} />
+      )}
       <div className="app-main" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         <TopBar
           page={page}

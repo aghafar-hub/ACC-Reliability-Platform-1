@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import { AuthProvider } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
+import { EmbeddedNavProvider } from './embeddedNav';
 import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
@@ -16,24 +17,26 @@ import './App.css';
 
 function AppShell() {
   return (
-    <div className="app-shell">
-      <Sidebar />
-      <main className="app-content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/oil-analysis" element={<EmbeddedOilAnalysis />} />
-          <Route path="/vibration-analysis" element={<EmbeddedVibrationAnalysis />} />
-          {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
-          <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
-            <Route index element={<Navigate to="routines" replace />} />
-            <Route path="lp-register" element={<LpRegisterPage />} />
-            <Route path="routines" element={<RoutinesListPage />} />
-            <Route path="routines/new" element={<NewRoutinePage />} />
-            <Route path="routines/:routineId" element={<RoutineDetailPage />} />
-          </Route>
-        </Routes>
-      </main>
-    </div>
+    <EmbeddedNavProvider>
+      <div className="app-shell">
+        <Sidebar />
+        <main className="app-content">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/oil-analysis" element={<EmbeddedOilAnalysis />} />
+            <Route path="/vibration-analysis" element={<EmbeddedVibrationAnalysis />} />
+            {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
+            <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
+              <Route index element={<Navigate to="routines" replace />} />
+              <Route path="lp-register" element={<LpRegisterPage />} />
+              <Route path="routines" element={<RoutinesListPage />} />
+              <Route path="routines/new" element={<NewRoutinePage />} />
+              <Route path="routines/:routineId" element={<RoutineDetailPage />} />
+            </Route>
+          </Routes>
+        </main>
+      </div>
+    </EmbeddedNavProvider>
   );
 }
 

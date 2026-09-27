@@ -8,12 +8,17 @@ import ErrorBoundary from "./components/ErrorBoundary";
 // (main.jsx, untouched, still renders this exact tree for a standalone
 // build/deploy). App itself already wraps AppShell in its own ThemeProvider,
 // so this mirrors main.jsx exactly — no extra wrapping needed here.
-export function mountOilAnalysis(container) {
+//
+// navBridge (optional): see the comment above App() in src/App.jsx for the
+// full rationale — a plain object, not React state, used to drive/observe
+// this app's page navigation from the embedding shell across the React
+// 18/19 root boundary.
+export function mountOilAnalysis(container, { navBridge } = {}) {
   const root = ReactDOM.createRoot(container);
   root.render(
     <React.StrictMode>
       <ErrorBoundary>
-        <App />
+        <App navBridge={navBridge} />
       </ErrorBoundary>
     </React.StrictMode>,
   );

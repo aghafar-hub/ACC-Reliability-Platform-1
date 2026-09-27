@@ -38,7 +38,18 @@ const SPM_SHEET = "📥 SPM DATA"; // original `bi`
 // Top-level app shell: owns every page's data (loaded once via readAll() and
 // kept in memory — there's no per-page fetching), routing between the 9
 // pages, and every write mutation. Ported from the original bundle's `Um`.
-export default function App() {
+//
+// navBridge (only passed when mounted embedded — see src/embed.jsx) is a
+// plain JS object, not React state: the embedding shell runs its own
+// separate React root (React 19; this app is React 18), so there's no
+// single component tree to pass state through in the usual way. Instead:
+// this app writes navBridge.navigate = setPage so the outer shell can drive
+// it, and calls navBridge.onNavigate(page) so the outer shell's sidebar can
+// mirror the active page. Whenever navBridge is present at all, this app
+// skips rendering its own Sidebar, since the outer shell renders a unified
+// one instead. Standalone builds never pass navBridge, so none of this
+// changes anything about how this app runs on its own.
+export default function App({ navBridge } = {}) {
   const { themeName } = useTheme();
   const [page, setPage] = useState("dashboard");
   const [graphAsset, setGraphAsset] = useState("");
@@ -88,6 +99,12 @@ export default function App() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount, mirroring the original's mount-only effect
   }, []);
+
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.navigate = setPage;
+    navBridge.onNavigate?.(page);
+  });
 
   const setThreshold = useCallback((equipmentId, value) => {
     setThresholdsMap((prev) => {
@@ -417,18 +434,22 @@ export default function App() {
 
   return (
     <div style={{ minHeight: "100%" }}>
-      <Sidebar
-        page={page}
-        setPage={setPage}
-        syncState={syncState}
-        onSync={syncNow}
-        actionCounts={actionCounts}
-        mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
-        logoUrl={logoUrl}
-      />
-      <div className={`sidebar-overlay${mobileOpen ? " show" : ""}`} onClick={() => setMobileOpen(false)} />
-      <div className="app-main" style={{ marginLeft: 232 }}>
+      {!navBridge && (
+        <Sidebar
+          page={page}
+          setPage={setPage}
+          syncState={syncState}
+          onSync={syncNow}
+          actionCounts={actionCounts}
+          mobileOpen={mobileOpen}
+          setMobileOpen={setMobileOpen}
+          logoUrl={logoUrl}
+        />
+      )}
+      {!navBridge && (
+        <div className={`sidebar-overlay${mobileOpen ? " show" : ""}`} onClick={() => setMobileOpen(false)} />
+      )}
+      <div className="app-main" style={{ marginLeft: navBridge ? 0 : 232 }}>
         <TopBar
           title={PAGE_TITLES[page]}
           sheetUrl={sheetUrl}

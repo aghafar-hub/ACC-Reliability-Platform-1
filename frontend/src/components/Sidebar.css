@@ -1,33 +1,82 @@
-.sidebar {
-  width: 220px;
+/* Reserves rail width in the flex layout; the actual visible panel is
+   absolutely positioned inside it and grows on hover without pushing
+   the main content (no reflow/jank). */
+.sidebar-rail {
+  width: 68px;
   flex-shrink: 0;
-  background: #0f172a;
-  color: #e2e8f0;
-  height: 100vh;
-  padding: 1rem 0;
-  box-sizing: border-box;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  z-index: 100;
 }
 
-.sidebar-brand {
-  font-weight: 600;
-  font-size: 1.05rem;
-  padding: 0 1.25rem 1rem;
+.sidebar-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 68px;
+  overflow: hidden;
+  background: #0f172a;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.16s ease;
+  white-space: nowrap;
+}
+
+.sidebar-rail:hover .sidebar-panel {
+  width: 248px;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+.sidebar-logo {
+  height: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
   border-bottom: 1px solid #1e293b;
-  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+/* No background behind either mark — both images are transparent PNGs,
+   placed directly on the sidebar's own dark background. */
+.sidebar-logo-mark {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+}
+
+.sidebar-logo-full {
+  height: 30px;
+  width: auto;
+  object-fit: contain;
+  display: none;
+  position: absolute;
+  left: 14px;
+}
+
+.sidebar-rail:hover .sidebar-logo-mark {
+  display: none;
+}
+
+.sidebar-rail:hover .sidebar-logo-full {
+  display: block;
 }
 
 .sidebar-nav {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 8px 0;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .sidebar-link {
-  display: block;
-  padding: 0.6rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0.65rem 1.25rem;
   color: #cbd5e1;
   text-decoration: none;
   font-size: 0.95rem;
@@ -43,8 +92,61 @@
   color: #fff;
 }
 
+.sidebar-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+}
+
+.sidebar-link-label {
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.sidebar-rail:hover .sidebar-link-label {
+  opacity: 1;
+}
+
+.sidebar-subnav {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 6px;
+  display: none;
+}
+
+.sidebar-rail:hover .sidebar-subnav {
+  display: block;
+}
+
+.sidebar-sublink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0.45rem 1.25rem 0.45rem 2.5rem;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sidebar-sublink:hover {
+  background: #1e293b;
+  color: #fff;
+}
+
+.sidebar-sublink--active {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
 .sidebar-footer {
-  margin-top: auto;
+  flex-shrink: 0;
   padding: 1rem 1.25rem;
   border-top: 1px solid #1e293b;
   display: flex;
@@ -55,17 +157,36 @@
 .sidebar-user {
   font-size: 0.78rem;
   color: #94a3b8;
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  height: 0;
+  transition: opacity 0.1s ease;
+}
+
+.sidebar-rail:hover .sidebar-user {
+  opacity: 1;
+  height: auto;
 }
 
 .sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: transparent;
   border: 1px solid #334155;
   color: #cbd5e1;
   border-radius: 6px;
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem 0.6rem;
   cursor: pointer;
   font-size: 0.85rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar-logout svg {
+  flex-shrink: 0;
 }
 
 .sidebar-logout:hover {
