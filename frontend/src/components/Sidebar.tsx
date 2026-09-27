@@ -18,10 +18,14 @@ export default function Sidebar() {
 
   return (
     <div className="sidebar-rail">
-      <nav className="sidebar-panel" aria-label="Primary">
+      <nav className="sidebar-nav-root" aria-label="Primary">
         <div className="sidebar-logo">
-          <img src="/brand/acc-leaf-mark.png" alt="" className="sidebar-logo-mark" />
-          <img src="/brand/acc-logo-full.png" alt="ACC Reliability" className="sidebar-logo-full" />
+          <img src={`${import.meta.env.BASE_URL}brand/acc-leaf-mark.png`} alt="" className="sidebar-logo-mark" />
+          <img
+            src={`${import.meta.env.BASE_URL}brand/acc-logo-full.png`}
+            alt="ACC Reliability"
+            className="sidebar-logo-full"
+          />
         </div>
 
         <ul className="sidebar-nav">

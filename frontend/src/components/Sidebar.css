@@ -1,31 +1,29 @@
-/* Reserves rail width in the flex layout; the actual visible panel is
-   absolutely positioned inside it and grows on hover without pushing
-   the main content (no reflow/jank). */
+/* Pushes the main content over as it expands (rather than overlaying on
+   top of it) — real content must never end up hidden behind the sidebar,
+   even during the hover-expand transition. */
 .sidebar-rail {
   width: 68px;
   flex-shrink: 0;
-  position: relative;
-  z-index: 100;
-}
-
-.sidebar-panel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 68px;
   overflow: hidden;
+  white-space: nowrap;
   background: #0f172a;
   color: #e2e8f0;
   display: flex;
   flex-direction: column;
   transition: width 0.16s ease;
-  white-space: nowrap;
+  z-index: 100;
 }
 
-.sidebar-rail:hover .sidebar-panel {
+.sidebar-rail:hover {
   width: 248px;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+.sidebar-nav-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 248px; /* content sizes for the expanded width; the collapsed rail clips it via overflow:hidden above */
 }
 
 .sidebar-logo {
