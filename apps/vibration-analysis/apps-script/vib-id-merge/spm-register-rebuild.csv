@@ -1,0 +1,159 @@
+Equipment ID,Equipment Name,Line,Points,SPM Type,SPM Normal,SPM Caution,SPM Alarm
+111.CP400,Crusher Compressor,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+111.HC100,Limestone Crusher,Line1,"Motor DE (SPM), Motor NDE (SPM), Rotor inboard (SPM), Rotor Outboard (SPM), Shaft 1 inboard (SPM), Shaft 1 outboard (SPM), Shaft 2 inboard (SPM), Shaft 2 outboard (SPM)",SPM,20,35,50
+213.HC100,Hammer crusher,CM2,"Crusher DE (SPM), Crusher NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+321.FN125,Sealing Air Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+321.FN400,Raw Mill Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+321.MD140,Raw Mill Drive,Line1,"GB HSS (SPM), Motor DE (SPM), Motor NDE (100 Orders, 6400 Lines)",SPM,20,35,50
+321.MD152,Raw Mill Separator Main Drive,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 inboard NDE (SPM)",SPM,20,35,50
+322.FN125,Sealing Air Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+322.FN400,Raw Mill Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+322.MD140,Raw Mill Drive,Line2,"Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+331.CP280,GCT Compressor,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+331.CP281,GCT Compressor,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+331.CP282,GCT Compressor,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+331.FN110,ID FAN,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+331.FN400,Ep Filter Fan,Line1,"Fan inboard (SPM), Fan Outboard (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+331.WI210,Condition Tower m01,Line1,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+331.WI211,Condition Tower m02,Line1,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+332.CP281,GCT Compressor,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+332.CP282,GCT Compressor,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+332.FN110,ID FAN,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (Spm), Motor NDE (SPM)",SPM,20,35,50
+332.FN400,Ep Filter Fan,Line2,"Fan inboard (SPM), Fan Outboard (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+332.WI210,Condition Tower m01,Line2,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+332.WI211,Condition Tower m02,Line2,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+341.BE040,Bucket elevator m01,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+341.BL300,CF Silo Blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+341.BL305,CF Silo Blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+341.BL310,CF Silo Blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+341.FN315,CF Silo Areation,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+341.FN316,CF Silo Areation standby,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+342.BE041,Bucket elevator m02,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+342.BE050,Bucket elevator m01,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+342.BE051,Bucket elevator m02,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+342.BL300,BL300,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+342.BL305,BL305,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+342.BL310,BL310,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+342.FN315,CF Silo Areation,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+351.BE340,Bucket elevator m01,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+351.BE341,Bucket elevator m02,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+351.BL110,Blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+352.BE340,Bucket elevator m01,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+352.BE341,Bucket elevator m02,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 outboard (SPM), Shaft 2 outboard (SPM), Shaft#3 inboard (SPM), Shaft#3 outboard (SPM)",SPM,20,35,50
+352.BL110,BL110,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+431.FN171,Kiln inlet sealing Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+431.FN176,Kiln outlet sealing Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+431.FN560,Primary Air Fan,Line1,"Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+431.MD140,Kiln Drive M01 Master RHS,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 outboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 outboard NDE (SPM)",SPM,20,35,50
+431.MD160,Kiln Drive M02 Slave LHS,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 outboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 outboard NDE (SPM)",SPM,20,35,50
+432.FN171,Kiln inlet sealing Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+432.FN176,Kiln outlet sealing Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+432.FN560,Primary Air Fan,Line2,"Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+432.MD140,Kiln Drive M01 Master RHS,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 outboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 outboard NDE (SPM)",SPM,20,35,50
+432.MD160,Kiln Drive M02 Slave LHS,Line2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 outboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 outboard NDE (SPM)",SPM,20,35,50
+441.CR400,Clinker Crusher,Line1,"Crusher DE (SPM), Crusher NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN300,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN305,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN310,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN315,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN325,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN335,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN340,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN345,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN350,Cooler Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+441.FN590,Excess Air Fan,Line1,"Fan inboard (SPM), Fan Outboard (SPM), Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard (SPM), Shaft 1 outboard (SPM), Shaft 2 inboard (SPM), Shaft 2 outboard (SPM)",SPM,20,35,50
+442.CR400,Clinker Crusher,Line2,"Crusher DE (SPM), Crusher NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN300,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN305,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN310,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN315,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN325,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN335,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN340,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN345,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN350,Cooler Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+442.FN590,Excess Air Fan,Line2,"Fan inboard (SPM), Fan Outboard (SPM), Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard (SPM), Shaft 1 outboard (SPM), Shaft 2 inboard (SPM), Shaft 2 outboard (SPM)",SPM,20,35,50
+451.FN010,Quenching Air Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+451.FN240,Bypass Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+451.WI111,Bypass Water Pump m02,Line1,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+451.WI210,Bypass Water Pump m01,Line1,"Motor Inboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+452.FN010,Quenching Air Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+452.FN240,Bypass Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+452.WI111,Bypass Water Pump m02,Line2,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+452.WI112,Bypass Water Pump m01,Line2,"Motor Inboard (SPM), Motor Outboard (SPM), Pump Inboard (SPM), Pump outboard (SPM)",SPM,20,35,50
+461.CP524,Coal Compressor CP524,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+461.CP526,Coal Compressor CP526,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+461.FN125,Coal Sealing Air Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+461.FN400,Mill Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+461.FN450,Booster Fan,Line1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+461.MD140,Coal Mill Drive,Line1,"Motor DE (SPM), Motor NDE (SPM), Pinion HSS (SPM), Ring Gear (SPM)",SPM,20,35,50
+461.MD152,Coal Separator Main Drive,Line1,"Motor DE (SPM), Motor NDE (SPM), Shaft#1 inboard (SPM), Shaft#1 outbord (SPM), Shaft#2 inboard (SPM), Shaft#2 outboard (SPM)",SPM,20,35,50
+461.PP513,Fuller Pump Standby,Line1,"Motor DE (100 Orders, 12800 Lines), Motor NDE (100 Orders, 6400 Lines), Pump inboard DE (SPM), Pump Outboard NDE (SPM)",SPM,20,35,50
+461.PP515,Fuller Pump,Line1,"Motor DE (SPM), Motor NDE (SPM), Pump inboard DE (SPM), Pump Outboard NDE (SPM)",SPM,20,35,50
+462.CP525,Coal Compressor CP 525,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+462.CP530,Coal Compressor CP 530,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+462.FN125,Coal Sealing Air Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+462.FN400,Mill Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+462.FN450,Booster Fan,Line2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+462.MD140,Coal Mill Drive,Line2,"Motor DE (SPM), Motor NDE (SPM), Pinion HSS (SPM), Ring Gear (SPM)",SPM,20,35,50
+462.PP515,Fuller Pump,Line2,"Motor DE (SPM), Motor NDE (SPM), Pump inboard DE (SPM), Pump Outboard NDE (SPM)",SPM,20,35,50
+462.PP545,Fuller Pump stand by,Line2,"Motor DE (SPM), Motor NDE (SPM), Pump inboard DE (SPM), Pump Outboard NDE (SPM)",SPM,20,35,50
+465.BL580,Blower / rotary blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+465.BL585,Bin / hopper,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+465.BL630,Blower / rotary blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+465.BL635,Blower / rotary blower,Line1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+466.BL580,Coal 2 BL580,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+466.BL585,Coal 2 BL585,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+466.BL630,Coal 2 BL630,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+466.BL635,Coal 2 BL635,Line2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+531.BE220,Cement Mill \#1 Bucket elevator,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+531.FN380,Mil Fan 1,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+531.FN530,Separator Fan 1,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+531.MD140,Cement Mill 1,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 inboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 NDE (SPM)",SPM,20,35,50
+531.MD302,Separator Main Drive 1,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 inboard NDE (SPM)",SPM,20,35,50
+532.BE220,Cement Mill \#2 Bucket elevator,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+532.FN380,Mil Fan 2,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+532.FN530,Separator Fan 2,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+532.MD140,Cement Mill 2,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 outboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 outboard NDE (SPM)",SPM,20,35,50
+532.MD302,Separator Main Drive 2,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 inboard NDE (SPM)",SPM,20,35,50
+533.BE220,Cement Mill \#3 Bucket elevator,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+533.FN350,Mill Fan 3,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+533.FN530,Separator Fan 3,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+533.MD140,Cement Mill 3,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 outboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 outboard NDE (SPM)",SPM,20,35,50
+533.MD301,Main drive,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM)",SPM,20,35,50
+534.BE220,Cement Mill \#4 Bucket elevator,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+534.FN350,Mill Fan 4,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+534.FN530,Separator Fan 4,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+534.MD140,Cement Mill 4,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 inboard NDE (SPM), Shaft 3 inboard DE (SPM), Shaft 3 inboard NDE (SPM), Shaft 4 inboard DE (SPM), Shaft 4 inboard NDE (SPM)",SPM,20,35,50
+534.MD301,Main drive,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft 1 inboard DE (SPM), Shaft 1 Outboard NDE (SPM), Shaft 2 inboard DE (SPM), Shaft 2 outboard NDE (SPM)",SPM,20,35,50
+611.BL300,611.BL.300,CM1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+612.BL300,612.BL.300,CM1,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+613.BL300,613.BL.300,CM2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+614.BL300,614.BL.300,CM2,"BL DE (SPM), BL NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+641.BE050,Packing BE \#1,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+641.FN952,Packing Machine 1,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+642.BE050,Packing BE \#2,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+642.FN952,Packing Machine 2,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+643.BE050,Packing BE \#3,CM1,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+643.FN952,Packing Machine 3,CM1,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+644.BE050,Packing BE \#4,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+644.FN952,Packing Machine 4,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+645.BE050,Packing BE \#5,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+645.FN952,Packing Machine 5,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+646.BE050,Packing BE \#6,CM2,"Motor DE (SPM), Motor NDE (SPM), Shaft #1 (SPM), Shaft #2 (SPM), Shaft #3 (SPM)",SPM,20,35,50
+646.FN952,Packing Machine 6,CM2,"Fan DE (SPM), Fan NDE (SPM), Motor DE (SPM), Motor NDE (SPM)",SPM,20,35,50
+741.CP110,CP110 Kiln,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+741.CP111,CP111 Kiln,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+741.CP112,CP112 Kiln,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+741.CP113,CP113 Kiln,Line1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+742.CP110,CP110 Cement,CM1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+742.CP111,CP111 Cement,CM1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+742.CP112,CP112 Cement,CM1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+742.CP113,CP113 Cement,CM1,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+743.CP110,CP110 Kiln,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+743.CP111,CP111 Kiln,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+743.CP112,CP112 Kiln,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+743.CP113,CP113 Kiln,Line2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+744.CP110,CP110 Cement,CM2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+744.CP111,CP111 Cement,CM2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50
+744.CP112,CP112 Cement,CM2,"Compressor DE (5), Compressor DE (7), Compressor NDE (1), Motor DE (A), Motor NDE (B)",SPM,20,35,50

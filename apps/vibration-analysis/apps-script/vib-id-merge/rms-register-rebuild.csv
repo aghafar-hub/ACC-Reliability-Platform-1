@@ -1,0 +1,166 @@
+Equipment ID,Equipment Name,Name Plate,Eq Type,Line,Points,RMS Good,RMS Acceptable,RMS Alarm
+111.CP400,Crusher Compressor,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+111.HC100,Limestone Crusher,,Crusher,Line1,"Motor DE, Motor NDE, Rotor inboard, Rotor Outboard, Shaft 1 inboard, Shaft 1 outboard, Shaft 2 inboard, Shaft 2 outboard",2.8,7.1,18
+213.HC100,Hammer crusher,,Hammer crusher,CM2,"Crusher DE; Crusher Inboard Axial; Crusher Inboard Horizontal; Crusher Inboard Vertical, Crusher NDE; Crusher Outboard Axial; Crusher Outboard Horizontal; Crusher Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+321.FN125,Sealing Air Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+321.FN400,Raw Mill Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+321.MD140,Raw Mill Drive,,Gearbox,Line1,"GB HSS 0, GB HSS 1, GB HSS 6, Motor DE, Motor NDE, Rim Gear 2, Rim Gear 3, Rim Gear 4, Rim Gear 5",2.8,7.1,18
+321.MD152,Raw Mill Separator Main Drive,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 inboard NDE",2.8,7.1,18
+322.FN125,Sealing Air Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+322.FN400,Raw Mill Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+322.MD140,Raw Mill Drive,,Gearbox,Line2,"GB HSS 0, GB HSS 1, GB HSS 6, Motor DE, Motor NDE, Rim Gear 2, Rim Gear 3, Rim Gear 4, Rim Gear 5",2.8,7.1,18
+331.CP280,GCT Compressor,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+331.CP281,GCT Compressor,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+331.CP282,GCT Compressor,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+331.FN110,ID FAN,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+331.FN400,Ep Filter Fan,,Fan,Line1,"Fan inboard, Fan Outboard, Motor DE, Motor NDE",2.8,7.1,18
+331.WI210,Condition Tower m01,,Water Pump,Line1,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+331.WI211,Condition Tower m02,,Water Pump,Line1,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+332.CP281,GCT Compressor,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+332.CP282,GCT Compressor,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+332.FN110,ID FAN,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+332.FN400,Ep Filter Fan,,Fan,Line2,"Fan inboard, Fan Outboard, Motor DE, Motor NDE",2.8,7.1,18
+332.WI210,Condition Tower m01,,Water Pump,Line2,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+332.WI211,Condition Tower m02,,Water Pump,Line2,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+341.BE040,Bucket elevator m01,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+341.BL300,CF Silo Blower,,Blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+341.BL305,CF Silo Blower,,Blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+341.BL310,CF Silo Blower,,Blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+341.FN315,CF Silo Areation,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+341.FN316,CF Silo Areation standby,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+342.BE041,Bucket elevator m02,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+342.BE050,Bucket elevator m01,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+342.BE051,Bucket elevator m02,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+342.BL300,BL300,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+342.BL305,BL305,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+342.BL310,BL310,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+342.FN315,CF Silo Areation,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+351.BE340,Bucket elevator m01,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+351.BE341,Bucket elevator m02,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+351.BL110,Blower,,Blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+352.BE340,Bucket elevator m01,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+352.BE341,Bucket elevator m02,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 outboard, Shaft 2 outboard, Shaft#3 inboard, Shaft#3 outboard",2.8,7.1,18
+352.BL110,BL110,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+431.FN171,Kiln inlet sealing Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+431.FN176,Kiln outlet sealing Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+431.FN560,Primary Air Fan,,Fan,Line1,"Motor DE, Motor NDE",2.8,7.1,18
+431.MD140,Kiln Drive M01 Master RHS,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 outboard NDE, Shaft 3 inboard DE, Shaft 3 outboard NDE, Shaft 4 inboard DE, Shaft 4 outboard NDE",2.8,7.1,18
+431.MD160,Kiln Drive M02 Slave LHS,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 outboard NDE, Shaft 3 inboard DE, Shaft 3 outboard NDE, Shaft 4 inboard DE, Shaft 4 outboard NDE",2.8,7.1,18
+432.FN171,Kiln inlet sealing Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+432.FN176,Kiln outlet sealing Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+432.FN560,Primary Air Fan,,Fan,Line2,"Motor DE, Motor NDE",2.8,7.1,18
+432.MD140,Kiln Drive M01 Master RHS,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 outboard NDE, Shaft 3 inboard DE, Shaft 3 outboard NDE, Shaft 4 inboard DE, Shaft 4 outboard NDE",2.8,7.1,18
+432.MD160,Kiln Drive M02 Slave LHS,,Gearbox,Line2,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 outboard NDE, Shaft 3 inboard DE, Shaft 3 outboard NDE, Shaft 4 inboard DE, Shaft 4 outboard NDE",2.8,7.1,18
+441.CR400,Clinker Crusher,,Crusher,Line1,"Crusher DE, Crusher NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN300,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN305,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN310,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN315,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN325,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN335,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN340,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN345,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN350,Cooler Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+441.FN590,Excess Air Fan,,Fan,Line1,"Fan inboard, Fan Outboard, Motor DE, Motor NDE, Shaft 1 inboard, Shaft 1 outboard, Shaft 2 inboard, Shaft 2 outboard",2.8,7.1,18
+442.CR400,Clinker Crusher,,Crusher,Line2,"Crusher DE, Crusher NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN300,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN305,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN310,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN315,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN325,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN335,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN340,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN345,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN350,Cooler Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+442.FN590,Excess Air Fan,,Fan,Line2,"Fan inboard, Fan Outboard, Motor DE, Motor NDE, Shaft 1 inboard, Shaft 1 outboard, Shaft 2 inboard, Shaft 2 outboard",2.8,7.1,18
+451.FN010,Quenching Air Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+451.FN240,Bypass Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+451.WI111,Bypass Water Pump m02,,Water Pump,Line1,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+451.WI210,Bypass Water Pump m01,,Water Pump,Line1,"Motor Inboard, Pump Inboard, Pump outboard",2.8,7.1,18
+452.FN010,Quenching Air Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+452.FN240,Bypass Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+452.WI111,Bypass Water Pump m02,,Water Pump,Line2,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+452.WI112,Bypass Water Pump m01,,Water Pump,Line2,"Motor Inboard, Motor Outboard, Pump Inboard, Pump outboard",2.8,7.1,18
+461.CP524,Coal Compressor CP524,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+461.CP526,Coal Compressor CP526,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+461.FN125,Coal Sealing Air Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+461.FN400,Mill Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+461.FN450,Booster Fan,,Fan,Line1,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+461.MD140,Coal Mill Drive,,Gearbox,Line1,"Motor DE, Motor NDE, Pinion HSS, Ring Gear",2.8,7.1,18
+461.MD152,Coal Separator Main Drive,,Gearbox,Line1,"Motor DE, Motor NDE, Shaft#1 inboard, Shaft#1 outbord, Shaft#2 inboard, Shaft#2 outboard",2.8,7.1,18
+461.PP513,Fuller Pump Standby,,Fuller Pump,Line1,"Motor DE, Motor NDE, Pump inboard DE, Pump Outboard NDE",2.8,7.1,18
+461.PP515,Fuller Pump,,Fuller Pump,Line1,"Motor DE, Motor NDE, Pump inboard DE, Pump Outboard NDE",2.8,7.1,18
+462.CP525,Coal Compressor CP 525,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+462.CP530,Coal Compressor CP 530,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+462.FN125,Coal Sealing Air Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+462.FN400,Mill Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+462.FN450,Booster Fan,,Fan,Line2,"Fan DE, Fan NDE, Motor DE, Motor NDE",2.8,7.1,18
+462.MD140,Coal Mill Drive,,Gearbox,Line2,"Motor DE, Motor NDE, Pinion HSS, Ring Gear",2.8,7.1,18
+462.PP515,Fuller Pump,,Fuller Pump,Line2,"Motor DE, Motor NDE, Pump inboard DE, Pump Outboard NDE",2.8,7.1,18
+462.PP545,Fuller Pump stand by,,Fuller Pump,Line2,"Motor DE, Motor NDE, Pump inboard DE, Pump Outboard NDE",2.8,7.1,18
+465.BL580,Blower / rotary blower,,Blower / rotary blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+465.BL585,Bin / hopper,,Bin / hopper,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+465.BL630,Blower / rotary blower,,Blower / rotary blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+465.BL635,Blower / rotary blower,,Blower / rotary blower,Line1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+466.BL580,Coal 2 BL580,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+466.BL585,Coal 2 BL585,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+466.BL630,Coal 2 BL630,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+466.BL635,Coal 2 BL635,,Blower,Line2,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+531.BE220,Cement Mill \#1 Bucket elevator,,Gearbox,CM1,"Bearing Inboard Axial; Bearing Inboard Horizontal; Bearing Inboard Vertical, Bearing Outboard Axial; Bearing Outboard Horizontal; Bearing Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft #1, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical, Shaft #2, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical, Shaft #3",2.8,7.1,18
+531.FN242,Ventilation Fan 1,,Fan,CM1,"Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+531.FN380,Mil Fan 1,,Fan,CM1,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+531.FN530,Separator Fan 1,,Fan,CM1,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+531.MD140,Cement Mill 1,,Gearbox,CM1,"Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical; Shaft 1 inboard DE, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical; Shaft 1 Outboard NDE, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical; Shaft 2 inboard DE, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical; Shaft 2 inboard NDE, Shaft 03 Inboard Axial; Shaft 03 Inboard Horizontal; Shaft 03 Inboard Vertical; Shaft 3 inboard DE, Shaft 03 Outboard Axial; Shaft 03 Outboard Horizontal; Shaft 03 Outboard Vertical; Shaft 3 NDE, Shaft 04 Inboard Axial; Shaft 04 Inboard Horizontal; Shaft 04 Inboard Vertical; Shaft 4 inboard DE, Shaft 4 NDE, Top GearBox",2.8,7.1,18
+531.MD302,Separator Main Drive 1,,Gearbox,CM1,"Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical; Shaft 1 inboard DE, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical; Shaft 1 Outboard NDE, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical; Shaft 2 inboard DE, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical; Shaft 2 inboard NDE",2.8,7.1,18
+532.BE220,Cement Mill \#2 Bucket elevator,,Gearbox,CM1,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+532.FN242,Ventilation Fan 2,,Fan,CM1,"Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+532.FN380,Mil Fan 2,,Fan,CM1,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+532.FN530,Separator Fan 2,,Fan,CM1,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+532.MD140,Cement Mill 2,,Gearbox,CM1,"Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical; Shaft 1 inboard DE, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical; Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical; Shaft 2 outboard NDE, Shaft 3 inboard DE, Shaft 03 Outboard Axial; Shaft 03 Outboard Horizontal; Shaft 03 Outboard Vertical; Shaft 3 outboard NDE, Shaft 4 inboard DE, Shaft 04 Outboard Axial; Shaft 04 Outboard Horizontal; Shaft 04 Outboard Vertical; Shaft 4 outboard NDE",2.8,7.1,18
+532.MD302,Separator Main Drive 2,,Gearbox,CM1,"Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical; Shaft 1 inboard DE, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical; Shaft 1 Outboard NDE, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical; Shaft 2 inboard DE, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical; Shaft 2 inboard NDE",2.8,7.1,18
+533.BE220,Cement Mill \#3 Bucket elevator,,Gearbox,CM2,"Bearing Inboard Axial; Bearing Inboard Horizontal; Bearing Inboard Vertical, Bearing Outboard Axial; Bearing Outboard Horizontal; Bearing Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft #1, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical, Shaft #2, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical, Shaft #3",2.8,7.1,18
+533.FN350,Mill Fan 3,,Fan,CM2,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+533.FN364,Ventilation Fan 3,,Fan,CM2,"Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+533.FN530,Separator Fan 3,,Fan,CM2,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+533.MD140,Cement Mill 3,,Gearbox,CM2,"Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical; Shaft 1 inboard DE, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical; Shaft 1 Outboard NDE, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical; Shaft 2 inboard DE, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical; Shaft 2 outboard NDE, Shaft 03 Inboard Axial; Shaft 03 Inboard Horizontal; Shaft 03 Inboard Vertical; Shaft 3 inboard DE, Shaft 03 Outboard Axial; Shaft 03 Outboard Horizontal; Shaft 03 Outboard Vertical; Shaft 3 outboard NDE, Shaft 04 Inboard Axial; Shaft 04 Inboard Horizontal; Shaft 04 Inboard Vertical; Shaft 4 inboard DE, Shaft 04 Outboard Axial; Shaft 04 Outboard Horizontal; Shaft 04 Outboard Vertical; Shaft 4 outboard NDE",2.8,7.1,18
+533.MD301,Main drive,,Main drive,CM2,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 outboard NDE",2.8,7.1,18
+533.MD302,Separator Drive \#3,,Gearbox,CM2,"Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical, Shaft 03 Inboard Horizontal; Shaft 03 Inboard Vertical; Shaft 03Inboard Axial, Shaft 03 Outboard Axial; Shaft 03 Outboard Horizontal; Shaft 03 Outboard Vertical",2.8,7.1,18
+534.BE220,Cement Mill \#4 Bucket elevator,,Gearbox,CM2,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+534.FN350,Mill Fan 4,,Fan,CM2,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+534.FN364,Ventilation Fan 4,,Fan,CM2,"Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+534.FN530,Separator Fan 4,,Fan,CM2,"Fan DE; Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan NDE; Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+534.MD140,Cement Mill 4,,Gearbox,CM2,"Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical; Shaft 1 inboard DE, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical; Shaft 1 Outboard NDE, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical; Shaft 2 inboard DE, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical; Shaft 2 inboard NDE, Shaft 03 Inboard Axial; Shaft 03 Inboard Horizontal; Shaft 03 Inboard Vertical; Shaft 3 inboard DE, Shaft 03 Outboard Axial; Shaft 03 Outboard Horizontal; Shaft 03 Outboard Vertical; Shaft 3 inboard NDE, Shaft 04 Inboard Axial; Shaft 04 Inboard Horizontal; Shaft 04 Inboard Vertical; Shaft 4 inboard DE, Shaft 04 Outboard Axial; Shaft 04 Outboard Horizontal; Shaft 04 Outboard Vertical; Shaft 4 inboard NDE",2.8,7.1,18
+534.MD301,Main drive,,Main drive,CM2,"Motor DE, Motor NDE, Shaft 1 inboard DE, Shaft 1 Outboard NDE, Shaft 2 inboard DE, Shaft 2 outboard NDE",2.8,7.1,18
+534.MD302,Separator Drive \#4,,Gearbox,CM2,"Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical, Shaft 01 Inboard Axial; Shaft 01 Inboard Horizontal; Shaft 01 Inboard Vertical, Shaft 01 Outboard Axial; Shaft 01 Outboard Horizontal; Shaft 01 Outboard Vertical, Shaft 02 Inboard Axial; Shaft 02 Inboard Horizontal; Shaft 02 Inboard Vertical, Shaft 02 Outboard Axial; Shaft 02 Outboard Horizontal; Shaft 02 Outboard Vertical",2.8,7.1,18
+611.BL300,611.BL.300,,Blower,CM1,"BL DE, BL NDE, Motor DE, Motor NDE",2.8,7.1,18
+612.BL300,612.BL.300,,Blower,CM1,"BL DE; blower Inboard Axial; blower Inboard Horizontal; blower Inboard Vertical, BL NDE; blower Outboard Axial; blower Outboard Horizontal; blower Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+613.BL300,613.BL.300,,Blower,CM2,"BL DE; Blower Inboard Axial; Blower Inboard Horizontal; Blower Inboard Vertical, BL NDE; Blower Outboard Axial; Blower Outboard Horizontal; Blower Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+614.BL300,614.BL.300,,Blower,CM2,"BL DE; Blower Inboard Axial; Blower Inboard Horizontal; Blower Inboard Vertical, BL NDE; Blower Outboard Axial; Blower Outboard Horizontal; Blower Outboard Vertical, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+641.BE050,Packing BE \#1,,Gearbox,CM1,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+641.FN952,Packing Machine 1,,Gearbox,CM1,"Fan DE, Fan NDE, Motor DE, Motor NDE, Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+642.BE050,Packing BE \#2,,Gearbox,CM1,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+642.FN952,Packing Machine 2,,Gearbox,CM1,"Fan DE, Fan NDE, Motor DE, Motor NDE, Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+643.BE050,Packing BE \#3,,Gearbox,CM1,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+643.FN952,Packing Machine 3,,Gearbox,CM1,"Fan DE, Fan NDE, Motor DE, Motor NDE, Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+644.BE050,Packing BE \#4,,Gearbox,CM2,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+644.FN952,Packing Machine 4,,Gearbox,CM2,"Fan DE, Fan NDE, Motor DE, Motor NDE, Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+645.BE050,Packing BE \#5,,Gearbox,CM2,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+645.FN952,Packing Machine 5,,Gearbox,CM2,"Fan DE, Fan NDE, Motor DE, Motor NDE, Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+646.BE050,Packing BE \#6,,Gearbox,CM2,"Motor DE, Motor NDE, Shaft #1, Shaft #2, Shaft #3",2.8,7.1,18
+646.FN952,Packing Machine 6,,Gearbox,CM2,"Fan DE, Fan NDE, Motor DE, Motor NDE, Fan Inboard Axial; Fan Inboard Horizontal; Fan Inboard Vertical, Fan Outboard Axial; Fan Outboard Horizontal; Fan Outboard Vertical, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+741.CP110,CP110 Kiln,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+741.CP111,CP111 Kiln,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+741.CP112,CP112 Kiln,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+741.CP113,CP113 Kiln,,Compressor,Line1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+742.CP110,CP110 Cement,,Compressor,CM1,"Compressor DE; Male Rotor In Axial; Male Rotor In Horiz; Male Rotor In Vert, Compressor NDE; Male Rotor Out Axial; Male Rotor Out Horiz; Male Rotor Out Vert, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+742.CP111,CP111 Cement,,Compressor,CM1,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+742.CP112,CP112 Cement,,Compressor,CM1,"Compressor DE; Male Rotor In Axial; Male Rotor In Horiz; Male Rotor In Vert, Compressor NDE; Male Rotor Out Axial; Male Rotor Out Horiz; Male Rotor Out Vert, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+742.CP113,CP113 Cement,,Compressor,CM1,"Compressor DE; Male Rotor In Axial; Male Rotor In Horiz; Male Rotor In Vert, Compressor NDE; Male Rotor Out Axial; Male Rotor Out Horiz; Male Rotor Out Vert, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+743.CP110,CP110 Kiln,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+743.CP111,CP111 Kiln,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+743.CP112,CP112 Kiln,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+743.CP113,CP113 Kiln,,Compressor,Line2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+744.CP110,CP110 Cement,,Compressor,CM2,"Compressor DE; Male Rotor In Axial; Male Rotor In Horiz; Male Rotor In Vert, Compressor NDE; Male Rotor Out Axial; Male Rotor Out Horiz; Male Rotor Out Vert, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+744.CP111,CP111 Cement,,Compressor,CM2,"Compressor DE; Male Rotor In Axial; Male Rotor In Horiz; Male Rotor In Vert, Compressor NDE; Male Rotor Out Axial; Male Rotor Out Horiz; Male Rotor Out Vert, Motor DE; Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor NDE; Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18
+744.CP112,CP112 Cement,,Compressor,CM2,"Compressor DE, Compressor NDE, Motor DE, Motor NDE",2.8,7.1,18
+744.CP113,CP113 Cement,,Compressor,CM2,"Male Rotor In Axial; Male Rotor In Horiz; Male Rotor In Vert, Male Rotor Out Axial; Male Rotor Out Horiz; Male Rotor Out Vert, Motor Inboard Axial; Motor Inboard Horizontal; Motor Inboard Vertical, Motor Outboard Axial; Motor Outboard Horizontal; Motor Outboard Vertical",2.8,7.1,18

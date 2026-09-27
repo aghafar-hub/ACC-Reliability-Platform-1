@@ -1,0 +1,159 @@
+Old Equipment ID (Sheet),New Equipment ID (Master),Equipment Name,Source
+111.CP.400,111.CP400,Crusher Compressor,old-sheet+master
+111.HC.100,111.HC100,Limestone Crusher,old-sheet+master
+321.FN.125,321.FN125,Sealing Air Fan,old-sheet+master
+321.FN.400,321.FN400,Raw Mill Fan,old-sheet+master
+321.MD.140,321.MD140,Raw Mill Drive,old-sheet+master
+321.MD.152,321.MD152,Raw Mill Separator Main Drive,old-sheet+master
+322.FN.125,322.FN125,Sealing Air Fan,old-sheet+master
+322.FN.400,322.FN400,Raw Mill Fan,old-sheet+master
+322.MD.140,322.MD140,Raw Mill Drive,old-sheet+master
+331.CP.280,331.CP280,GCT Compressor,old-sheet+master
+331.CP.281,331.CP281,GCT Compressor,old-sheet+master
+331.CP.282,331.CP282,GCT Compressor,old-sheet+master
+331.FN.110,331.FN110,ID FAN,old-sheet+master
+331.FN.400,331.FN400,Ep Filter Fan,old-sheet+master
+331.WI.210,331.WI210,Condition Tower m01,old-sheet+master
+331.WI.211,331.WI211,Condition Tower m02,old-sheet+master
+332.CP.281,332.CP281,GCT Compressor,old-sheet+master
+332.CP.282,332.CP282,GCT Compressor,old-sheet+master
+332.FN.110,332.FN110,ID FAN,old-sheet+master
+332.FN.400,332.FN400,Ep Filter Fan,old-sheet+master
+332.WI.210,332.WI210,Condition Tower m01,old-sheet+master
+332.WI.211,332.WI211,Condition Tower m02,old-sheet+master
+341.BE.040,341.BE040,Bucket elevator m01,old-sheet
+341.BL.300,341.BL300,CF Silo Blower,old-sheet+master
+341.BL.305,341.BL305,CF Silo Blower,old-sheet+master
+341.BL.310,341.BL310,CF Silo Blower,old-sheet+master
+341.FN.315,341.FN315,CF Silo Areation,old-sheet+master
+341.FN.316,341.FN316,CF Silo Areation standby,old-sheet+master
+342.BE.041,342.BE041,Bucket elevator m02,old-sheet
+342.BE.050,342.BE050,Bucket elevator m01,old-sheet
+342.BE.051,342.BE051,Bucket elevator m02,old-sheet+master
+342.BL.300,342.BL300,BL300,old-sheet+master
+342.BL.305,342.BL305,BL305,old-sheet+master
+342.BL.310,342.BL310,BL310,old-sheet+master
+342.FN.315,342.FN315,CF Silo Areation,old-sheet+master
+351.BE.340,351.BE340,Bucket elevator m01,old-sheet
+351.BE.341,351.BE341,Bucket elevator m02,old-sheet+master
+351.BL.110,351.BL110,Blower,old-sheet+master
+352.BE.340,352.BE340,Bucket elevator m01,old-sheet
+352.BE.341,352.BE341,Bucket elevator m02,old-sheet+master
+352.BL.110,352.BL110,BL110,old-sheet+master
+431.FN.171,431.FN171,Kiln inlet sealing Fan,old-sheet+master
+431.FN.176,431.FN176,Kiln outlet sealing Fan,old-sheet+master
+431.FN.560,431.FN560,Primary Air Fan,old-sheet+master
+431.MD.140,431.MD140,Kiln Drive M01 Master RHS,old-sheet+master
+431.MD.160,431.MD160,Kiln Drive M02 Slave LHS,old-sheet+master
+432.FN.171,432.FN171,Kiln inlet sealing Fan,old-sheet+master
+432.FN.176,432.FN176,Kiln outlet sealing Fan,old-sheet+master
+432.FN.560,432.FN560,Primary Air Fan,old-sheet+master
+432.MD.140,432.MD140,Kiln Drive M01 Master RHS,old-sheet+master
+432.MD.160,432.MD160,Kiln Drive M02 Slave LHS,old-sheet+master
+441.CR.400,441.CR400,Clinker Crusher,old-sheet+master
+441.FN.300,441.FN300,Cooler Fan,old-sheet+master
+441.FN.305,441.FN305,Cooler Fan,old-sheet+master
+441.FN.310,441.FN310,Cooler Fan,old-sheet+master
+441.FN.315,441.FN315,Cooler Fan,old-sheet+master
+441.FN.325,441.FN325,Cooler Fan,old-sheet+master
+441.FN.335,441.FN335,Cooler Fan,old-sheet+master
+441.FN.340,441.FN340,Cooler Fan,old-sheet+master
+441.FN.345,441.FN345,Cooler Fan,old-sheet+master
+441.FN.350,441.FN350,Cooler Fan,old-sheet+master
+441.FN.590,441.FN590,Excess Air Fan,old-sheet+master
+442.CR.400,442.CR400,Clinker Crusher,old-sheet+master
+442.FN.300,442.FN300,Cooler Fan,old-sheet+master
+442.FN.305,442.FN305,Cooler Fan,old-sheet+master
+442.FN.310,442.FN310,Cooler Fan,old-sheet+master
+442.FN.315,442.FN315,Cooler Fan,old-sheet+master
+442.FN.325,442.FN325,Cooler Fan,old-sheet+master
+442.FN.335,442.FN335,Cooler Fan,old-sheet+master
+442.FN.340,442.FN340,Cooler Fan,old-sheet+master
+442.FN.345,442.FN345,Cooler Fan,old-sheet+master
+442.FN.350,442.FN350,Cooler Fan,old-sheet+master
+442.FN.590,442.FN590,Excess Air Fan,old-sheet+master
+451.FN.010,451.FN010,Quenching Air Fan,old-sheet+master
+451.FN.240,451.FN240,Bypass Fan,old-sheet+master
+451.WI.111,451.WI111,Bypass Water Pump m02,old-sheet+master
+451.WI.210,451.WI210,Bypass Water Pump m01,old-sheet+master
+452.FN.010,452.FN010,Quenching Air Fan,old-sheet+master
+452.FN.240,452.FN240,Bypass Fan,old-sheet+master
+452.WI.111,452.WI111,Bypass Water Pump m02,old-sheet+master
+452.WI.112,452.WI112,Bypass Water Pump m01,old-sheet+master
+461.CP.524,461.CP524,Coal Compressor CP524,old-sheet+master
+461.CP.526,461.CP526,Coal Compressor CP526,old-sheet+master
+461.FN.125,461.FN125,Coal Sealing Air Fan,old-sheet+master
+461.FN.400,461.FN400,Mill Fan,old-sheet+master
+461.FN.450,461.FN450,Booster Fan,old-sheet+master
+461.MD.140,461.MD140,Coal Mill Drive,old-sheet+master
+461.MD.152,461.MD152,Coal Separator Main Drive,old-sheet+master
+461.PP.513,461.PP513,Fuller Pump Standby,old-sheet+master
+461.PP.515,461.PP515,Fuller Pump,old-sheet+master
+462.CP.525,462.CP525,Coal Compressor CP 525,old-sheet+master
+462.CP.530,462.CP530,Coal Compressor CP 530,old-sheet+master
+462.FN.125,462.FN125,Coal Sealing Air Fan,old-sheet+master
+462.FN.400,462.FN400,Mill Fan,old-sheet+master
+462.FN.450,462.FN450,Booster Fan,old-sheet+master
+462.MD.140,462.MD140,Coal Mill Drive,old-sheet+master
+462.PP.515,462.PP515,Fuller Pump,old-sheet+master
+462.PP.545,462.PP545,Fuller Pump stand by,old-sheet+master
+466.BL.580,466.BL580,Coal 2 BL580,old-sheet+master
+466.BL.585,466.BL585,Coal 2 BL585,old-sheet+master
+466.BL.630,466.BL630,Coal 2 BL630,old-sheet+master
+466.BL.635,466.BL635,Coal 2 BL635,old-sheet+master
+531.BE.220,531.BE220,Cement Mill \#1 Bucket elevator,old-sheet+master
+531.FN.242,531.FN242,Ventilation Fan 1,old-sheet+master
+531.FN.380,531.FN380,Mil Fan 1,old-sheet+master
+531.FN.530,531.FN530,Separator Fan 1,old-sheet+master
+531.MD.140,531.MD140,Cement Mill 1,old-sheet+master
+531.MD.302,531.MD302,Separator Main Drive 1,old-sheet+master
+532.BE.220,532.BE220,Cement Mill \#2 Bucket elevator,old-sheet+master
+532.FN.242,532.FN242,Ventilation Fan 2,old-sheet+master
+532.FN.380,532.FN380,Mil Fan 2,old-sheet+master
+532.FN.530,532.FN530,Separator Fan 2,old-sheet+master
+532.MD.140,532.MD140,Cement Mill 2,old-sheet+master
+532.MD.302,532.MD302,Separator Main Drive 2,old-sheet+master
+533.BE.220,533.BE220,Cement Mill \#3 Bucket elevator,old-sheet+master
+533.FN.350,533.FN350,Mill Fan 3,old-sheet+master
+533.FN.364,533.FN364,Ventilation Fan 3,old-sheet+master
+533.FN.530,533.FN530,Separator Fan 3,old-sheet+master
+533.MD.140,533.MD140,Cement Mill 3,old-sheet+master
+533.MD.302,533.MD302,Separator Drive \#3,old-sheet
+534.BE.220,534.BE220,Cement Mill \#4 Bucket elevator,old-sheet+master
+534.FN.350,534.FN350,Mill Fan 4,old-sheet+master
+534.FN.364,534.FN364,Ventilation Fan 4,old-sheet+master
+534.FN.530,534.FN530,Separator Fan 4,old-sheet+master
+534.MD.140,534.MD140,Cement Mill 4,old-sheet+master
+534.MD.302,534.MD302,Separator Drive \#4,old-sheet
+611.BL.300,611.BL300,611.BL.300,old-sheet+master
+612.BL.300,612.BL300,612.BL.300,old-sheet+master
+613.BL.300,613.BL300,613.BL.300,old-sheet+master
+614.BL.300,614.BL300,614.BL.300,old-sheet+master
+641.BE.050,641.BE050,Packing BE \#1,old-sheet+master
+641.FN.952,641.FN952,Packing Machine 1,old-sheet+master
+642.BE.050,642.BE050,Packing BE \#2,old-sheet+master
+642.FN.952,642.FN952,Packing Machine 2,old-sheet+master
+643.BE.050,643.BE050,Packing BE \#3,old-sheet+master
+643.FN.952,643.FN952,Packing Machine 3,old-sheet+master
+644.BE.050,644.BE050,Packing BE \#4,old-sheet+master
+644.FN.952,644.FN952,Packing Machine 4,old-sheet
+645.BE.050,645.BE050,Packing BE \#5,old-sheet+master
+645.FN.952,645.FN952,Packing Machine 5,old-sheet
+646.BE.050,646.BE050,Packing BE \#6,old-sheet+master
+646.FN.952,646.FN952,Packing Machine 6,old-sheet
+741.CP.110,741.CP110,CP110 Kiln,old-sheet+master
+741.CP.111,741.CP111,CP111 Kiln,old-sheet+master
+741.CP.112,741.CP112,CP112 Kiln,old-sheet+master
+741.CP.113,741.CP113,CP113 Kiln,old-sheet+master
+742.CP.110,742.CP110,CP110 Cement,old-sheet+master
+742.CP.111,742.CP111,CP111 Cement,old-sheet+master
+742.CP.112,742.CP112,CP112 Cement,old-sheet+master
+742.CP.113,742.CP113,CP113 Cement,old-sheet+master
+743.CP.110,743.CP110,CP110 Kiln,old-sheet+master
+743.CP.111,743.CP111,CP111 Kiln,old-sheet+master
+743.CP.112,743.CP112,CP112 Kiln,old-sheet+master
+743.CP.113,743.CP113,CP113 Kiln,old-sheet+master
+744.CP.110,744.CP110,CP110 Cement,old-sheet+master
+744.CP.111,744.CP111,CP111 Cement,old-sheet+master
+744.CP.112,744.CP112,CP112 Cement,old-sheet+master
+744.CP.113,744.CP113,CP113 Cement,old-sheet+master

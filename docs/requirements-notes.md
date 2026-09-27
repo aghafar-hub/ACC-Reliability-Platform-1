@@ -612,6 +612,48 @@ if needed — not a permanent commitment, just the right call for now.
   depth as the Foundation), then its own spec and sign-off, per the round
   6 build-order decision.
 
+## Round 20 — two existing standalone apps brought in as-is
+
+User revealed two separately-built, currently-in-use apps: Vibration
+Analysis and Oil Analysis, each with real production data (264 action
+rows / 851 samples / 150 oil-change rows / 152 equipment for oil
+analysis; thousands of RMS/SPM readings across 165+ equipment for
+vibration). Claude reviewed both repos in full (code, docs, Apps Script
+backends, real Sheet schemas) and gave an opinion before any changes:
+
+**Findings:**
+- Both are real, working tools with validated domain logic (RMS/SPM
+  threshold banding, compliance-status vocabulary, action numbering,
+  client-side PDF lab-report parsing, client-side PDF report generation,
+  a verify-after-write pattern in the oil analysis app) — not throwaway
+  prototypes.
+- Both directly conflict with the approved Foundation spec: **no
+  authentication or RBAC at all** (open access, a fake client-side
+  passcode), **no contractor isolation enforcement** anywhere despite a
+  Contractor column existing in both sheets, per-user `localStorage`
+  config instead of centralized admin settings, and a confirmed live bug
+  in the vibration app's Apps Script (`updateRegisterLimits` writes
+  limits to the wrong column).
+- The vibration app already has an in-progress **`vib-id-merge`** effort
+  (from an earlier session with this user) migrating it onto the exact
+  same `ACC_PLATFORM_ASSET_MASTER_DB_v3.xlsx` already used for this
+  platform's Asset Master, with `VIB_ID` as the permanent identifier:
+  165 equipment matched, 93%/91% of historical RMS/SPM rows matched, and
+  ~44 equipment left flagged for a human decision rather than guessed.
+  Nothing equivalent exists yet for oil analysis.
+
+**Decisions:**
+- **Copy both apps into this repo completely as-is, unmodified** — not a
+  redesign, not cherry-picked logic. Placed at `apps/vibration-analysis/`
+  and `apps/oil-analysis/`, verified byte-for-byte identical to the
+  source repos (`aghafar-hub/ACC-Vibration-Analysis-App` and
+  `aghafar-hub/acc-oil-analysis-app`).
+- **Their code is never to be touched/edited** as part of this copy-in
+  step.
+- **Problems (security gap, live bugs, VIB_ID migration completion) will
+  be worked through and adjusted afterward**, once both are copied in —
+  not resolved as a precondition of copying them in.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their

@@ -1,0 +1,200 @@
+Old Equipment ID (still in sheet),Cells found,Category,Canonical/New ID,Note
+322.MD.152,30,ADD (mirror twin),322.MD152,"Master DB has no vib points for 322.MD152 (and it is in EQUIPMENT_MASTER as ""Main drive""), but its apparent Line-twin 321.MD152 does, described as ""Main drive"". Likely just missing from the master DB for this line — could mirror 321.MD152's points under 322.MD152 if you confirm it's the same equipment type."
+212.HC.100,23,ADD (mirror twin),212.HC100,"Master DB has no vib points for 212.HC100 (and it isn't in EQUIPMENT_MASTER either), but its apparent Line-twin 213.HC100 does, described as ""Hammer crusher"". Likely just missing from the master DB for this line — could mirror 213.HC100's points under 212.HC100 if you confirm it's the same equipment type."
+332.CP.280,18,ADD (mirror twin),332.CP280,"Master DB has no vib points for 332.CP280 (and it is in EQUIPMENT_MASTER as ""Compressor""), but its apparent Line-twin 331.CP280 does, described as ""Compressor"". Likely just missing from the master DB for this line — could mirror 331.CP280's points under 332.CP280 if you confirm it's the same equipment type."
+321.MD.152,18,EDIT,321.MD152,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+111.HC.100,17,EDIT,111.HC100,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+341.BE.040,15,EDIT,341.BE040,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.BE.041,15,EDIT,342.BE041,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+352.BE.341,15,EDIT,352.BE341,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+612.BL.300,14,EDIT,612.BL300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+614.BL.300,14,EDIT,614.BL300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.BE.050,14,EDIT,342.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.BE.051,14,EDIT,342.BE051,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+352.BE.340,14,EDIT,352.BE340,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+351.BL.115,13,ADD (needs vib points),351.BL115,"351.BL115 is a real asset in the master DB (""Blower / rotary blower"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+321.MD.140,13,EDIT,321.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+351.BE.340,13,EDIT,351.BE340,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.FN.400,13,EDIT,331.FN400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+351.BE.341,13,EDIT,351.BE341,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+332.FN.400,13,EDIT,332.FN400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+322.MD.140,12,EDIT,322.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+431.MD.160,12,EDIT,431.MD160,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+321.FN.125,11,EDIT,321.FN125,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+431.MD.140,11,EDIT,431.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+321.FN.400,11,EDIT,321.FN400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.CP.280,11,EDIT,331.CP280,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.WI.211,11,EDIT,331.WI211,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+322.FN.125,11,EDIT,322.FN125,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+332.WI.210,11,EDIT,332.WI210,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+432.MD.140,11,EDIT,432.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+322.FN.400,11,EDIT,322.FN400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.FN.110,11,EDIT,331.FN110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+332.FN.110,11,EDIT,332.FN110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+341.FN.315,11,EDIT,341.FN315,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+341.FN.316,11,EDIT,341.FN316,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.FN.315,11,EDIT,342.FN315,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+431.FN.171,11,EDIT,431.FN171,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+111.CP.400,10,EDIT,111.CP400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.CP.281,10,EDIT,331.CP281,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.CP.282,10,EDIT,331.CP282,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+332.WI.211,10,EDIT,332.WI211,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+332.CP.281,10,EDIT,332.CP281,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+332.CP.282,10,EDIT,332.CP282,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+744.CP.114,9,ADD (not in master DB),744.CP114,"744.CP114 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+645.BL.580,9,ADD (not in master DB),645.BL580,"645.BL580 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+645.BL.630,9,ADD (not in master DB),645.BL630,"645.BL630 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+341.BL.300,9,EDIT,341.BL300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+331.WI.210,9,EDIT,331.WI210,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+341.BL.305,9,EDIT,341.BL305,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+341.BL.310,9,EDIT,341.BL310,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.BL.300,9,EDIT,342.BL300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.BL.305,9,EDIT,342.BL305,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+342.BL.310,9,EDIT,342.BL310,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+351.BL.110,9,EDIT,351.BL110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+352.BL.115,9,ADD (needs vib points),352.BL115,"352.BL115 is a real asset in the master DB (""Blower / rotary blower"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+432.MD.160,8,EDIT,432.MD160,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+352.BL.110,8,EDIT,352.BL110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+611.BL.300,6,EDIT,611.BL300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+613.BL.300,6,EDIT,613.BL300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+431.FN.176,6,EDIT,431.FN176,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+742.CP.112,5,EDIT,742.CP112,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+744.CP.110,5,EDIT,744.CP110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+744.CP.111,5,EDIT,744.CP111,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+432.FN.171,5,EDIT,432.FN171,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+432.FN.176,5,EDIT,432.FN176,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+646.FN.952,4,EDIT,646.FN952,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+741.CP.113,3,EDIT,741.CP113,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+742.CP.110,3,EDIT,742.CP110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+742.CP.111,3,EDIT,742.CP111,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+742.CP.113,3,EDIT,742.CP113,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+743.CP.110,3,EDIT,743.CP110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+743.CP.111,3,EDIT,743.CP111,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+743.CP.112,3,EDIT,743.CP112,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+743.CP.113,3,EDIT,743.CP113,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+744.CP.112,3,EDIT,744.CP112,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+744.CP.113,3,EDIT,744.CP113,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+761.WI.210,3,ADD (needs vib points),761.WI210,"761.WI210 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+761.WI.211,3,ADD (needs vib points),761.WI211,"761.WI211 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+761.WI.212,3,ADD (needs vib points),761.WI212,"761.WI212 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+761.WI.213,3,ADD (needs vib points),761.WI213,"761.WI213 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+761.WI.214,3,ADD (needs vib points),761.WI214,"761.WI214 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+761.WI.215,3,ADD (needs vib points),761.WI215,"761.WI215 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+761.WI.216,3,ADD (needs vib points),761.WI216,"761.WI216 is a real asset in the master DB (""Water injection"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+762.WI.210,3,ADD (needs vib points),762.WI210,"762.WI210 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+762.WI.211,3,ADD (needs vib points),762.WI211,"762.WI211 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+762.WI.212,3,ADD (needs vib points),762.WI212,"762.WI212 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+762.WI.213,3,ADD (needs vib points),762.WI213,"762.WI213 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+762.WI.214,3,ADD (needs vib points),762.WI214,"762.WI214 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+762.WI.216,3,ADD (needs vib points),762.WI216,"762.WI216 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+532.MD.140,3,EDIT,532.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+533.MD.140,3,EDIT,533.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+534.MD.140,3,EDIT,534.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+531.BE.220,3,EDIT,531.BE220,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+533.BE.220,3,EDIT,533.BE220,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+431.FN.560,3,EDIT,431.FN560,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+432.FN.560,3,EDIT,432.FN560,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+531.FN.242,3,EDIT,531.FN242,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+531.FN.380,3,EDIT,531.FN380,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+532.FN.242,3,EDIT,532.FN242,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+533.FN.364,3,EDIT,533.FN364,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+533.FN.530,3,EDIT,533.FN530,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+534.FN.530,3,EDIT,534.FN530,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+641.FN.952,3,EDIT,641.FN952,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+642.FN.952,3,EDIT,642.FN952,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+644.FN.952,3,EDIT,644.FN952,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+645.FN.952,3,EDIT,645.FN952,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+743.CP.115,2,ADD (not in master DB),743.CP115,"743.CP115 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+646.BE.050,2,EDIT,646.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+741.CP.110,2,EDIT,741.CP110,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+741.CP.111,2,EDIT,741.CP111,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+741.CP.112,2,EDIT,741.CP112,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+531.MD.140,2,EDIT,531.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.CR.400,2,EDIT,441.CR400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.MD.140,2,EDIT,462.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.PP.545,2,EDIT,462.PP545,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+466.BL.585,2,EDIT,466.BL585,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+642.BE.050,2,EDIT,642.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+452.WI.112,2,EDIT,452.WI112,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+534.FN.364,2,EDIT,534.FN364,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+741.CP.114,1,ADD (needs vib points),741.CP114,"741.CP114 is a real asset in the master DB (""Compressor"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+741.CP.115,1,ADD (needs vib points),741.CP115,"741.CP115 is a real asset in the master DB (""Compressor"", Line1) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+111.AF.100,1,ADD (not in master DB),111.AF100,"111.AF100 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+461.PP.513,1,EDIT,461.PP513,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+312.BC.620,1,ADD (needs vib points),312.BC620,"312.BC620 is a real asset in the master DB (""Belt conveyor"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+461.PP.515,1,EDIT,461.PP515,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+312.BC.630,1,ADD (needs vib points),312.BC630,"312.BC630 is a real asset in the master DB (""Belt conveyor"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+461.MD.140,1,EDIT,461.MD140,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.PP.515,1,EDIT,462.PP515,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+461.MD.152,1,EDIT,461.MD152,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.CR.400,1,EDIT,442.CR400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.MD.150,1,ADD (not in master DB),462.MD150,"462.MD150 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+441.WI.001,1,ADD (not in master DB),441.WI001,"441.WI001 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+531.MD.302,1,EDIT,531.MD302,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.WI.002,1,ADD (not in master DB),441.WI002,"441.WI002 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+532.MD.302,1,EDIT,532.MD302,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.WI.003,1,ADD (not in master DB),441.WI003,"441.WI003 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+533.MD.301,1,"ADD (has vib points, wasn't in old sheet)",533.MD301,"Master DB already defines vibration points for 533.MD301 (""Main drive"") — just wasn't part of your original Register, so it never got a migration pair. Add 533.MD301 to the Register/map directly."
+461.CP.524,1,EDIT,461.CP524,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.WI.004,1,ADD (not in master DB),441.WI004,"441.WI004 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+534.MD.301,1,"ADD (has vib points, wasn't in old sheet)",534.MD301,"Master DB already defines vibration points for 534.MD301 (""Main drive"") — just wasn't part of your original Register, so it never got a migration pair. Add 534.MD301 to the Register/map directly."
+461.CP.525,1,ADD (mirror twin),461.CP525,"Master DB has no vib points for 461.CP525 (and it is in EQUIPMENT_MASTER as ""Compressor""), but its apparent Line-twin 462.CP525 does, described as ""Compressor"". Likely just missing from the master DB for this line — could mirror 462.CP525's points under 461.CP525 if you confirm it's the same equipment type."
+466.BL.580,1,EDIT,466.BL580,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.WI.001,1,ADD (not in master DB),442.WI001,"442.WI001 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+461.CP.526,1,EDIT,461.CP526,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+532.BE.220,1,EDIT,532.BE220,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.WI.002,1,ADD (not in master DB),442.WI002,"442.WI002 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+462.CP.525,1,EDIT,462.CP525,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+466.BL.630,1,EDIT,466.BL630,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.WI.003,1,ADD (not in master DB),442.WI003,"442.WI003 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+462.CP.530,1,EDIT,462.CP530,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+534.BE.220,1,EDIT,534.BE220,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.WI.004,1,ADD (not in master DB),442.WI004,"442.WI004 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+462.CP.535,1,ADD (needs vib points),462.CP535,"462.CP535 is a real asset in the master DB (""Compressor"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+641.BE.050,1,EDIT,641.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.WI.005,1,ADD (not in master DB),442.WI005,"442.WI005 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+645.BL.635,1,ADD (not in master DB),645.BL635,"645.BL635 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+451.WI.111,1,EDIT,451.WI111,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+643.BE.050,1,EDIT,643.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+451.WI.210,1,EDIT,451.WI210,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+644.BE.050,1,EDIT,644.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+452.WI.111,1,EDIT,452.WI111,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+645.BE.050,1,EDIT,645.BE050,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.300,1,EDIT,441.FN300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.305,1,EDIT,441.FN305,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.310,1,EDIT,441.FN310,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.315,1,EDIT,441.FN315,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.325,1,EDIT,441.FN325,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.335,1,EDIT,441.FN335,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+742.CP.115,1,ADD (not in master DB),742.CP115,"742.CP115 does not exist anywhere in the master DB (neither EQUIPMENT_MASTER nor VIB_POINT_MASTER). Needs full onboarding — name, line, and points — before it can be added."
+441.FN.340,1,EDIT,441.FN340,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.345,1,EDIT,441.FN345,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.350,1,EDIT,441.FN350,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+441.FN.590,1,EDIT,441.FN590,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.300,1,EDIT,442.FN300,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.305,1,EDIT,442.FN305,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.310,1,EDIT,442.FN310,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+762.WI.215,1,ADD (needs vib points),762.WI215,"762.WI215 is a real asset in the master DB (""Water injection"", Line2) but has NO vibration points defined there at all. Needs someone to add its points to VIB_POINT_MASTER (or tell me its points directly) before it can get a VIB_ID."
+442.FN.315,1,EDIT,442.FN315,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.325,1,EDIT,442.FN325,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.335,1,EDIT,442.FN335,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.340,1,EDIT,442.FN340,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.345,1,EDIT,442.FN345,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.350,1,EDIT,442.FN350,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+442.FN.590,1,EDIT,442.FN590,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+451.FN.010,1,EDIT,451.FN010,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+451.FN.240,1,EDIT,451.FN240,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+452.FN.010,1,EDIT,452.FN010,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+452.FN.240,1,EDIT,452.FN240,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+461.FN.125,1,EDIT,461.FN125,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+461.FN.400,1,EDIT,461.FN400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+461.FN.450,1,EDIT,461.FN450,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.FN.125,1,EDIT,462.FN125,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.FN.400,1,EDIT,462.FN400,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+462.FN.450,1,EDIT,462.FN450,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+531.FN.530,1,EDIT,531.FN530,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+532.FN.380,1,EDIT,532.FN380,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+532.FN.530,1,EDIT,532.FN530,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+533.FN.350,1,EDIT,533.FN350,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+534.FN.350,1,EDIT,534.FN350,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).
+643.FN.952,1,EDIT,643.FN952,Already in migration map — just needs the migration (re-)applied to whichever sheet this row is in (likely SPM DATA / Last Reading / Compliance Tracker).

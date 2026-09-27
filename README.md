@@ -26,11 +26,32 @@ backend/
                           Apps Script deployment and own Sheets — modules
                           never share sheets with each other or with
                           Platform Core (spec §3, §11).
+apps/                    Existing standalone apps, copied in as-is (see
+                          below) — not built against the Foundation.
 scripts/                 One-off setup/deployment helper scripts.
 docs/                    Specs and the requirements decision log.
 ```
 
-## Architecture in one paragraph
+## `apps/` — existing standalone apps, copied in as-is
+
+`apps/vibration-analysis/` and `apps/oil-analysis/` are verbatim copies of
+two already-built, currently-in-use apps
+([`aghafar-hub/ACC-Vibration-Analysis-App`](https://github.com/aghafar-hub/ACC-Vibration-Analysis-App),
+[`aghafar-hub/acc-oil-analysis-app`](https://github.com/aghafar-hub/acc-oil-analysis-app)),
+each with real production data and their own separate Google Sheet +
+Apps Script backend. **They are copied in exactly as they are — do not
+edit any file under `apps/`.** See each one's own `docs/` folder for its
+architecture, Sheet schema, and known gaps.
+
+Neither has authentication, RBAC, or contractor-isolation enforcement —
+both predate and conflict with the Foundation spec's security model
+(§6 of `docs/platform-foundation-spec.md`). Per the decision in
+`docs/requirements-notes.md` (round 20), that gap is accepted for now and
+will be worked through once both are copied in — not a precondition of
+bringing them in. Do not treat either as a template for how the real
+Oil Analysis or Vibration modules should be built against the Foundation.
+
+## Architecture in one paragraph (Foundation build)
 
 Frontend is a single React PWA hosted on GitHub Pages. It talks to
 multiple independent backends — Platform Core plus one per feature
