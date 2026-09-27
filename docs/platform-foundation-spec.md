@@ -368,10 +368,13 @@ and closure. Reviewed and **declined** — basic tracking stands.)*
 ## 7. Asset Master
 
 Real equipment/point data already exists and has been reviewed directly
-(`ACC_PLATFORM_ASSET_MASTER_DB_v3.xlsx`). This becomes the seed data for
-Platform Core's Asset Master, three sheets:
+(`ACC_PLATFORM_ASSET_MASTER_DB_v3.xlsx`). **Split, per a later decision
+made while designing the Oil Analysis module** (see
+`docs/oil-analysis-module-notes.md`): the base equipment list is
+centralized in Platform Core, but each discipline's point-level register
+is owned by that discipline's own module, not by Platform Core.
 
-**EQUIPMENT_MASTER** (1,892 rows today)
+**EQUIPMENT_MASTER (Platform Core, centralized)** (1,892 rows today)
 Equipment_ID, Equipment_Description, Main_Area, Plant_Area, Sub_Area,
 Contractor (RHI/ASEC), Criticality, Parent_Equipment_ID, Equipment_Status,
 Created_Date, Modified_Date.
@@ -387,38 +390,49 @@ Created_Date, Modified_Date.
   ClinkerArea1/2, RMCrusher, HotDisc, GyCrusher, AFR, Gypsum Conv,
   AFShredding).
 
-**LP_POINT_MASTER** (924 rows today) — lubrication points, one equipment
-can have several. Fields include Lubrication_Location, Point_Code,
-Lubrication_Point, Position, Component_Brand, Operating_Temperature_C,
-Lubricant_Type/Brand/Quantity, Oil_Analysis_Required + interval,
-Oil_Change_Interval, Contractor, Status. (Detailed workflow for this data
-belongs to the Oil Lubrication module spec, not this document — this is
-just the shared reference data Platform Core holds.)
+**LP_POINT_MASTER — owned by the Oil Analysis module, not Platform
+Core. [decided — supersedes the original "all three centralized"
+design]** Lubrication points, one equipment can have several; references
+Equipment_ID from the shared EQUIPMENT_MASTER but lives in Oil Analysis's
+own data sheets. Now expanded to the fuller **935-point register**
+(`Lubrication_App.xlsx`) — see `docs/oil-analysis-module-notes.md` for
+the full field list and the real workflow this module implements
+(universal Oil Change Log, dual sampling+change tracking, ID
+reconciliation from the old app). Detailed schema lives in that module's
+own notes/spec, not here.
 
-**VIB_POINT_MASTER** (1,765 rows today) — vibration points, one equipment
-can have several. Fields include Position_Code (e.g. MDE/MNDE/FDE/CDE —
-drive-end/non-drive-end location codes), Family (RMS/SPM/Gs — measurement
-type), Point_Description, Status. **Confirmed: only points where
-Family = RMS get 3-axis readings** (vertical, horizontal, axial); axis is
-captured **per reading**, not as a property of the point itself.
-**[decided, §3 of notes]** (Reading-level detail belongs to the Vibration
-module spec, not this document.)
+**VIB_POINT_MASTER — owned by the Vibration Analysis module, not
+Platform Core. [decided — same split as above]** Vibration points, one
+equipment can have several; references Equipment_ID from the shared
+EQUIPMENT_MASTER but lives in Vibration Analysis's own data sheets.
+Fields include Position_Code (e.g. MDE/MNDE/FDE/CDE — drive-end/non-
+drive-end location codes), Family (RMS/SPM/Gs — measurement type),
+Point_Description, Status. **Confirmed: only points where Family = RMS
+get 3-axis readings** (vertical, horizontal, axial); axis is captured
+**per reading**, not as a property of the point itself. **[decided, §3
+of notes]** Detailed schema belongs to the Vibration module's own spec
+(not yet written), not this document.
 
-Asset Master data is **read by every module** (a module looks up "which
-equipment/points am I working with") but **owned and edited only through
-Platform Core's admin screens** — modules don't get their own copies of
-equipment/point master data.
+**EQUIPMENT_MASTER is read by every module** (a module looks up "which
+equipment am I working with," and — for its own discipline — gets the
+point-level detail from its own LP/VIB register) but **owned and edited
+only through Platform Core's admin screens.**
 
-**Asset Master write authority: App Admin only. [decided]** Only App
-Admin can:
-- Add new equipment (and, by extension, its lubrication/vibration points).
+**Asset Master write authority: App Admin only, for EQUIPMENT_MASTER.
+[decided]** Only App Admin can:
+- Add new equipment.
 - Add a new contractor to the platform.
 - Change which contractor a piece of equipment is assigned to.
 
 No other role — not ACC Manager, not Reliability Engineer, not anyone —
 can create equipment, add contractors, or reassign equipment's contractor.
 This is a hard write-authority rule, not just a UI default, enforced
-server-side.
+server-side. **Open question, not yet decided:** now that LP_POINT_MASTER
+and VIB_POINT_MASTER are module-owned rather than centralized, does
+adding/editing a *lubrication or vibration point* (as opposed to the
+equipment itself) still require App Admin specifically, or can a
+module's own RBAC (e.g. Reliability Engineer, Contractor Engineer) grant
+that within the module? Not yet asked.
 
 **Contractors are an admin-managed list, not hardcoded to RHI/ASEC.**
 Since App Admin can "add new contractors," the platform must treat
@@ -429,12 +443,13 @@ without a code change — consistent with the "add things later without
 changing the core" principle applied elsewhere.
 
 **Initial data migration [decided]:** the real Excel export (1,892
-equipment / 924 lube points / 1,765 vibration points) needs to get into
-these Sheets when the Foundation is built. Rather than a one-off manual
-load, build a **lightweight guided import tool** as part of Asset Master
-admin functionality: App Admin uploads the Excel/CSV, previews the parsed
-rows, confirms, and it loads into the three master sheets. Kept
-intentionally simpler than the prior AI docs' proposal (no formal
+equipment) needs to get into EQUIPMENT_MASTER when the Foundation is
+built; each module's own point-level data (935 lubrication points, etc.)
+gets loaded into that module's own register when it's built. Rather than
+a one-off manual load, build a **lightweight guided import tool** as part
+of Asset Master admin functionality: App Admin uploads the Excel/CSV,
+previews the parsed rows, confirms, and it loads into the master sheets.
+Kept intentionally simpler than the prior AI docs' proposal (no formal
 new/changed/duplicate-conflict classification engine for v1) — this
 exists because the equipment list will keep changing over time (new
 equipment, status/criticality updates), so a reusable path is worth
