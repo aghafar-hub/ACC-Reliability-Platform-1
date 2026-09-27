@@ -125,6 +125,36 @@ have changed, or codes don't align 1:1. Needs the matching exercise
   separate workflow layered only on the analysis-required rows, but
   feeds its result into that row's shared-log due-date.
 
+## ID matching exercise (round 3 — ran the analysis, no app changes)
+
+Matched all 153 old Equipment Registry codes against the new register's
+LP_IDs. Full row-by-row results sent to the user as a CSV. Summary:
+
+- **104/153 (68%) matched cleanly.** 32 of these needed correcting for a
+  systematic `R2.` line-prefix the old sheet used that the new register
+  drops (e.g. old `R2.322.BE220` → new equipment `322.BE220`).
+- **43/153 (28%) ambiguous — genuinely need a human decision**, in a few
+  real patterns, not 43 unique problems:
+  - **Pattern A (~25 cases, the biggest bucket):** old sheet had ONE row
+    per equipment; new register splits that equipment into several real
+    lube points (e.g. `531–534.BE220`, `541–544.BE180` bucket elevators:
+    each old row → 5 new points — main gearbox, overrunning clutch,
+    backstop, auxiliary gearbox, hydraulic coupling). Can't tell from
+    data alone which point the old history belongs to.
+  - **Pattern B (~8 cases):** same issue, split by side too
+    (`341/342/351/352.BE0xx` — old had one row per L/R side, new has 5
+    distinct points per side).
+  - **Pattern C:** genuinely different suffix vocabulary, not guessable
+    (`131.BC500 (M01)/(M02)` vs. new `GB-R/GB-L/HC-R/HC-L`;
+    `534.LQ145 - Gearbox`/`- Girth Gear` vs. new `GB-HY`/`GG-HY`).
+  - **Pattern D:** `131.RE300.M11`/`M12` — no coded-position match at
+    all, only a loose text-description overlap.
+- **6/153 (4%) genuinely missing from the new register** — all Coal#1
+  air compressors (CP524/525/526/530/535). **Independently
+  cross-validated**: the earlier vibration-app `vib-id-merge` migration
+  separately flagged some of these same compressor codes as missing from
+  the master DB — real data gap, not a matching error.
+
 ## Open items (to ask about next, before any implementation)
 
 - The 153-vs-151 discrepancy — resolve by actually running the matching
