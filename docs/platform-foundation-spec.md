@@ -31,6 +31,13 @@ Everything else states a decision you already made.
   supplied — see §7).
 - **Timeline:** soft target of one month for foundation + first module.
   Quality prioritized over speed — not a hard deadline.
+- **Standing design principle — performance is the top priority.**
+  Whenever a design/architecture choice trades runtime speed (no lag,
+  no unnecessary page loads or reloads) against faster build time or
+  cleaner separation, **performance wins by default** unless the user
+  says otherwise for that specific case. First applied at the decision
+  to integrate `apps/*` modules directly into the main frontend's single
+  bundle/router (§1b) instead of iframes. **[decided]**
 
 ---
 
@@ -65,6 +72,20 @@ folded in directly rather than re-asked:
 This structure isn't something you dictated directly, but it's a
 sensible, non-conflicting shape for the navigation — flag if you'd rather
 discuss it before it's treated as settled.
+
+**Module Workspaces are a true single-app integration, not iframes or
+separate pages [decided].** The modules under `apps/` (Oil Analysis,
+Vibration Analysis) are mounted as routes inside the main frontend's own
+React bundle and router, sharing its sidebar/topbar/theme — not loaded as
+separate builds behind a full page navigation or an iframe. Switching
+between modules is a route change inside one already-loaded app, no page
+load. Chosen explicitly over an iframe-embed alternative given
+**performance is the standing top design priority** — no lag, ever, is
+the deciding factor whenever an architecture choice trades performance
+for build speed. This is purely a frontend/bundling decision — **backend
+isolation per module (own Apps Script deployment, own Sheets, §2–§4)
+stands unchanged**; only how the frontends are packaged and presented
+changes.
 
 ## 1c. Visual direction **[PROPOSED, from APP-008 — separate from the rejected prototype]**
 

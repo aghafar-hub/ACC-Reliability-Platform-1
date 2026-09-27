@@ -310,9 +310,44 @@ locally. Keeps the two backends independently deployable (matches the
 module-isolation requirement) without a live call to Platform Core on
 every oil-analysis request.
 
+## Round 8 — frontend integration approach: single-app, not iframes
+
+User pushed back on the earlier token-verification framing: modules
+must genuinely be **part of the app** (one shared sidebar/topbar/theme),
+not separate apps behind a login screen. Clarified via follow-up:
+
+- **Meaning confirmed:** shared visual shell/navigation specifically —
+  not a change to backend architecture. Backend isolation per module
+  (own Apps Script, own Sheets) **stays exactly as decided**.
+- **New standing principle:** performance is the top design priority
+  going forward, in every future decision, not just this one — "the app
+  must be fast with no lag."
+- **Decision: true single-app integration (not iframe embed).**
+  `apps/oil-analysis` and `apps/vibration-analysis`'s pages get merged
+  into the main frontend's own React bundle/router, mounted as routes
+  under the shared sidebar/topbar — no iframe, no separate page load
+  when switching modules. Chosen specifically because it gives the best
+  runtime performance (instant module switching inside one already-
+  loaded app), at the cost of more refactor work now (each module's own
+  routing/sidebar/topbar/theme code needs removing, its actual pages
+  remounted as routes in the shared shell instead). Recorded in
+  `docs/platform-foundation-spec.md` §1b.
+
 ## Open items (to ask about next, before any implementation)
 
-- Confirm the shared-secret token verification mechanism above (or
-  propose an alternative) before it gets built.
+- Confirm the shared-secret token verification mechanism (still needed
+  even with single-app integration — Platform Core issues the session,
+  and each module's backend, though bundled together in the frontend,
+  still calls its own separate Apps Script API and needs to verify the
+  session independently) — proposed but not yet re-confirmed under this
+  new integration approach.
+- Theme/branding: each module currently ships its own elaborate theme
+  system (vibration: 8 palettes, oil analysis: 10 palettes) — does the
+  unified app keep multiple selectable palettes, or standardize on the
+  Foundation's single Light/Dark model (spec §1a)? Not yet asked.
+- How each module's own internal page navigation (e.g. vibration's
+  Dashboard/New Reading/Equipment Register/etc.) nests within the shared
+  sidebar — as a secondary in-content nav, or folded into the main
+  sidebar itself? Not yet asked.
 
 
