@@ -36,8 +36,20 @@ let toastId = 0;
 // its own.
 export default function App({ navBridge } = {}) {
   const [config, setConfig] = useState(() => loadConfig());
+  // Live theme override from the host shell's platform Settings page (see
+  // frontend/src/embeddedNav.tsx's pushTheme) — takes priority over
+  // config.themeName whenever the host has pushed one for this mount, but
+  // stays null (falling back to config.themeName as before) in standalone
+  // builds, since navBridge is never passed there.
+  const [themeOverride, setThemeOverride] = useState(null);
+
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.setTheme = setThemeOverride;
+  }, [navBridge]);
+
   return (
-    <ThemeProvider themeName={config.themeName || DEFAULT_THEME}>
+    <ThemeProvider themeName={themeOverride || config.themeName || DEFAULT_THEME}>
       <AppShell config={config} setConfig={setConfig} navBridge={navBridge} />
     </ThemeProvider>
   );
@@ -602,6 +614,7 @@ function AppShell({ config, setConfig, navBridge }) {
               onRegistryChange={setEquipmentRegistry}
               actionRegistry={actionRegistry}
               onActionRegistryChange={setActionRegistry}
+              navBridge={navBridge}
             />
           )}
         </div>

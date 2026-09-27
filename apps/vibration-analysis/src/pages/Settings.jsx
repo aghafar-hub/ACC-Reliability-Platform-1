@@ -29,6 +29,7 @@ export default function Settings({
   setConfig,
   syncState,
   webhookRef,
+  navBridge,
 }) {
   const { T, s, setThemeName } = useTheme();
   const [tab, setTab] = useState("appearance");
@@ -223,6 +224,14 @@ export default function Settings({
             )}
           </div>
 
+          {navBridge ? (
+            <div style={s.card}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 4 }}>Theme</div>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>
+                Theme is now managed from the platform Settings page (sidebar → Settings).
+              </div>
+            </div>
+          ) : (
           <div style={s.card}>
             <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Theme</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
@@ -298,6 +307,7 @@ export default function Settings({
               })}
             </div>
           </div>
+          )}
         </div>
       )}
 

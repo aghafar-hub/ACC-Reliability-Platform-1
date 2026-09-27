@@ -12,6 +12,11 @@ export type EmbeddedPage = { id: string; label: string; icon: string };
 export type NavBridge = {
   navigate?: (pageId: string) => void;
   onNavigate?: (pageId: string) => void;
+  // Set by the embedded app itself (see each app's ThemeContext/App) so the
+  // platform Settings page can push a live theme change into whichever
+  // module is currently mounted — mirrors the navigate/onNavigate pair
+  // above, but for theme instead of page navigation.
+  setTheme?: (themeName: string) => void;
 };
 
 type EmbeddedNavState = {
@@ -25,6 +30,10 @@ type EmbeddedNavContextValue = EmbeddedNavState & {
   register: (moduleId: string, pages: EmbeddedPage[], bridge: NavBridge) => void;
   setActivePage: (pageId: string) => void;
   unregister: (moduleId: string) => void;
+  // Live-pushes a theme change to whichever embedded app is currently
+  // mounted (no-op if none is, or if it hasn't wired navBridge.setTheme —
+  // either way the choice is still persisted separately, see theme.ts).
+  pushTheme: (themeName: string) => void;
 };
 
 const EmbeddedNavContext = createContext<EmbeddedNavContextValue | null>(null);
@@ -52,6 +61,7 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
         setPages((current) => (moduleId === id ? [] : current));
         setBridge((current) => (moduleId === id ? null : current));
       },
+      pushTheme: (themeName: string) => bridge?.setTheme?.(themeName),
     }),
     [moduleId, pages, activePage, bridge],
   );

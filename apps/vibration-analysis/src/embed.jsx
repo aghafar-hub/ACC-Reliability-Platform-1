@@ -20,7 +20,7 @@ export function mountVibrationAnalysis(container, { navBridge } = {}) {
   root.render(
     <React.StrictMode>
       <ErrorBoundary>
-        <ThemeProvider>
+        <ThemeProvider navBridge={navBridge}>
           <App navBridge={navBridge} />
         </ThemeProvider>
       </ErrorBoundary>

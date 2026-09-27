@@ -265,6 +265,7 @@ export default function Settings({
   onRegistryChange,
   onActionRegistryChange,
   actionRegistry,
+  navBridge,
 }) {
   const { T, s, themeName } = useTheme();
   const [draft, setDraft] = useState(() => ({ ...config }));
@@ -272,7 +273,9 @@ export default function Settings({
   const [testMsg, setTestMsg] = useState("");
   const [testing, setTesting] = useState(false);
 
-  const [tab, setTab] = useState("appearance");
+  // Theme now lives in the platform Settings page when embedded (see
+  // frontend/src/pages/Settings.tsx) — this tab is only shown standalone.
+  const [tab, setTab] = useState(navBridge ? "configuration" : "appearance");
   const [locked, setLocked] = useState(true);
   const [pwInput, setPwInput] = useState("");
   const [pwWrong, setPwWrong] = useState(false);
@@ -480,9 +483,11 @@ export default function Settings({
 
       <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 16 }}>
         {[
-          { id: "appearance", label: "Appearance", icon: "ti-palette" },
+          !navBridge && { id: "appearance", label: "Appearance", icon: "ti-palette" },
           { id: "configuration", label: "Configuration", icon: "ti-settings-2" },
-        ].map((t) => (
+        ]
+          .filter(Boolean)
+          .map((t) => (
           <button
             key={t.id}
             onClick={() => (t.id === "configuration" ? openConfiguration() : setTab(t.id))}
@@ -507,7 +512,7 @@ export default function Settings({
         ))}
       </div>
 
-      {tab === "appearance" && (
+      {tab === "appearance" && !navBridge && (
         <div>
           <div style={{ ...s.card }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>

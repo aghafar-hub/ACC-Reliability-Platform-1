@@ -35,7 +35,14 @@ function applyDocumentVars(T) {
   }
 }
 
-export function ThemeProvider({ children }) {
+// navBridge (only passed when mounted embedded — see src/embed.jsx and
+// src/App.jsx's own navBridge doc comment) lets the host shell's platform
+// Settings page push a live theme change into this app while it's mounted,
+// by calling navBridge.setTheme(name) — which is just setThemeName below,
+// exposed the same way navBridge.navigate already exposes this app's page
+// navigation. Standalone builds never pass navBridge, so this changes
+// nothing about how the app runs on its own.
+export function ThemeProvider({ children, navBridge }) {
   const [themeName, setThemeNameState] = useState(() => {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
@@ -58,6 +65,11 @@ export function ThemeProvider({ children }) {
       // localStorage may be unavailable (private browsing, quota)
     }
   };
+
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.setTheme = setThemeName;
+  });
 
   const value = useMemo(() => {
     const T = THEMES[themeName] || THEMES[DEFAULT_THEME];

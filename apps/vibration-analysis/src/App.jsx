@@ -428,6 +428,7 @@ export default function App({ navBridge } = {}) {
         setConfig={setConfig}
         syncState={syncState}
         webhookRef={webhookRef}
+        navBridge={navBridge}
       />
     );
   }

@@ -81,6 +81,17 @@ export default function Sidebar() {
         </ul>
 
         <div className="sidebar-footer">
+          <NavLink
+            className={({ isActive: navActive }) =>
+              navActive ? 'sidebar-link sidebar-link--active sidebar-settings-link' : 'sidebar-link sidebar-settings-link'
+            }
+            to="/settings"
+          >
+            <span className="sidebar-link-icon">
+              <Icon name="settings" size={18} />
+            </span>
+            <span className="sidebar-link-label">Settings</span>
+          </NavLink>
           {claims && <span className="sidebar-user">{claims.email}</span>}
           <button className="sidebar-logout" onClick={logout} type="button" title="Sign out">
             <Icon name="logout" size={16} />
