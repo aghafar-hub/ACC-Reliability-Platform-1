@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApiError } from '../../api/client';
+import { describeError } from '../../api/client';
 import { listLpPoints, type LpPoint } from '../../api/oilAnalysis';
 import { useAuth } from '../../auth/AuthContext';
 import './shared.css';
@@ -21,7 +21,7 @@ export default function LpRegisterPage() {
         if (!cancelled) setPoints(rows);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load the LP register.');
+        if (!cancelled) setError(describeError(err, 'Could not load the LP register.'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

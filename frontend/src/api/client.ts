@@ -50,3 +50,11 @@ export async function postAction<T>(
 export function newOperationId(): string {
   return crypto.randomUUID();
 }
+
+/** Formats a caught error for display, including the correlation ID when the backend gave one. */
+export function describeError(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    return err.correlationId ? `${err.message} (ref: ${err.correlationId})` : err.message;
+  }
+  return fallback;
+}

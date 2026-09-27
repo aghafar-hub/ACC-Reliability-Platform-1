@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ApiError } from '../../api/client';
+import { describeError } from '../../api/client';
 import {
   addAccComment,
   approveRoutine,
@@ -50,7 +50,7 @@ export default function RoutineDetailPage() {
       setItems(result.items);
       setDrafts(Object.fromEntries(result.items.map((i) => [i.RoutineItemId, draftFor(i)])));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load this routine.');
+      setError(describeError(err, 'Could not load this routine.'));
     } finally {
       setLoading(false);
     }
@@ -101,7 +101,7 @@ export default function RoutineDetailPage() {
       });
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save this item.');
+      setError(describeError(err, 'Could not save this item.'));
     } finally {
       setBusy(null);
     }
@@ -115,7 +115,7 @@ export default function RoutineDetailPage() {
       await submitRoutine(sessionToken, routineId);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not submit this routine.');
+      setError(describeError(err, 'Could not submit this routine.'));
     } finally {
       setBusy(null);
     }
@@ -129,7 +129,7 @@ export default function RoutineDetailPage() {
       await approveRoutine(sessionToken, routineId);
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not approve this routine.');
+      setError(describeError(err, 'Could not approve this routine.'));
     } finally {
       setBusy(null);
     }
@@ -144,7 +144,7 @@ export default function RoutineDetailPage() {
       setComment('');
       await reload();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add the comment.');
+      setError(describeError(err, 'Could not add the comment.'));
     } finally {
       setBusy(null);
     }

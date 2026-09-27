@@ -21,10 +21,14 @@ function ok_(data) {
 }
 
 /**
- * Wraps a handler so any thrown error becomes a safe, friendly response
- * instead of leaking a raw Apps Script stack trace to the client. Logs
- * the real error server-side with a correlation ID the user can quote to
- * support without exposing internals.
+ * Wraps a handler so any thrown error becomes a safe response instead of
+ * an uncaught exception. Every throw site in this codebase already uses a
+ * deliberate, safe-to-show message (e.g. "Invalid email or password.") —
+ * those pass straight through. Only a message-less/unexpected failure
+ * (a raw Apps Script/Sheets error) falls back to the generic text, so
+ * internals still never leak, but expected validation errors are no
+ * longer hidden behind it either. Always logs the real error server-side
+ * with a correlation ID the user can quote to support.
  */
 function safeHandle_(handlerFn) {
   var correlationId = Utilities.getUuid();
@@ -32,12 +36,11 @@ function safeHandle_(handlerFn) {
     return handlerFn();
   } catch (err) {
     console.error('[' + correlationId + '] ' + (err && err.stack ? err.stack : err));
+    var message = (err && err.message) ? err.message
+      : 'Something went wrong. Please try again, and share this reference if it keeps happening.';
     return jsonResponse_({
       ok: false,
-      error: {
-        message: 'Something went wrong. Please try again, and share this reference if it keeps happening.',
-        correlationId: correlationId
-      }
+      error: { message: message, correlationId: correlationId }
     });
   }
 }

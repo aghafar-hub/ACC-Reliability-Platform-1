@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ApiError } from '../api/client';
+import { describeError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import './Auth.css';
 
@@ -28,7 +28,7 @@ export default function ChangePassword() {
       await completeChangePassword(newPassword);
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not change password.');
+      setError(describeError(err, 'Could not change password.'));
     } finally {
       setSubmitting(false);
     }

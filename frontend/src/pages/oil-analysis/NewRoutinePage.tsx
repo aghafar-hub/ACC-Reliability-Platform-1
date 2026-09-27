@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ApiError } from '../../api/client';
+import { describeError } from '../../api/client';
 import { createRoutine, listLpPoints, type ItemType, type LpPoint } from '../../api/oilAnalysis';
 import { useAuth } from '../../auth/AuthContext';
 import { ROLE } from '../../auth/session';
@@ -35,7 +35,7 @@ export default function NewRoutinePage() {
         if (!cancelled) setPoints(rows);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load the LP register.');
+        if (!cancelled) setError(describeError(err, 'Could not load the LP register.'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -93,7 +93,7 @@ export default function NewRoutinePage() {
       });
       navigate(`../${result.routineId}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create the routine.');
+      setError(describeError(err, 'Could not create the routine.'));
     } finally {
       setSubmitting(false);
     }

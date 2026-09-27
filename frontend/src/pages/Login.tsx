@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ApiError } from '../api/client';
+import { describeError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import './Auth.css';
 
@@ -22,7 +22,7 @@ export default function Login() {
       const from = (location.state as { from?: { pathname: string } } | null)?.from?.pathname ?? '/';
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Login failed.');
+      setError(describeError(err, 'Login failed.'));
     } finally {
       setSubmitting(false);
     }

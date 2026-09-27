@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError } from '../../api/client';
+import { describeError } from '../../api/client';
 import { listRoutines, type Routine } from '../../api/oilAnalysis';
 import { useAuth } from '../../auth/AuthContext';
 import { ROLE } from '../../auth/session';
@@ -26,7 +26,7 @@ export default function RoutinesListPage() {
         if (!cancelled) setRoutines(rows);
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load routines.');
+        if (!cancelled) setError(describeError(err, 'Could not load routines.'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -15,18 +15,22 @@ function ok_(data) {
   return jsonResponse_({ ok: true, data: data });
 }
 
+/**
+ * Every throw site in this codebase already uses a deliberate, safe-to-show
+ * message — those pass straight through. Only a message-less/unexpected
+ * failure (a raw Apps Script/Sheets error) falls back to the generic text.
+ */
 function safeHandle_(handlerFn) {
   var correlationId = Utilities.getUuid();
   try {
     return handlerFn();
   } catch (err) {
     console.error('[' + correlationId + '] ' + (err && err.stack ? err.stack : err));
+    var message = (err && err.message) ? err.message
+      : 'Something went wrong. Please try again, and share this reference if it keeps happening.';
     return jsonResponse_({
       ok: false,
-      error: {
-        message: 'Something went wrong. Please try again, and share this reference if it keeps happening.',
-        correlationId: correlationId
-      }
+      error: { message: message, correlationId: correlationId }
     });
   }
 }
