@@ -357,6 +357,14 @@ export default function Settings({
   function setAppOnlyAction(index, action) {
     setRegistryPreview((prev) => ({ ...prev, appOnly: prev.appOnly.map((item, i) => (i === index ? { ...item, action } : item)) }));
   }
+  // A schema migration (old codes replaced wholesale by new ones, e.g. the
+  // LP_ID switch) means every old entry shows up here as "app-only" — every
+  // one defaults to Keep, so Sync+Apply silently ends up ADDING the new
+  // list on top of the old one instead of replacing it. One click to mark
+  // everything Remove instead of picking through each row individually.
+  function setAllAppOnlyAction(action) {
+    setRegistryPreview((prev) => ({ ...prev, appOnly: prev.appOnly.map((item) => ({ ...item, action })) }));
+  }
   function applyRegistrySync() {
     if (!registryPreview) return;
     const kept = registryPreview.appOnly.filter((item) => item.action === "keep").map((item) => item.eq);
@@ -627,6 +635,14 @@ export default function Settings({
                       </button>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", gap: 8, marginBottom: 2 }}>
+                          <button style={{ ...s.btn, fontSize: 11.5 }} onClick={() => setAllAppOnlyAction("remove")}>
+                            Remove all {registryPreview.appOnly.length}
+                          </button>
+                          <button style={{ ...s.btn, fontSize: 11.5 }} onClick={() => setAllAppOnlyAction("keep")}>
+                            Keep all {registryPreview.appOnly.length}
+                          </button>
+                        </div>
                         {registryPreview.appOnly.map((item, i) => (
                           <div
                             key={item.eq.code}
