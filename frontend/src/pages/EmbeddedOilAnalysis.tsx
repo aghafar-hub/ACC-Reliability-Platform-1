@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
 
-type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge }) => () => void;
+type EmbeddedSession = { token: string; claims: { userId: string; email: string; orgId: string; roles: string[] } | null };
+type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge; session?: EmbeddedSession }) => () => void;
 
 const MODULE_ID = 'oil-analysis';
 const BASE_ROUTE = '/oil-analysis';
@@ -27,9 +29,15 @@ export default function EmbeddedOilAnalysis() {
   const location = useLocation();
   const startedRef = useRef(false);
   const visible = location.pathname === BASE_ROUTE;
+  const { sessionToken, claims } = useAuth();
 
   useEffect(() => {
     if (!visible || startedRef.current) return;
+    // This whole tree sits behind RequireAuth, so sessionToken is already
+    // populated by the time a user can reach here — but guard anyway
+    // rather than mount with a half-formed session on some future routing
+    // change that isn't true anymore.
+    if (!sessionToken) return;
     startedRef.current = true;
 
     const navBridge: NavBridge = { onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page) };
@@ -38,10 +46,10 @@ export default function EmbeddedOilAnalysis() {
     const modulePath = `${import.meta.env.BASE_URL}apps/oil-analysis/embed.js`;
     import(/* @vite-ignore */ modulePath).then((mod: { mountOilAnalysis: MountFn }) => {
       if (!containerRef.current) return;
-      mod.mountOilAnalysis(containerRef.current, { navBridge });
+      mod.mountOilAnalysis(containerRef.current, { navBridge, session: { token: sessionToken, claims } });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, the first time `visible` turns true; embeddedNav's identity is stable enough for this one-shot read
-  }, [visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, the first time `visible` (and sessionToken) is available; embeddedNav's identity is stable enough for this one-shot read
+  }, [visible, sessionToken]);
 
   // Only ever runs its cleanup when this component is truly removed from
   // the tree (e.g. logout unmounting the whole authenticated shell) — never

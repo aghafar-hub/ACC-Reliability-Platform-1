@@ -17,6 +17,7 @@ import Reports from "./pages/Reports";
 import SampleTracker from "./pages/SampleTracker";
 import HowToUse from "./pages/HowToUse";
 import Settings from "./pages/Settings";
+import { SessionProvider } from "./SessionContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry } from "./actionRegistry";
@@ -46,7 +47,7 @@ function mergeById(prev, incoming, keyFn) {
 // outer shell renders a unified one instead. Standalone builds never pass
 // navBridge, so none of this changes anything about how this app runs on
 // its own.
-export default function App({ navBridge } = {}) {
+export default function App({ navBridge, session } = {}) {
   const [config, setConfig] = useState(() => loadConfig());
   // Live theme override from the host shell's platform Settings page (see
   // frontend/src/embeddedNav.tsx's pushTheme) — takes priority over
@@ -60,10 +61,20 @@ export default function App({ navBridge } = {}) {
     navBridge.setTheme = setThemeOverride;
   }, [navBridge]);
 
+  // Sends the shell's session token on every backend request from here on
+  // (api.js's getJSON/postBlind) — module-level because api.js's functions
+  // are plain exports, not hooks. A standalone build never passes `session`,
+  // so this is a no-op there (requests just keep going out without one).
+  useEffect(() => {
+    api.setSessionToken(session?.token || null);
+  }, [session]);
+
   return (
-    <ThemeProvider themeName={themeOverride || config.themeName || DEFAULT_THEME}>
-      <AppShell config={config} setConfig={setConfig} navBridge={navBridge} />
-    </ThemeProvider>
+    <SessionProvider session={session}>
+      <ThemeProvider themeName={themeOverride || config.themeName || DEFAULT_THEME}>
+        <AppShell config={config} setConfig={setConfig} navBridge={navBridge} />
+      </ThemeProvider>
+    </SessionProvider>
   );
 }
 
