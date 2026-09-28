@@ -250,3 +250,78 @@ Google Sheets formulas don't inherit into new rows automatically — a
 newly added product's Current_Stock/Last_Movement_Date stay blank until
 the G/M formula is copied down into that row (same as any lookup column
 in this sheet).
+
+## Option A hardening (done)
+
+Triggered by a full reliability audit requested after the user found the
+webhook URL needed re-pasting on a second device — the audit's actual
+scope was "inspect all app sides, list every problem, give the path to
+the strongest possible app," scaled for the ~20 people about to use this
+concurrently. The audit's own report recommended landing "Option A"
+(harden the current Apps Script + Sheets architecture) before deciding
+whether "Option B" (fold this into Platform Core's login/RBAC) or
+"Option C" (replace the Apps Script backend with a real server) are
+worth doing — those two are explicitly deferred, not started.
+
+Six items, all backend in `backend/oil-lubrication/src/Code.js` unless
+noted:
+
+1. **LockService around every write.** `appendRow`'s "scan column A for
+   the first empty row, then write" and `findRowIndex`'s "scan for the
+   matching row, then update/delete" both read a snapshot and write to a
+   separately-computed row with no lock between the two steps — two
+   concurrent requests could compute the same target row and the second
+   write would silently clobber the first. `doPost` now wraps its entire
+   dispatch chain in `LockService.getScriptLock().tryLock(30000)`, so
+   only one write is ever in flight against the sheet at a time.
+2. **Write allowlist + empty-match guard.** The generic
+   `append`/`updateRow`/`deleteRow` actions took `data.sheet` straight
+   from the client with no check — a `GENERIC_WRITE_ALLOWLIST` now
+   restricts each to specific sheets. Separately, `findRowIndex` with an
+   empty `matchCols` used to "match" the first data row by default (its
+   inner compare loop just never ran), so a malformed or empty
+   `matchCols`/`matchValues` could silently act on the wrong row; it now
+   returns `-1` (not found) instead.
+3. **Fixed the Action Registry.** The frontend's `readActionRegistry`
+   action had no matching `doGet` case at all — it silently fell through
+   to the `default` handler and always returned an empty list, so the
+   Contractor/ACC Action multi-select pickers never actually loaded
+   anything from the registry. The write path also targeted a sheet
+   named "Action Registry," which doesn't exist (the real sheet is
+   `OL_ACTION_PHRASES`, columns `No` / `Actions Phrase`). Added
+   `readActionRegistry()` and fixed `apps/oil-analysis/src/api.js`'s
+   `addActionRegistryEntry` to write to the real sheet name.
+4. **Shared-secret check.** `checkSecret_(providedSecret)` compares
+   against an `API_SECRET` Script Property on every `doGet`/`doPost`.
+   Not real per-user auth — the secret ships inside the public frontend
+   bundle, same exposure as the webhook URL itself — but it raises the
+   bar from "anyone who has the URL" to "anyone who has the URL AND this
+   value," and it's rotatable via the Script Property alone, no new
+   deployment needed. **Fails open** (accepts every request) until
+   `API_SECRET` is set, specifically so this ships without locking out
+   the already-live app the instant it deploys — see the deployment doc
+   for the value and the Script Property setup step.
+   `apps/oil-analysis/src/config.js` now exports the matching
+   `API_SECRET`, and `api.js`'s `getJSON`/`postBlind` inject it into
+   every request automatically, so no individual call site changes.
+5. **Incremental auto-sync + jitter** (`apps/oil-analysis/src/App.jsx`,
+   `api.js`). Auto-sync used to run a full `readAll()` on every tick on a
+   plain `setInterval` — with ~20 people's browsers on the same interval,
+   that's a full-table read from every open tab, synchronized to the
+   same moment repeatedly. Auto-sync now calls the backend's existing
+   `getChanges(since)` action (Phase 8 — rows modified after a
+   checkpoint) and merges results into the already-loaded arrays by id,
+   falling back to a full sync when there's no checkpoint yet, the
+   server reports `fullSyncRequired`, or every 6th tick (`getChanges`
+   can't see row deletions, only additions/edits, so a periodic full
+   sync is still needed to catch those). The polling loop itself switched
+   from `setInterval` to a recursively-rescheduled `setTimeout` with
+   +/-15% jitter per cycle, so open tabs don't all fire in the same
+   instant every N minutes.
+6. **Webhook URL default.** Checked against the user's actual live
+   deployment URL — already matched `DEFAULT_WEBHOOK_URL` in
+   `config.js`, so no change was needed here.
+
+Not done as part of Option A (real per-user identity/authorization
+instead of a shared secret, a real database instead of Sheets, request
+rate limiting) — those are Option B/C territory, deferred.

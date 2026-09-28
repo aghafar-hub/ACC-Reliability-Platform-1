@@ -134,6 +134,35 @@ real login with the seed App Admin account and confirm the LP register
 and Routines screens actually load data — that's the one thing this
 session couldn't verify directly.
 
+## 4b. Live "Oil Lubrication" backend — enabling the shared-secret check
+
+The above (sections 2–4) documents the parked, never-linked
+Routine/LP_ID-based `backend/oil-analysis/` project. The app actually in
+production is `apps/oil-analysis`, backed by `backend/oil-lubrication/src/Code.js`
+deployed against the "Oil Lubrication Data Base" Sheet — see
+`docs/oil-lubrication-migration-notes.md` for that project's full history.
+
+As of the Option A hardening pass, that backend checks a shared secret on
+every request (`checkSecret_`) but **fails open** — accepts every request
+unchanged — until you set it. To turn the check on:
+
+1. Open the "Oil Lubrication Data Base" Sheet → **Extensions → Apps Script**.
+2. **Project Settings (gear icon) → Script Properties → Add script property**:
+   - `API_SECRET` = `5RfANz0fp5kycVaABAYrKZ9eWBJxXOBaghBKRM9o`
+3. **Deploy → Manage deployments → pencil icon → New version → Deploy.**
+   Editing the code or saving alone does *not* update the live `/exec`
+   URL — this step is what actually ships `checkSecret_` (and the rest of
+   the Option A backend changes) to the app everyone's already using.
+4. The frontend build already sends this same value on every request
+   (`apps/oil-analysis/src/config.js`'s `API_SECRET`, injected
+   automatically by `api.js`), so no frontend redeploy is needed for this
+   step specifically — only the backend redeploy in step 3.
+
+If you ever need to rotate the secret: generate a new value, update the
+Script Property, update `API_SECRET` in `config.js` to match, and rebuild/
+redeploy the frontend — no new Apps Script deployment (no new URL) needed
+for the backend, since it re-reads the Script Property on every request.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
