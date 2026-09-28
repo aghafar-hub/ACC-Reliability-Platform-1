@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
+import { useSessionEmail } from "../SessionContext";
 import { computeOilChangeNextDue } from "../parsers";
 import { toISODate } from "../actionAutofill";
 
@@ -12,9 +13,13 @@ import { toISODate } from "../actionAutofill";
 // Notes are the two fields this form actually asks for beyond the date.
 export default function EditOilChangeModal({ oilChange, onClose, onSave, saving }) {
   const { T, s } = useTheme();
+  const sessionEmail = useSessionEmail();
+  // A fresh modal mount each time it opens, and the session (if any) is
+  // already available synchronously via context by then — safe to read it
+  // directly in the initial state instead of an effect-driven prefill.
   const [form, setForm] = useState({
     changeDate: toISODate(oilChange.changeDate) || toISODate(new Date()),
-    doneBy: "",
+    doneBy: sessionEmail,
     conditionNotes: "",
   });
 

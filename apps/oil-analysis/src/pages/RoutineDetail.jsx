@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
 
 function ItemRow({ item, registryByLp, locked, webhookUrl, routineId, pushToast, onSaved }) {
@@ -100,9 +101,21 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [comment, setComment] = useState("");
+  const sessionEmail = useSessionEmail();
   const [approvedBy, setApprovedBy] = useState("");
   const [commentBy, setCommentBy] = useState("");
   const [working, setWorking] = useState(false);
+
+  // Prefills "Reviewed By" from the logged-in user once a session is
+  // available — still editable, since the reviewer isn't always the person
+  // logged in (e.g. relaying someone else's verbal sign-off).
+  useEffect(() => {
+    if (sessionEmail && !approvedBy) {
+      setApprovedBy(sessionEmail);
+      setCommentBy(sessionEmail);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reacts to sessionEmail becoming available, not to the user's own edits to approvedBy
+  }, [sessionEmail]);
 
   const registryByLp = {};
   (equipmentRegistry || []).forEach((r) => (registryByLp[r.code] = r));

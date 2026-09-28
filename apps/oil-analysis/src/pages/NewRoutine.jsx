@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
+import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
 import { newId } from "../parsers";
 
@@ -8,6 +9,7 @@ const ITEM_TYPES = ["Change", "Top-up", "Sample"];
 
 export default function NewRoutine({ webhookUrl, equipmentRegistry, pushToast, onCreated, onCancel }) {
   const { T, s } = useTheme();
+  const createdBy = useSessionEmail();
   const [contractor, setContractor] = useState(CONTRACTOR_OPTIONS[0]);
   const [assignedTo, setAssignedTo] = useState("");
   const [search, setSearch] = useState("");
@@ -53,7 +55,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, pushToast, o
         lpId: s2.lpId,
         itemType: s2.itemType,
       }));
-      const saved = await api.createRoutine(webhookUrl, { routineId, assignedTo: assignedTo.trim(), contractor, items });
+      const saved = await api.createRoutine(webhookUrl, { routineId, assignedTo: assignedTo.trim(), contractor, createdBy, items });
       pushToast("Routine created.", "success");
       onCreated(saved.routineId);
     } catch (err) {

@@ -39,10 +39,25 @@ export class SaveVerificationError extends Error {
   }
 }
 
+// Option B Phase 1 (see docs/oil-lubrication-migration-notes.md): the
+// Platform Core session token for whoever is logged into the shell, set
+// once by App.jsx's top-level effect from its `session` prop. Module-level
+// rather than threaded through every call site, same reasoning as
+// API_SECRET's injection below — getJSON/postBlind are plain exports, not
+// hooks, so this is the one place that needs to know about it. Stays null
+// for a standalone build (no shell session to read), which every request
+// below already treats as "nothing to send."
+let currentSessionToken = null;
+
+export function setSessionToken(token) {
+  currentSessionToken = token || null;
+}
+
 async function getJSON(webhookUrl, params) {
   const url = new URL(webhookUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   url.searchParams.set("secret", API_SECRET);
+  if (currentSessionToken) url.searchParams.set("sessionToken", currentSessionToken);
   // Apps Script Web App GET responses are served through a
   // content.googleusercontent.com redirect that can cache an identical URL
   // for a short window — a verify-read run right after a write can come
@@ -60,10 +75,12 @@ async function getJSON(webhookUrl, params) {
 
 async function postBlind(webhookUrl, body) {
   try {
+    const payload = { ...body, secret: API_SECRET };
+    if (currentSessionToken) payload.sessionToken = currentSessionToken;
     await fetch(webhookUrl, {
       method: "POST",
       mode: "no-cors",
-      body: JSON.stringify({ ...body, secret: API_SECRET }),
+      body: JSON.stringify(payload),
     });
   } catch (err) {
     throw new Error(`Network error while saving: ${err.message}`);

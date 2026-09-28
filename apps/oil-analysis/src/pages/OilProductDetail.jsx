@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
 
 const MOVEMENT_TYPES = ["Receipt", "Issue", "Adjustment"];
@@ -16,6 +17,12 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const sessionEmail = useSessionEmail();
+
+  useEffect(() => {
+    if (sessionEmail && !doneBy) setDoneBy(sessionEmail);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reacts to sessionEmail becoming available, not to the user's own edits to doneBy
+  }, [sessionEmail]);
 
   async function handleLog() {
     const qty = parseFloat(quantity);
