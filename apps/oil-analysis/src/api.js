@@ -149,31 +149,39 @@ export async function getEquipmentRegistry(webhookUrl) {
   return json.equipment || [];
 }
 
-// Column order confirmed straight from the deployed Apps Script's own
-// readEquipmentRegistry(): Code, Description, AssetID, AssetClass,
-// Lubricant, Interval, Manufacturer, Model, Area. The sheet DOES also carry
-// a Contractor column (J) — readEquipmentRegistry() reads it (see
-// equipmentRegistry.js) — but this row-builder deliberately omits it: it
-// only backs updateEquipmentRegistryEntry(), used today to edit just the
-// sampling interval from Settings, and the Apps Script's updateRow appears
-// to size the write range to however many values are sent (matching how it
-// already special-cases Oil Change Log to only ever touch two columns) — so
-// sending a 9-value row here should leave column J alone rather than risk
-// clobbering it with a stale value from local state. Not verified against
-// the Apps Script source itself (it isn't part of this repo); if a future
-// change makes updateRow overwrite a fixed-width row instead, this would
-// need to send the real contractor value back through to avoid wiping it.
+// Column order matches the current "Equipment Registry" sheet exactly (see
+// backend/oil-lubrication/src/Code.js's readEquipmentRegistry — this is its
+// inverse): LP_ID, Equipment_ID, Report Equipment ID, Lubrication_Location,
+// Point_Code, Lubrication_Point, Position, Area, Manufacturer, Model,
+// Operating_Temperature_C, Lubricant_Type, Lubricant_Brand,
+// Lubricant_Quantity_L, Oil_Analysis_Required, Oil_Analysis_Interval,
+// Oil_Change_Interval, Contractor, LP_Status, Created_Date, Modified_Date.
+// The backend's generic updateRow writes exactly as many columns as it's
+// sent, starting from column A — sending every field back (not just the one
+// that changed) is what keeps the other 20 columns from being wiped out.
 function equipmentRegistryRow(eq) {
   return [
     eq.code || "",
-    eq.description || "",
-    eq.assetId || "",
-    eq.assetClass || "",
-    eq.lubricant || "",
-    eq.interval || "",
+    eq.equipmentId || "",
+    eq.reportEquipmentId || "",
+    eq.lubricationLocation || "",
+    eq.pointCode || "",
+    eq.lubricationPoint || "",
+    eq.position || "",
+    eq.area || "",
     eq.manufacturer || "",
     eq.model || "",
-    eq.area || "",
+    eq.operatingTempC || "",
+    eq.lubricant || "",
+    eq.lubricantBrand || "",
+    eq.lubricantQuantityL || "",
+    eq.oilAnalysisRequired || "",
+    eq.interval || "",
+    eq.oilChangeInterval || "",
+    eq.contractor || "",
+    eq.status || "",
+    eq.createdDate || "",
+    eq.modifiedDate || "",
   ];
 }
 
