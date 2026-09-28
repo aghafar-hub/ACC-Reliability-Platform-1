@@ -18,7 +18,7 @@ import Settings from "./pages/Settings";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry } from "./actionRegistry";
-import { parseTrackerRows, overlaySamplesOnTracker } from "./parsers";
+import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges } from "./parsers";
 import * as api from "./api";
 
 let toastId = 0;
@@ -66,7 +66,7 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const [samples, setSamples] = useState(() => readCache("samples")?.data || []);
   const [actions, setActions] = useState(() => readCache("actions")?.data || []);
-  const [oilChanges, setOilChanges] = useState(() => readCache("oilChanges")?.data || []);
+  const [oilChangeEvents, setOilChangeEvents] = useState(() => readCache("oilChangeEvents")?.data || []);
   const [trackerRaw, setTrackerRaw] = useState(() => readCache("trackerRaw")?.data || []);
   const [equipmentRegistry, setEquipmentRegistry] = useState(() => loadEquipmentRegistry());
   const [actionRegistry, setActionRegistry] = useState(() => loadActionRegistry());
@@ -81,6 +81,15 @@ function AppShell({ config, setConfig, navBridge }) {
   // consumer (Sample Tracker page, Reports, Oil Report Search) shows the
   // real current state even when the sheet itself has drifted.
   const trackerByEquip = useMemo(() => overlaySamplesOnTracker(parseTrackerRows(trackerRaw), samples), [trackerRaw, samples]);
+
+  // "Current state per lubrication point" — every page below still wants
+  // this shape (one entry per LP, last change / next due / status), so it's
+  // rebuilt here from the raw append-only event log rather than each page
+  // knowing about events at all.
+  const oilChanges = useMemo(
+    () => deriveCurrentOilChanges(equipmentRegistry, oilChangeEvents),
+    [equipmentRegistry, oilChangeEvents]
+  );
 
   const pushToast = useCallback((message, type = "info") => {
     const id = ++toastId;
@@ -101,16 +110,16 @@ function AppShell({ config, setConfig, navBridge }) {
     setSyncState("loading");
     setSyncMsg("Syncing from Google Sheets…");
     try {
-      const { samples: sm, actions: ac, oilChanges: oc, trackerRaw: tr } = await api.readAll(config.webhookUrl);
+      const { samples: sm, actions: ac, oilChangeEvents: oc, trackerRaw: tr } = await api.readAll(config.webhookUrl);
       setSamples(sm);
       setActions(ac);
-      setOilChanges(oc);
+      setOilChangeEvents(oc);
       setTrackerRaw(tr);
       writeCache("samples", sm);
       writeCache("actions", ac);
-      writeCache("oilChanges", oc);
+      writeCache("oilChangeEvents", oc);
       writeCache("trackerRaw", tr);
-      setSyncMsg(`Synced — ${sm.length} samples · ${ac.length} actions · ${oc.length} oil changes — ${new Date().toLocaleTimeString()}`);
+      setSyncMsg(`Synced — ${sm.length} samples · ${ac.length} actions · ${oc.length} oil change events — ${new Date().toLocaleTimeString()}`);
       setSyncState("idle");
     } catch (err) {
       setSyncMsg(`Sync failed: ${err.message}`);
@@ -146,10 +155,14 @@ function AppShell({ config, setConfig, navBridge }) {
     async (action) => {
       if (!action._oilChangeTarget) return;
       try {
-        const saved = await api.saveOilChange(config.webhookUrl, { ...action._oilChangeTarget, changeDate: action.lastChange });
-        setOilChanges((prev) => {
-          const next = prev.map((o) => (o._id === action._oilChangeTarget._id ? saved : o));
-          writeCache("oilChanges", next);
+        const saved = await api.logOilChangeEvent(config.webhookUrl, {
+          lpId: action._oilChangeTarget.lpId,
+          eventDate: action.lastChange,
+          contractor: action._oilChangeTarget.contractor,
+        });
+        setOilChangeEvents((prev) => {
+          const next = [...prev, saved];
+          writeCache("oilChangeEvents", next);
           return next;
         });
       } catch (err) {
@@ -240,15 +253,15 @@ function AppShell({ config, setConfig, navBridge }) {
   );
 
   const onSaveOilChange = useCallback(
-    async (oilChange) => {
+    async (event) => {
       try {
-        const saved = await api.saveOilChange(config.webhookUrl, oilChange);
-        setOilChanges((prev) => {
-          const next = prev.map((o) => (o._id === oilChange._id ? saved : o));
-          writeCache("oilChanges", next);
+        const saved = await api.logOilChangeEvent(config.webhookUrl, event);
+        setOilChangeEvents((prev) => {
+          const next = [...prev, saved];
+          writeCache("oilChangeEvents", next);
           return next;
         });
-        pushToast("Oil change saved.", "success");
+        pushToast("Oil change logged.", "success");
       } catch (err) {
         pushToast(err.message, "error");
         throw err;

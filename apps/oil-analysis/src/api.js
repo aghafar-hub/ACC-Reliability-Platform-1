@@ -21,8 +21,7 @@ import {
   rowToAction,
   actionToRow,
   ACTION_HEADERS,
-  rowToOilChange,
-  oilChangeToRow,
+  rowToOilChangeEvent,
   rowToSample,
   sampleToRow,
   sameCalendarDay,
@@ -123,7 +122,10 @@ export async function readAll(webhookUrl) {
   return {
     samples: (json.samples || []).filter((r) => Array.isArray(r) && r[0]).map(rowToSample),
     actions: (json.actions || []).filter((r) => Array.isArray(r) && r[0]).map(rowToAction),
-    oilChanges: (json.oilChanges || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChange),
+    // Raw events from "Oil Change LOG" — the "current state per LP" view
+    // pages actually consume is derived from these via
+    // deriveCurrentOilChanges() (parsers.js), not read directly.
+    oilChangeEvents: (json.oilChanges || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent),
     // Raw rows from the "Oil Sample Tracker" sheet, header row included (row
     // 0 = ["Equipment", "Last sample", "interval Days", "INTERVAL", "Jul-22",
     // "Aug-22", ...]). Deliberately not parsed here — see
@@ -288,23 +290,32 @@ export async function deleteAction(webhookUrl, action) {
   }
 }
 
-export async function saveOilChange(webhookUrl, oilChange) {
-  const row = oilChangeToRow(oilChange);
-  const matchCols = oilChange._matchCols || [0, 2, 4];
-  const matchValues = oilChange._matchValues || [oilChange.equipmentCode || "", oilChange.lubricationPoint || "", oilChange.oilType || ""];
-  await postBlind(webhookUrl, { action: "updateRow", sheet: "Oil Change Log", matchCols, matchValues, row });
+// Appends a new event to "Oil Change LOG" — never an update-in-place, since
+// a change event is a historical fact. NextDueDate is computed server-side
+// (from the point's own Equipment Registry Oil_Change_Interval), not sent
+// by the client, so it can't drift from what the registry says the real
+// interval is.
+export async function logOilChangeEvent(webhookUrl, event) {
+  const lpId = event.lpId || "";
+  const eventDate = event.eventDate || "";
+  const doneBy = event.doneBy || "";
+  await postBlind(webhookUrl, {
+    action: "logOilChangeEvent",
+    lpId,
+    eventDate,
+    eventType: event.eventType || "Change",
+    doneBy,
+    conditionNotes: event.conditionNotes || "",
+    contractor: event.contractor || "",
+  });
 
-  const verify = await getEquipmentRows(webhookUrl, oilChange.equipmentCode || "");
-  const savedRow = (verify.oilChanges || []).find(
-    (r) => String(r[2]).trim() === String(matchValues[1]).trim() && String(r[4]).trim() === String(matchValues[2]).trim()
-  );
-  // Only columns 10 (Last Change) and 11 (Next Due) are ever written by the
-  // backend for this sheet — see updateRow's special-case in the Apps Script.
-  if (!savedRow || !sameCalendarDay(savedRow[9], row[9])) {
-    logVerificationMismatch("saveOilChange", row, savedRow);
+  const verify = await getJSON(webhookUrl, { action: "getOilChangesForLp", lpId });
+  const events = (verify.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent);
+  const saved = events.find((ev) => sameCalendarDay(ev.eventDate, eventDate) && (ev.doneBy || "") === doneBy);
+  if (!saved) {
     throw new SaveVerificationError(`The oil change wasn't confirmed saved to the sheet — please try again.`);
   }
-  return rowToOilChange(savedRow);
+  return saved;
 }
 
 export async function saveSample(webhookUrl, sample, headers) {

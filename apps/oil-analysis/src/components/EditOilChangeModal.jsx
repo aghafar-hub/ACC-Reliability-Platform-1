@@ -1,17 +1,33 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { computeOilChangeNextDue, computeOilChangeStatus } from "../parsers";
+import { computeOilChangeNextDue } from "../parsers";
+import { toISODate } from "../actionAutofill";
 
 // Shared by the Oil Change Log page and the Equipment tab's "Log Oil
-// Change" flow — only Last Change Date and Next Due Date are ever editable
-// here; everything else on the row is managed directly in the sheet.
+// Change" flow. Logs a NEW event to the Oil Change LOG sheet — it never
+// edits an existing row, since a change event is a historical fact.
+// Quantity/oil type/contractor are auto-filled server-side from the
+// point's own Equipment Registry entry; Next Due Date is computed
+// server-side too (shown below as a live preview only). Done By and
+// Notes are the two fields this form actually asks for beyond the date.
 export default function EditOilChangeModal({ oilChange, onClose, onSave, saving }) {
   const { T, s } = useTheme();
-  const [form, setForm] = useState({ changeDate: oilChange.changeDate || "", nextDueDate: oilChange.nextDueDate || "" });
+  const [form, setForm] = useState({
+    changeDate: toISODate(oilChange.changeDate) || toISODate(new Date()),
+    doneBy: "",
+    conditionNotes: "",
+  });
+
+  const nextDuePreview = computeOilChangeNextDue(form.changeDate, oilChange.frequency);
 
   async function handleSave() {
-    const nextDueDate = form.nextDueDate || computeOilChangeNextDue(form.changeDate, oilChange.frequency);
-    await onSave({ ...oilChange, changeDate: form.changeDate, nextDueDate, status: computeOilChangeStatus(nextDueDate) });
+    await onSave({
+      lpId: oilChange.lpId,
+      eventDate: form.changeDate,
+      doneBy: form.doneBy.trim(),
+      conditionNotes: form.conditionNotes.trim(),
+      contractor: oilChange.contractor,
+    });
   }
 
   return (
@@ -32,22 +48,33 @@ export default function EditOilChangeModal({ oilChange, onClose, onSave, saving 
         onClick={(e) => e.stopPropagation()}
       >
         <p style={{ fontWeight: 700, marginBottom: 16 }}>
-          Update Oil Change — {oilChange.equipmentCode} / {oilChange.lubricationPoint}
+          Log Oil Change — {oilChange.equipmentCode} / {oilChange.lubricationPoint}
         </p>
-        <label style={s.label}>Last Change Date</label>
+        <label style={s.label}>Change Date</label>
         <input
           style={{ ...s.input, marginBottom: 14 }}
           type="date"
           value={form.changeDate || ""}
           onChange={(e) => setForm((x) => ({ ...x, changeDate: e.target.value }))}
         />
-        <label style={s.label}>Next Due Date</label>
+        <label style={s.label}>Done By</label>
         <input
-          style={{ ...s.input, marginBottom: 20 }}
-          type="date"
-          value={form.nextDueDate || ""}
-          onChange={(e) => setForm((x) => ({ ...x, nextDueDate: e.target.value }))}
+          style={{ ...s.input, marginBottom: 14 }}
+          type="text"
+          placeholder="Technician or team"
+          value={form.doneBy}
+          onChange={(e) => setForm((x) => ({ ...x, doneBy: e.target.value }))}
         />
+        <label style={s.label}>Notes</label>
+        <textarea
+          style={{ ...s.input, marginBottom: 14, minHeight: 60, resize: "vertical" }}
+          placeholder="Condition notes (optional)"
+          value={form.conditionNotes}
+          onChange={(e) => setForm((x) => ({ ...x, conditionNotes: e.target.value }))}
+        />
+        <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 20 }}>
+          Next due: {nextDuePreview ? nextDuePreview : "no fixed interval for this point"}
+        </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button style={s.btn} onClick={onClose} disabled={saving}>
             Cancel

@@ -16,19 +16,35 @@
 //   ?action=getEquipment&id=XXXX            → samples+actions+oilChanges for one equipment
 //   ?action=searchEquipment&q=text          → top 20 matching Data_Entry rows
 //   ?action=getActions&page=1&limit=50      → paginated Action Tracker rows
-//   ?action=getOilChanges&page=1&limit=50   → paginated Oil Change Log rows
+//   ?action=getOilChanges&page=1&limit=50   → paginated Oil Change LOG rows
+//   ?action=getOilChangesForLp&lpId=XXXX    → all Oil Change LOG events for one LP_ID
 //   ?action=getRecentSamples&page=1&limit=50→ paginated Data_Entry rows (newest first)
+//
+// STEP 2 (see docs/oil-lubrication-migration-notes.md): "Oil Change Log" was
+// the sheet's OLD tab name for a "current state per equipment/point/oilType"
+// row — that tab is gone. The real tab today is "Oil Change LOG" (note the
+// case — SpreadsheetApp.getSheetByName is case-sensitive, so the original
+// v4.0 script silently got back an empty sheet here) and it's an
+// append-only EVENT log: one row per real oil-change event, never edited in
+// place. doPost action "logOilChangeEvent" is the only way this app writes
+// to it now — updateRow's old special-case for this sheet is gone.
+// "Oil Last Change" (a separate tab) is a formula-only derived view this
+// backend never reads or writes — its own MAXIFS/IF formulas keep it in
+// sync with Oil Change LOG on their own.
 //
 // LAST MODIFIED TRACKING:
 //   Each sheet gets a new trailing column "Last Modified" (ISO timestamp).
 //   Stamped automatically on append/updateRow. Used for future incremental sync.
-//   Column positions (1-based): Data_Entry=38, Action Tracker=17, Oil Change Log=13
+//   Column positions (1-based): Data_Entry=38, Action Tracker=17, Oil Change LOG=13
+//   (Oil Change LOG's column 13 is "Created_Date" — since rows are never
+//   edited after being appended, "last modified" and "created" are the same
+//   moment for this sheet.)
 // ════════════════════════════════════════════════════════════════════════════
 
 var LAST_MODIFIED_COL = {
   "Data_Entry": 38,
   "Action Tracker": 17,
-  "Oil Change Log": 13
+  "Oil Change LOG": 13
 };
 
 var DASHBOARD_CACHE_KEY = "dashboard_v4";
@@ -60,7 +76,10 @@ function doGet(e) {
         result = getPaginated("Action Tracker", e.parameter.page, e.parameter.limit);
         break;
       case "getOilChanges":
-        result = getPaginated("Oil Change Log", e.parameter.page, e.parameter.limit);
+        result = getPaginated("Oil Change LOG", e.parameter.page, e.parameter.limit);
+        break;
+      case "getOilChangesForLp":
+        result = getOilChangesForLp(e.parameter.lpId || "");
         break;
       case "getRecentSamples":
         result = getPaginated("Data_Entry", e.parameter.page, e.parameter.limit, true); // newest first
@@ -119,6 +138,13 @@ function doPost(e) {
       return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
     }
 
+    if (data.action === "logOilChangeEvent") {
+      var logResult = logOilChangeEvent(ss, data);
+      invalidateDashboardCache();
+      logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId});
+      return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {status: "ok", eventId: logResult.eventId, nextDueDate: logResult.nextDueDate});
+    }
+
     if (data.action === "updateRow") {
       var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
       invalidateDashboardCache();
@@ -171,9 +197,8 @@ function logError(context, err, extra) {
 // Returns the 1-based row number where data starts for a given sheet.
 function dataStartRowFor(sheetName) {
   if (sheetName === "Data_Entry") return 6;     // rows 1-5 are title/instructions/header
-  if (sheetName === "Oil Change Log") return 4; // rows 1-3 are title/subtitle/header
   if (sheetName === "Action Tracker") return 6; // rows 1-4 blank/title, row 5 = header
-  return 2; // standard: row 1 = header
+  return 2; // standard: row 1 = header — covers "Oil Change LOG" too (just a header row, no title row)
 }
 
 
@@ -184,7 +209,7 @@ function readAll() {
   return {
     samples:    readSheet(ss, "Data_Entry",         true),
     actions:    readSheet(ss, "Action Tracker",     true),
-    oilChanges: readSheet(ss, "Oil Change Log",     true),
+    oilChanges: readSheet(ss, "Oil Change LOG",     true), // raw events — client derives current-state-per-LP itself
     tracker:    readSheet(ss, "Oil Sample Tracker", false),
   };
 }
@@ -199,12 +224,6 @@ function readSheet(ss, name, skipHeader) {
   if (name === "Data_Entry") {
     if (vals.length <= 5) return [];
     return skipHeader ? vals.slice(5) : vals.slice(4);
-  }
-
-  // ── CUSTOM FIX FOR ARABIAN CEMENT OIL CHANGE LOG ──
-  if (name === "Oil Change Log") {
-    if (vals.length <= 3) return [];
-    return vals.slice(3);
   }
 
   // ── CUSTOM FIX FOR ARABIAN CEMENT ACTION TRACKER ──
@@ -261,12 +280,30 @@ function getDashboard() {
     else normalCount++;
   });
 
-  // Oil Change Log — col L (index 11) = Status, count "Overdue"
-  var ocRows = readSheet(ss, "Oil Change Log", true);
-  var overdueOilChanges = 0;
+  // Oil Change LOG is an event log, not a per-point status row — "overdue"
+  // has to be derived: take each LP_ID's most recent event and check its
+  // own NextDueDate (col L / index 11), computed at log time from that
+  // point's Oil_Change_Interval. Points with no logged event yet have no
+  // baseline to call overdue against, so they're not counted either way.
+  var ocRows = readSheet(ss, "Oil Change LOG", true);
+  var latestDueByLp = {};
   for (var j = 0; j < ocRows.length; j++) {
-    if ((ocRows[j][11] || "").toString().trim() === "Overdue") overdueOilChanges++;
+    var evLpId = String(ocRows[j][1] || "").trim();
+    if (!evLpId) continue;
+    var evDate = ocRows[j][4];
+    var existingEv = latestDueByLp[evLpId];
+    if (!existingEv || compareDates(evDate, existingEv.date) > 0) {
+      latestDueByLp[evLpId] = { date: evDate, due: ocRows[j][11] };
+    }
   }
+  var overdueOilChanges = 0;
+  var nowMs = Date.now();
+  Object.keys(latestDueByLp).forEach(function(lp) {
+    var due = latestDueByLp[lp].due;
+    if (!due) return;
+    var d = (due instanceof Date) ? due : new Date(due);
+    if (!isNaN(d.getTime()) && d.getTime() < nowMs) overdueOilChanges++;
+  });
 
   // Action Tracker — col J (index 9) = Status, count Open/In Progress/Waiting Stoppage
   var actRows = readSheet(ss, "Action Tracker", true);
@@ -331,8 +368,8 @@ function getEquipmentData(equipmentId) {
   var actions = readSheet(ss, "Action Tracker", true).filter(function(r) {
     return String(r[1]).trim() === id;
   });
-  var oilChanges = readSheet(ss, "Oil Change Log", true).filter(function(r) {
-    return String(r[0]).trim() === id;
+  var oilChanges = readSheet(ss, "Oil Change LOG", true).filter(function(r) {
+    return String(r[1]).trim() === id; // col B = LP_ID (col A is EventId now)
   });
 
   return { samples: samples, actions: actions, oilChanges: oilChanges };
@@ -418,7 +455,7 @@ function getChanges(since) {
   return {
     samples:    filterChangedSince(ss, "Data_Entry",     sinceDate),
     actions:    filterChangedSince(ss, "Action Tracker", sinceDate),
-    oilChanges: filterChangedSince(ss, "Oil Change Log", sinceDate),
+    oilChanges: filterChangedSince(ss, "Oil Change LOG", sinceDate),
     serverTime: serverTime,
     since: since,
     fullSyncRequired: false
@@ -462,14 +499,8 @@ function updateRow(ss, sheetName, matchCols, matchValues, newRow) {
   var rowIdx = findRowIndex(sheet, matchCols, matchValues, dataStartRowFor(sheetName));
   if (rowIdx === -1) return false;
 
-  // Oil Change Log: only update Last Change (col J=10) and Next Oil Change (col K=11).
-  // Never overwrite col L (Status) — it's a sheet formula.
-  if (sheetName === "Oil Change Log") {
-    if (newRow[9] !== undefined && newRow[9] !== "") sheet.getRange(rowIdx, 10).setValue(newRow[9]);
-    if (newRow[10] !== undefined && newRow[10] !== "") sheet.getRange(rowIdx, 11).setValue(newRow[10]);
-    stampLastModified(sheet, sheetName, rowIdx);
-    return true;
-  }
+  // "Oil Change LOG" is append-only now (see logOilChangeEvent) — this app
+  // never calls updateRow against it, so no special-case is needed here.
 
   sheet.getRange(rowIdx, 1, 1, newRow.length).setValues([newRow]);
   stampLastModified(sheet, sheetName, rowIdx);
@@ -764,4 +795,104 @@ function readEquipmentRegistry() {
     });
   }
   return { equipment: equipment, count: equipment.length };
+}
+
+
+// ─── Oil Change LOG — append-only event write (Step 2) ──────────────────
+//
+// The sole read/write path for oil-change history. Every save is a NEW
+// row — nothing here is ever edited in place, since a change event is a
+// historical fact, not mutable "current state" (that's what the old
+// "Oil Change Log" sheet used to be; it no longer exists — see the header
+// comment). "Oil Last Change" is a separate, formula-only viewer sheet this
+// backend deliberately never reads or writes.
+//
+// NextDueDate is computed HERE, server-side, from the lubrication point's
+// own Oil_Change_Interval (Equipment Registry column Q) — never trusted
+// from the client — so it can't drift from what the registry says the
+// real interval is.
+function logOilChangeEvent(ss, data) {
+  var lpId = String(data.lpId || "").trim();
+  if (!lpId) return { error: "lpId is required" };
+
+  var eventDate = data.eventDate ? new Date(data.eventDate) : new Date();
+  if (isNaN(eventDate.getTime())) return { error: "eventDate is invalid" };
+
+  var reg = findRegistryEntryForOilChange_(ss, lpId);
+  var months = intervalMonthsForOilChange_(reg ? reg.oilChangeInterval : "");
+  var nextDueDate = months ? addMonths_(eventDate, months) : "";
+
+  var eventId = "EVT-" + Utilities.getUuid();
+  var row = [
+    eventId,
+    lpId,
+    data.routineItemId || "",
+    data.eventType || "Change",
+    eventDate,
+    data.quantityUsed || (reg ? reg.lubricantQuantityL : "") || "",
+    data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
+    data.doneBy || "",
+    data.contractor || (reg ? reg.contractor : "") || "",
+    data.conditionNotes || "",
+    data.photoUrl || "",
+    nextDueDate,
+    "", // Created_Date — filled by appendRow's own stampLastModified, same as every other tracked sheet
+  ];
+  appendRow(ss, "Oil Change LOG", row);
+  return { status: "ok", eventId: eventId, nextDueDate: nextDueDate instanceof Date ? nextDueDate.toISOString() : nextDueDate };
+}
+
+function oilBrandTypeFor_(reg) {
+  return reg.lubricantBrand ? (reg.lubricant + " / " + reg.lubricantBrand) : reg.lubricant;
+}
+
+// Minimal Equipment Registry lookup by LP_ID — scoped to just the fields
+// logOilChangeEvent needs, not the full readEquipmentRegistry() shape.
+function findRegistryEntryForOilChange_(ss, lpId) {
+  var sheet = ss.getSheetByName("Equipment Registry");
+  if (!sheet) return null;
+  var vals = sheet.getDataRange().getValues();
+  for (var i = 2; i < vals.length; i++) {
+    if (String(vals[i][0] || "").trim() === lpId) {
+      return {
+        lubricant:          String(vals[i][11] || "").trim(),
+        lubricantBrand:     String(vals[i][12] || "").trim(),
+        lubricantQuantityL: String(vals[i][13] || "").trim(),
+        oilChangeInterval:  String(vals[i][16] || "").trim(),
+        contractor:         String(vals[i][17] || "").trim(),
+      };
+    }
+  }
+  return null;
+}
+
+// Mirrors the frontend's own intervalMonths() in parsers.js — keep both in
+// sync if Oil_Change_Interval's text format ever changes. Handles "2 Y" /
+// "0.5 Y" (the real format) and blank/"As needed" (no fixed interval, so no
+// NextDueDate is set).
+function intervalMonthsForOilChange_(freqText) {
+  var t = String(freqText || "").trim().toLowerCase();
+  if (!t || t === "as needed" || t === "if needed") return null;
+  var m = t.match(/^([\d.]+)\s*y$/);
+  if (m) return Math.round(parseFloat(m[1]) * 12);
+  var n = parseFloat(t);
+  return isNaN(n) ? null : n;
+}
+
+function addMonths_(date, months) {
+  var d = new Date(date.getTime());
+  d.setMonth(d.getMonth() + months);
+  return d;
+}
+
+// All Oil Change LOG events for one LP_ID, newest first — backs both the
+// write-verification read in api.js and an eventual per-point history view.
+function getOilChangesForLp(lpId) {
+  var id = String(lpId || "").trim();
+  if (!id) return { events: [] };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Change LOG", true).filter(function(r) {
+    return String(r[1] || "").trim() === id;
+  });
+  return { events: rows.slice().reverse(), count: rows.length };
 }

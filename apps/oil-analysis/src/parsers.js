@@ -390,48 +390,78 @@ export function nextAcNo(actions) {
   return `0-${max + 1}`;
 }
 
-// ── Oil Change Log ───────────────────────────────────────────────────────
-// Columns: 0 Equipment Code, 1 Asset Name, 2 Lubrication Point, 3 Frequency,
-// 4 Oil Type, 5 Brand, 6 Quantity, 7-8 (unused), 9 Last Change, 10 Next Due,
-// 11 Status (sheet formula — never overwritten by updateRow)
+// ── Oil Change LOG (event log) ───────────────────────────────────────────
+// Note the sheet tab is literally named "Oil Change LOG" (all-caps LOG) —
+// distinct from "Oil Last Change", a separate, formula-only tab this app
+// never reads or writes (its Last Change Date / Status columns self-update
+// from this sheet via MAXIFS/IF formulas already built into it). This one
+// is append-only: one row per real oil-change event, never edited in place
+// — a change event is a historical fact, not mutable "current state".
+// Columns: 0 EventId, 1 LP_ID, 2 RoutineItemId, 3 EventType, 4 EventDate,
+// 5 QuantityUsed, 6 OilBrandType, 7 DoneBy, 8 Contractor, 9 ConditionNotes,
+// 10 PhotoUrl, 11 NextDueDate (computed server-side at log time from the
+// point's own Oil_Change_Interval), 12 Created_Date.
 
-export function rowToOilChange(row) {
-  const equipmentCode = row[0];
-  const lubricationPoint = row[2];
-  const oilType = row[4];
+export function rowToOilChangeEvent(row) {
   return {
-    equipmentCode,
-    assetName: row[1] || equipmentCode,
-    lubricationPoint,
-    frequency: row[3],
-    oilType,
-    brand: row[5],
-    quantity: row[6],
-    changeDate: formatDate(row[9]),
-    nextDueDate: formatDate(row[10]),
-    status: (row[11] || "").toString().trim() || "Current",
-    _id: `${equipmentCode}_${lubricationPoint}_${oilType}`,
-    _matchCols: [0, 2, 4],
-    _matchValues: [equipmentCode, lubricationPoint, oilType],
-    _rawRow: row,
+    eventId: row[0] || "",
+    lpId: row[1] || "",
+    routineItemId: row[2] || "",
+    eventType: row[3] || "Change",
+    eventDate: formatDate(row[4]),
+    quantityUsed: row[5] || "",
+    oilBrandType: row[6] || "",
+    doneBy: row[7] || "",
+    contractor: row[8] || "",
+    conditionNotes: row[9] || "",
+    photoUrl: row[10] || "",
+    nextDueDate: formatDate(row[11]),
+    createdDate: row[12] || "",
   };
 }
 
-export function oilChangeToRow(o) {
-  return [
-    o.equipmentCode || "",
-    o.assetName || "",
-    o.lubricationPoint || "",
-    o.frequency || "Oil Analysis",
-    o.oilType || "",
-    o.brand || "",
-    o.quantity || "",
-    "",
-    "",
-    o.changeDate || "",
-    o.nextDueDate || "",
-    o.status || "Current",
-  ];
+// Builds the "current state per lubrication point" view every existing page
+// (Dashboard, Oil Change Log, Equipment, Reports, Sample Tracker, action
+// autofill…) already expects — same shape the old per-LP "current row"
+// sheet used to hand them directly, now derived instead from the append-
+// only event log plus the Equipment Registry. One entry per registry row
+// (per LP_ID), even for points with no logged events yet.
+//
+// `equipmentCode` is set to LP_ID, not Equipment_ID — matches `reg.code`
+// (see equipmentRegistryDefault.js) and, today, the value Data_Entry/Action
+// Tracker rows already yield for `.unitId`/`.equipmentCode` (their own
+// column-shift fix is a separate, not-yet-done step, but LP_ID already sits
+// in their first column) — so every existing cross-reference by
+// equipmentCode keeps matching real rows without those pages changing.
+export function deriveCurrentOilChanges(registry, events) {
+  const latestByLp = new Map();
+  for (const ev of events || []) {
+    if (!ev.lpId) continue;
+    const prev = latestByLp.get(ev.lpId);
+    if (!prev || new Date(ev.eventDate) > new Date(prev.eventDate)) latestByLp.set(ev.lpId, ev);
+  }
+  return (registry || []).map((reg) => {
+    const latest = latestByLp.get(reg.code) || null;
+    const changeDate = latest?.eventDate || "";
+    const nextDueDate = latest?.nextDueDate || "";
+    return {
+      equipmentCode: reg.code,
+      lpId: reg.code,
+      assetName: reg.description || reg.equipmentId || reg.code,
+      lubricationPoint: reg.lubricationPoint,
+      frequency: reg.oilChangeInterval,
+      oilType: reg.lubricant,
+      brand: reg.lubricantBrand,
+      quantity: reg.lubricantQuantityL,
+      contractor: latest?.contractor || reg.contractor,
+      performedBy: latest?.doneBy || "",
+      changeDate,
+      nextDueDate,
+      status: computeOilChangeStatus(nextDueDate),
+      lastEvent: latest,
+      _id: reg.code,
+    };
+  });
 }
 
 // ── Data_Entry (samples) ─────────────────────────────────────────────────
