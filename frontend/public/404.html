@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>ACC Reliability</title>
+    <script>
+      // Single Page Apps for GitHub Pages — https://github.com/rafgraph/spa-github-pages
+      //
+      // GitHub Pages is a static file host: it has no server-side rewrite, so
+      // a fresh request for a client-routed path (a hard refresh, a bookmarked
+      // or shared deep link, a mobile browser reloading a backgrounded tab —
+      // anything that isn't React Router intercepting an in-app click) finds
+      // no matching file and gets this 404 page instead. This script encodes
+      // the path the visitor actually wanted into a query string and redirects
+      // to the site root; index.html's matching script decodes it back into
+      // the real path via history.replaceState before the app mounts, so
+      // BrowserRouter still lands on the right page.
+      //
+      // pathSegmentsToKeep = 1: this is a GitHub Pages PROJECT site (served
+      // under /<repo-name>/, not a custom domain at the root), so the first
+      // path segment (the repo name) has to be preserved as-is, not treated
+      // as part of the route.
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

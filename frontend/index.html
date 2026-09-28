@@ -7,6 +7,25 @@
     <title>ACC Reliability</title>
     <!-- Tabler icons: the embedded as-is Oil Analysis app depends on this (its own index.html loads it the same way) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+    <script>
+      // Single Page Apps for GitHub Pages — https://github.com/rafgraph/spa-github-pages
+      // Undoes 404.html's redirect: rewrites the URL back to the real path
+      // (via history.replaceState, before React Router mounts) so a hard
+      // refresh or a direct deep link ends up on the right page instead of
+      // stuck at "/". See 404.html's own comment for the full story.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) {
+              return s.replace(/~and~/g, '&');
+            })
+            .join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })(window.location);
+    </script>
   </head>
   <body>
     <div id="root"></div>
