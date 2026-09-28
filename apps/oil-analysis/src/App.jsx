@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import { DEFAULT_THEME } from "./theme";
 import Sidebar from "./components/Sidebar";
@@ -24,6 +24,16 @@ import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges } fr
 import * as api from "./api";
 
 let toastId = 0;
+
+// Upserts `incoming` items into `prev` by key, preserving prev's order for
+// items that were already there and appending genuinely new ones. Used to
+// merge getChanges()'s "rows modified since <checkpoint>" results into the
+// already-loaded arrays without a full re-fetch.
+function mergeById(prev, incoming, keyFn) {
+  const byKey = new Map(prev.map((item) => [keyFn(item), item]));
+  incoming.forEach((item) => byKey.set(keyFn(item), item));
+  return Array.from(byKey.values());
+}
 
 // navBridge (only passed when mounted embedded — see src/embed.jsx) is a
 // plain JS object, not React state: the embedding shell runs its own
@@ -75,6 +85,10 @@ function AppShell({ config, setConfig, navBridge }) {
   const [syncState, setSyncState] = useState("idle");
   const [syncMsg, setSyncMsg] = useState("");
   const [toasts, setToasts] = useState([]);
+  // Checkpoint for incremental sync (api.getChanges) — an ISO timestamp
+  // captured just before the last successful sync request went out.
+  const [lastSyncAt, setLastSyncAt] = useState(() => readCache("lastSyncAt")?.data || null);
+  const autoSyncTickRef = useRef(0);
 
   // The tracker sheet only reflects samples added through this app (or
   // manually kept in sync by hand); Data_Entry is always current, since
@@ -111,6 +125,7 @@ function AppShell({ config, setConfig, navBridge }) {
     }
     setSyncState("loading");
     setSyncMsg("Syncing from Google Sheets…");
+    const requestStartedAt = new Date().toISOString();
     try {
       const { samples: sm, actions: ac, oilChangeEvents: oc, trackerRaw: tr } = await api.readAll(config.webhookUrl);
       setSamples(sm);
@@ -121,6 +136,8 @@ function AppShell({ config, setConfig, navBridge }) {
       writeCache("actions", ac);
       writeCache("oilChangeEvents", oc);
       writeCache("trackerRaw", tr);
+      setLastSyncAt(requestStartedAt);
+      writeCache("lastSyncAt", requestStartedAt);
       setSyncMsg(`Synced — ${sm.length} samples · ${ac.length} actions · ${oc.length} oil change events — ${new Date().toLocaleTimeString()}`);
       setSyncState("idle");
     } catch (err) {
@@ -130,17 +147,104 @@ function AppShell({ config, setConfig, navBridge }) {
     }
   }, [config.webhookUrl, pushToast]);
 
+  // Background auto-sync uses this instead of runSync's full readAll() once
+  // there's a checkpoint to sync from — cheaper against sheets this size
+  // with ~20 people's browsers polling the same Apps Script deployment.
+  // getChanges() can't see row DELETIONS (a removed row has no "Last
+  // Modified" left to compare), so this alone would slowly drift stale;
+  // the auto-sync scheduler below mixes in a full runSync() periodically
+  // to catch those. Errors here don't toast — a background tick failing
+  // silently retries next cycle instead of interrupting whoever's using
+  // the app; the explicit "Sync now" button still goes through runSync.
+  const runIncrementalSync = useCallback(async () => {
+    if (!config.webhookUrl) return;
+    if (!lastSyncAt) {
+      await runSync();
+      return;
+    }
+    const requestStartedAt = new Date().toISOString();
+    try {
+      const { samples: sm, actions: ac, oilChangeEvents: oc, fullSyncRequired } = await api.getChanges(
+        config.webhookUrl,
+        lastSyncAt
+      );
+      if (fullSyncRequired) {
+        await runSync();
+        return;
+      }
+      if (sm.length) {
+        setSamples((prev) => {
+          const next = mergeById(prev, sm, (s) => s._id);
+          writeCache("samples", next);
+          return next;
+        });
+      }
+      if (ac.length) {
+        setActions((prev) => {
+          const next = mergeById(prev, ac, (a) => a._id);
+          writeCache("actions", next);
+          return next;
+        });
+      }
+      if (oc.length) {
+        setOilChangeEvents((prev) => {
+          const next = mergeById(prev, oc, (e) => e.eventId);
+          writeCache("oilChangeEvents", next);
+          return next;
+        });
+      }
+      setLastSyncAt(requestStartedAt);
+      writeCache("lastSyncAt", requestStartedAt);
+      if (sm.length || ac.length || oc.length) {
+        setSyncMsg(
+          `Synced — ${sm.length} new/updated samples · ${ac.length} actions · ${oc.length} oil change events — ${new Date().toLocaleTimeString()}`
+        );
+      }
+    } catch (err) {
+      setSyncMsg(`Background sync failed: ${err.message}`);
+    }
+  }, [config.webhookUrl, lastSyncAt, runSync]);
+
   useEffect(() => {
     if (config.webhookUrl) runSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.webhookUrl]);
 
+  // Jittered polling, mostly incremental: a plain setInterval would have
+  // every open tab across ~20 people's devices fire their GET at the exact
+  // same moment (they all started auto-sync near the same time, e.g. right
+  // after a shared link or a deploy). Recomputing the delay each cycle with
+  // +/-15% randomness spreads that out instead of hammering the Apps
+  // Script deployment in one burst every N minutes. Every 6th tick runs a
+  // full sync (readAll) instead of incremental (getChanges), since
+  // incremental can't see deletions.
   useEffect(() => {
     if (!config.enableAutoSync || !config.webhookUrl) return;
     const minutes = Number(config.autoSyncMinutes) || 5;
-    const id = setInterval(runSync, minutes * 60 * 1000);
-    return () => clearInterval(id);
-  }, [config.enableAutoSync, config.autoSyncMinutes, config.webhookUrl, runSync]);
+    let cancelled = false;
+    let timeoutId;
+
+    const scheduleNext = () => {
+      const jitter = 0.85 + Math.random() * 0.3;
+      timeoutId = setTimeout(tick, minutes * 60 * 1000 * jitter);
+    };
+
+    const tick = async () => {
+      autoSyncTickRef.current += 1;
+      if (autoSyncTickRef.current % 6 === 0) {
+        await runSync();
+      } else {
+        await runIncrementalSync();
+      }
+      if (!cancelled) scheduleNext();
+    };
+
+    scheduleNext();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [config.enableAutoSync, config.autoSyncMinutes, config.webhookUrl, runSync, runIncrementalSync]);
 
   function updateConfig(patch) {
     const next = { ...config, ...patch };

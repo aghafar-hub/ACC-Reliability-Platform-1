@@ -7,6 +7,16 @@ export const DEFAULT_WEBHOOK_URL =
   "https://script.google.com/macros/s/AKfycbx3GDHY_1njtZ5wO5684BuYyslzuzB7GvAchJQtnBCynVOCLxfJ0ZnNm9oXWhqk36Lt/exec";
 export const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ckDYD5vjRIyFc7vBK1cqHJHhlI8KuwmRtucgtrfZXto/edit";
 
+// Shared secret sent with every backend request (see checkSecret_ in
+// backend/oil-lubrication/src/Code.js). This is not per-user auth — it's
+// bundled into the public frontend build, same exposure as the webhook URL
+// itself — but it raises the bar from "anyone who has the URL" to "anyone
+// who has the URL AND this value," and it's rotatable via a Script Property
+// without a new Apps Script deployment. The backend fails OPEN (accepts
+// every request) until API_SECRET is set as a Script Property there, so
+// this can ship ahead of that step without locking anyone out.
+export const API_SECRET = "5RfANz0fp5kycVaABAYrKZ9eWBJxXOBaghBKRM9o";
+
 const DEFAULT_CONFIG = {
   webhookUrl: DEFAULT_WEBHOOK_URL,
   sheetUrl: DEFAULT_SHEET_URL,

@@ -30,6 +30,7 @@ import {
   rowToOilProduct,
   rowToOilMovement,
 } from "./parsers";
+import { API_SECRET } from "./config";
 
 export class SaveVerificationError extends Error {
   constructor(message) {
@@ -41,6 +42,7 @@ export class SaveVerificationError extends Error {
 async function getJSON(webhookUrl, params) {
   const url = new URL(webhookUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  url.searchParams.set("secret", API_SECRET);
   // Apps Script Web App GET responses are served through a
   // content.googleusercontent.com redirect that can cache an identical URL
   // for a short window — a verify-read run right after a write can come
@@ -58,7 +60,11 @@ async function getJSON(webhookUrl, params) {
 
 async function postBlind(webhookUrl, body) {
   try {
-    await fetch(webhookUrl, { method: "POST", mode: "no-cors", body: JSON.stringify(body) });
+    await fetch(webhookUrl, {
+      method: "POST",
+      mode: "no-cors",
+      body: JSON.stringify({ ...body, secret: API_SECRET }),
+    });
   } catch (err) {
     throw new Error(`Network error while saving: ${err.message}`);
   }
@@ -138,6 +144,24 @@ export async function readAll(webhookUrl) {
     // parseTrackerRows() in parsers.js, which needs the header row to know
     // which columns are months.
     trackerRaw: Array.isArray(json.tracker) ? json.tracker : [],
+  };
+}
+
+// Incremental sync (backend's getChanges action, Phase 8 — see Code.js):
+// returns only rows whose "Last Modified" column is newer than `since` (an
+// ISO timestamp). Cheaper than readAll() once the sheets are large, but it
+// can't see row DELETIONS (a removed row has no Last Modified to compare)
+// and doesn't cover "Oil Sample Tracker" — callers must still fall back to
+// readAll() periodically, per fullSyncRequired below and the App.jsx
+// scheduling that mixes in a full sync every few cycles.
+export async function getChanges(webhookUrl, since) {
+  const json = await getJSON(webhookUrl, { action: "getChanges", since: since || "" });
+  return {
+    samples: (json.samples || []).filter((r) => Array.isArray(r) && r[0]).map(rowToSample),
+    actions: (json.actions || []).filter((r) => Array.isArray(r) && r[0]).map(rowToAction),
+    oilChangeEvents: (json.oilChanges || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent),
+    serverTime: json.serverTime || null,
+    fullSyncRequired: !!json.fullSyncRequired,
   };
 }
 
@@ -232,10 +256,12 @@ export async function getEquipmentRows(webhookUrl, equipmentCode) {
   return getJSON(webhookUrl, { action: "getEquipment", id: equipmentCode });
 }
 
-// The "Action Registry" sheet tab (columns: No, Actions) backs the
-// multi-select pickers for Contractor Action / ACC Action. Parsed
-// defensively since the exact shape the backend returns for this action
-// (plain label strings vs {no, action} objects) hasn't been confirmed.
+// The real sheet tab is "OL_ACTION_PHRASES" (columns: No, Actions Phrase) —
+// backs the multi-select pickers for Contractor Action / ACC Action. The
+// backend previously had no matching readActionRegistry case at all (this
+// always silently returned empty) and the write path targeted a sheet name
+// ("Action Registry") that doesn't exist — both fixed together, see
+// docs/oil-lubrication-migration-notes.md "Option A hardening".
 export async function getActionRegistry(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "readActionRegistry" });
   const raw = json.actions || json.registry || json.items || [];
@@ -246,14 +272,15 @@ export async function getActionRegistry(webhookUrl) {
 }
 
 // Adds one new entry to the Action Registry sheet — reuses the same generic
-// "append" write every other sheet in this app uses, on the assumption the
-// backend's append handler isn't hardcoded to specific sheet names.
+// "append" write every other sheet in this app uses; the backend's append
+// handler now allowlists which sheets this path may touch (see Code.js),
+// with OL_ACTION_PHRASES included specifically for this.
 export async function addActionRegistryEntry(webhookUrl, label) {
   const trimmed = String(label || "").trim();
   if (!trimmed) return getActionRegistry(webhookUrl);
   const current = await getActionRegistry(webhookUrl);
   const nextNo = current.length + 1;
-  await postBlind(webhookUrl, { action: "append", sheet: "Action Registry", row: [nextNo, trimmed], headers: ["No", "Actions"] });
+  await postBlind(webhookUrl, { action: "append", sheet: "OL_ACTION_PHRASES", row: [nextNo, trimmed], headers: ["No", "Actions Phrase"] });
   const verify = await getActionRegistry(webhookUrl);
   if (!verify.some((a) => a.toLowerCase() === trimmed.toLowerCase())) {
     throw new SaveVerificationError(`"${trimmed}" wasn't confirmed saved to the Action Registry sheet — please try again.`);
