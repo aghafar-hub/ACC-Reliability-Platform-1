@@ -325,3 +325,78 @@ noted:
 Not done as part of Option A (real per-user identity/authorization
 instead of a shared secret, a real database instead of Sheets, request
 rate limiting) — those are Option B/C territory, deferred.
+
+## Option B Phase 1 — real identity (done)
+
+What the audit found before this started: the app your team actually uses
+(`apps/oil-analysis/`'s standalone GitHub Pages build) had **zero login** —
+the shared Option A secret gates the API, but anyone with the URL could
+open the app and act as anyone. The only "password" was a shared
+Settings-tab PIN. Meanwhile Platform Core (the shell at the repo root) had
+a real, working login/session system, just not connected to this app at
+all, and no UI existed anywhere to actually create the ~20 accounts.
+
+Scoped explicitly as identity only — **no access restrictions yet**.
+Everyone can still do everything they could before; the difference is that
+writes are now attributable to a real logged-in person instead of free
+text, and the standalone no-login URL is retired. Role-based restriction
+(who can approve a routine, edit the registry, etc.) is Phase 2, its own
+decision — `hasPermission_`/`getContractorScope_` in
+`backend/platform-core/src/Rbac.js` are still an explicit unimplemented
+skeleton, unchanged by this phase.
+
+1. **Manage Users admin page** — already existed
+   (`frontend/src/components/AccountsPanel.tsx`, wired into the shell's
+   Settings page, App-Admin-gated) from earlier work in this project;
+   confirmed still correct rather than rebuilt. Lists accounts, creates
+   one (email + org, temp password shown once), resets a password.
+2. **Session passed into the embedded app.** `EmbeddedOilAnalysis.tsx`
+   reads the shell's own `useAuth()` session and passes
+   `{ token, claims }` into `mountOilAnalysis(container, { navBridge,
+   session })` once at mount (this component only ever mounts behind
+   `RequireAuth`, so a session is always there by then). `embed.jsx` and
+   `App.jsx` thread it down; a new `SessionContext.jsx`
+   (`useSession()`/`useSessionEmail()`) makes it available to any page
+   without prop-drilling. Absent entirely for a standalone build, which
+   no longer exists after item 5 below, but every consumer already treats
+   a missing session as "nothing to prefill," not an error.
+3. **Session token sent on every request.** `api.js`'s `getJSON`/
+   `postBlind` attach it (`sessionToken`, alongside Option A's `secret`)
+   automatically via a module-level `setSessionToken()` — set once by
+   `App.jsx` from the `session` prop — the same pattern `API_SECRET`
+   already used, so no individual call site changes.
+4. **Identity auto-fill, not auto-lock.** Free-text "who did this" fields
+   (Routine `createdBy`, "Reviewed By" driving `approvedBy`/`commentBy`,
+   Oil Inventory movement `doneBy`, Oil Change Log `doneBy`) prefill from
+   the logged-in user's email the first time a session becomes available,
+   but stay editable — someone occasionally relays another person's
+   verbal sign-off, and Phase 1 isn't the place to foreclose that.
+   `createdBy` on Routine creation was never a form field at all (always
+   sent as `""`), so that one is a pure silent improvement.
+5. **Backend session verification**
+   (`backend/oil-lubrication/src/Code.js`). `getSessionSecret_`,
+   `base64UrlDecode_`, `signPayload_`, `requireSession_` copied verbatim
+   from `backend/platform-core/src/Session.js`, per that file's own
+   instruction to do exactly this in every module. A new `checkAuth_`
+   combines it with Option A's `checkSecret_`: the shared secret still
+   gates every request as before; a request that ALSO sends a session
+   token must have that token verify successfully (rejected outright if
+   malformed/tampered), while a request with no token at all still gets
+   through on the shared secret alone. Fail-soft, not a hard cutover — a
+   device with a not-yet-redeployed frontend, or a user with no Platform
+   Core account yet, doesn't get locked out. The resolved identity
+   (`actingUser`, "" when no session) is folded into every write's
+   existing Debug Log entry, so writes are attributable to a real person
+   even though nothing is restricted yet.
+6. **Standalone deployment retired.** `.github/workflows/deploy.yml` no
+   longer builds/deploys `apps/oil-analysis`'s standalone bundle (no
+   `index.html` at `/apps/oil-analysis/` any more) — only the embed
+   bundle, at the same path the shell already loads it from. The app is
+   now reachable only by logging into the Platform Core shell.
+
+Operationally, item 6 means every one of the ~20 people needs a real
+account before they can use the app again — see the deployment guide's
+"Option B Phase 1" section for the exact rollout sequence (set
+`SESSION_SIGNING_SECRET` to match Platform Core's on the oil-lubrication
+project, redeploy both, then create accounts before the standalone build
+actually goes away in practice via a redeploy).

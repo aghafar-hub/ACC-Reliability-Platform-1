@@ -53,21 +53,22 @@ jobs:
         working-directory: apps/vibration-analysis
         run: npm run build:embed
 
-      - name: Build Oil Analysis standalone (still directly reachable too — no source changes beyond the embed.jsx adapter)
-        working-directory: apps/oil-analysis
-        run: npx vite build --base=/${{ github.event.repository.name }}/apps/oil-analysis/
-
+      # Option B Phase 1 (see docs/oil-lubrication-migration-notes.md): the
+      # standalone, login-free build is retired — this app is only reachable
+      # by logging into the Platform Core shell now. Only the embed bundle
+      # (no index.html — see vite.embed.config.js's library-mode output) is
+      # still built and deployed, at the same path the shell already loads
+      # it from (frontend/src/pages/EmbeddedOilAnalysis.tsx).
       - name: Build Oil Analysis embed bundle
         working-directory: apps/oil-analysis
         run: npm run build:embed
 
       - name: Assemble combined site
         run: |
-          mkdir -p site/apps
+          mkdir -p site/apps/oil-analysis
           cp -r frontend/dist/. site/
           cp -r apps/vibration-analysis/dist site/apps/vibration-analysis
           cp -r apps/vibration-analysis/dist-embed/. site/apps/vibration-analysis/
-          cp -r apps/oil-analysis/dist site/apps/oil-analysis
           cp -r apps/oil-analysis/dist-embed/. site/apps/oil-analysis/
 
       - uses: actions/configure-pages@v5

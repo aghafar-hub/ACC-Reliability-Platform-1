@@ -163,6 +163,41 @@ Script Property, update `API_SECRET` in `config.js` to match, and rebuild/
 redeploy the frontend — no new Apps Script deployment (no new URL) needed
 for the backend, since it re-reads the Script Property on every request.
 
+## 4c. Option B Phase 1 rollout — real login for Oil Lubrication
+
+See `docs/oil-lubrication-migration-notes.md`'s "Option B Phase 1" section
+for what changed and why. This is the order to actually turn it on without
+locking your team out mid-rollout — **do these roughly in order**, since
+step 4 removes the no-login URL your team currently uses:
+
+1. **Sync the session-signing secret.** Open Platform Core's Apps Script
+   project (the one behind "ACC Reliability Data Base") → Project Settings
+   → Script Properties → copy the exact value of `SESSION_SIGNING_SECRET`
+   (generated back in section 1 of this doc). Then open the "Oil
+   Lubrication Data Base" Sheet → Extensions → Apps Script → Project
+   Settings → Script Properties → add `SESSION_SIGNING_SECRET` with that
+   **exact same value**. A mismatch here doesn't error loudly — every
+   session token just silently fails verification and every request falls
+   back to the shared-secret-only path (see `checkAuth_` in `Code.js`),
+   so double-check the copy/paste.
+2. **Redeploy the oil-lubrication backend** (Deploy → Manage deployments
+   → pencil icon → New version → Deploy) — same reminder as section 4b:
+   saving code alone doesn't update the live `/exec` URL.
+3. **Create real accounts for the team.** Log into the Platform Core
+   shell as App Admin → Settings → Accounts panel → add each person by
+   email + org. Each temporary password is shown once — relay it to them
+   directly (Slack/in person), since it's never emailed or shown again.
+   They'll be forced to set a real password on first login.
+4. **Redeploy the frontend** (push to this branch, or `workflow_dispatch`
+   the "Deploy to GitHub Pages" action) — this is the step that actually
+   removes the standalone no-login build. Do this only once enough of the
+   team has a real account to log in with, since after this the only way
+   to reach the Oil Lubrication app is through the shell's login.
+5. **Verify**: log in as one of the new accounts, open Oil Lubrication
+   from the sidebar, and check that a "Reviewed By"/"Done By" field
+   (Routines detail, or Oil Inventory's Log Movement form) is already
+   prefilled with that account's email instead of blank.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
