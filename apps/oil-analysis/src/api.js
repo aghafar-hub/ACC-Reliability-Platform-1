@@ -99,21 +99,23 @@ function logVerificationMismatch(label, sentRow, savedRow, headers) {
   console.error(`[${label}] verify-read mismatch on ${diffs.length} column(s):`, diffs);
 }
 
-// Action Tracker's "Last Modified" column (index 17 — after Closing
+// Action Tracker's "Last Modified" column (index 18 — after Closing
 // Comment) is stamped by the backend itself on every write, independent of
 // whatever we send — so a verification read will always show a fresh value
 // there and must not be compared, or every save would spuriously fail
 // verification.
-const ACTION_LAST_MODIFIED_COL = 17;
+const ACTION_LAST_MODIFIED_COL = 18;
 
 // Every date-bearing column in the Action Tracker row — Revision Date,
 // Sample Date, Last Change, Completed Date — gets the sameCalendarDay()
 // tolerance on verification, since any of them can round-trip through a
 // Google Sheets Date-typed cell and come back in a different string form.
-const ACTION_DATE_COLS = [4, 5, 8, 12];
+// (Shifted +1 from the pre-Step-3 indices by the Report Equipment ID
+// column insertion — see docs/oil-lubrication-migration-notes.md.)
+const ACTION_DATE_COLS = [5, 6, 9, 13];
 
-// Data_Entry's Sampled Date column.
-const SAMPLE_DATE_COL = 3;
+// Data_Entry's Sampled Date column (shifted from 3 — same insertion).
+const SAMPLE_DATE_COL = 4;
 
 // ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -323,7 +325,7 @@ export async function saveSample(webhookUrl, sample, headers) {
   await postBlind(webhookUrl, { action: "append", sheet: "Data_Entry", row, headers });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
-  const savedRow = (verify.samples || []).find((r) => String(r[2]).trim() === String(sample.sampleId).trim());
+  const savedRow = (verify.samples || []).find((r) => String(r[3]).trim() === String(sample.sampleId).trim());
   if (!savedRow) {
     throw new SaveVerificationError(`The sample wasn't confirmed saved to the sheet — please try again.`);
   }
@@ -341,12 +343,12 @@ export async function saveSample(webhookUrl, sample, headers) {
 // isn't guaranteed present/unique either.
 export async function updateSample(webhookUrl, sample) {
   const row = sampleToRow(sample);
-  const matchCols = sample._matchCols || [0, 2];
+  const matchCols = sample._matchCols || [0, 3];
   const matchValues = sample._matchValues || [sample.unitId || "", sample.sampleId || ""];
   await postBlind(webhookUrl, { action: "updateRow", sheet: "Data_Entry", matchCols, matchValues, row });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
-  const savedRow = (verify.samples || []).find((r) => String(r[2]).trim() === String(matchValues[1]).trim());
+  const savedRow = (verify.samples || []).find((r) => String(r[3]).trim() === String(matchValues[1]).trim());
   if (!savedRow || !rowsEqual(savedRow, row, { dateIndices: [SAMPLE_DATE_COL] })) {
     logVerificationMismatch("updateSample", row, savedRow);
     throw new SaveVerificationError(`The sample wasn't confirmed saved to the sheet. It may not have written — please try again.`);
@@ -355,12 +357,12 @@ export async function updateSample(webhookUrl, sample) {
 }
 
 export async function deleteSample(webhookUrl, sample) {
-  const matchCols = sample._matchCols || [0, 2];
+  const matchCols = sample._matchCols || [0, 3];
   const matchValues = sample._matchValues || [sample.unitId || "", sample.sampleId || ""];
   await postBlind(webhookUrl, { action: "deleteRow", sheet: "Data_Entry", matchCols, matchValues });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
-  const stillThere = (verify.samples || []).some((r) => String(r[2]).trim() === String(matchValues[1]).trim());
+  const stillThere = (verify.samples || []).some((r) => String(r[3]).trim() === String(matchValues[1]).trim());
   if (stillThere) {
     throw new SaveVerificationError(`The sample wasn't confirmed deleted from the sheet — please try again.`);
   }

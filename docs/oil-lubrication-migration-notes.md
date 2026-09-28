@@ -105,17 +105,49 @@ New backend endpoints:
 (that sheet is gone) — it's derived the same way as the frontend: latest
 event per LP_ID, checked against that event's own stored NextDueDate.
 
-## Step 3 — not started
+## Step 3 — Data_Entry / Action Tracker column shift (done)
 
-Data_Entry and Action Tracker both shifted by the same +1 column that
-Equipment Registry did (a new "Report Equipment ID"-equivalent column was
-inserted). `parsers.js`'s `rowToSample`/`sampleToRow` and
-`rowToAction`/`actionToRow` haven't been remapped for this yet — column 0
-of both sheets still happens to read as LP_ID today (by position, not by
-design), which is why Step 1 and Step 2's LP_ID-keyed joins already work
-correctly against samples/actions despite this step being incomplete. Once
-Step 3 lands, `.equipmentCode`/`.unitId` should be reviewed against this
-document to confirm they still resolve to LP_ID.
+Both sheets gained the same "Report Equipment ID" column Equipment
+Registry did, inserted right after the LP_ID column — shifting everything
+from Description onward by +1. LP_ID itself (Data_Entry col A, Action
+Tracker col B — Action Tracker's col A is its own Ac.No ticket number) sits
+*before* the insertion point in both sheets, so `.unitId`/`.equipmentCode`
+were already reading correctly by coincidence; every other field was off
+by one.
+
+Confirmed against real rows read straight from the live sheet (not just
+the header row) — `rowToSample`/`rowToAction` were run against an actual
+Data_Entry and Action Tracker row and checked field-by-field before this
+was considered done.
+
+Column layout (0-based):
+- **Data_Entry** (39 cols total): `0=Lub ID(LP_ID), 1=Report Equipment ID,
+  2=Description, 3=sample ID, 4=Sample Date, 5=Report Status, 6-8=ratings,
+  9-11=particle counts, 12=PQ Index, 13=Visc, 14=TAN, 15=Oxidation,
+  16=Water, 17-25=wear(9), 26-28=contaminants(3), 29-34=additives(6),
+  35=Alert Type, 36=Sample Analysis, 37=Flagged Parameters, 38=Last
+  Modified`.
+- **Action Tracker** (19 cols total): `0=Ac.No, 1=Lub ID(LP_ID),
+  2=Report Equipment ID, 3=Description, 4=Oil Type, 5=Revision Date,
+  6=Sample Date, 7=Sample Result, 8=Sample Analysis, 9=Last Change,
+  10=Status, 11=Contractor Action, 12=Contractor, 13=Completed Date,
+  14=Prev Month Agreed Action, 15=ACC Action, 16=Agreed Action,
+  17=Closing Comment, 18=Last Modified`.
+
+Also fixed along the way: `LAST_MODIFIED_COL` in the backend was still
+targeting the pre-shift positions (38/17), and Action Tracker's value was
+**already wrong before this shift** — 17 pointed at "Closing Comment", one
+short of the real Last Modified column (18, now 19). Every Action Tracker
+write before this fix was very likely stamping its timestamp into Closing
+Comment instead. `getDashboard()`'s raw column reads (Sample Date/Report
+Status/Action Status) and `searchEquipment()`'s Description read were
+fixed the same way.
+
+New `reportEquipmentId` field threaded through: `rowToSample`/`sampleToRow`,
+`rowToAction`/`actionToRow`, `autofillFromEquipment()` (so a newly-created
+action inherits it from the registry), and `AddSample.jsx`'s equipment
+picker. Not wired into the PDF bulk-import path (`BulkImportReview.jsx`) —
+imported samples leave this column blank, a minor, non-breaking gap.
 
 ## Step 4/5 — not started
 

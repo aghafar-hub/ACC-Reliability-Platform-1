@@ -276,19 +276,24 @@ export function sampleTrackerStatus(lastDateStr, intervalText) {
 }
 
 // ── Action Tracker ───────────────────────────────────────────────────────
-// Columns: 0 Ac.No, 1 Equipment Code, 2 Description, 3 Oil Type,
-// 4 Revision Date, 5 Sample Date, 6 Sample Result, 7 Sample Analysis,
-// 8 Last Change, 9 Status, 10 Contractor Action, 11 Contractor,
-// 12 Completed Date, 13 Prev Month Agreed Action, 14 Acc Action,
-// 15 Agreed Action, 16 Closing Comment, 17 Last Modified.
-// Confirmed against the live sheet's own header row — Closing Comment sits
-// BEFORE Last Modified, not after. Last Modified is stamped by the backend
-// itself on every write regardless of what's sent, so it's only ever
-// round-tripped here, never set by the client.
+// Columns: 0 Ac.No, 1 Equipment Code (LP_ID), 2 Report Equipment ID,
+// 3 Description, 4 Oil Type, 5 Revision Date, 6 Sample Date,
+// 7 Sample Result, 8 Sample Analysis, 9 Last Change, 10 Status,
+// 11 Contractor Action, 12 Contractor, 13 Completed Date,
+// 14 Prev Month Agreed Action, 15 Acc Action, 16 Agreed Action,
+// 17 Closing Comment, 18 Last Modified.
+// STEP 3 (see docs/oil-lubrication-migration-notes.md): a "Report Equipment
+// ID" column was inserted at index 2, shifting everything after it by +1
+// (Equipment Code at index 1 is untouched — it already sat before the
+// insertion point). Confirmed against the live sheet's own header row.
+// Last Modified is stamped by the backend itself on every write regardless
+// of what's sent, so it's only ever round-tripped here, never set by the
+// client.
 
 export const ACTION_HEADERS = [
   "Ac. No.",
   "Equipment Code",
+  "Report Equipment ID",
   "Description",
   "Oil Type",
   "Revision Date",
@@ -311,6 +316,7 @@ export function rowToAction(row) {
   const [
     acNo,
     equipmentCode,
+    reportEquipmentId,
     description,
     oilType,
     revisionDate,
@@ -332,6 +338,7 @@ export function rowToAction(row) {
     acNo,
     equipmentCode,
     unitId: equipmentCode,
+    reportEquipmentId,
     description,
     oilType,
     revisionDate: formatDate(revisionDate),
@@ -358,6 +365,7 @@ export function actionToRow(a) {
   return [
     a.acNo || "",
     a.equipmentCode || a.unitId || "",
+    a.reportEquipmentId || "",
     a.description || "",
     a.oilType || "",
     a.revisionDate || "",
@@ -465,13 +473,17 @@ export function deriveCurrentOilChanges(registry, events) {
 }
 
 // ── Data_Entry (samples) ─────────────────────────────────────────────────
-// 38 columns: the 37 data columns below, plus Last Modified at index 37.
-// Column 34 ("Alert Type") is real sheet data — a short classification like
-// "Caution – Elevated Fe & Si" — distinct from column 35 ("Sample Analysis",
+// 39 columns: the 38 data columns below, plus Last Modified at index 38.
+// STEP 3 (see docs/oil-lubrication-migration-notes.md): a "Report Equipment
+// ID" column was inserted at index 1, shifting everything after it (from
+// Description onward) by +1. unitId at index 0 is untouched — it already
+// sat before the insertion point.
+// Column 35 ("Alert Type") is real sheet data — a short classification like
+// "Caution – Elevated Fe & Si" — distinct from column 36 ("Sample Analysis",
 // the longer free-text recommendation). Both the original app and an early
 // version of this rebuild silently dropped Alert Type; confirmed against the
 // live sheet (openpyxl inspection) and fixed here.
-// Column 36 ("Flagged Parameters") holds which specific readings the lab
+// Column 37 ("Flagged Parameters") holds which specific readings the lab
 // itself flagged Alert/Caution for that sample — e.g. "Cu:Alert,Fe:Alert" —
 // captured from cell-level color coding in imported PDF lab reports, which
 // carries more detail than the four rollup ratings alone (a single wear
@@ -503,6 +515,7 @@ export function formatFlaggedParams(list) {
 export function rowToSample(row) {
   const [
     unitId,
+    reportEquipmentId,
     description,
     sampleId,
     sampledDate,
@@ -543,6 +556,7 @@ export function rowToSample(row) {
   const num = (v) => (v === "" || v === null || v === undefined ? "" : parseFloat(v));
   return {
     unitId,
+    reportEquipmentId,
     description,
     sampleId,
     sampledDate: formatDate(sampledDate),
@@ -565,7 +579,7 @@ export function rowToSample(row) {
     recommendations: recommendationsRaw ? [recommendationsRaw] : [],
     flaggedReadings: parseFlaggedParams(flaggedParamsRaw),
     _id: `${unitId}_${sampleId}_${sampledDate}`,
-    _matchCols: [0, 2],
+    _matchCols: [0, 3],
     _matchValues: [unitId, sampleId],
   };
 }
@@ -576,6 +590,7 @@ export function sampleToRow(s) {
   const additives = s.additives || {};
   return [
     s.unitId || "",
+    s.reportEquipmentId || "",
     s.description || "",
     s.sampleId || "",
     s.sampledDate || "",

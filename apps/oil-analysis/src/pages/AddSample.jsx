@@ -5,6 +5,7 @@ import BulkImportPanel from "../components/BulkImportPanel";
 
 const EMPTY = {
   unitId: "",
+  reportEquipmentId: "",
   description: "",
   sampleId: "",
   sampledDate: "",
@@ -75,6 +76,7 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
     setForm((f) => ({
       ...f,
       unitId: code,
+      reportEquipmentId: reg?.reportEquipmentId || f.reportEquipmentId,
       description: reg?.description || f.description,
       lubricant: reg?.lubricant || f.lubricant,
     }));

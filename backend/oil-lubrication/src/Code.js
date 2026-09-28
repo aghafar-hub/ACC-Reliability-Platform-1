@@ -35,15 +35,23 @@
 // LAST MODIFIED TRACKING:
 //   Each sheet gets a new trailing column "Last Modified" (ISO timestamp).
 //   Stamped automatically on append/updateRow. Used for future incremental sync.
-//   Column positions (1-based): Data_Entry=38, Action Tracker=17, Oil Change LOG=13
+//   Column positions (1-based): Data_Entry=39, Action Tracker=19, Oil Change LOG=13
 //   (Oil Change LOG's column 13 is "Created_Date" — since rows are never
 //   edited after being appended, "last modified" and "created" are the same
 //   moment for this sheet.)
+//
+// STEP 3 (see docs/oil-lubrication-migration-notes.md): both Data_Entry and
+// Action Tracker gained a "Report Equipment ID" column, shifting Last
+// Modified from 38→39 and 17→19 respectively. The Action Tracker value was
+// ALREADY off by one even before that shift (17 pointed at "Closing
+// Comment", one column short of the real "Last Modified" header) — fixed
+// here as part of the same correction, confirmed against the live sheet's
+// own header row.
 // ════════════════════════════════════════════════════════════════════════════
 
 var LAST_MODIFIED_COL = {
-  "Data_Entry": 38,
-  "Action Tracker": 17,
+  "Data_Entry": 39,
+  "Action Tracker": 19,
   "Oil Change LOG": 13
 };
 
@@ -258,15 +266,18 @@ function getDashboard() {
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // Samples — col A = equipment code, col D = sample date, col E = report status
+  // Samples — col A = LP_ID (equipment code — unaffected by the Report
+  // Equipment ID column inserted at B), col E = sample date, col F = report
+  // status (both shifted +1 by that insertion — see docs/oil-lubrication-
+  // migration-notes.md Step 3).
   var sampleRows = readSheet(ss, "Data_Entry", true);
   var latestByEquip = {}; // code -> { date, status }
   for (var i = 0; i < sampleRows.length; i++) {
     var r = sampleRows[i];
     var code = r[0];
     if (!code) continue;
-    var dateVal = r[3];
-    var status = r[4];
+    var dateVal = r[4];
+    var status = r[5];
     var existing = latestByEquip[code];
     if (!existing || compareDates(dateVal, existing.date) > 0) {
       latestByEquip[code] = { date: dateVal, status: status };
@@ -305,11 +316,12 @@ function getDashboard() {
     if (!isNaN(d.getTime()) && d.getTime() < nowMs) overdueOilChanges++;
   });
 
-  // Action Tracker — col J (index 9) = Status, count Open/In Progress/Waiting Stoppage
+  // Action Tracker — col K (index 10) = Status, count Open/In Progress/Waiting Stoppage
+  // (shifted from index 9 — see docs/oil-lubrication-migration-notes.md Step 3)
   var actRows = readSheet(ss, "Action Tracker", true);
   var pendingActions = 0;
   for (var k = 0; k < actRows.length; k++) {
-    var astatus = (actRows[k][9] || "").toString().trim();
+    var astatus = (actRows[k][10] || "").toString().trim();
     if (astatus === "Open" || astatus === "In Progress" || astatus === "Waiting Stoppage") pendingActions++;
   }
 
@@ -378,7 +390,7 @@ function getEquipmentData(equipmentId) {
 
 // ─── PHASE 6: searchEquipment — top 20 matches from Data_Entry ──────────────
 //
-// Matches against Equipment Code (col A) or Description (col B), case-insensitive.
+// Matches against Equipment Code (col A) or Description (col C), case-insensitive.
 // Returns deduplicated equipment codes with their latest sample row.
 
 function searchEquipment(q) {
@@ -392,7 +404,7 @@ function searchEquipment(q) {
   for (var i = rows.length - 1; i >= 0 && results.length < 20; i--) {
     var r = rows[i];
     var code = String(r[0] || "");
-    var desc = String(r[1] || "");
+    var desc = String(r[2] || ""); // col C — col B is now Report Equipment ID
     if (!code) continue;
     if (query && code.toLowerCase().indexOf(query) === -1 && desc.toLowerCase().indexOf(query) === -1) continue;
     if (seen[code]) continue; // one (most recent) row per equipment

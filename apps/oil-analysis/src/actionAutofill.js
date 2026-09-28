@@ -39,14 +39,16 @@ export function lastAgreedActionFor(allActions, equipmentCode, excludeId) {
 }
 
 // Equipment Registry -> action-field autofill: Description, Oil Type
-// (Lubricant Grade), and Contractor come straight from the registry row;
-// Last Change Date is inherited from that equipment's Oil Change Log entry;
-// Prev. Month Agreed Action is inherited from this equipment's last action.
+// (Lubricant Grade), Contractor, and Report Equipment ID come straight from
+// the registry row; Last Change Date is inherited from that equipment's Oil
+// Change Log entry; Prev. Month Agreed Action is inherited from this
+// equipment's last action.
 export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, allActions, excludeId }) {
   const reg = (equipmentRegistry || []).find((r) => r.code === code);
   const latest = latestOilChangeFor(oilChanges, code);
   return {
     equipmentCode: code,
+    reportEquipmentId: reg?.reportEquipmentId || "",
     description: reg?.description || "",
     oilType: reg?.lubricant || "",
     contractor: reg?.contractor || "",
