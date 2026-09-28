@@ -85,6 +85,43 @@ var LAST_MODIFIED_COL = {
 var DASHBOARD_CACHE_KEY = "dashboard_v4";
 var DASHBOARD_CACHE_SECONDS = 300; // 5 minutes
 
+// OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md): which
+// sheets the GENERIC append/updateRow/deleteRow path — driven directly by
+// a client-supplied data.sheet, with no validation before this — is
+// allowed to touch. Without this, a client (or a bug) could create new
+// sheets, or write to ones meant to be read-only or backend-only:
+// Equipment Registry's formula-adjacent columns, ROUTINES, Oil Last
+// Change, Oil Inventory, the Debug Log. Everything else that needs to
+// write goes through its own dedicated, validated function instead
+// (logOilChangeEvent, createRoutine, addOilProduct, …).
+var GENERIC_WRITE_ALLOWLIST = {
+  append:    ["Data_Entry", "Action Tracker", "OL_ACTION_PHRASES"],
+  updateRow: ["Data_Entry", "Action Tracker", "Equipment Registry"],
+  deleteRow: ["Data_Entry", "Action Tracker"]
+};
+
+// OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md): a
+// shared secret checked on every request, read from this project's own
+// Script Properties (Project Settings → Script Properties → API_SECRET) —
+// never hardcoded here. This is NOT real per-user authentication: there's
+// no login system in this app, and the secret is baked into the public
+// frontend bundle just like the webhook URL already is, so anyone who
+// downloads the JS can read it. What it does do is raise the bar from
+// "anyone who has ever seen this URL, forever" to "anyone with both the
+// URL and this value" — and lets the value be rotated (a new Script
+// Property + a frontend redeploy) if it ever leaks, without needing a
+// whole new Apps Script deployment.
+//
+// FAILS OPEN if API_SECRET isn't set yet: this backend is already live for
+// ~20 people, so rolling this code out must not lock everyone out the
+// instant it deploys, before the Script Property has been added. Once
+// API_SECRET is set, enforcement begins immediately on the next request.
+function checkSecret_(providedSecret) {
+  var expected = PropertiesService.getScriptProperties().getProperty("API_SECRET");
+  if (!expected) return true;
+  return providedSecret === expected;
+}
+
 
 // ─── Entry points ──────────────────────────────────────────────────────────
 
@@ -92,6 +129,11 @@ function doGet(e) {
   var callback = e.parameter.callback || "";
   var action   = e.parameter.action   || "readAll";
   var result;
+
+  if (!checkSecret_(e.parameter.secret)) {
+    result = { error: "Unauthorized" };
+    return outputResult_(result, callback);
+  }
 
   try {
     switch (action) {
@@ -137,6 +179,9 @@ function doGet(e) {
       case "getOilInventoryMovements":
         result = getOilInventoryMovements(e.parameter.productId || "");
         break;
+      case "readActionRegistry":
+        result = readActionRegistry();
+        break;
       case "test":
         result = { status:"ok", time: new Date().toISOString(), version:"4.0" };
         break;
@@ -147,8 +192,12 @@ function doGet(e) {
     result = { error: err.message };
   }
 
-  var json = JSON.stringify(result);
+  return outputResult_(result, callback);
+}
 
+// Shared by doGet's normal and early-return (unauthorized) paths.
+function outputResult_(result, callback) {
+  var json = JSON.stringify(result);
   if (callback) {
     return ContentService
       .createTextOutput(callback + "(" + json + ")")
@@ -172,91 +221,130 @@ function doPost(e) {
     var data = JSON.parse(raw);
     var ss   = SpreadsheetApp.getActiveSpreadsheet();
 
-    if (data.action === "append") {
-      appendRow(ss, data.sheet, data.row, data.headers);
-      invalidateDashboardCache();
-      logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row});
-      return jsonOut({status:"ok"});
+    if (!checkSecret_(data.secret)) {
+      logError("doPost:unauthorized", "Invalid or missing secret", {action: data.action});
+      return jsonOut({status: "error", message: "Unauthorized"});
     }
 
-    if (data.action === "updateSampleTracker") {
-      var updateStatus = updateSampleTrackerMonthly(ss, data);
-      logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", data);
-      return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
+    // OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md):
+    // every write below reads a sheet snapshot, computes a row to touch,
+    // then writes to it in a separate call — with no lock, two requests
+    // running at the same moment can compute the SAME target row. That's a
+    // real, confirmed bug, not a theoretical one: appendRow's "find the
+    // first empty row" step and findRowIndex's "find the row to update/
+    // delete" step both have this gap, and it gets more likely as more
+    // people use the app at once. A single script-wide lock around the
+    // whole write serializes every doPost, so only one write is ever in
+    // flight against the sheet at a time — this closes the gap without
+    // changing any of the write logic itself.
+    var lock = LockService.getScriptLock();
+    var gotLock = lock.tryLock(30000);
+    if (!gotLock) {
+      logError("doPost:lock-timeout", "Could not acquire lock within 30s", {action: data.action});
+      return jsonOut({status: "error", message: "Server is busy — please try again."});
     }
 
-    if (data.action === "createRoutine") {
-      var createResult = createRoutine(ss, data);
-      logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId});
-      return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
-    }
+    try {
+      if (data.action === "append") {
+        if (GENERIC_WRITE_ALLOWLIST.append.indexOf(data.sheet) === -1) {
+          logError("doPost:append:blocked", "Sheet not allowed via generic append", {sheet: data.sheet});
+          return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
+        }
+        appendRow(ss, data.sheet, data.row, data.headers);
+        invalidateDashboardCache();
+        logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row});
+        return jsonOut({status:"ok"});
+      }
 
-    if (data.action === "submitRoutineItem") {
-      var itemResult = submitRoutineItem(ss, data);
-      logError("doPost:submitRoutineItem", itemResult.error || "ok", {routineItemId: data.routineItemId});
-      return jsonOut(itemResult.error ? {status: "error", message: itemResult.error} : {status: "ok"});
-    }
+      if (data.action === "updateSampleTracker") {
+        var updateStatus = updateSampleTrackerMonthly(ss, data);
+        logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", data);
+        return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
+      }
 
-    if (data.action === "submitRoutine") {
-      var subResult = submitRoutine(ss, data);
-      logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId});
-      return jsonOut(subResult.error ? {status: "error", message: subResult.error} : {status: "ok"});
-    }
+      if (data.action === "createRoutine") {
+        var createResult = createRoutine(ss, data);
+        logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId});
+        return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
+      }
 
-    if (data.action === "approveRoutine") {
-      var appResult = approveRoutine(ss, data);
-      logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId});
-      return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
-    }
+      if (data.action === "submitRoutineItem") {
+        var itemResult = submitRoutineItem(ss, data);
+        logError("doPost:submitRoutineItem", itemResult.error || "ok", {routineItemId: data.routineItemId});
+        return jsonOut(itemResult.error ? {status: "error", message: itemResult.error} : {status: "ok"});
+      }
 
-    if (data.action === "addRoutineComment") {
-      var commentResult = addRoutineComment(ss, data);
-      logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId});
-      return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
-    }
+      if (data.action === "submitRoutine") {
+        var subResult = submitRoutine(ss, data);
+        logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId});
+        return jsonOut(subResult.error ? {status: "error", message: subResult.error} : {status: "ok"});
+      }
 
-    if (data.action === "addOilProduct") {
-      var addProdResult = addOilProduct(ss, data);
-      logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId});
-      return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
-    }
+      if (data.action === "approveRoutine") {
+        var appResult = approveRoutine(ss, data);
+        logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId});
+        return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
+      }
 
-    if (data.action === "updateOilProduct") {
-      var updProdResult = updateOilProduct(ss, data);
-      logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId});
-      return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
-    }
+      if (data.action === "addRoutineComment") {
+        var commentResult = addRoutineComment(ss, data);
+        logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId});
+        return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
+      }
 
-    if (data.action === "logOilMovement") {
-      var movResult = logOilMovement(ss, data);
-      invalidateDashboardCache();
-      logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId});
-      return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
-    }
+      if (data.action === "addOilProduct") {
+        var addProdResult = addOilProduct(ss, data);
+        logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId});
+        return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
+      }
 
-    if (data.action === "logOilChangeEvent") {
-      var logResult = logOilChangeEvent(ss, data);
-      invalidateDashboardCache();
-      logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId});
-      return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {status: "ok", eventId: logResult.eventId, nextDueDate: logResult.nextDueDate});
-    }
+      if (data.action === "updateOilProduct") {
+        var updProdResult = updateOilProduct(ss, data);
+        logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId});
+        return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
+      }
 
-    if (data.action === "updateRow") {
-      var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
-      invalidateDashboardCache();
-      logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues});
-      return jsonOut({status: ok1 ? "ok" : "row_not_found"});
-    }
+      if (data.action === "logOilMovement") {
+        var movResult = logOilMovement(ss, data);
+        invalidateDashboardCache();
+        logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId});
+        return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
+      }
 
-    if (data.action === "deleteRow") {
-      var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
-      invalidateDashboardCache();
-      logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues});
-      return jsonOut({status: ok2 ? "ok" : "row_not_found"});
-    }
+      if (data.action === "logOilChangeEvent") {
+        var logResult = logOilChangeEvent(ss, data);
+        invalidateDashboardCache();
+        logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId});
+        return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {status: "ok", eventId: logResult.eventId, nextDueDate: logResult.nextDueDate});
+      }
 
-    logError("doPost:unknown-action", "no valid action", data);
-    return jsonOut({status:"ok", message: "No valid action specified"});
+      if (data.action === "updateRow") {
+        if (GENERIC_WRITE_ALLOWLIST.updateRow.indexOf(data.sheet) === -1) {
+          logError("doPost:updateRow:blocked", "Sheet not allowed via generic updateRow", {sheet: data.sheet});
+          return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
+        }
+        var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
+        invalidateDashboardCache();
+        logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues});
+        return jsonOut({status: ok1 ? "ok" : "row_not_found"});
+      }
+
+      if (data.action === "deleteRow") {
+        if (GENERIC_WRITE_ALLOWLIST.deleteRow.indexOf(data.sheet) === -1) {
+          logError("doPost:deleteRow:blocked", "Sheet not allowed via generic deleteRow", {sheet: data.sheet});
+          return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
+        }
+        var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
+        invalidateDashboardCache();
+        logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues});
+        return jsonOut({status: ok2 ? "ok" : "row_not_found"});
+      }
+
+      logError("doPost:unknown-action", "no valid action", data);
+      return jsonOut({status:"ok", message: "No valid action specified"});
+    } finally {
+      lock.releaseLock();
+    }
   } catch(err) {
     logError("doPost:exception", err, {raw: raw});
     return jsonOut({status: "error", message: err.message});
@@ -579,6 +667,12 @@ function filterChangedSince(ss, sheetName, sinceDate) {
 // ─── Row matching / update / delete (unchanged from v3) ─────────────────────
 
 function findRowIndex(sheet, matchCols, matchValues, dataStartRow) {
+  // OPTION A HARDENING: with an empty matchCols, the inner loop below never
+  // runs, so `allMatch` stays true and this returns the very first data
+  // row — meaning a malformed or empty matchCols/matchValues silently
+  // "matches" and updateRow/deleteRow would act on the wrong row. Refuse
+  // instead of guessing.
+  if (!matchCols || matchCols.length === 0) return -1;
   var startRow = dataStartRow || 2;
   var vals = sheet.getDataRange().getValues();
   for (var i = startRow - 1; i < vals.length; i++) {
@@ -1243,4 +1337,22 @@ function logOilMovement(ss, data) {
   ];
   appendRow(ss, "Oil Inventory LOG", row);
   return { status: "ok", movementId: movementId };
+}
+
+
+// ─── Action Registry (Option A hardening) ─────────────────────────────────
+//
+// OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md): the
+// frontend has always called this action, but the backend had no matching
+// case — every request silently fell through to the unknown-action default
+// and returned an empty result, so the Action Registry picker in the app
+// has never actually worked. The real sheet tab is "OL_ACTION_PHRASES"
+// (not "Action Registry", which the frontend's write path also used to
+// target and doesn't exist) — columns: A=No, B=Actions Phrase, header row
+// 1, data row 2+.
+function readActionRegistry() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "OL_ACTION_PHRASES", true);
+  var actions = rows.map(function(r) { return String(r[1] || "").trim(); }).filter(Boolean);
+  return { actions: actions, count: actions.length };
 }
