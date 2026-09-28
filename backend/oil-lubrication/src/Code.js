@@ -123,6 +123,78 @@ function checkSecret_(providedSecret) {
 }
 
 
+// OPTION B PHASE 1 (see docs/oil-lubrication-migration-notes.md): verifies
+// the signed session token issued by Platform Core when a request carries
+// one, so this app knows WHO is acting — not just that they had the shared
+// secret. Copied verbatim from backend/platform-core/src/Session.js, per
+// that file's own instruction ("every module... copy requireSession_,
+// getSessionSecret_, base64UrlDecode_ and signPayload_ verbatim into that
+// module's own Apps Script project") — SESSION_SIGNING_SECRET must be set
+// to the IDENTICAL value in this project's Script Properties as in
+// Platform Core's, or every token fails signature verification.
+function getSessionSecret_() {
+  var secret = PropertiesService.getScriptProperties().getProperty('SESSION_SIGNING_SECRET');
+  if (!secret) {
+    throw new Error('SESSION_SIGNING_SECRET script property is not set.');
+  }
+  return secret;
+}
+
+function base64UrlDecode_(str) {
+  return Utilities.newBlob(Utilities.base64DecodeWebSafe(str)).getDataAsString();
+}
+
+function signPayload_(payloadB64) {
+  var digest = Utilities.computeHmacSha256Signature(payloadB64, getSessionSecret_());
+  return digest.map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+function requireSession_(sessionToken) {
+  if (!sessionToken || sessionToken.indexOf('.') === -1) {
+    throw new Error('Missing or malformed session token.');
+  }
+  var dot = sessionToken.indexOf('.');
+  var payloadB64 = sessionToken.substring(0, dot);
+  var signature = sessionToken.substring(dot + 1);
+  if (signPayload_(payloadB64) !== signature) {
+    throw new Error('Invalid session token.');
+  }
+  var payload = JSON.parse(base64UrlDecode_(payloadB64));
+  return {
+    userId: payload.uid,
+    email: payload.email,
+    orgId: payload.org,
+    roles: payload.roles || [],
+    issuedAt: payload.iat
+  };
+}
+
+// Combines the two Phase-1 checks: the shared secret still gates every
+// request exactly as before (checkSecret_), and a session token — when the
+// caller sends one — is additionally required to actually be valid. A
+// request with NO session token still gets through on the shared secret
+// alone (a not-yet-redeployed frontend, or a device whose user has no
+// Platform Core account yet), so this can ship without an instant cutover;
+// a request that DOES send a token but it's malformed or tampered with is
+// rejected outright, since a broken token is worse than no token. Returns
+// the verified session (or null) so callers can log/attribute the request
+// — this does not yet restrict WHAT a verified user may do (that's RBAC,
+// a later phase), only who they're known to be.
+function checkAuth_(providedSecret, sessionToken) {
+  if (!checkSecret_(providedSecret)) {
+    return { ok: false, session: null };
+  }
+  if (!sessionToken) {
+    return { ok: true, session: null };
+  }
+  try {
+    return { ok: true, session: requireSession_(sessionToken) };
+  } catch (err) {
+    return { ok: false, session: null };
+  }
+}
+
+
 // ─── Entry points ──────────────────────────────────────────────────────────
 
 function doGet(e) {
@@ -130,7 +202,8 @@ function doGet(e) {
   var action   = e.parameter.action   || "readAll";
   var result;
 
-  if (!checkSecret_(e.parameter.secret)) {
+  var auth = checkAuth_(e.parameter.secret, e.parameter.sessionToken);
+  if (!auth.ok) {
     result = { error: "Unauthorized" };
     return outputResult_(result, callback);
   }
@@ -221,10 +294,16 @@ function doPost(e) {
     var data = JSON.parse(raw);
     var ss   = SpreadsheetApp.getActiveSpreadsheet();
 
-    if (!checkSecret_(data.secret)) {
-      logError("doPost:unauthorized", "Invalid or missing secret", {action: data.action});
+    var auth = checkAuth_(data.secret, data.sessionToken);
+    if (!auth.ok) {
+      logError("doPost:unauthorized", "Invalid or missing secret/session", {action: data.action});
       return jsonOut({status: "error", message: "Unauthorized"});
     }
+    // Whoever is logged in via Platform Core, if anyone — "" for a request
+    // with no session token (see checkAuth_'s fail-soft rollout comment
+    // above). Folded into every write's own Debug Log entry below so writes
+    // are attributable to a real identity, not just a timestamp.
+    var actingUser = auth.session ? auth.session.email : "";
 
     // OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md):
     // every write below reads a sheet snapshot, computes a row to touch,
@@ -252,91 +331,91 @@ function doPost(e) {
         }
         appendRow(ss, data.sheet, data.row, data.headers);
         invalidateDashboardCache();
-        logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row});
+        logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
         return jsonOut({status:"ok"});
       }
 
       if (data.action === "updateSampleTracker") {
         var updateStatus = updateSampleTrackerMonthly(ss, data);
-        logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", data);
+        logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", {data: data, actingUser: actingUser});
         return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
       }
 
       if (data.action === "createRoutine") {
         var createResult = createRoutine(ss, data);
-        logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId});
+        logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
       }
 
       if (data.action === "submitRoutineItem") {
         var itemResult = submitRoutineItem(ss, data);
-        logError("doPost:submitRoutineItem", itemResult.error || "ok", {routineItemId: data.routineItemId});
+        logError("doPost:submitRoutineItem", itemResult.error || "ok", {routineItemId: data.routineItemId, actingUser: actingUser});
         return jsonOut(itemResult.error ? {status: "error", message: itemResult.error} : {status: "ok"});
       }
 
       if (data.action === "submitRoutine") {
         var subResult = submitRoutine(ss, data);
-        logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId});
+        logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(subResult.error ? {status: "error", message: subResult.error} : {status: "ok"});
       }
 
       if (data.action === "approveRoutine") {
         var appResult = approveRoutine(ss, data);
-        logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId});
+        logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
       }
 
       if (data.action === "addRoutineComment") {
         var commentResult = addRoutineComment(ss, data);
-        logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId});
+        logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
       }
 
       if (data.action === "addOilProduct") {
         var addProdResult = addOilProduct(ss, data);
-        logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId});
+        logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
       }
 
       if (data.action === "updateOilProduct") {
         var updProdResult = updateOilProduct(ss, data);
-        logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId});
+        logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
       }
 
       if (data.action === "logOilMovement") {
         var movResult = logOilMovement(ss, data);
         invalidateDashboardCache();
-        logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId});
+        logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
       }
 
       if (data.action === "logOilChangeEvent") {
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
-        logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId});
+        logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
         return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {status: "ok", eventId: logResult.eventId, nextDueDate: logResult.nextDueDate});
       }
 
       if (data.action === "updateRow") {
         if (GENERIC_WRITE_ALLOWLIST.updateRow.indexOf(data.sheet) === -1) {
-          logError("doPost:updateRow:blocked", "Sheet not allowed via generic updateRow", {sheet: data.sheet});
+          logError("doPost:updateRow:blocked", "Sheet not allowed via generic updateRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         invalidateDashboardCache();
-        logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues});
+        logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         return jsonOut({status: ok1 ? "ok" : "row_not_found"});
       }
 
       if (data.action === "deleteRow") {
         if (GENERIC_WRITE_ALLOWLIST.deleteRow.indexOf(data.sheet) === -1) {
-          logError("doPost:deleteRow:blocked", "Sheet not allowed via generic deleteRow", {sheet: data.sheet});
+          logError("doPost:deleteRow:blocked", "Sheet not allowed via generic deleteRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
         var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
         invalidateDashboardCache();
-        logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues});
+        logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         return jsonOut({status: ok2 ? "ok" : "row_not_found"});
       }
 
