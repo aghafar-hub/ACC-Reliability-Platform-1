@@ -19,8 +19,8 @@ import HowToUse from "./pages/HowToUse";
 import Settings from "./pages/Settings";
 import { SessionProvider } from "./SessionContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
-import { loadEquipmentRegistry } from "./equipmentRegistry";
-import { loadActionRegistry } from "./actionRegistry";
+import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistry";
+import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
 import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges } from "./parsers";
 import * as api from "./api";
 
@@ -219,6 +219,40 @@ function AppShell({ config, setConfig, navBridge }) {
   useEffect(() => {
     if (config.webhookUrl) runSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.webhookUrl]);
+
+  // Equipment/Action Registry used to need a manual "Sync" click in
+  // Settings, once per device — the data was always in the sheet, the app
+  // just never fetched it on its own. Now fetched automatically on every
+  // app load, same as runSync() above, so a fresh browser/device is never
+  // stuck showing an empty equipment dropdown or action picker.
+  //
+  // Always a straight REPLACE, never a merge: both sheets (Equipment
+  // Registry, OL_ACTION_PHRASES) are the only place this data is ever
+  // created, so anything sitting in the local cache that's no longer in
+  // the sheet is stale leftover, never a legitimate app-only addition —
+  // same reasoning as the "Remove all" fix this replaces the need for.
+  // Silent on failure: this runs in the background on every load, and
+  // runSync() above already surfaces a toast for real connectivity
+  // problems — a stale-but-present cache is a safe fallback either way.
+  useEffect(() => {
+    if (!config.webhookUrl) return;
+    api
+      .getEquipmentRegistry(config.webhookUrl)
+      .then((sheetEquip) => {
+        if (!sheetEquip || !sheetEquip.length) return;
+        saveEquipmentRegistry(sheetEquip);
+        setEquipmentRegistry(sheetEquip);
+      })
+      .catch(() => {});
+    api
+      .getActionRegistry(config.webhookUrl)
+      .then((actions) => {
+        if (!actions || !actions.length) return;
+        saveActionRegistry(actions);
+        setActionRegistry(actions);
+      })
+      .catch(() => {});
   }, [config.webhookUrl]);
 
   // Jittered polling, mostly incremental: a plain setInterval would have

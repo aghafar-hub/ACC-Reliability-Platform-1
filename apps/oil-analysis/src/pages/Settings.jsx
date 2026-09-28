@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { THEMES, THEME_NAMES } from "../theme";
 import * as api from "../api";
-import { loadEquipmentRegistry, saveEquipmentRegistry } from "../equipmentRegistry";
+import { saveEquipmentRegistry } from "../equipmentRegistry";
 import { saveActionRegistry } from "../actionRegistry";
 
 const CONFIG_PASSWORD = "17593";
@@ -253,8 +253,10 @@ function Field({ T, s, label, value, placeholder, onChange, desc, type = "text" 
 
 // Ported from the original app's Settings (`Kh`): two tabs — Appearance (no
 // password) and Configuration (password 17593, re-required every time the
-// tab is opened) — including the Equipment Registry Sync reconciliation
-// flow, App Status summary, and export/import/reset/clear-cache actions.
+// tab is opened) — App Status summary, export/import/reset/clear-cache
+// actions, and adding new Action Registry entries. Equipment/Action
+// Registry sync is no longer a manual step here — App.jsx fetches both
+// automatically on every app load (see its own comment there).
 export default function Settings({
   config,
   onSave,
@@ -279,10 +281,6 @@ export default function Settings({
   const [locked, setLocked] = useState(true);
   const [pwInput, setPwInput] = useState("");
   const [pwWrong, setPwWrong] = useState(false);
-
-  const [registrySyncing, setRegistrySyncing] = useState(false);
-  const [registryResult, setRegistryResult] = useState(null);
-  const [registryPreview, setRegistryPreview] = useState(null);
 
   const [importMsg, setImportMsg] = useState("");
   const [cacheMsg, setCacheMsg] = useState("");
@@ -330,82 +328,6 @@ export default function Settings({
     }
     setTesting(false);
     setTimeout(() => setTestMsg(""), 8000);
-  }
-
-  async function syncRegistry() {
-    if (!draft.webhookUrl) return;
-    setRegistrySyncing(true);
-    setRegistryResult(null);
-    setRegistryPreview(null);
-    try {
-      const sheetEquip = await api.getEquipmentRegistry(draft.webhookUrl);
-      if (!sheetEquip || sheetEquip.length === 0) {
-        setRegistryResult({ error: "No equipment returned" });
-        return;
-      }
-      const current = loadEquipmentRegistry();
-      const sheetCodes = new Set(sheetEquip.map((r) => r.code));
-      const appOnly = current.filter((r) => !sheetCodes.has(r.code)).map((r) => ({ eq: r, action: "keep" }));
-      setRegistryPreview({ sheetEquip, appOnly, current });
-      setRegistryResult({ synced: sheetEquip.length, appOnlyCount: appOnly.length });
-    } catch (err) {
-      setRegistryResult({ error: err.message });
-    } finally {
-      setRegistrySyncing(false);
-    }
-  }
-  function setAppOnlyAction(index, action) {
-    setRegistryPreview((prev) => ({ ...prev, appOnly: prev.appOnly.map((item, i) => (i === index ? { ...item, action } : item)) }));
-  }
-  // A schema migration (old codes replaced wholesale by new ones, e.g. the
-  // LP_ID switch) means every old entry shows up here as "app-only" — every
-  // one defaults to Keep, so Sync+Apply silently ends up ADDING the new
-  // list on top of the old one instead of replacing it. One click to mark
-  // everything Remove instead of picking through each row individually.
-  function setAllAppOnlyAction(action) {
-    setRegistryPreview((prev) => ({ ...prev, appOnly: prev.appOnly.map((item) => ({ ...item, action })) }));
-  }
-  function applyRegistrySync() {
-    if (!registryPreview) return;
-    const kept = registryPreview.appOnly.filter((item) => item.action === "keep").map((item) => item.eq);
-    // Contractor lives in column J of the sheet, so a normal overwrite is
-    // fine once the backend reads it — but fall back to the prior known
-    // value when the sheet's cell (or an older, not-yet-updated backend
-    // deployment) leaves it blank, rather than losing it outright.
-    const currentByCode = Object.fromEntries((registryPreview.current || []).map((r) => [r.code, r]));
-    const merged = [
-      ...registryPreview.sheetEquip.map((eq) => ({
-        ...currentByCode[eq.code],
-        ...eq,
-        contractor: eq.contractor || currentByCode[eq.code]?.contractor || "",
-      })),
-      ...kept,
-    ];
-    saveEquipmentRegistry(merged);
-    onRegistryChange?.(merged);
-    setRegistryResult({ applied: true, total: merged.length });
-    setRegistryPreview(null);
-  }
-
-  async function syncActionRegistry() {
-    if (!draft.webhookUrl) return;
-    setActionSyncing(true);
-    setActionMsg("");
-    try {
-      const list = await api.getActionRegistry(draft.webhookUrl);
-      if (!list || list.length === 0) {
-        setActionMsg("❌ No actions returned from the sheet");
-        return;
-      }
-      saveActionRegistry(list);
-      onActionRegistryChange?.(list);
-      setActionMsg(`✓ Synced — ${list.length} actions loaded`);
-    } catch (err) {
-      setActionMsg(`❌ ${err.message}`);
-    } finally {
-      setActionSyncing(false);
-      setTimeout(() => setActionMsg(""), 6000);
-    }
   }
 
   async function addNewAction() {
@@ -575,135 +497,13 @@ export default function Settings({
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
                   <div>
-                    <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry Sync</p>
+                    <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
                     <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-                      Sync equipment data from the "Equipment Registry" sheet tab. Keeps app-only equipment with your choice.
+                      Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every device,
+                      nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
                     </p>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={syncRegistry} disabled={registrySyncing || !draft.webhookUrl}>
-                    <i
-                      className={`ti ${registrySyncing ? "ti-loader" : "ti-refresh"}`}
-                      style={{ animation: registrySyncing ? "spin 1s linear infinite" : "none" }}
-                      aria-hidden="true"
-                    />{" "}
-                    Sync Equipment Registry
-                  </button>
-                  {!draft.webhookUrl && <span style={{ fontSize: 11, color: T.danger }}>Configure Webhook URL first</span>}
-                </div>
-                {registryResult?.error && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      background: T.dangerBg,
-                      border: `1px solid ${T.danger}`,
-                      borderRadius: 8,
-                      padding: 10,
-                      fontSize: 12,
-                      color: T.danger,
-                    }}
-                  >
-                    <i className="ti ti-alert-circle" aria-hidden="true" /> {registryResult.error}
-                  </div>
-                )}
-                {registryResult?.applied && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      background: T.successBg,
-                      border: `1px solid ${T.success}`,
-                      borderRadius: 8,
-                      padding: 10,
-                      fontSize: 12,
-                      color: T.success,
-                    }}
-                  >
-                    <i className="ti ti-check" aria-hidden="true" /> Registry updated — {registryResult.total} equipment now in app
-                    registry. Changes take effect immediately.
-                  </div>
-                )}
-                {registryPreview && (
-                  <div style={{ marginTop: 14 }}>
-                    <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 8 }}>
-                      {registryPreview.sheetEquip.length} equipment from the sheet. {registryPreview.appOnly.length} equipment exist in the
-                      app but not the sheet — choose Keep or Remove for each:
-                    </p>
-                    {registryPreview.appOnly.length === 0 ? (
-                      <button style={s.btnPrimary} onClick={applyRegistrySync}>
-                        <i className="ti ti-check" aria-hidden="true" /> Apply
-                      </button>
-                    ) : (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                        <div style={{ display: "flex", gap: 8, marginBottom: 2 }}>
-                          <button style={{ ...s.btn, fontSize: 11.5 }} onClick={() => setAllAppOnlyAction("remove")}>
-                            Remove all {registryPreview.appOnly.length}
-                          </button>
-                          <button style={{ ...s.btn, fontSize: 11.5 }} onClick={() => setAllAppOnlyAction("keep")}>
-                            Keep all {registryPreview.appOnly.length}
-                          </button>
-                        </div>
-                        {registryPreview.appOnly.map((item, i) => (
-                          <div
-                            key={item.eq.code}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 10,
-                              background: T.cardSubBg,
-                              border: `1px solid ${T.border}`,
-                              borderRadius: 6,
-                              padding: "6px 10px",
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 12,
-                                fontFamily: "monospace",
-                                color: T.accent,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {item.eq.code}
-                            </span>
-                            <div style={{ display: "flex", gap: 4 }}>
-                              <button
-                                style={{
-                                  ...s.btn,
-                                  padding: "3px 8px",
-                                  fontSize: 11,
-                                  background: item.action === "keep" ? T.accent : "transparent",
-                                  color: item.action === "keep" ? T.accentText : T.textSecondary,
-                                }}
-                                onClick={() => setAppOnlyAction(i, "keep")}
-                              >
-                                Keep
-                              </button>
-                              <button
-                                style={{
-                                  ...s.btn,
-                                  padding: "3px 8px",
-                                  fontSize: 11,
-                                  background: item.action === "remove" ? T.danger : "transparent",
-                                  color: item.action === "remove" ? "#fff" : T.textSecondary,
-                                }}
-                                onClick={() => setAppOnlyAction(i, "remove")}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        <button style={{ ...s.btnPrimary, marginTop: 6, alignSelf: "flex-start" }} onClick={applyRegistrySync}>
-                          <i className="ti ti-check" aria-hidden="true" /> Apply
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
               <IntervalRegistryEditor
@@ -720,8 +520,8 @@ export default function Settings({
                   <div>
                     <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
                     <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-                      The pick list Contractor Action / ACC Action draw from in Action Tracker. Add new entries here — they're saved to the
-                      "Action Registry" sheet tab.
+                      The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the app
+                      opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
                     </p>
                   </div>
                 </div>
@@ -758,15 +558,7 @@ export default function Settings({
                     onClick={addNewAction}
                     disabled={actionSyncing || !draft.webhookUrl || !newActionText.trim()}
                   >
-                    <i className="ti ti-plus" aria-hidden="true" /> Add
-                  </button>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={syncActionRegistry} disabled={actionSyncing || !draft.webhookUrl}>
-                    <i
-                      className={`ti ${actionSyncing ? "ti-loader" : "ti-refresh"}`}
-                      style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }}
-                      aria-hidden="true"
-                    />{" "}
-                    Sync from Sheet
+                    <i className={`ti ${actionSyncing ? "ti-loader" : "ti-plus"}`} style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }} aria-hidden="true" /> Add
                   </button>
                   {!draft.webhookUrl && <span style={{ fontSize: 11, color: T.danger }}>Configure Webhook URL first</span>}
                   {actionMsg && <span style={{ fontSize: 12, color: actionMsg.startsWith("✓") ? T.success : T.danger }}>{actionMsg}</span>}
