@@ -187,6 +187,21 @@ function checkAuth_(providedSecret, sessionToken) {
   if (!sessionToken) {
     return { ok: true, session: null };
   }
+  // BUGFIX: once the frontend redeploy lands, EVERY logged-in request sends
+  // a sessionToken — including in the window between that redeploy and
+  // someone actually setting SESSION_SIGNING_SECRET on THIS project (they're
+  // two separate manual steps). Before this check, requireSession_ would
+  // throw "SESSION_SIGNING_SECRET script property is not set" for every one
+  // of those requests, which the catch below turned into a flat rejection —
+  // failing CLOSED the moment the frontend shipped, exactly the instant
+  // lockout checkAuth_ was designed to avoid. Treat "not configured yet" as
+  // identical to "no token sent" (fall back to the shared secret alone),
+  // and reserve the reject-outright path for a token that's actually
+  // malformed or tampered once the secret is really set.
+  var secretConfigured = !!PropertiesService.getScriptProperties().getProperty("SESSION_SIGNING_SECRET");
+  if (!secretConfigured) {
+    return { ok: true, session: null };
+  }
   try {
     return { ok: true, session: requireSession_(sessionToken) };
   } catch (err) {

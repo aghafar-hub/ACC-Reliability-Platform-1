@@ -232,9 +232,13 @@ function AppShell({ config, setConfig, navBridge }) {
   // created, so anything sitting in the local cache that's no longer in
   // the sheet is stale leftover, never a legitimate app-only addition —
   // same reasoning as the "Remove all" fix this replaces the need for.
-  // Silent on failure: this runs in the background on every load, and
+  // No toast on failure: this runs in the background on every load, and
   // runSync() above already surfaces a toast for real connectivity
   // problems — a stale-but-present cache is a safe fallback either way.
+  // Still logged to the console (not swallowed silently) — a failure here
+  // means the equipment/action list silently stays on whatever was cached
+  // (or the stale bundled default on a brand new device), which otherwise
+  // has no visible symptom pointing back at this fetch.
   useEffect(() => {
     if (!config.webhookUrl) return;
     api
@@ -244,7 +248,7 @@ function AppShell({ config, setConfig, navBridge }) {
         saveEquipmentRegistry(sheetEquip);
         setEquipmentRegistry(sheetEquip);
       })
-      .catch(() => {});
+      .catch((err) => console.error("Auto equipment registry sync failed:", err));
     api
       .getActionRegistry(config.webhookUrl)
       .then((actions) => {
@@ -252,7 +256,7 @@ function AppShell({ config, setConfig, navBridge }) {
         saveActionRegistry(actions);
         setActionRegistry(actions);
       })
-      .catch(() => {});
+      .catch((err) => console.error("Auto action registry sync failed:", err));
   }, [config.webhookUrl]);
 
   // Jittered polling, mostly incremental: a plain setInterval would have
