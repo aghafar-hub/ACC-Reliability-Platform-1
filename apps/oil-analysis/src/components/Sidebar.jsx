@@ -6,6 +6,7 @@ import logo from "../assets/arabian-cement-logo.png";
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "ti-layout-dashboard" },
   { id: "equipment", label: "Equipment", icon: "ti-engine" },
+  { id: "routines", label: "Routines", icon: "ti-route" },
   { id: "oilreport", label: "Oil Analysis Report", icon: "ti-file-analytics" },
   { id: "upload", label: "Add Sample", icon: "ti-plus" },
   { id: "actions", label: "Action Tracker", icon: "ti-checklist" },

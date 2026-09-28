@@ -149,7 +149,57 @@ action inherits it from the registry), and `AddSample.jsx`'s equipment
 picker. Not wired into the PDF bulk-import path (`BulkImportReview.jsx`) —
 imported samples leave this column blank, a minor, non-breaking gap.
 
-## Step 4/5 — not started
+## Step 4 — Routines (done)
 
-Remaining greenfield tabs: Routines UI wiring (currently a placeholder),
-Oil Inventory, full Action Tracker CRUD.
+Confirmed direction: build fresh inside `apps/oil-analysis`, not by fixing
+and relinking the separate, parked `backend/oil-analysis` +
+`frontend/src/pages/oil-analysis/*` module (which already has a complete
+Routines UI, but models AssignedTo/CreatedBy/ApprovedBy around real
+platform user logins — a fit for that module's own architecture, not this
+one, which has no per-user login at all). That parked module's backend was
+also built against an invented schema (`OA_LP_REGISTER`, `OA_ROUTINES`)
+that doesn't match the real sheet (`Equipment Registry`, `ROUTINES`), so
+reusing it wasn't a clean relink either way.
+
+`ROUTINES` and `OA_ROUTINE_ITEMS` (both empty, no data yet) already carry
+the right schema for this. Since there's no login system, CreatedBy /
+AssignedTo / ApprovedBy / ACC_CommentBy are plain free-text fields — same
+pattern as Oil Change LOG's "Done By" from Step 2 — not references to real
+accounts.
+
+**RoutineId/RoutineItemId are client-generated** (`newRoutineId()` in
+parsers.js, a `prefix-<uuid>` string), not server-generated like Oil
+Change LOG's EventId. `createRoutine` has to write a routine row AND N
+item rows as one logical unit; a client-supplied id makes the
+write-verification read exact (find by id) instead of guessing "the
+newest matching routine", which isn't safe if two get created close
+together.
+
+New backend endpoints: `getRoutines`, `getRoutineItems&routineId=`,
+`createRoutine`, `submitRoutineItem`, `submitRoutine`, `approveRoutine`,
+`addRoutineComment`. Not part of the main Full Sync — the Routines page
+fetches on demand, the same way Equipment Registry has its own separate
+sync trigger rather than riding along with samples/actions/oil changes.
+
+New pages: `pages/Routines.jsx` (list, filterable by status/contractor),
+`pages/NewRoutine.jsx` (pick contractor + assignee, search/add lubrication
+points from the registry, set each one's item type), `pages/RoutineDetail.jsx`
+(mark each item done/not-done with quantity or a reason, submit the
+routine, then an ACC review section — comment + approve — once submitted;
+items lock once approved). Wired in as a genuine native sub-tab
+(`frontend/src/navigation.ts`'s `routines` entry lost its `to:` — it was a
+routed placeholder before this, now it's a real page inside the embedded
+app like everything else in that list).
+
+Deliberately NOT built: any auto-link between a routine item marked
+"done" (a Change/Top-up item) and Oil Change LOG — that would mean this
+step silently deciding whether completing a routine item should also
+append an oil-change event and reset NextDueDate, which has real
+behavioral implications worth its own confirmation rather than assuming.
+
+## Step 5 — not started
+
+Remaining greenfield tab: Oil Inventory. No backing sheet exists for it
+at all yet in the live workbook (unlike Routines, which at least had
+ROUTINES/OA_ROUTINE_ITEMS already sitting there empty) — this needs the
+sheet designed before the app can be built against it.

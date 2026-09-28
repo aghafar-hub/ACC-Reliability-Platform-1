@@ -629,3 +629,57 @@ export function sampleToRow(s) {
     formatFlaggedParams(s.flaggedReadings),
   ];
 }
+
+// ── Routines (ROUTINES + OA_ROUTINE_ITEMS) ────────────────────────────────
+// No login system exists in this app, so CreatedBy/AssignedTo/ApprovedBy/
+// ACC_CommentBy are plain free-text fields here (same pattern as Oil Change
+// LOG's "Done By") rather than references to real user accounts.
+//
+// ROUTINES columns: 0 RoutineId, 1 CreatedBy, 2 AssignedTo, 3 Contractor,
+// 4 CreatedDate, 5 Status, 6 SubmittedDate, 7 ApprovedBy, 8 ApprovedDate,
+// 9 ACC_Comment, 10 ACC_CommentBy, 11 ACC_CommentDate.
+export function rowToRoutine(row) {
+  return {
+    routineId: row[0] || "",
+    createdBy: row[1] || "",
+    assignedTo: row[2] || "",
+    contractor: row[3] || "",
+    createdDate: formatDate(row[4]),
+    status: row[5] || "Assigned",
+    submittedDate: formatDate(row[6]),
+    approvedBy: row[7] || "",
+    approvedDate: formatDate(row[8]),
+    accComment: row[9] || "",
+    accCommentBy: row[10] || "",
+    accCommentDate: formatDate(row[11]),
+  };
+}
+
+// OA_ROUTINE_ITEMS columns: 0 RoutineItemId, 1 RoutineId, 2 LP_ID,
+// 3 ItemType, 4 RequiredOilType, 5 Implemented, 6 NotImplementedReason,
+// 7 ActualDate, 8 ActualQuantity, 9 SampleTaken, 10 CreatedDate,
+// 11 ModifiedDate.
+export function rowToRoutineItem(row) {
+  return {
+    routineItemId: row[0] || "",
+    routineId: row[1] || "",
+    lpId: row[2] || "",
+    itemType: row[3] || "Change",
+    requiredOilType: row[4] || "",
+    implemented: row[5] || "",
+    notImplementedReason: row[6] || "",
+    actualDate: formatDate(row[7]),
+    actualQuantity: row[8] || "",
+    sampleTaken: row[9] || "",
+    createdDate: formatDate(row[10]),
+    modifiedDate: row[11] || "",
+  };
+}
+
+// Client-generated id for a new Routine/RoutineItem — see the backend's own
+// comment on createRoutine for why this (not a server-generated id) is what
+// makes write-verification exact.
+export function newRoutineId(prefix) {
+  const rand = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}-${rand}`;
+}

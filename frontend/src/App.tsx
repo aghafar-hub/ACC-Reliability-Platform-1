@@ -52,7 +52,9 @@ function ShellRoot() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/my-work" element={<ComingSoon title="My Work" />} />
           <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
-          <Route path="/oil-analysis/routines" element={<ComingSoon title="Routines" />} />
+          {/* /oil-analysis/routines has no <Route> here on purpose — "routines" is
+              now a native page inside apps/oil-analysis (see EmbeddedOilAnalysis
+              above), same as /oil-analysis itself. */}
           <Route path="/oil-analysis/inventory" element={<ComingSoon title="Oil Inventory" />} />
           <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
           <Route path="/compressors" element={<ComingSoon title="Compressors" />} />

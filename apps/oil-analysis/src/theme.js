@@ -534,6 +534,10 @@ export function buildStyles(T) {
         "OIL CHANGED": T.accent,
         "Oil Changed": T.accent,
         MISSING: T.textMuted,
+        Assigned: T.textMuted,
+        InProgress: T.warning,
+        Submitted: T.accent,
+        Approved: T.success,
       };
       const color = map[value] || T.textSecondary;
       return {
