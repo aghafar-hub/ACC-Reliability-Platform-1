@@ -676,10 +676,60 @@ export function rowToRoutineItem(row) {
   };
 }
 
-// Client-generated id for a new Routine/RoutineItem — see the backend's own
-// comment on createRoutine for why this (not a server-generated id) is what
-// makes write-verification exact.
-export function newRoutineId(prefix) {
+// Client-generated id (e.g. for a new Routine/RoutineItem, or an Oil
+// Inventory Product_ID) — see the backend's own comment on createRoutine
+// for why this (not a server-generated id) is what makes write-
+// verification exact.
+export function newId(prefix) {
   const rand = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${rand}`;
+}
+
+// ── Oil Inventory (Oil Inventory + Oil Inventory LOG) ─────────────────────
+// "Oil Inventory" columns: 0 Product_ID, 1 Lubricant_Type, 2 Lubricant_Brand,
+// 3 Container_Type, 4 Container_Size_L, 5 Unit, 6 Current_Stock (sheet
+// formula — see docs/oil-lubrication-migration-notes.md; never written by
+// this app), 7 Recorder_Level, 8 Storage_Location, 9 Supplier, 10 Unit_Cost,
+// 11 Status, 12 Last_Movement_Date (sheet formula, also never written),
+// 13 Notes, 14 Created_Date, 15 Modified_Date.
+export function rowToOilProduct(row) {
+  return {
+    productId: row[0] || "",
+    lubricantType: row[1] || "",
+    lubricantBrand: row[2] || "",
+    containerType: row[3] || "",
+    containerSizeL: row[4] || "",
+    unit: row[5] || "",
+    currentStock: row[6] === "" || row[6] == null ? null : Number(row[6]),
+    recorderLevel: row[7] === "" || row[7] == null ? null : Number(row[7]),
+    storageLocation: row[8] || "",
+    supplier: row[9] || "",
+    unitCost: row[10] || "",
+    status: row[11] || "Active",
+    lastMovementDate: formatDate(row[12]),
+    notes: row[13] || "",
+    createdDate: formatDate(row[14]),
+    modifiedDate: row[15] || "",
+  };
+}
+
+// "Oil Inventory LOG" columns: 0 MovementId, 1 Product_ID, 2 MovementType
+// ("Receipt"|"Issue"|"Adjustment"), 3 Quantity, 4 MovementDate,
+// 5 LinkedLP_ID, 6 LinkedEventId, 7 Contractor, 8 DoneBy, 9 Reference,
+// 10 Notes, 11 Created_Date.
+export function rowToOilMovement(row) {
+  return {
+    movementId: row[0] || "",
+    productId: row[1] || "",
+    movementType: row[2] || "",
+    quantity: row[3] === "" || row[3] == null ? null : Number(row[3]),
+    movementDate: formatDate(row[4]),
+    linkedLpId: row[5] || "",
+    linkedEventId: row[6] || "",
+    contractor: row[7] || "",
+    doneBy: row[8] || "",
+    reference: row[9] || "",
+    notes: row[10] || "",
+    createdDate: row[11] || "",
+  };
 }

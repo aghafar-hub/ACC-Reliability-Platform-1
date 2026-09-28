@@ -197,9 +197,56 @@ step silently deciding whether completing a routine item should also
 append an oil-change event and reset NextDueDate, which has real
 behavioral implications worth its own confirmation rather than assuming.
 
-## Step 5 — not started
+## Step 5 — Oil Inventory (done)
 
-Remaining greenfield tab: Oil Inventory. No backing sheet exists for it
-at all yet in the live workbook (unlike Routines, which at least had
-ROUTINES/OA_ROUTINE_ITEMS already sitting there empty) — this needs the
-sheet designed before the app can be built against it.
+Unlike Routines, no backing sheet existed for this at all — the schema
+was designed from scratch (proposed, then built by hand in the live
+sheet), following the same two-tab shape that worked for Step 2: an
+append-only movement log as the sole source of truth, and a product
+registry whose stock-level columns are sheet formulas fed by that log.
+
+Confirmed schema (verified directly against the live sheet after it was
+built, not assumed):
+- **"Oil Inventory"** (16 cols): Product_ID, Lubricant_Type,
+  Lubricant_Brand, Container_Type, Container_Size_L, Unit, Current_Stock
+  (col G — **sheet formula**, `SUMIFS` of Receipts − Issues + Adjustments
+  from the LOG tab, filtered by Product_ID), Recorder_Level *(spelled
+  that way in the real sheet — not "corrected" to "Reorder_Level" in code
+  or here)*, Storage_Location, Supplier, Unit_Cost, Status,
+  Last_Movement_Date (col M — **sheet formula**, `MAXIFS` of MovementDate
+  from the LOG tab), Notes, Created_Date, Modified_Date.
+- **"Oil Inventory LOG"** (12 cols): MovementId, Product_ID, MovementType
+  (Receipt/Issue/Adjustment), Quantity (always positive for Receipt/Issue;
+  signed +/- for Adjustment — the one asymmetry in "quantity is always
+  positive", needed so a downward stock correction can subtract), 
+  MovementDate, LinkedLP_ID, LinkedEventId, Contractor, DoneBy, Reference,
+  Notes, Created_Date.
+
+A first pass at the LOG tab had 5 extra columns (Status,
+Last_Movement_Date, Notes, Created_Date, Modified_Date) accidentally
+copy-pasted in from the Oil Inventory tab's tail — caught before any code
+was written against it, and removed.
+
+Backend never writes to Current_Stock or Last_Movement_Date (columns G/M
+on "Oil Inventory") — `updateOilProduct` does individual per-cell writes
+to every OTHER column specifically to avoid touching those two, since
+they sit in the middle of the row and a generic whole-row `updateRow`
+would silently replace the formula with a static value (the same
+corruption risk `equipmentRegistryRow` had to avoid in Step 1).
+Product_ID/MovementId are client-generated (`newId()` in parsers.js,
+generalized from Routines' `newRoutineId()`), same exact-verification
+reasoning as Routines.
+
+New pages: `pages/OilInventory.jsx` (list with a low-stock indicator when
+Current_Stock ≤ Recorder_Level, search, Add Product form),
+`pages/OilProductDetail.jsx` (stock/reorder/supplier summary, a
+Log Movement form for Receipt/Issue/Adjustment — Issue can optionally
+link to an LP_ID via a datalist off the Equipment Registry — and full
+movement history). Wired in as a native sub-tab the same way Routines
+was (`frontend/src/navigation.ts`'s `inventory` entry lost its `to:`).
+
+One practical caveat surfaced to the user in the Add Product form itself:
+Google Sheets formulas don't inherit into new rows automatically — a
+newly added product's Current_Stock/Last_Movement_Date stay blank until
+the G/M formula is copied down into that row (same as any lookup column
+in this sheet).

@@ -21,6 +21,20 @@
 //   ?action=getRecentSamples&page=1&limit=50→ paginated Data_Entry rows (newest first)
 //   ?action=getRoutines                     → all ROUTINES rows
 //   ?action=getRoutineItems&routineId=XXXX  → all OA_ROUTINE_ITEMS rows for one routine
+//   ?action=getOilInventory                 → all "Oil Inventory" product rows
+//   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
+//
+// STEP 5 (see docs/oil-lubrication-migration-notes.md): Oil Inventory —
+// same split as Step 2's Oil Change LOG. "Oil Inventory LOG" is the
+// append-only source of truth for stock movements (doPost action
+// logOilMovement is the only way this app writes to it); "Oil Inventory"
+// is the product registry (Product_ID, type/brand, container, reorder
+// level, storage, supplier, cost, status) PLUS two sheet-formula columns
+// (Current_Stock, Last_Movement_Date) that self-update from the LOG the
+// same way Oil Last Change's own formulas do — this backend reads that
+// sheet fully but writes only the non-formula columns (addOilProduct /
+// updateOilProduct), never G or M, or it would overwrite the formula with
+// a static value.
 //
 // STEP 4 (see docs/oil-lubrication-migration-notes.md): Routines built
 // fresh here — not by fixing/reusing the separate, parked backend/oil-
@@ -63,7 +77,9 @@ var LAST_MODIFIED_COL = {
   "Data_Entry": 39,
   "Action Tracker": 19,
   "Oil Change LOG": 13,
-  "OA_ROUTINE_ITEMS": 12
+  "OA_ROUTINE_ITEMS": 12,
+  "Oil Inventory LOG": 12,
+  "Oil Inventory": 16
 };
 
 var DASHBOARD_CACHE_KEY = "dashboard_v4";
@@ -114,6 +130,12 @@ function doGet(e) {
         break;
       case "getRoutineItems":
         result = getRoutineItems(e.parameter.routineId || "");
+        break;
+      case "getOilInventory":
+        result = getOilInventory();
+        break;
+      case "getOilInventoryMovements":
+        result = getOilInventoryMovements(e.parameter.productId || "");
         break;
       case "test":
         result = { status:"ok", time: new Date().toISOString(), version:"4.0" };
@@ -191,6 +213,25 @@ function doPost(e) {
       var commentResult = addRoutineComment(ss, data);
       logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId});
       return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
+    }
+
+    if (data.action === "addOilProduct") {
+      var addProdResult = addOilProduct(ss, data);
+      logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId});
+      return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
+    }
+
+    if (data.action === "updateOilProduct") {
+      var updProdResult = updateOilProduct(ss, data);
+      logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId});
+      return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
+    }
+
+    if (data.action === "logOilMovement") {
+      var movResult = logOilMovement(ss, data);
+      invalidateDashboardCache();
+      logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId});
+      return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
     }
 
     if (data.action === "logOilChangeEvent") {
@@ -1091,4 +1132,115 @@ function addRoutineComment(ss, data) {
   sheet.getRange(rowIdx, 11).setValue(data.commentBy || "");
   sheet.getRange(rowIdx, 12).setValue(new Date());
   return { status: "ok" };
+}
+
+
+// ─── Oil Inventory (Step 5) ────────────────────────────────────────────────
+//
+// "Oil Inventory" columns: 0 Product_ID, 1 Lubricant_Type, 2 Lubricant_Brand,
+// 3 Container_Type, 4 Container_Size_L, 5 Unit, 6 Current_Stock (SHEET
+// FORMULA — never written here), 7 Recorder_Level, 8 Storage_Location,
+// 9 Supplier, 10 Unit_Cost, 11 Status, 12 Last_Movement_Date (SHEET FORMULA
+// — never written here), 13 Notes, 14 Created_Date, 15 Modified_Date.
+// "Oil Inventory LOG" columns: 0 MovementId, 1 Product_ID, 2 MovementType
+// ("Receipt"|"Issue"|"Adjustment"), 3 Quantity (always positive for
+// Receipt/Issue; signed +/- for Adjustment — see the Current_Stock formula
+// on the Oil Inventory tab), 4 MovementDate, 5 LinkedLP_ID, 6 LinkedEventId,
+// 7 Contractor, 8 DoneBy, 9 Reference, 10 Notes, 11 Created_Date. Both
+// sheets: header row 1, data row 2+ (dataStartRowFor's standard default).
+
+function getOilInventory() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Inventory", true);
+  return { products: rows, count: rows.length };
+}
+
+function getOilInventoryMovements(productId) {
+  var id = String(productId || "").trim();
+  if (!id) return { movements: [] };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Inventory LOG", true).filter(function(r) {
+    return String(r[1] || "").trim() === id;
+  });
+  return { movements: rows.slice().reverse(), count: rows.length };
+}
+
+function addOilProduct(ss, data) {
+  var productId = String(data.productId || "").trim();
+  if (!productId) return { error: "productId is required" };
+  var row = [
+    productId,
+    data.lubricantType || "",
+    data.lubricantBrand || "",
+    data.containerType || "",
+    data.containerSizeL || "",
+    data.unit || "L",
+    "", // Current_Stock — sheet formula; copy it down from the row above after this appends
+    data.recorderLevel || "",
+    data.storageLocation || "",
+    data.supplier || "",
+    data.unitCost || "",
+    data.status || "Active",
+    "", // Last_Movement_Date — sheet formula, same as above
+    data.notes || "",
+    new Date(),
+    "", // Modified_Date — filled by appendRow's stampLastModified
+  ];
+  appendRow(ss, "Oil Inventory", row);
+  return { status: "ok", productId: productId };
+}
+
+function updateOilProduct(ss, data) {
+  var productId = String(data.productId || "").trim();
+  if (!productId) return { error: "productId is required" };
+  var sheet = ss.getSheetByName("Oil Inventory");
+  if (!sheet) return { error: "Oil Inventory sheet not found" };
+  var rowIdx = findRowIndex(sheet, [0], [productId], dataStartRowFor("Oil Inventory"));
+  if (rowIdx === -1) return { error: "Product not found" };
+
+  // Every editable column EXCEPT Current_Stock (col 7) and Last_Movement_Date
+  // (col 13) — those are sheet formulas; writing to them here would replace
+  // the formula with a static value and break it.
+  sheet.getRange(rowIdx, 2).setValue(data.lubricantType || "");
+  sheet.getRange(rowIdx, 3).setValue(data.lubricantBrand || "");
+  sheet.getRange(rowIdx, 4).setValue(data.containerType || "");
+  sheet.getRange(rowIdx, 5).setValue(data.containerSizeL || "");
+  sheet.getRange(rowIdx, 6).setValue(data.unit || "");
+  sheet.getRange(rowIdx, 8).setValue(data.recorderLevel || "");
+  sheet.getRange(rowIdx, 9).setValue(data.storageLocation || "");
+  sheet.getRange(rowIdx, 10).setValue(data.supplier || "");
+  sheet.getRange(rowIdx, 11).setValue(data.unitCost || "");
+  sheet.getRange(rowIdx, 12).setValue(data.status || "");
+  sheet.getRange(rowIdx, 14).setValue(data.notes || "");
+  stampLastModified(sheet, "Oil Inventory", rowIdx);
+  return { status: "ok" };
+}
+
+function logOilMovement(ss, data) {
+  var productId = String(data.productId || "").trim();
+  if (!productId) return { error: "productId is required" };
+  var movementType = data.movementType || "";
+  if (["Receipt", "Issue", "Adjustment"].indexOf(movementType) === -1) {
+    return { error: "movementType must be Receipt, Issue, or Adjustment" };
+  }
+  var quantity = parseFloat(data.quantity);
+  if (isNaN(quantity)) return { error: "quantity is required" };
+
+  var movementId = "MV-" + Utilities.getUuid();
+  var row = [
+    movementId,
+    productId,
+    movementType,
+    quantity,
+    data.movementDate ? new Date(data.movementDate) : new Date(),
+    data.linkedLpId || "",
+    data.linkedEventId || "",
+    data.contractor || "",
+    data.doneBy || "",
+    data.reference || "",
+    data.notes || "",
+    "", // Created_Date — filled by appendRow's stampLastModified
+  ];
+  appendRow(ss, "Oil Inventory LOG", row);
+  return { status: "ok", movementId: movementId };
 }

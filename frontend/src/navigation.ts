@@ -40,11 +40,9 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
 ];
 
 // Ids match apps/oil-analysis/src/App.jsx's own `page` states exactly for
-// every entry without a `to` — "Oil Inventory" doesn't exist as a page
-// there (or anywhere yet, and has no backing sheet either), so it routes to
-// a placeholder instead (see pages/ComingSoon.tsx) until its own
-// design/build pass. "Routines" was a placeholder too until Step 4 (see
-// docs/oil-lubrication-migration-notes.md) built it as a native page.
+// every entry without a `to`. "Routines" and "Oil Inventory" were
+// placeholders too, until Steps 4 and 5 respectively (see
+// docs/oil-lubrication-migration-notes.md) built them as native pages.
 export const OIL_SUB_TABS: SubTab[] = [
   { id: 'dashboard', label: 'Oil Dashboard', icon: 'ti-layout-dashboard' },
   { id: 'equipment', label: 'Equipment', icon: 'ti-engine' },
@@ -54,7 +52,7 @@ export const OIL_SUB_TABS: SubTab[] = [
   { id: 'actions', label: 'Oil Actions', icon: 'ti-checklist' },
   { id: 'oilchange', label: 'Oil Change Log', icon: 'ti-oil' },
   { id: 'tracker', label: 'Sample Tracking', icon: 'ti-timeline' },
-  { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package', to: '/oil-analysis/inventory' },
+  { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Reports', icon: 'ti-report' },
   { id: 'settings', label: 'Settings', icon: 'ti-settings' },
 ];

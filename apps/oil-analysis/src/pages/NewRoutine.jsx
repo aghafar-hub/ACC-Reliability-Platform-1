@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
-import { newRoutineId } from "../parsers";
+import { newId } from "../parsers";
 
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 const ITEM_TYPES = ["Change", "Top-up", "Sample"];
@@ -47,9 +47,9 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, pushToast, o
     }
     setSubmitting(true);
     try {
-      const routineId = newRoutineId("RT");
+      const routineId = newId("RT");
       const items = selected.map((s2) => ({
-        routineItemId: newRoutineId("RI"),
+        routineItemId: newId("RI"),
         lpId: s2.lpId,
         itemType: s2.itemType,
       }));

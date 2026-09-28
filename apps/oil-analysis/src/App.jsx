@@ -12,6 +12,7 @@ import ActionTracker from "./pages/ActionTracker";
 import AddSample from "./pages/AddSample";
 import OilChangeLog from "./pages/OilChangeLog";
 import Routines from "./pages/Routines";
+import OilInventory from "./pages/OilInventory";
 import Reports from "./pages/Reports";
 import SampleTracker from "./pages/SampleTracker";
 import HowToUse from "./pages/HowToUse";
@@ -612,6 +613,9 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {page === "routines" && (
             <Routines webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
+          )}
+          {page === "inventory" && (
+            <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
           )}
           {page === "reports" && (
             <Reports actions={actions} oilChanges={oilChanges} equipmentRegistry={equipmentRegistry} trackerByEquip={trackerByEquip} />
