@@ -53,24 +53,69 @@ export function setSessionToken(token) {
   currentSessionToken = token || null;
 }
 
+// A transport-level failure (bad HTTP status, or a non-JSON body — exactly
+// what Apps Script's echo?user_content_key= redirect returns when it 404s)
+// — distinct from a real backend error (json.error), which is never
+// retried since retrying it wouldn't help.
+class RetryableFetchError extends Error {}
+
+// GET_RETRY_ATTEMPTS/DELAY ("solid app" round, see
+// docs/oil-lubrication-migration-notes.md): confirmed live via the browser
+// Network tab that Google Apps Script Web Apps don't reliably serve
+// multiple simultaneous GET requests to the same deployment — the
+// exec?action=... -> 302 -> echo?user_content_key=... redirect step can
+// 404 under real concurrent load even when this app's OWN requests are
+// properly serialized (App.jsx's startup fetches, RoutineDetail.jsx,
+// OilProductDetail.jsx), since ~20 real people can still collectively hit
+// the same deployment within the same second or two. Retried automatically
+// with a short backoff instead of failing the read outright.
+const GET_RETRY_ATTEMPTS = 3;
+const GET_RETRY_BASE_DELAY_MS = 400;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function getJSON(webhookUrl, params) {
   const url = new URL(webhookUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   url.searchParams.set("secret", API_SECRET);
   if (currentSessionToken) url.searchParams.set("sessionToken", currentSessionToken);
-  // Apps Script Web App GET responses are served through a
-  // content.googleusercontent.com redirect that can cache an identical URL
-  // for a short window — a verify-read run right after a write can come
-  // back with the pre-write response for that same equipment/action
-  // lookup, which then fails write-verification even though the write
-  // actually succeeded. A cache-busting param plus cache: "no-store" makes
-  // every read (not just verification) hit the live sheet, not a cached one.
-  url.searchParams.set("_", Date.now().toString());
-  const res = await fetch(url.toString(), { cache: "no-store" });
-  if (!res.ok) throw new Error(`Server returned ${res.status}`);
-  const json = await res.json();
-  if (json && json.error) throw new Error(json.error);
-  return json;
+
+  let lastErr;
+  for (let attempt = 1; attempt <= GET_RETRY_ATTEMPTS; attempt++) {
+    // Apps Script Web App GET responses are served through a
+    // content.googleusercontent.com redirect that can cache an identical
+    // URL for a short window — a verify-read run right after a write can
+    // come back with the pre-write response for that same equipment/action
+    // lookup, which then fails write-verification even though the write
+    // actually succeeded. A fresh cache-busting param on every attempt
+    // (not just every call) plus cache: "no-store" makes every read hit
+    // the live sheet, not a cached one — including on a retry.
+    url.searchParams.set("_", `${Date.now()}_${attempt}`);
+    try {
+      let res;
+      try {
+        res = await fetch(url.toString(), { cache: "no-store" });
+      } catch (networkErr) {
+        throw new RetryableFetchError(`Network error: ${networkErr.message}`);
+      }
+      if (!res.ok) throw new RetryableFetchError(`Server returned ${res.status}`);
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        throw new RetryableFetchError("Server returned a non-JSON response");
+      }
+      if (json && json.error) throw new Error(json.error);
+      return json;
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof RetryableFetchError) || attempt === GET_RETRY_ATTEMPTS) throw err;
+      await sleep(GET_RETRY_BASE_DELAY_MS * attempt + Math.random() * 200);
+    }
+  }
+  throw lastErr;
 }
 
 async function postBlind(webhookUrl, body) {
