@@ -785,6 +785,7 @@ function AppShell({ config, setConfig, navBridge }) {
               equipmentRegistry={equipmentRegistry}
               samples={samples}
               actions={actions}
+              oilChanges={oilChanges}
               pushToast={pushToast}
             />
           )}

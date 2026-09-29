@@ -230,6 +230,43 @@ Going forward, when a repo change touches one of these files, only that
 one file needs re-pasting in the Apps Script editor before the next
 redeploy — not the whole thing.
 
+## 4e. Recurring Routes — new file + a trigger you set up once
+
+The Routines redesign (suggested samples, progress, Route Types,
+recurring templates) added one new backend file and one new sheet.
+
+**File**: `backend/oil-lubrication/src/RouteTemplates.js` — new, doesn't
+exist yet in the Apps Script editor. Same as section 4d's files: click the
+**+** next to "Files" → Script → name it `RouteTemplates` (no `.js`) →
+paste in its full contents. `Routines.js`, `Config.js`, and `Code.js` also
+changed this round — replace their contents with the repo's current
+versions too.
+
+**Sheet**: `ROUTINE_TEMPLATES` — no manual creation needed. The backend's
+`appendRow` helper creates it automatically (with headers) the first time
+someone saves a recurring route from the app.
+
+**Deploy**: same as always — save all files, then **Deploy → Manage
+deployments → pencil icon → New version → Deploy**. Saving alone doesn't
+update the live `/exec` URL.
+
+**New step this round — a time-driven trigger** (this is what actually
+turns a recurring template into a real, assignable route every cycle;
+nothing runs on a schedule without it):
+
+**Triggers (clock icon) → Add Trigger**:
+- Function: `generateDueRouteInstances`
+- Event source: Time-driven
+- Type: Day timer (pick any off-peak hour, e.g. 2–3am)
+
+**Verify it works without waiting a day**: open the script editor, pick
+`generateDueRouteInstances` from the function dropdown at the top, click
+**Run**. Check the execution log (View → Logs) for errors, and check the
+`ROUTINES` sheet for a new row if anything was actually due. Safe to run
+any time — it only generates routes for templates that are due within 3
+days, and always advances each template's own schedule regardless, so
+re-running it doesn't double-generate.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

@@ -126,7 +126,7 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   );
 }
 
-export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, pushToast, onBack }) {
+export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onBack }) {
   const { T, s } = useTheme();
   const [routine, setRoutine] = useState(null);
   const [items, setItems] = useState([]);
@@ -137,6 +137,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const [approvedBy, setApprovedBy] = useState("");
   const [commentBy, setCommentBy] = useState("");
   const [working, setWorking] = useState(false);
+  const [assignee, setAssignee] = useState("");
 
   const itemsDone = items.filter((i) => i.implemented === "Yes").length;
 
@@ -160,11 +161,11 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const reasonByLp = useMemo(() => {
     const map = {};
     for (const item of items) {
-      map[item.lpId] = routineSuggestionReason(item.lpId, samples, actions, registryByLp[item.lpId]);
+      map[item.lpId] = routineSuggestionReason(item.lpId, routine?.routeType, samples, actions, oilChanges, registryByLp[item.lpId]);
     }
     return map;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- registryByLp is rebuilt fresh every render from the same equipmentRegistry prop
-  }, [items, samples, actions, equipmentRegistry]);
+  }, [items, routine, samples, actions, oilChanges, equipmentRegistry]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -199,6 +200,23 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     // locally, so the header badge doesn't lag a full page refresh behind
     // the backend after the very first item is saved.
     setRoutine((prev) => (prev && prev.status === "Assigned" ? { ...prev, status: "InProgress" } : prev));
+  }
+
+  async function handleAssign() {
+    if (!assignee.trim()) {
+      pushToast("Enter a technician or team name.", "error");
+      return;
+    }
+    setWorking(true);
+    try {
+      const saved = await api.assignRoutineTechnician(webhookUrl, routineId, assignee.trim());
+      setRoutine(saved);
+      pushToast("Technician assigned.", "success");
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setWorking(false);
+    }
   }
 
   async function handleSubmitRoutine() {
@@ -245,7 +263,8 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   if (error) return <p style={{ color: T.danger }}>{error}</p>;
   if (!routine) return <p style={{ color: T.danger }}>Routine not found.</p>;
 
-  const locked = routine.status === "Approved";
+  const unassigned = routine.status === "Unassigned";
+  const locked = routine.status === "Approved" || unassigned;
   const canSubmit = routine.status === "Assigned" || routine.status === "InProgress";
   const canApprove = routine.status === "Submitted";
 
@@ -254,10 +273,13 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
           <p style={{ ...s.sectionTitle, margin: "0 0 4px" }}>
-            Routine — {routine.assignedTo} <span style={s.badge(routine.status)}>{routine.status}</span>
+            {routine.routeName || `Routine — ${routine.assignedTo}`} <span style={s.badge(routine.status)}>{routine.status}</span>
           </p>
           <p style={{ fontSize: 12.5, color: T.textSecondary, margin: 0 }}>
-            {routine.contractor || "—"} · created {routine.createdDate || "—"}
+            {routine.routeType ? `${routine.routeType} · ` : ""}
+            {routine.contractor || "—"}
+            {routine.assignedTo ? ` · ${routine.assignedTo}` : ""} · created {routine.createdDate || "—"}
+            {routine.dueDate ? ` · due ${routine.dueDate}` : ""}
             {routine.submittedDate ? ` · submitted ${routine.submittedDate}` : ""}
             {routine.approvedDate ? ` · approved ${routine.approvedDate}` : ""}
           </p>
@@ -269,6 +291,34 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
           <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
         </button>
       </div>
+
+      {unassigned && (
+        <div style={{ ...s.card, marginBottom: 20, borderColor: T.danger }}>
+          <p style={{ fontWeight: 700, marginBottom: 4, color: T.danger }}>
+            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 6 }} />
+            No technician assigned yet
+          </p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, marginBottom: 10 }}>
+            This route was generated automatically and is waiting for a contractor engineer to assign a technician before it can be
+            worked.
+          </p>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+            <div style={{ flex: 1, maxWidth: 320 }}>
+              <label style={s.label}>Assign Technician</label>
+              <input
+                style={s.input}
+                type="text"
+                placeholder="Technician or team name"
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+              />
+            </div>
+            <button style={s.btnPrimary} onClick={handleAssign} disabled={working}>
+              {working ? "…" : "Assign"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 20 }}>
         <table style={s.table}>

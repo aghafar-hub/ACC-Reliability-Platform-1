@@ -21,6 +21,7 @@
 //   ?action=getRecentSamples&page=1&limit=50→ paginated Data_Entry rows (newest first)
 //   ?action=getRoutines                     → all ROUTINES rows
 //   ?action=getRoutineItems&routineId=XXXX  → all OA_ROUTINE_ITEMS rows for one routine
+//   ?action=getRouteTemplates               → all ROUTINE_TEMPLATES rows (recurring routes)
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
 //   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
 //
@@ -85,6 +86,7 @@
 //   SheetTriggers.js      — installed Sheets trigger(s) (not part of the Web App API)
 //   OilChanges.js         — Oil Change LOG logging + history
 //   Routines.js           — Routine workflow (create/submit/approve/comment)
+//   RouteTemplates.js     — recurring Route templates + due-instance generation
 //   OilInventory.js       — Oil Inventory product registry + movement log
 //   ActionRegistry.js     — OL_ACTION_PHRASES reads
 // Apps Script shares one global scope across every file in a project, so this
@@ -143,6 +145,9 @@ function doGet(e) {
         break;
       case "getRoutineItems":
         result = getRoutineItems(e.parameter.routineId || "");
+        break;
+      case "getRouteTemplates":
+        result = readRouteTemplates();
         break;
       case "getOilInventory":
         result = getOilInventory();
@@ -255,6 +260,30 @@ function doPost(e) {
         var commentResult = addRoutineComment(ss, data);
         logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "assignRoutineTechnician") {
+        var assignResult = assignRoutineTechnician(ss, data);
+        logError("doPost:assignRoutineTechnician", assignResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        return jsonOut(assignResult.error ? {status: "error", message: assignResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "createRouteTemplate") {
+        var createTplResult = createRouteTemplate(ss, data);
+        logError("doPost:createRouteTemplate", createTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
+        return jsonOut(createTplResult.error ? {status: "error", message: createTplResult.error} : {status: "ok", templateId: createTplResult.templateId});
+      }
+
+      if (data.action === "setRouteTemplateStatus") {
+        var tplStatusResult = setRouteTemplateStatus(ss, data);
+        logError("doPost:setRouteTemplateStatus", tplStatusResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
+        return jsonOut(tplStatusResult.error ? {status: "error", message: tplStatusResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "deleteRouteTemplate") {
+        var deleteTplResult = deleteRouteTemplate(ss, data);
+        logError("doPost:deleteRouteTemplate", deleteTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
+        return jsonOut(deleteTplResult.error ? {status: "error", message: deleteTplResult.error} : {status: "ok"});
       }
 
       if (data.action === "addOilProduct") {

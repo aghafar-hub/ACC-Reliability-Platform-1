@@ -7,7 +7,8 @@ var LAST_MODIFIED_COL = {
   "Oil Change LOG": 13,
   "OA_ROUTINE_ITEMS": 12,
   "Oil Inventory LOG": 12,
-  "Oil Inventory": 16
+  "Oil Inventory": 16,
+  "ROUTINE_TEMPLATES": 13
 };
 
 

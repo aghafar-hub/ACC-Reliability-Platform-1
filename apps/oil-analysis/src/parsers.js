@@ -154,6 +154,16 @@ export function intervalMonths(freqText) {
   const t = String(freqText).trim().toLowerCase();
   if (t === "oil analysis") return 36;
   if (t === "if needed") return null;
+  // Bare "Monthly"/"Weekly"/"Daily" (no leading number) is real data in the
+  // registry — confirmed against the live sheet — but parseFloat() below
+  // can't parse a word, so these silently fell through to NaN -> null (no
+  // fixed interval, i.e. "never overdue") until this was added. That bug
+  // affected every LP with interval="Monthly": Sample Tracker, the Oil
+  // Analysis Report badges, and Routine suggestions all treated them as
+  // permanently OK.
+  if (t === "monthly") return 1;
+  if (t === "weekly") return 0.25;
+  if (t === "daily") return 1 / 30;
   const yearMatch = t.match(/^([\d.]+)\s*y$/);
   if (yearMatch) return Math.round(parseFloat(yearMatch[1]) * 12);
   const n = parseFloat(t);
@@ -275,13 +285,23 @@ export function sampleTrackerStatus(lastDateStr, intervalText) {
   return { label: "MISSING", daysInfo: `${formatMonths(ageMonths - months)} missing` };
 }
 
+// How far ahead of a point's real due date it starts showing up as
+// "due soon" — matches the backend's own ROUTE_GENERATION_LEAD_DAYS
+// (RouteTemplates.js), so a manually-built route and a recurring
+// template's auto-generated one pick up the same points for the same
+// due-soon window.
+export const ROUTE_SUGGESTION_LEAD_DAYS = 3;
+
 // Why an LP_ID belongs on this month's Routine suggestion list — used both
 // to build the suggested list in New Routine and to show a "why is this
 // here" badge on an existing routine's items. Deliberately recomputed from
-// live samples/actions rather than stored on the routine item at creation
-// time, so the badge always reflects current state (e.g. if the point got
-// sampled through some other path after the routine was created).
-export function routineSuggestionReason(lpId, samples, actions, reg) {
+// live samples/actions/oilChanges rather than stored on the routine item
+// at creation time, so the badge always reflects current state (e.g. if
+// the point got sampled through some other path after the routine was
+// created). routeType is "Sampling" or "Oil Change" — a whole-route
+// choice (see Routines.js's header comment), so it also decides which
+// due-date math applies here.
+export function routineSuggestionReason(lpId, routeType, samples, actions, oilChanges, reg) {
   const openResample = (actions || []).some(
     (a) =>
       (a.equipmentCode || a.unitId) === lpId &&
@@ -290,6 +310,20 @@ export function routineSuggestionReason(lpId, samples, actions, reg) {
   );
   if (openResample) return { kind: "resample", label: "Resample requested" };
 
+  if (routeType === "Oil Change") {
+    const months = intervalMonths(reg?.oilChangeInterval);
+    if (!months) return null; // "As needed"/blank — no fixed schedule, never suggested
+    const oc = (oilChanges || []).find((o) => o.equipmentCode === lpId);
+    if (!oc || !oc.changeDate) return { kind: "missing", label: "No oil change recorded" };
+    if (oc.status === "Overdue") return { kind: "overdue", label: "Oil change overdue" };
+    if (oc.nextDueDate) {
+      const daysUntil = (new Date(oc.nextDueDate) - Date.now()) / 86400000;
+      if (daysUntil <= ROUTE_SUGGESTION_LEAD_DAYS) return { kind: "due", label: "Due soon" };
+    }
+    return null;
+  }
+
+  // Sampling
   if (reg?.oilAnalysisRequired === "Yes") {
     const lastSample = (samples || [])
       .filter((s) => s.unitId === lpId)
@@ -303,15 +337,26 @@ export function routineSuggestionReason(lpId, samples, actions, reg) {
 }
 
 // Every registry LP_ID that should be on this month's suggested Routine
-// list, each tagged with why. See routineSuggestionReason.
-export function suggestedRoutinePoints(registry, samples, actions) {
+// list for a given route type/contractor, each tagged with why. See
+// routineSuggestionReason.
+export function suggestedRoutinePoints(routeType, contractor, registry, samples, actions, oilChanges) {
   const out = [];
   for (const r of registry || []) {
-    const reason = routineSuggestionReason(r.code, samples, actions, r);
+    if (contractor && r.contractor !== contractor) continue;
+    const reason = routineSuggestionReason(r.code, routeType, samples, actions, oilChanges, r);
     if (reason) out.push({ ...r, suggestionReason: reason });
   }
   return out;
 }
+
+// The three suggestion presets shown in New Routine's "Suggestion"
+// dropdown — same underlying reasons (routineSuggestionReason), narrowed
+// to different urgency tiers rather than three separately-computed lists.
+export const SUGGESTION_PRESETS = [
+  { id: "recommended", label: "Recommended", filter: () => true },
+  { id: "highPriority", label: "High Priority", filter: (r) => r.suggestionReason.kind === "resample" || r.suggestionReason.kind === "missing" },
+  { id: "overdue", label: "Overdue LPs", filter: (r) => r.suggestionReason.kind === "overdue" || r.suggestionReason.kind === "missing" },
+];
 
 // ── Action Tracker ───────────────────────────────────────────────────────
 // Columns: 0 Ac.No, 1 Equipment Code (LP_ID), 2 Report Equipment ID,
@@ -675,10 +720,13 @@ export function sampleToRow(s) {
 //
 // ROUTINES columns: 0 RoutineId, 1 CreatedBy, 2 AssignedTo, 3 Contractor,
 // 4 CreatedDate, 5 Status, 6 SubmittedDate, 7 ApprovedBy, 8 ApprovedDate,
-// 9 ACC_Comment, 10 ACC_CommentBy, 11 ACC_CommentDate. The backend's
-// getRoutines appends two more (not sheet columns — computed server-side
-// from OA_ROUTINE_ITEMS in the same call, so the list doesn't need an
-// extra fetch per routine): 12 ItemsTotal, 13 ItemsDone.
+// 9 ACC_Comment, 10 ACC_CommentBy, 11 ACC_CommentDate, 12 RouteName,
+// 13 RouteType ("Oil Change"|"Sampling"), 14 DueDate, 15 SourceTemplateId
+// (blank unless generated by a ROUTINE_TEMPLATES recurring template — see
+// RouteTemplates.js). The backend's getRoutines appends two more (not
+// sheet columns — computed server-side from OA_ROUTINE_ITEMS in the same
+// call, so the list doesn't need an extra fetch per routine):
+// 16 ItemsTotal, 17 ItemsDone.
 export function rowToRoutine(row) {
   return {
     routineId: row[0] || "",
@@ -693,8 +741,34 @@ export function rowToRoutine(row) {
     accComment: row[9] || "",
     accCommentBy: row[10] || "",
     accCommentDate: formatDate(row[11]),
-    itemsTotal: Number(row[12]) || 0,
-    itemsDone: Number(row[13]) || 0,
+    routeName: row[12] || "",
+    routeType: row[13] || "",
+    dueDate: formatDate(row[14]),
+    sourceTemplateId: row[15] || "",
+    itemsTotal: Number(row[16]) || 0,
+    itemsDone: Number(row[17]) || 0,
+  };
+}
+
+// ROUTINE_TEMPLATES columns: 0 TemplateId, 1 RouteName, 2 RouteType,
+// 3 Contractor, 4 Area, 5 OilType, 6 Frequency, 7 NextGenerateDate,
+// 8 Status ("Active"|"Paused"), 9 CreatedBy, 10 CreatedDate,
+// 11 LastGeneratedRoutineId, 12 ModifiedDate.
+export function rowToRouteTemplate(row) {
+  return {
+    templateId: row[0] || "",
+    routeName: row[1] || "",
+    routeType: row[2] || "",
+    contractor: row[3] || "",
+    area: row[4] || "",
+    oilType: row[5] || "",
+    frequency: row[6] || "",
+    nextGenerateDate: formatDate(row[7]),
+    status: row[8] || "Active",
+    createdBy: row[9] || "",
+    createdDate: formatDate(row[10]),
+    lastGeneratedRoutineId: row[11] || "",
+    modifiedDate: row[12] || "",
   };
 }
 

@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
-import { newId, suggestedRoutinePoints } from "../parsers";
+import { newId, suggestedRoutinePoints, SUGGESTION_PRESETS } from "../parsers";
 
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
-const ITEM_TYPES = ["Change", "Top-up", "Sample"];
+const ROUTE_TYPES = [
+  { id: "Oil Change", icon: "ti-droplet", desc: "Change / top-up" },
+  { id: "Sampling", icon: "ti-flask", desc: "Oil analysis sample" },
+];
+const FREQUENCIES = ["One-time", "Weekly", "Monthly", "Quarterly"];
 
 const REASON_COLOR = { resample: "danger", overdue: "warning", missing: "danger", due: "accent" };
 
@@ -31,86 +35,162 @@ function ReasonBadge({ T, reason }) {
   );
 }
 
-export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, actions, pushToast, onCreated, onCancel }) {
+export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onCreated, onCancel }) {
   const { T, s } = useTheme();
   const createdBy = useSessionEmail();
+
+  const [routeType, setRouteType] = useState("Sampling");
+  const [routeName, setRouteName] = useState("");
+  const [frequency, setFrequency] = useState("One-time");
+  const [dueDate, setDueDate] = useState("");
   const [contractor, setContractor] = useState(CONTRACTOR_OPTIONS[0]);
   const [assignedTo, setAssignedTo] = useState("");
+  const [area, setArea] = useState("All");
+  const [oilType, setOilType] = useState("All");
+  const [presetId, setPresetId] = useState("recommended");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState([]); // [{ lpId, label, itemType, suggestionReason? }]
+  const [selected, setSelected] = useState([]); // [{ lpId, label, equipmentId, oilType, suggestionReason? }]
   const [submitting, setSubmitting] = useState(false);
 
+  const isRecurring = frequency !== "One-time";
   const registry = equipmentRegistry || [];
 
-  // Pre-fill with this month's suggested points for the chosen contractor —
-  // overdue/missing oil-analysis samples and any LP with an open "Resample
-  // Oil" action. Re-runs when the contractor changes since a routine is
-  // built for one contractor at a time; still fully editable afterward.
+  const areaOptions = useMemo(
+    () => ["All", ...Array.from(new Set((equipmentRegistry || []).map((r) => r.area).filter(Boolean))).sort()],
+    [equipmentRegistry]
+  );
+  const oilTypeOptions = useMemo(
+    () => ["All", ...Array.from(new Set((equipmentRegistry || []).map((r) => r.lubricant).filter(Boolean))).sort()],
+    [equipmentRegistry]
+  );
+
+  // Every currently-suggested point for this route type + contractor, each
+  // tagged with why (see parsers.js's suggestedRoutinePoints). Recomputed
+  // whenever the type/contractor changes — the basis for both the preset
+  // dropdown (One-time) and the live "due today" preview (Recurring).
+  const allSuggested = useMemo(
+    () => suggestedRoutinePoints(routeType, contractor, equipmentRegistry, samples, actions, oilChanges),
+    [routeType, contractor, equipmentRegistry, samples, actions, oilChanges]
+  );
+
+  function toChipRow(r) {
+    return {
+      lpId: r.code,
+      label: `${r.code} — ${r.lubricationPoint || r.description}`,
+      equipmentId: r.equipmentId,
+      oilType: r.lubricant,
+      suggestionReason: r.suggestionReason,
+    };
+  }
+
+  // Applying a suggestion preset replaces the current selection outright
+  // (matches the reference: picking a suggestion is an explicit action,
+  // not a silent background pre-fill) — only meaningful for a one-time
+  // route, since a recurring template doesn't persist a fixed LP list at
+  // all (see the recurring-preview note near the bottom of this file).
+  function applyPreset(id) {
+    setPresetId(id);
+    const preset = SUGGESTION_PRESETS.find((p) => p.id === id);
+    if (!preset) return;
+    setSelected(allSuggested.filter(preset.filter).map(toChipRow));
+  }
+
+  // Re-apply the current preset whenever what it would suggest changes
+  // (route type / contractor switch) so the list stays in sync instead of
+  // showing a stale selection for the wrong type.
   useEffect(() => {
-    const suggested = suggestedRoutinePoints(equipmentRegistry, samples, actions).filter((r) => r.contractor === contractor);
-    setSelected(
-      suggested.map((r) => ({
-        lpId: r.code,
-        label: `${r.code} — ${r.lubricationPoint || r.description}`,
-        itemType: r.oilAnalysisRequired === "Yes" ? "Sample" : "Change",
-        suggestionReason: r.suggestionReason,
-      }))
-    );
-  }, [contractor, equipmentRegistry, samples, actions]);
+    applyPreset(presetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only route type/contractor swaps should reset the pick; re-running on presetId here would fight the dropdown's own onChange
+  }, [routeType, contractor, equipmentRegistry, samples, actions, oilChanges]);
 
   const q = search.trim().toLowerCase();
   const candidates = registry.filter((r) => {
     if (r.contractor && r.contractor !== contractor) return false;
-    if (selected.some((s2) => s2.lpId === r.code)) return false;
+    if (routeType === "Sampling" && r.oilAnalysisRequired !== "Yes") return false;
+    if (area !== "All" && r.area !== area) return false;
+    if (oilType !== "All" && r.lubricant !== oilType) return false;
     if (!q) return true;
     return [r.code, r.equipmentId, r.lubricationPoint, r.area].filter(Boolean).some((f) => f.toLowerCase().includes(q));
   });
+  const shownCandidates = candidates.slice(0, 200);
 
-  // Grouped by Area so a technician/reviewer can work through one part of
-  // the plant at a time instead of scanning a flat list of ~900 points.
-  const candidatesByArea = useMemo(() => {
-    const groups = new Map();
-    for (const r of candidates) {
-      const area = r.area || "(No area)";
-      if (!groups.has(area)) groups.set(area, []);
-      groups.get(area).push(r);
-    }
-    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [candidates]);
-
-  function addPoint(r) {
-    setSelected((prev) => [
-      ...prev,
-      { lpId: r.code, label: `${r.code} — ${r.lubricationPoint || r.description}`, itemType: r.oilAnalysisRequired === "Yes" ? "Sample" : "Change" },
-    ]);
+  function isSelected(lpId) {
+    return selected.some((sel) => sel.lpId === lpId);
+  }
+  function toggleRow(r) {
+    setSelected((prev) => (prev.some((sel) => sel.lpId === r.code) ? prev.filter((sel) => sel.lpId !== r.code) : [...prev, toChipRow(r)]));
+  }
+  function selectAllShown() {
+    setSelected((prev) => {
+      const have = new Set(prev.map((sel) => sel.lpId));
+      return [...prev, ...shownCandidates.filter((r) => !have.has(r.code)).map(toChipRow)];
+    });
+  }
+  function clearSelection() {
+    setSelected([]);
   }
   function removePoint(lpId) {
-    setSelected((prev) => prev.filter((s2) => s2.lpId !== lpId));
-  }
-  function setItemType(lpId, itemType) {
-    setSelected((prev) => prev.map((s2) => (s2.lpId === lpId ? { ...s2, itemType } : s2)));
+    setSelected((prev) => prev.filter((sel) => sel.lpId !== lpId));
   }
 
+  // Recurring templates don't persist a fixed LP list — every cycle
+  // re-computes what's actually due at generation time (see
+  // RouteTemplates.js's computeDueLpIds_). This is what that same
+  // criteria would catch if it ran today, for the operator's own sanity
+  // check before saving the template.
+  const recurringPreview = useMemo(() => {
+    if (!isRecurring) return [];
+    return allSuggested.filter((r) => (area === "All" || r.area === area) && (oilType === "All" || r.lubricant === oilType));
+  }, [isRecurring, allSuggested, area, oilType]);
+
   async function handleCreate() {
-    if (!assignedTo.trim()) {
-      pushToast("Enter who this routine is assigned to.", "error");
+    if (!routeName.trim()) {
+      pushToast("Enter a route name.", "error");
       return;
     }
-    if (selected.length === 0) {
-      pushToast("Add at least one lubrication point.", "error");
-      return;
+    if (!isRecurring) {
+      if (!assignedTo.trim()) {
+        pushToast("Enter who this route is assigned to.", "error");
+        return;
+      }
+      if (selected.length === 0) {
+        pushToast("Add at least one lubrication point.", "error");
+        return;
+      }
     }
     setSubmitting(true);
     try {
-      const routineId = newId("RT");
-      const items = selected.map((s2) => ({
-        routineItemId: newId("RI"),
-        lpId: s2.lpId,
-        itemType: s2.itemType,
-      }));
-      const saved = await api.createRoutine(webhookUrl, { routineId, assignedTo: assignedTo.trim(), contractor, createdBy, items });
-      pushToast("Routine created.", "success");
-      onCreated(saved.routineId);
+      if (isRecurring) {
+        const templateId = newId("RTP");
+        const saved = await api.createRouteTemplate(webhookUrl, {
+          templateId,
+          routeName: routeName.trim(),
+          routeType,
+          contractor,
+          area: area === "All" ? "" : area,
+          oilType: oilType === "All" ? "" : oilType,
+          frequency,
+          startDate: dueDate || undefined,
+          createdBy,
+        });
+        pushToast("Recurring route created.", "success");
+        onCreated(null, saved.templateId);
+      } else {
+        const routineId = newId("RT");
+        const items = selected.map((sel) => ({ routineItemId: newId("RI"), lpId: sel.lpId }));
+        const saved = await api.createRoutine(webhookUrl, {
+          routineId,
+          routeName: routeName.trim(),
+          routeType,
+          dueDate: dueDate || undefined,
+          assignedTo: assignedTo.trim(),
+          contractor,
+          createdBy,
+          items,
+        });
+        pushToast("Route created.", "success");
+        onCreated(saved.routineId, null);
+      }
     } catch (err) {
       pushToast(err.message, "error");
     } finally {
@@ -119,136 +199,308 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   }
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <p style={{ ...s.sectionTitle, margin: 0 }}>New Routine</p>
-        <button style={s.btn} onClick={onCancel} disabled={submitting}>
-          <i className="ti ti-x" aria-hidden="true" /> Cancel
-        </button>
-      </div>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        zIndex: 200,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "24px 16px",
+        overflowY: "auto",
+      }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        style={{
+          background: T.cardBg,
+          border: `1px solid ${T.border}`,
+          borderRadius: 12,
+          width: "100%",
+          maxWidth: 860,
+          boxShadow: `0 12px 40px ${T.appBg}cc`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "18px 22px",
+            borderBottom: `1px solid ${T.border}`,
+          }}
+        >
+          <p style={{ ...s.sectionTitle, margin: 0 }}>Create Route</p>
+          <button style={s.btn} onClick={onCancel} disabled={submitting}>
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
+        </div>
 
-      <div style={{ ...s.card, display: "flex", gap: 20, flexWrap: "wrap" }}>
-        <div>
-          <label style={s.label}>Contractor</label>
-          <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
-            {CONTRACTOR_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+        <div style={{ padding: 22, maxHeight: "78vh", overflowY: "auto" }}>
+          <label style={s.label}>Route Type</label>
+          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+            {ROUTE_TYPES.map((rt) => (
+              <button
+                key={rt.id}
+                onClick={() => setRouteType(rt.id)}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "12px 14px",
+                  borderRadius: 8,
+                  border: `1px solid ${routeType === rt.id ? T.accent : T.border}`,
+                  background: routeType === rt.id ? T.accent + "18" : "transparent",
+                  color: routeType === rt.id ? T.accent : T.textSecondary,
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                <i className={`ti ${rt.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+                <span>
+                  {rt.id}
+                  <span style={{ display: "block", fontWeight: 400, fontSize: 11, opacity: 0.8 }}>{rt.desc}</span>
+                </span>
+              </button>
             ))}
-          </select>
-        </div>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <label style={s.label}>Assigned To</label>
-          <input
-            style={s.input}
-            type="text"
-            placeholder="Technician or team name"
-            value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div style={s.card}>
-        <p style={{ fontWeight: 700, marginBottom: 4 }}>Selected points ({selected.length})</p>
-        <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 10 }}>
-          Pre-filled with this {contractor}'s overdue/due samples and any open resample requests — remove or add points as needed.
-        </p>
-        {selected.length === 0 ? (
-          <p style={{ color: T.textSecondary, fontSize: 13 }}>
-            Nothing due for {contractor} right now — search below to add points manually.
-          </p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Point</th>
-                  <th style={s.th}>Item Type</th>
-                  <th style={s.th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {selected.map((s2) => (
-                  <tr key={s2.lpId}>
-                    <td style={s.td}>
-                      {s2.label}
-                      <ReasonBadge T={T} reason={s2.suggestionReason} />
-                    </td>
-                    <td style={s.td}>
-                      <select style={s.select} value={s2.itemType} onChange={(e) => setItemType(s2.lpId, e.target.value)}>
-                        {ITEM_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td style={s.td}>
-                      <button style={s.btn} onClick={() => removePoint(s2.lpId)}>
-                        <i className="ti ti-trash" aria-hidden="true" /> Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
-      </div>
 
-      <div style={s.card}>
-        <p style={{ fontWeight: 700, marginBottom: 10 }}>Add points</p>
-        <input
-          style={{ ...s.input, marginBottom: 12 }}
-          type="search"
-          placeholder="Search by LP_ID, equipment, point, or area…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        {candidatesByArea.length === 0 ? (
-          <p style={{ color: T.textSecondary, fontSize: 13 }}>No matching points.</p>
-        ) : (
-          candidatesByArea.map(([area, rows]) => (
-            <div key={area} style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 11.5, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, margin: "0 0 6px" }}>
-                {area} <span style={{ fontWeight: 400, textTransform: "none" }}>({rows.length})</span>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+            <div>
+              <label style={s.label}>Route Name</label>
+              <input
+                style={s.input}
+                type="text"
+                placeholder={`e.g. ${area !== "All" ? area : "Area 482"} - Weekly ${routeType} Route`}
+                value={routeName}
+                onChange={(e) => setRouteName(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={s.label}>Frequency</label>
+              <select style={s.select} value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+                {FREQUENCIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={s.label}>{isRecurring ? "Starts On" : "Due Date"}</label>
+              <input style={s.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ ...s.card, marginBottom: 16 }}>
+            <p style={{ fontWeight: 700, marginBottom: 10, fontSize: 13 }}>Filters &amp; Suggestion</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 14 }}>
+              <div>
+                <label style={s.label}>Area</label>
+                <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)}>
+                  {areaOptions.map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={s.label}>Oil Type</label>
+                <select style={s.select} value={oilType} onChange={(e) => setOilType(e.target.value)}>
+                  {oilTypeOptions.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {!isRecurring && (
+                <div>
+                  <label style={s.label}>Suggestion</label>
+                  <select style={s.select} value={presetId} onChange={(e) => applyPreset(e.target.value)}>
+                    {SUGGESTION_PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 16 }}>
+            <div>
+              <label style={s.label}>Contractor</label>
+              <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
+                {CONTRACTOR_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {isRecurring ? (
+            <div style={s.card}>
+              <p style={{ fontWeight: 700, marginBottom: 4, fontSize: 13 }}>
+                {recurringPreview.length} point{recurringPreview.length !== 1 ? "s" : ""} due today, with these filters
               </p>
-              <div style={{ overflowX: "auto" }}>
+              <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 10 }}>
+                A recurring route re-checks which points are due every cycle — it doesn't lock in this exact list. This is just a
+                preview so you can sanity-check the filters before saving.
+              </p>
+              {recurringPreview.length > 0 && (
+                <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {recurringPreview.map((r) => (
+                    <div key={r.code} style={{ padding: "6px 0", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{r.code}</span>
+                      {" — "}
+                      {r.lubricationPoint || r.description}
+                      <ReasonBadge T={T} reason={r.suggestionReason} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={s.label}>Assign Technician</label>
+                  <input
+                    style={s.input}
+                    type="text"
+                    placeholder="Technician or team name"
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>Lubrication Points</p>
+                <span style={{ fontSize: 12, color: T.textSecondary }}>{candidates.length} LPs available</span>
+              </div>
+              <input
+                style={{ ...s.input, marginBottom: 10 }}
+                type="search"
+                placeholder="Search by LP ID, Description, Equipment ID…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 12.5 }}>
+                <button style={{ ...s.btn, padding: "4px 10px" }} onClick={selectAllShown}>
+                  Select All ({shownCandidates.length} shown)
+                </button>
+                <button style={{ ...s.btn, padding: "4px 10px" }} onClick={clearSelection}>
+                  Clear Selection
+                </button>
+              </div>
+
+              <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, maxHeight: 260, overflowY: "auto", marginBottom: 16 }}>
                 <table style={s.table}>
                   <thead>
                     <tr>
-                      <th style={s.th}>LP_ID</th>
-                      <th style={s.th}>Point</th>
-                      <th style={s.th}>Analysis?</th>
-                      <th style={s.th}></th>
+                      <th style={{ ...s.th, width: 32 }}></th>
+                      <th style={s.th}>LP ID</th>
+                      <th style={s.th}>Description</th>
+                      <th style={s.th}>Equipment ID</th>
+                      <th style={s.th}>Oil Type</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.code}>
+                    {shownCandidates.map((r) => (
+                      <tr key={r.code} style={{ cursor: "pointer" }} onClick={() => toggleRow(r)}>
+                        <td style={s.td}>
+                          <input type="checkbox" checked={isSelected(r.code)} readOnly />
+                        </td>
                         <td style={s.td}>{r.code}</td>
                         <td style={s.td}>{r.lubricationPoint || r.description}</td>
-                        <td style={s.td}>{r.oilAnalysisRequired}</td>
-                        <td style={s.td}>
-                          <button style={s.btn} onClick={() => addPoint(r)}>
-                            <i className="ti ti-plus" aria-hidden="true" /> Add
-                          </button>
-                        </td>
+                        <td style={s.td}>{r.equipmentId}</td>
+                        <td style={s.td}>{r.lubricant}</td>
                       </tr>
                     ))}
+                    {shownCandidates.length === 0 && (
+                      <tr>
+                        <td style={s.td} colSpan={5}>
+                          No matching points.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+              {candidates.length > shownCandidates.length && (
+                <p style={{ fontSize: 11.5, color: T.textMuted, marginTop: -10, marginBottom: 16 }}>
+                  Showing {shownCandidates.length} of {candidates.length} — narrow your search to see more.
+                </p>
+              )}
 
-      <button style={s.btnPrimary} onClick={handleCreate} disabled={submitting}>
-        {submitting ? "Creating…" : "Create Routine"}
-      </button>
+              <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Selected Lubrication Points ({selected.length})</p>
+              {selected.length === 0 ? (
+                <p style={{ color: T.textSecondary, fontSize: 13 }}>No LPs selected.</p>
+              ) : (
+                <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, maxHeight: 220, overflowY: "auto" }}>
+                  {selected.map((sel) => (
+                    <div
+                      key={sel.lpId}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "8px 12px",
+                        borderBottom: `1px solid ${T.border2}`,
+                        fontSize: 12.5,
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{sel.lpId}</span>
+                        {"  "}
+                        {sel.label.replace(`${sel.lpId} — `, "")}
+                        {sel.equipmentId ? ` | ${sel.equipmentId}` : ""}
+                        {sel.oilType ? ` | ${sel.oilType}` : ""}
+                        <ReasonBadge T={T} reason={sel.suggestionReason} />
+                      </div>
+                      <button
+                        onClick={() => removePoint(sel.lpId)}
+                        style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: 16 }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            padding: "16px 22px",
+            borderTop: `1px solid ${T.border}`,
+          }}
+        >
+          <button style={s.btn} onClick={onCancel} disabled={submitting}>
+            Cancel
+          </button>
+          <button style={s.btnPrimary} onClick={handleCreate} disabled={submitting}>
+            {submitting ? "Creating…" : "Create Route"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   sameCalendarDay,
   rowToRoutine,
   rowToRoutineItem,
+  rowToRouteTemplate,
   rowToOilProduct,
   rowToOilMovement,
 } from "./parsers";
@@ -482,10 +483,13 @@ export async function getRoutineItems(webhookUrl, routineId) {
 // send CORS headers on a POST response) means write-verification always
 // has to be a follow-up read; a client-supplied id makes that an exact
 // lookup instead of guessing "the newest matching routine".
-export async function createRoutine(webhookUrl, { routineId, assignedTo, contractor, createdBy, items }) {
+export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, assignedTo, contractor, createdBy, items }) {
   await postBlind(webhookUrl, {
     action: "createRoutine",
     routineId,
+    routeName,
+    routeType,
+    dueDate: dueDate || "",
     assignedTo,
     contractor: contractor || "",
     createdBy: createdBy || "",
@@ -498,6 +502,73 @@ export async function createRoutine(webhookUrl, { routineId, assignedTo, contrac
     throw new SaveVerificationError(`The routine wasn't confirmed saved to the sheet — please try again.`);
   }
   return saved;
+}
+
+// Only path from "Unassigned" (a recurring-template-generated routine with
+// no technician yet) to "Assigned" — see RouteTemplates below.
+export async function assignRoutineTechnician(webhookUrl, routineId, assignedTo) {
+  await postBlind(webhookUrl, { action: "assignRoutineTechnician", routineId, assignedTo });
+
+  const routines = await getRoutines(webhookUrl);
+  const saved = routines.find((r) => r.routineId === routineId);
+  if (!saved || saved.status !== "Assigned") {
+    throw new SaveVerificationError(`The assignment wasn't confirmed saved — please try again.`);
+  }
+  return saved;
+}
+
+// ── Route Templates (recurring Routines) ────────────────────────────────
+// Not synced as part of readAll() either — same on-demand pattern as
+// Routines above. generateDueRouteInstances (the function that actually
+// turns a due template into a real Routine) is intentionally NOT exposed
+// here — it only runs via the Apps Script time trigger or a manual Run
+// from the script editor (see RouteTemplates.js).
+
+export async function getRouteTemplates(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getRouteTemplates" });
+  return (json.templates || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRouteTemplate);
+}
+
+export async function createRouteTemplate(webhookUrl, { templateId, routeName, routeType, contractor, area, oilType, frequency, startDate, createdBy }) {
+  await postBlind(webhookUrl, {
+    action: "createRouteTemplate",
+    templateId,
+    routeName,
+    routeType,
+    contractor,
+    area: area || "",
+    oilType: oilType || "",
+    frequency,
+    startDate: startDate || "",
+    createdBy: createdBy || "",
+  });
+
+  const templates = await getRouteTemplates(webhookUrl);
+  const saved = templates.find((t) => t.templateId === templateId);
+  if (!saved) {
+    throw new SaveVerificationError(`The recurring route wasn't confirmed saved — please try again.`);
+  }
+  return saved;
+}
+
+export async function setRouteTemplateStatus(webhookUrl, templateId, status) {
+  await postBlind(webhookUrl, { action: "setRouteTemplateStatus", templateId, status });
+
+  const templates = await getRouteTemplates(webhookUrl);
+  const saved = templates.find((t) => t.templateId === templateId);
+  if (!saved || saved.status !== status) {
+    throw new SaveVerificationError(`The status change wasn't confirmed saved — please try again.`);
+  }
+  return saved;
+}
+
+export async function deleteRouteTemplate(webhookUrl, templateId) {
+  await postBlind(webhookUrl, { action: "deleteRouteTemplate", templateId });
+
+  const templates = await getRouteTemplates(webhookUrl);
+  if (templates.some((t) => t.templateId === templateId)) {
+    throw new SaveVerificationError(`The delete wasn't confirmed — please try again.`);
+  }
 }
 
 export async function submitRoutineItem(webhookUrl, routineId, item) {
