@@ -1,18 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import RoutineDetail from "./RoutineDetail";
 import NewRoutine from "./NewRoutine";
+import ProgressBar from "../components/ProgressBar";
 
 const STATUS_FILTERS = ["All", "Assigned", "InProgress", "Submitted", "Approved"];
-const CONTRACTOR_FILTERS = ["All", "RHI", "ASEC"];
+
+// How long a routine has sat since it was created without being submitted —
+// surfaced so a stalled routine (assigned to a contractor who hasn't
+// touched it) is visible without opening it.
+function agingLabel(createdDate, status) {
+  if (!createdDate || status === "Submitted" || status === "Approved") return null;
+  const created = new Date(createdDate);
+  if (isNaN(created)) return null;
+  const days = Math.floor((Date.now() - created.getTime()) / 86400000);
+  if (days <= 0) return "Created today";
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}
 
 // No login system exists in this app (see parsers.js's Routines section) —
 // a Routine here is "assign a checklist of lubrication points to a
 // contractor", tracked by free-text AssignedTo/CreatedBy fields, not real
 // user accounts. Not synced with the main Full Sync — loaded on demand,
 // same as Equipment Registry.
-export default function Routines({ webhookUrl, equipmentRegistry, pushToast }) {
+export default function Routines({ webhookUrl, equipmentRegistry, samples, actions, pushToast }) {
   const { T, s } = useTheme();
   const [view, setView] = useState("list"); // "list" | "detail" | "new"
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
@@ -21,6 +33,13 @@ export default function Routines({ webhookUrl, equipmentRegistry, pushToast }) {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
+
+  // Real contractor values from the registry, not a hardcoded guess — so a
+  // future third contractor shows up here automatically.
+  const contractorFilters = useMemo(() => {
+    const real = Array.from(new Set((equipmentRegistry || []).map((r) => r.contractor).filter(Boolean))).sort();
+    return ["All", ...real];
+  }, [equipmentRegistry]);
 
   const refresh = useCallback(async () => {
     if (!webhookUrl) return;
@@ -49,6 +68,8 @@ export default function Routines({ webhookUrl, equipmentRegistry, pushToast }) {
       <NewRoutine
         webhookUrl={webhookUrl}
         equipmentRegistry={equipmentRegistry}
+        samples={samples}
+        actions={actions}
         pushToast={pushToast}
         onCreated={(routineId) => {
           setSelectedRoutineId(routineId);
@@ -66,6 +87,8 @@ export default function Routines({ webhookUrl, equipmentRegistry, pushToast }) {
         webhookUrl={webhookUrl}
         routineId={selectedRoutineId}
         equipmentRegistry={equipmentRegistry}
+        samples={samples}
+        actions={actions}
         pushToast={pushToast}
         onBack={() => {
           setView("list");
@@ -108,7 +131,7 @@ export default function Routines({ webhookUrl, equipmentRegistry, pushToast }) {
           </button>
         ))}
         <div style={{ width: 1, background: T.border, margin: "0 4px" }} />
-        {CONTRACTOR_FILTERS.map((c) => (
+        {contractorFilters.map((c) => (
           <button
             key={c}
             style={{
@@ -141,31 +164,41 @@ export default function Routines({ webhookUrl, equipmentRegistry, pushToast }) {
                 <th style={s.th}>Assigned To</th>
                 <th style={s.th}>Contractor</th>
                 <th style={s.th}>Status</th>
+                <th style={s.th}>Progress</th>
                 <th style={s.th}>Created</th>
                 <th style={s.th}>Submitted</th>
                 <th style={s.th}>Approved</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((r) => (
-                <tr
-                  key={r.routineId}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => {
-                    setSelectedRoutineId(r.routineId);
-                    setView("detail");
-                  }}
-                >
-                  <td style={s.td}>{r.assignedTo}</td>
-                  <td style={s.td}>{r.contractor || "—"}</td>
-                  <td style={s.td}>
-                    <span style={s.badge(r.status)}>{r.status}</span>
-                  </td>
-                  <td style={s.td}>{r.createdDate || "—"}</td>
-                  <td style={s.td}>{r.submittedDate || "—"}</td>
-                  <td style={s.td}>{r.approvedDate || "—"}</td>
-                </tr>
-              ))}
+              {visible.map((r) => {
+                const aging = agingLabel(r.createdDate, r.status);
+                return (
+                  <tr
+                    key={r.routineId}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => {
+                      setSelectedRoutineId(r.routineId);
+                      setView("detail");
+                    }}
+                  >
+                    <td style={s.td}>{r.assignedTo}</td>
+                    <td style={s.td}>{r.contractor || "—"}</td>
+                    <td style={s.td}>
+                      <span style={s.badge(r.status)}>{r.status}</span>
+                    </td>
+                    <td style={s.td}>
+                      <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
+                    </td>
+                    <td style={s.td}>
+                      {r.createdDate || "—"}
+                      {aging && <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
+                    </td>
+                    <td style={s.td}>{r.submittedDate || "—"}</td>
+                    <td style={s.td}>{r.approvedDate || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

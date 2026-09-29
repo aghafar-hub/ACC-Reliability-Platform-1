@@ -22,10 +22,27 @@
 // of guessing "the newest matching routine", which isn't safe if two get
 // created around the same time.
 
+// Progress (items done / total) per routine, so the list can show it
+// without an N+1 fetch (one getRoutineItems call per routine) — reads
+// OA_ROUTINE_ITEMS once here and appends two columns (ItemsTotal,
+// ItemsDone) to each ROUTINES row instead.
 function getRoutines() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "ROUTINES", true);
-  return { routines: rows, count: rows.length };
+  var itemRows = readSheet(ss, "OA_ROUTINE_ITEMS", true);
+  var counts = {}; // routineId -> { total, done }
+  for (var i = 0; i < itemRows.length; i++) {
+    var routineId = String(itemRows[i][1] || "").trim();
+    if (!routineId) continue;
+    if (!counts[routineId]) counts[routineId] = { total: 0, done: 0 };
+    counts[routineId].total++;
+    if (String(itemRows[i][5] || "").trim() === "Yes") counts[routineId].done++;
+  }
+  var enriched = rows.map(function(r) {
+    var c = counts[String(r[0] || "").trim()] || { total: 0, done: 0 };
+    return r.concat([c.total, c.done]);
+  });
+  return { routines: enriched, count: enriched.length };
 }
 
 
@@ -102,6 +119,24 @@ function submitRoutineItem(ss, data) {
   sheet.getRange(rowIdx, 9).setValue(data.actualQuantity || "");
   sheet.getRange(rowIdx, 10).setValue(data.sampleTaken ? "Yes" : "No");
   stampLastModified(sheet, "OA_ROUTINE_ITEMS", rowIdx);
+
+  // The frontend's Routines list already has an "InProgress" status/badge,
+  // but nothing ever set it — a routine sat as "Assigned" no matter how much
+  // of its checklist was done, until the whole thing was Submitted. Flip it
+  // the first time any item on it is saved, so the list reflects reality.
+  var routineId = String(sheet.getRange(rowIdx, 2).getValue() || "").trim();
+  if (routineId) {
+    var routinesSheet = ss.getSheetByName("ROUTINES");
+    if (routinesSheet) {
+      var rIdx = findRowIndex(routinesSheet, [0], [routineId], dataStartRowFor("ROUTINES"));
+      if (rIdx !== -1) {
+        var currentStatus = String(routinesSheet.getRange(rIdx, 6).getValue() || "").trim();
+        if (currentStatus === "Assigned") {
+          routinesSheet.getRange(rIdx, 6).setValue("InProgress");
+        }
+      }
+    }
+  }
   return { status: "ok" };
 }
 

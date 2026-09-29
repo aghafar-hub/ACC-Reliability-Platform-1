@@ -275,6 +275,44 @@ export function sampleTrackerStatus(lastDateStr, intervalText) {
   return { label: "MISSING", daysInfo: `${formatMonths(ageMonths - months)} missing` };
 }
 
+// Why an LP_ID belongs on this month's Routine suggestion list — used both
+// to build the suggested list in New Routine and to show a "why is this
+// here" badge on an existing routine's items. Deliberately recomputed from
+// live samples/actions rather than stored on the routine item at creation
+// time, so the badge always reflects current state (e.g. if the point got
+// sampled through some other path after the routine was created).
+export function routineSuggestionReason(lpId, samples, actions, reg) {
+  const openResample = (actions || []).some(
+    (a) =>
+      (a.equipmentCode || a.unitId) === lpId &&
+      a.status !== "Closed" &&
+      (a.agreedAction === "Resample Oil" || a.contractorAction === "Resample Oil")
+  );
+  if (openResample) return { kind: "resample", label: "Resample requested" };
+
+  if (reg?.oilAnalysisRequired === "Yes") {
+    const lastSample = (samples || [])
+      .filter((s) => s.unitId === lpId)
+      .sort((a, b) => new Date(b.sampledDate || 0) - new Date(a.sampledDate || 0))[0];
+    const st = sampleTrackerStatus(lastSample?.sampledDate || "", reg.interval);
+    if (st.label === "OVERDUE") return { kind: "overdue", label: st.daysInfo };
+    if (st.label === "MISSING") return { kind: "missing", label: st.daysInfo || "No sample recorded" };
+    if (st.label === "OK" && st.daysInfo === "Due now") return { kind: "due", label: "Due now" };
+  }
+  return null;
+}
+
+// Every registry LP_ID that should be on this month's suggested Routine
+// list, each tagged with why. See routineSuggestionReason.
+export function suggestedRoutinePoints(registry, samples, actions) {
+  const out = [];
+  for (const r of registry || []) {
+    const reason = routineSuggestionReason(r.code, samples, actions, r);
+    if (reason) out.push({ ...r, suggestionReason: reason });
+  }
+  return out;
+}
+
 // ── Action Tracker ───────────────────────────────────────────────────────
 // Columns: 0 Ac.No, 1 Equipment Code (LP_ID), 2 Report Equipment ID,
 // 3 Description, 4 Oil Type, 5 Revision Date, 6 Sample Date,
@@ -637,7 +675,10 @@ export function sampleToRow(s) {
 //
 // ROUTINES columns: 0 RoutineId, 1 CreatedBy, 2 AssignedTo, 3 Contractor,
 // 4 CreatedDate, 5 Status, 6 SubmittedDate, 7 ApprovedBy, 8 ApprovedDate,
-// 9 ACC_Comment, 10 ACC_CommentBy, 11 ACC_CommentDate.
+// 9 ACC_Comment, 10 ACC_CommentBy, 11 ACC_CommentDate. The backend's
+// getRoutines appends two more (not sheet columns — computed server-side
+// from OA_ROUTINE_ITEMS in the same call, so the list doesn't need an
+// extra fetch per routine): 12 ItemsTotal, 13 ItemsDone.
 export function rowToRoutine(row) {
   return {
     routineId: row[0] || "",
@@ -652,6 +693,8 @@ export function rowToRoutine(row) {
     accComment: row[9] || "",
     accCommentBy: row[10] || "",
     accCommentDate: formatDate(row[11]),
+    itemsTotal: Number(row[12]) || 0,
+    itemsDone: Number(row[13]) || 0,
   };
 }
 

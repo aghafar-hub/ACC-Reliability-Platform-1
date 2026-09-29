@@ -780,7 +780,13 @@ function AppShell({ config, setConfig, navBridge }) {
             />
           )}
           {page === "routines" && (
-            <Routines webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
+            <Routines
+              webhookUrl={config.webhookUrl}
+              equipmentRegistry={equipmentRegistry}
+              samples={samples}
+              actions={actions}
+              pushToast={pushToast}
+            />
           )}
           {page === "inventory" && (
             <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />

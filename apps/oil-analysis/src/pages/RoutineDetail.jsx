@@ -1,9 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
+import { routineSuggestionReason } from "../parsers";
+import ProgressBar from "../components/ProgressBar";
 
-function ItemRow({ item, registryByLp, locked, webhookUrl, routineId, pushToast, onSaved }) {
+const REASON_COLOR = { resample: "danger", overdue: "warning", missing: "danger", due: "accent" };
+
+function ReasonBadge({ T, reason }) {
+  if (!reason) return null;
+  const color = T[REASON_COLOR[reason.kind]] || T.accent;
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: 10,
+        fontWeight: 700,
+        color,
+        background: color + "1c",
+        borderRadius: 4,
+        padding: "1px 6px",
+        marginTop: 2,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {reason.label}
+    </span>
+  );
+}
+
+function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId, pushToast, onSaved }) {
   const { T, s } = useTheme();
   const reg = registryByLp[item.lpId];
   const [implemented, setImplemented] = useState(item.implemented === "Yes");
@@ -12,6 +38,11 @@ function ItemRow({ item, registryByLp, locked, webhookUrl, routineId, pushToast,
   const [sampleTaken, setSampleTaken] = useState(item.sampleTaken === "Yes");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+
+  // Scannable at-a-glance row tint: done is a light green wash, not-done-
+  // with-a-reason recorded is amber (deliberate skip, not an oversight),
+  // and plain not-done is left neutral.
+  const rowTint = implemented ? T.success + "0d" : reason.trim() ? T.warning + "0d" : "transparent";
 
   function markDirty(setter) {
     return (value) => {
@@ -42,10 +73,11 @@ function ItemRow({ item, registryByLp, locked, webhookUrl, routineId, pushToast,
   }
 
   return (
-    <tr>
+    <tr style={{ background: rowTint }}>
       <td style={s.td}>
         <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</div>
         <div style={{ fontSize: 11.5, color: T.textSecondary }}>{reg?.lubricationPoint || reg?.description || "—"}</div>
+        <ReasonBadge T={T} reason={reasonInfo} />
       </td>
       <td style={s.td}>{item.itemType}</td>
       <td style={s.td}>
@@ -94,7 +126,7 @@ function ItemRow({ item, registryByLp, locked, webhookUrl, routineId, pushToast,
   );
 }
 
-export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, pushToast, onBack }) {
+export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, pushToast, onBack }) {
   const { T, s } = useTheme();
   const [routine, setRoutine] = useState(null);
   const [items, setItems] = useState([]);
@@ -105,6 +137,8 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const [approvedBy, setApprovedBy] = useState("");
   const [commentBy, setCommentBy] = useState("");
   const [working, setWorking] = useState(false);
+
+  const itemsDone = items.filter((i) => i.implemented === "Yes").length;
 
   // Prefills "Reviewed By" from the logged-in user once a session is
   // available — still editable, since the reviewer isn't always the person
@@ -119,6 +153,18 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
 
   const registryByLp = {};
   (equipmentRegistry || []).forEach((r) => (registryByLp[r.code] = r));
+
+  // "Why is this here" badge per item — recomputed from live data (not
+  // stored at creation time), same helper New Routine uses to build the
+  // suggested list.
+  const reasonByLp = useMemo(() => {
+    const map = {};
+    for (const item of items) {
+      map[item.lpId] = routineSuggestionReason(item.lpId, samples, actions, registryByLp[item.lpId]);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- registryByLp is rebuilt fresh every render from the same equipmentRegistry prop
+  }, [items, samples, actions, equipmentRegistry]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -149,6 +195,10 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
 
   function updateItemLocal(saved) {
     setItems((prev) => prev.map((i) => (i.routineItemId === saved.routineItemId ? saved : i)));
+    // Mirrors submitRoutineItem's own Assigned -> InProgress transition
+    // locally, so the header badge doesn't lag a full page refresh behind
+    // the backend after the very first item is saved.
+    setRoutine((prev) => (prev && prev.status === "Assigned" ? { ...prev, status: "InProgress" } : prev));
   }
 
   async function handleSubmitRoutine() {
@@ -211,6 +261,9 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
             {routine.submittedDate ? ` · submitted ${routine.submittedDate}` : ""}
             {routine.approvedDate ? ` · approved ${routine.approvedDate}` : ""}
           </p>
+          <div style={{ marginTop: 8 }}>
+            <ProgressBar done={itemsDone} total={items.length} width={140} />
+          </div>
         </div>
         <button style={s.btn} onClick={onBack}>
           <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
@@ -235,6 +288,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
                 key={item.routineItemId}
                 item={item}
                 registryByLp={registryByLp}
+                reasonInfo={reasonByLp[item.lpId]}
                 locked={locked}
                 webhookUrl={webhookUrl}
                 routineId={routineId}
