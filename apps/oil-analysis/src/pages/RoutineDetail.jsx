@@ -124,7 +124,14 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     setLoading(true);
     setError(null);
     try {
-      const [routines, routineItems] = await Promise.all([api.getRoutines(webhookUrl), api.getRoutineItems(webhookUrl, routineId)]);
+      // Sequential, not Promise.all: Google Apps Script Web Apps don't
+      // reliably serve concurrent GET requests to the same deployment (see
+      // App.jsx's startup-fetch fix, confirmed live via the Network tab —
+      // simultaneous exec?action=... requests came back 404 on their
+      // redirect-to-content step). One at a time avoids the same failure
+      // mode here.
+      const routines = await api.getRoutines(webhookUrl);
+      const routineItems = await api.getRoutineItems(webhookUrl, routineId);
       const found = routines.find((r) => r.routineId === routineId);
       setRoutine(found || null);
       setItems(routineItems);

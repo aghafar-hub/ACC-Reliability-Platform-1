@@ -139,7 +139,11 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
     setLoading(true);
     setError(null);
     try {
-      const [products, moves] = await Promise.all([api.getOilInventory(webhookUrl), api.getOilInventoryMovements(webhookUrl, productId)]);
+      // Sequential, not Promise.all — see App.jsx's startup-fetch fix:
+      // Google Apps Script Web Apps don't reliably serve concurrent GET
+      // requests to the same deployment.
+      const products = await api.getOilInventory(webhookUrl);
+      const moves = await api.getOilInventoryMovements(webhookUrl, productId);
       setProduct(products.find((p) => p.productId === productId) || null);
       setMovements(moves);
     } catch (err) {
