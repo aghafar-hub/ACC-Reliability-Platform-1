@@ -89,7 +89,19 @@ export default function OilReportSearch({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
-  const allCodes = Array.from(new Set((samples || []).map((d) => d.unitId))).sort();
+  // Scoped to real LP_IDs that have (or are registered for) oil analysis —
+  // not every distinct Data_Entry unitId, since a broken Lub ID lookup in
+  // the sheet can leave stray values like "#N/A" in that column, and a
+  // registry point flagged for oil analysis but not sampled yet should
+  // still be pickable here.
+  const allCodes = Array.from(
+    new Set(
+      [
+        ...(samples || []).map((d) => d.unitId).filter((code) => code && registry.some((r) => r.code === code)),
+        ...registry.filter((r) => r.oilAnalysisRequired === "Yes").map((r) => r.code),
+      ].filter(Boolean)
+    )
+  ).sort();
   const filteredCodes = allCodes.filter((code) => {
     const reg = registry.find((r) => r.code === code);
     const desc = reg ? reg.description : "";
@@ -137,7 +149,7 @@ export default function OilReportSearch({
       <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 280, position: "relative" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 12, color: T.textSecondary }}>Search or select equipment</p>
+            <p style={{ margin: "0 0 6px", fontSize: 12, color: T.textSecondary }}>Search or select LP-ID</p>
             <div style={{ position: "relative" }}>
               <i
                 className="ti ti-search"
@@ -334,8 +346,8 @@ export default function OilReportSearch({
       {equipCode === "All" && (
         <div style={{ textAlign: "center", padding: "60px 20px", color: T.textMuted }}>
           <i className="ti ti-file-analytics" style={{ fontSize: 64, display: "block", marginBottom: 16 }} aria-hidden="true" />
-          <p style={{ fontSize: 16, margin: 0 }}>Select an equipment to view its full oil analysis report</p>
-          <p style={{ fontSize: 13, marginTop: 8, color: T.textMuted }}>{allCodes.length} equipment with samples available</p>
+          <p style={{ fontSize: 16, margin: 0 }}>Select a lubrication point to view its full oil analysis report</p>
+          <p style={{ fontSize: 13, marginTop: 8, color: T.textMuted }}>{allCodes.length} LP-ID{allCodes.length !== 1 ? "s" : ""} with oil analysis</p>
         </div>
       )}
       {equipCode !== "All" && history.length === 0 && (
