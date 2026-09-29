@@ -224,7 +224,7 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
           <p style={{ color: T.textSecondary, margin: 0 }}>No products match the search.</p>
         </div>
       ) : (
-        <div style={{ ...s.card, padding: 0, overflow: "hidden" }}>
+        <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
           <table style={s.table}>
             <thead>
               <tr>

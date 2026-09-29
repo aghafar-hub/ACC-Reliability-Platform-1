@@ -331,7 +331,7 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         </div>
       </div>
 
-      <div style={{ ...s.card, padding: 0, overflow: "hidden", marginBottom: 14 }}>
+      <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 14 }}>
         <div style={{ display: "flex", padding: "10px 16px 8px 260px", borderBottom: `1px solid ${T.border}`, background: T.cardSubBg }}>
           {[-WINDOW_BACK, -15, 0, 15, 30, 45, 60, 75, 90].map((d) => {
             const dt = new Date();

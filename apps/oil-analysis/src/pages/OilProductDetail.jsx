@@ -215,7 +215,7 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
           <p style={{ color: T.textSecondary, margin: 0 }}>No movements logged yet.</p>
         </div>
       ) : (
-        <div style={{ ...s.card, padding: 0, overflow: "hidden" }}>
+        <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
           <table style={s.table}>
             <thead>
               <tr>

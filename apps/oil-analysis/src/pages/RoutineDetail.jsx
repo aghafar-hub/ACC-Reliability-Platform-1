@@ -217,7 +217,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
         </button>
       </div>
 
-      <div style={{ ...s.card, padding: 0, overflow: "hidden", marginBottom: 20 }}>
+      <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 20 }}>
         <table style={s.table}>
           <thead>
             <tr>

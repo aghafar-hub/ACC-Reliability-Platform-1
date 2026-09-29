@@ -102,36 +102,38 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, pushToast, o
         {selected.length === 0 ? (
           <p style={{ color: T.textSecondary, fontSize: 13 }}>None yet — search below and add points.</p>
         ) : (
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>Point</th>
-                <th style={s.th}>Item Type</th>
-                <th style={s.th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {selected.map((s2) => (
-                <tr key={s2.lpId}>
-                  <td style={s.td}>{s2.label}</td>
-                  <td style={s.td}>
-                    <select style={s.select} value={s2.itemType} onChange={(e) => setItemType(s2.lpId, e.target.value)}>
-                      {ITEM_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={s.td}>
-                    <button style={s.btn} onClick={() => removePoint(s2.lpId)}>
-                      <i className="ti ti-trash" aria-hidden="true" /> Remove
-                    </button>
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  <th style={s.th}>Point</th>
+                  <th style={s.th}>Item Type</th>
+                  <th style={s.th}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {selected.map((s2) => (
+                  <tr key={s2.lpId}>
+                    <td style={s.td}>{s2.label}</td>
+                    <td style={s.td}>
+                      <select style={s.select} value={s2.itemType} onChange={(e) => setItemType(s2.lpId, e.target.value)}>
+                        {ITEM_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={s.td}>
+                      <button style={s.btn} onClick={() => removePoint(s2.lpId)}>
+                        <i className="ti ti-trash" aria-hidden="true" /> Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -144,32 +146,34 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, pushToast, o
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <table style={s.table}>
-          <thead>
-            <tr>
-              <th style={s.th}>LP_ID</th>
-              <th style={s.th}>Point</th>
-              <th style={s.th}>Area</th>
-              <th style={s.th}>Analysis?</th>
-              <th style={s.th}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {candidates.slice(0, 50).map((r) => (
-              <tr key={r.code}>
-                <td style={s.td}>{r.code}</td>
-                <td style={s.td}>{r.lubricationPoint || r.description}</td>
-                <td style={s.td}>{r.area}</td>
-                <td style={s.td}>{r.oilAnalysisRequired}</td>
-                <td style={s.td}>
-                  <button style={s.btn} onClick={() => addPoint(r)}>
-                    <i className="ti ti-plus" aria-hidden="true" /> Add
-                  </button>
-                </td>
+        <div style={{ overflowX: "auto" }}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>LP_ID</th>
+                <th style={s.th}>Point</th>
+                <th style={s.th}>Area</th>
+                <th style={s.th}>Analysis?</th>
+                <th style={s.th}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {candidates.slice(0, 50).map((r) => (
+                <tr key={r.code}>
+                  <td style={s.td}>{r.code}</td>
+                  <td style={s.td}>{r.lubricationPoint || r.description}</td>
+                  <td style={s.td}>{r.area}</td>
+                  <td style={s.td}>{r.oilAnalysisRequired}</td>
+                  <td style={s.td}>
+                    <button style={s.btn} onClick={() => addPoint(r)}>
+                      <i className="ti ti-plus" aria-hidden="true" /> Add
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {candidates.length > 50 && (
           <p style={{ fontSize: 12, color: T.textSecondary, marginTop: 8 }}>Showing 50 of {candidates.length} — narrow your search.</p>
         )}
