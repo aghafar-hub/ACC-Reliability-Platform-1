@@ -216,47 +216,62 @@ function AppShell({ config, setConfig, navBridge }) {
     }
   }, [config.webhookUrl, lastSyncAt, runSync]);
 
-  useEffect(() => {
-    if (config.webhookUrl) runSync();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.webhookUrl]);
-
-  // Equipment/Action Registry used to need a manual "Sync" click in
+  // BUGFIX (confirmed via the live Network tab, not a hunch): this used to
+  // be two separate effects — runSync() and the two registry fetches — both
+  // keyed on [config.webhookUrl], so React fired all three fetch() calls in
+  // the same instant on every app load. Google Apps Script Web Apps don't
+  // handle simultaneous GET requests to the same deployment reliably: the
+  // symptom was all three requests' redirect-to-content step
+  // (exec?action=... -> 302 -> echo?user_content_key=...) coming back 404,
+  // leaving the app stuck on whatever was cached (or the bundled default on
+  // a fresh device) — which looked exactly like old equipment codes
+  // reappearing and new equipment never showing up, even though the sheet
+  // data, the backend, and the grouping logic were all independently
+  // confirmed correct. Fix: run them one at a time, not in parallel.
+  //
+  // Equipment/Action Registry used to also need a manual "Sync" click in
   // Settings, once per device — the data was always in the sheet, the app
   // just never fetched it on its own. Now fetched automatically on every
-  // app load, same as runSync() above, so a fresh browser/device is never
-  // stuck showing an empty equipment dropdown or action picker.
-  //
-  // Always a straight REPLACE, never a merge: both sheets (Equipment
-  // Registry, OL_ACTION_PHRASES) are the only place this data is ever
-  // created, so anything sitting in the local cache that's no longer in
-  // the sheet is stale leftover, never a legitimate app-only addition —
-  // same reasoning as the "Remove all" fix this replaces the need for.
-  // No toast on failure: this runs in the background on every load, and
-  // runSync() above already surfaces a toast for real connectivity
-  // problems — a stale-but-present cache is a safe fallback either way.
-  // Still logged to the console (not swallowed silently) — a failure here
-  // means the equipment/action list silently stays on whatever was cached
-  // (or the stale bundled default on a brand new device), which otherwise
-  // has no visible symptom pointing back at this fetch.
+  // app load, so a fresh browser/device is never stuck showing an empty
+  // equipment dropdown or action picker. Always a straight REPLACE, never a
+  // merge: both sheets (Equipment Registry, OL_ACTION_PHRASES) are the only
+  // place this data is ever created, so anything sitting in the local cache
+  // that's no longer in the sheet is stale leftover, never a legitimate
+  // app-only addition — same reasoning as the "Remove all" fix this
+  // replaced. No toast on the two registry fetches' own failure — runSync()
+  // already surfaces a toast for real connectivity problems, and a
+  // stale-but-present cache is a safe fallback either way — but still
+  // logged to the console rather than swallowed silently.
   useEffect(() => {
     if (!config.webhookUrl) return;
-    api
-      .getEquipmentRegistry(config.webhookUrl)
-      .then((sheetEquip) => {
-        if (!sheetEquip || !sheetEquip.length) return;
-        saveEquipmentRegistry(sheetEquip);
-        setEquipmentRegistry(sheetEquip);
-      })
-      .catch((err) => console.error("Auto equipment registry sync failed:", err));
-    api
-      .getActionRegistry(config.webhookUrl)
-      .then((actions) => {
-        if (!actions || !actions.length) return;
-        saveActionRegistry(actions);
-        setActionRegistry(actions);
-      })
-      .catch((err) => console.error("Auto action registry sync failed:", err));
+    let cancelled = false;
+    (async () => {
+      await runSync();
+      if (cancelled) return;
+      try {
+        const sheetEquip = await api.getEquipmentRegistry(config.webhookUrl);
+        if (sheetEquip && sheetEquip.length) {
+          saveEquipmentRegistry(sheetEquip);
+          setEquipmentRegistry(sheetEquip);
+        }
+      } catch (err) {
+        console.error("Auto equipment registry sync failed:", err);
+      }
+      if (cancelled) return;
+      try {
+        const actions = await api.getActionRegistry(config.webhookUrl);
+        if (actions && actions.length) {
+          saveActionRegistry(actions);
+          setActionRegistry(actions);
+        }
+      } catch (err) {
+        console.error("Auto action registry sync failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runSync's own identity changes with config.webhookUrl/pushToast, which would re-trigger this same effect redundantly; config.webhookUrl alone is the real trigger
   }, [config.webhookUrl]);
 
   // Jittered polling, mostly incremental: a plain setInterval would have
