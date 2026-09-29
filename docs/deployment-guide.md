@@ -198,6 +198,38 @@ step 4 removes the no-login URL your team currently uses:
    (Routines detail, or Oil Inventory's Log Movement form) is already
    prefilled with that account's email instead of blank.
 
+## 4d. Multi-file backend — Oil Lubrication's Code.js split
+
+`backend/oil-lubrication/src/Code.js` used to be one ~1450-line file —
+it's now split into 12 files by concern (see
+`docs/oil-lubrication-migration-notes.md`'s "Solid app round" section for
+the full list and why). Apps Script shares one global scope across every
+file in a project regardless of file name, so this is purely
+organizational — same deployment, same URL — but it does mean **each file
+needs to exist separately in the Apps Script editor**, not just pasted
+into Code.js:
+
+1. Open the "Oil Lubrication Data Base" Sheet → Extensions → Apps Script.
+2. For each of these files — `Config.js`, `Auth.js`, `Utils.js`,
+   `Dashboard.js`, `EquipmentRegistry.js`, `SampleTracker.js`,
+   `SheetTriggers.js`, `OilChanges.js`, `Routines.js`, `OilInventory.js`,
+   `ActionRegistry.js` — click the **+** next to "Files" → Script → name
+   it exactly that (drop the `.js`, Apps Script adds its own extension),
+   then paste in that file's full contents from the repo.
+3. Replace the existing `Code.js` file's contents with the new (much
+   shorter) `Code.js` — now just `doGet`/`doPost`.
+4. Save all files (Ctrl+S / the disk icon covers the whole project).
+5. Deploy → Manage deployments → pencil icon → New version → Deploy —
+   same reminder as always: saving alone doesn't update the live `/exec`
+   URL.
+6. Verify: `?action=test` on the deployed URL should still return the
+   normal `{"status":"ok",...}` response — if any file was missed or
+   misnamed, this fails with a script error instead.
+
+Going forward, when a repo change touches one of these files, only that
+one file needs re-pasting in the Apps Script editor before the next
+redeploy — not the whole thing.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

@@ -400,3 +400,58 @@ account before they can use the app again — see the deployment guide's
 `SESSION_SIGNING_SECRET` to match Platform Core's on the oil-lubrication
 project, redeploy both, then create accounts before the standalone build
 actually goes away in practice via a redeploy).
+
+## "Solid app" round — code organization, load resilience, RBAC (in progress)
+
+Triggered by: confirmed live (Network tab, not a guess) that Google Apps
+Script Web Apps don't reliably serve multiple simultaneous GET requests to
+the same deployment — the `exec?action=...` → 302 → `echo?user_content_key=`
+redirect step 404s under concurrent load, which is exactly what caused the
+"old equipment codes / incomplete list" symptom (three requests firing at
+once on every app load). Fixed in `apps/oil-analysis` (App.jsx's three
+startup fetches, RoutineDetail.jsx, OilProductDetail.jsx — all serialized
+instead of parallel). With this confirmed as a real, live limitation of the
+platform (not something code can fully engineer around, only make rarer and
+recoverable), the user asked for a broader pass to make the Apps Script +
+Sheets architecture as solid as it can be, in this order:
+
+1. **Code organization (done).** `backend/oil-lubrication/src/Code.js` had
+   grown to ~1450 lines as a single file — the only Apps Script project in
+   this repo not already split by concern the way Platform Core is (`Auth.js`,
+   `Session.js`, `Rbac.js`, ...). Split into:
+   - `Config.js` — shared constants (schema columns, caching, allowlist)
+   - `Auth.js` — shared secret + session-token verification
+   - `Utils.js` — generic sheet I/O, response formatting, row matching
+   - `Dashboard.js` — dashboard summary, equipment lookup/search, full/incremental sync
+   - `EquipmentRegistry.js` — "Equipment Registry" reads
+   - `SampleTracker.js` — "Oil Sample Tracker" monthly-column updates
+   - `SheetTriggers.js` — the installed `onEdit` trigger (a spreadsheet-UI
+     convenience for whoever's browsing the raw Sheet directly — hides/shows
+     rows by year/month filter cells; NOT part of the Web App API, doGet/
+     doPost never call it)
+   - `OilChanges.js` — Oil Change LOG logging + history
+   - `Routines.js` — Routine workflow (create/submit/approve/comment)
+   - `OilInventory.js` — Oil Inventory product registry + movement log
+   - `ActionRegistry.js` — OL_ACTION_PHRASES reads
+   - `Code.js` — now just the two Web App entry points, `doGet`/`doPost`,
+     dispatching into the files above
+
+   Mechanical split only — verified byte-for-byte against the original file
+   (every line accounted for exactly once, no code altered), every new file
+   and the full concatenation pass a syntax check, and all 57 top-level
+   declarations from the original are present exactly once with no
+   duplicates. Apps Script shares one global scope across every file in a
+   project, so this changes nothing about how the code runs — same
+   deployment, same URL — but **does require pasting each new file into the
+   Apps Script editor as its own separate file**, not just updating Code.js;
+   see the deployment guide's "Multi-file backend" section for the exact
+   steps.
+2. **Load resilience** (not started) — retry-with-backoff on the frontend
+   for the exact failure mode above, since it will still happen occasionally
+   under real concurrent load from ~20 people even with every known
+   parallel-request pattern serialized.
+3. **Write-path LockService audit** (not started) — re-verify every write
+   action is actually covered now that the file is split.
+4. **Mobile view** (not started) — separate from backend hardening.
+5. **RBAC** (not started) — Option B Phase 2; everyone can still do
+   everything once logged in, only identity is tracked so far.
