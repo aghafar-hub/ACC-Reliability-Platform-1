@@ -155,6 +155,12 @@ function createRoutine(ss, data) {
     appendRow(ss, "OA_ROUTINE_ITEMS", itemRow);
   }
 
+  try {
+    notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate);
+  } catch (e) {
+    logError("notifyRoutineAssigned_:createRoutine", e, { routineId: routineId });
+  }
+
   return { status: "ok", routineId: routineId };
 }
 
@@ -176,6 +182,15 @@ function assignRoutineTechnician(ss, data) {
   if (currentStatus !== "Unassigned") return { error: "Only an Unassigned routine can be assigned this way" };
   sheet.getRange(rowIdx, 3).setValue(assignedTo);
   sheet.getRange(rowIdx, 6).setValue("Assigned");
+
+  try {
+    var routeName = sheet.getRange(rowIdx, 13).getValue();
+    var dueDate = sheet.getRange(rowIdx, 15).getValue();
+    notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate);
+  } catch (e) {
+    logError("notifyRoutineAssigned_:assignRoutineTechnician", e, { routineId: routineId });
+  }
+
   return { status: "ok" };
 }
 
@@ -225,6 +240,15 @@ function submitRoutine(ss, data) {
   if (rowIdx === -1) return { error: "Routine not found" };
   sheet.getRange(rowIdx, 6).setValue("Submitted");
   sheet.getRange(rowIdx, 7).setValue(new Date());
+
+  try {
+    var routeName = sheet.getRange(rowIdx, 13).getValue();
+    var contractor = sheet.getRange(rowIdx, 4).getValue();
+    notifyRoutineSubmitted_(routineId, routeName, contractor, data.actingUser || "");
+  } catch (e) {
+    logError("notifyRoutineSubmitted_", e, { routineId: routineId });
+  }
+
   return { status: "ok" };
 }
 
@@ -239,6 +263,15 @@ function approveRoutine(ss, data) {
   sheet.getRange(rowIdx, 6).setValue("Approved");
   sheet.getRange(rowIdx, 8).setValue(data.approvedBy || "");
   sheet.getRange(rowIdx, 9).setValue(new Date());
+
+  try {
+    var routeName = sheet.getRange(rowIdx, 13).getValue();
+    var assignedTo = sheet.getRange(rowIdx, 3).getValue();
+    notifyRoutineApproved_(routineId, routeName, assignedTo, data.approvedBy || data.actingUser || "");
+  } catch (e) {
+    logError("notifyRoutineApproved_", e, { routineId: routineId });
+  }
+
   return { status: "ok" };
 }
 

@@ -94,6 +94,7 @@
 //   RouteTemplates.js     — recurring Route templates + due-instance generation
 //   OilInventory.js       — Oil Inventory product registry + movement log
 //   ActionRegistry.js     — OL_ACTION_PHRASES reads
+//   Notifications.js      — best-effort email on Routine assigned/submitted/approved
 // Apps Script shares one global scope across every file in a project, so this
 // split changes nothing about how the code runs — same deployment, same URL,
 // same single global scope every function in every file already shared.
@@ -287,6 +288,7 @@ function doPost(e) {
       if (data.action === "submitRoutine") {
         requirePermission_(auth.session, "Edit");
         requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
+        data.actingUser = actingUser;
         var subResult = submitRoutine(ss, data);
         logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(subResult.error ? {status: "error", message: subResult.error} : {status: "ok"});
@@ -295,6 +297,7 @@ function doPost(e) {
       if (data.action === "approveRoutine") {
         requirePermission_(auth.session, "Approve");
         requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
+        data.actingUser = actingUser;
         var appResult = approveRoutine(ss, data);
         logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});

@@ -267,6 +267,49 @@ any time — it only generates routes for templates that are due within 3
 days, and always advances each template's own schedule regardless, so
 re-running it doesn't double-generate.
 
+## 4f. Routine email notifications — new file + one sheet to fill in
+
+Part of the "make this a real plant app" pass: until this, nothing in Oil
+Lubrication ever told anyone anything — every handoff (routine assigned,
+submitted for review, approved) depended entirely on someone opening the
+app and noticing. This adds best-effort email at each of those three
+points — a failure here never blocks or breaks the actual save, it's a
+courtesy notification only (see `Notifications.js`'s own header comment).
+
+**File**: `backend/oil-lubrication/src/Notifications.js` — new, doesn't
+exist yet in the Apps Script editor. Same as section 4d: click the **+**
+next to "Files" → Script → name it `Notifications` (no `.js`) → paste in
+its full contents. `Routines.js` and `Code.js` also changed this round —
+replace their contents with the repo's current versions too.
+
+**Sheet you need to create and fill in yourself**: `OL_NOTIFY_REVIEWERS`
+— two columns, `Contractor` and `Email`. One row per person who should be
+emailed when a routine is submitted for their review:
+- A row with `Contractor` = `RHI` or `ASEC` only gets that contractor's
+  own "submitted for review" emails.
+- A row with `Contractor` = `ACC` gets **every** contractor's "submitted"
+  emails — use this for whoever at ACC oversees both.
+
+This sheet is the reviewer distribution list; nothing reads it for
+anything else. If you leave it empty (or never create the sheet), the
+"submitted for review" email is silently skipped — nothing breaks, nobody
+just gets notified, same as before this patch. The "assigned" and
+"approved" emails don't need this sheet at all — they go straight to
+whoever's in the routine's own Assigned To field (which is why Patch 1's
+real-account picker matters here too: a free-text name that isn't an
+actual email address is silently skipped, same reasoning).
+
+**Deploy**: same as always — save all files, then **Deploy → Manage
+deployments → pencil icon → New version → Deploy**.
+
+**Verify**: create a test routine assigned to your own email, confirm you
+get the "assigned" email; submit it (with your own email in
+`OL_NOTIFY_REVIEWERS` for that contractor) and confirm the "submitted for
+review" email arrives; approve it and confirm the "approved" email
+arrives. Check `Debug Log` in the sheet for a `notifyRoutine*` entry if
+one doesn't show up — that'll say why (bad address, MailApp quota, etc.)
+without having broken the actual routine action.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
