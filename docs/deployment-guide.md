@@ -412,6 +412,39 @@ another contractor's row to begin with. If you want to specifically
 confirm the block works, you'd need to hand-craft a request with another
 contractor's LP_ID as a scoped user — not something the UI can do.
 
+## 4j. Sample_UID column (fixes the duplicate Sample ID problem)
+
+`(equipmentCode, sampleId)` — the pair samples were always matched by —
+isn't guaranteed unique in the live sheet: 42 real collisions were found
+during the schema audit, since the lab reuses sample IDs across different
+sampling dates for the same equipment. Editing or deleting one of those
+could, in rare cases, hit the wrong row.
+
+**Sheet change you need to make yourself**: the "Data_Entry" sheet needs
+one new column at the very end — column **AN** (right after the existing
+"Last Modified" column) — with the header text `Sample_UID`. Every sample
+saved from now on gets a real, unique, app-generated id written there
+automatically; a sample saved before this column existed just has it
+blank and keeps matching the old way — exactly as ambiguous as it always
+was, never worse, since there's no way to retroactively invent a unique
+id for historical rows.
+
+**Code**: frontend only — `parsers.js` and `api.js` changed, no backend
+files. Also fixed a real, separate bug found while building this: editing
+a sample's verify-read was comparing the sheet's own "Last Modified"
+column, which the backend stamps fresh on every write regardless of what
+the client sent — that comparison could never succeed, so editing a
+sample was very likely throwing a false "wasn't confirmed saved" error on
+every single edit (not new adds, only edits). Both fixes are already live
+once you push — no Apps Script redeploy needed for this one.
+
+**Verify**: edit any existing sample (via Equipment → a sample's Edit
+button) and confirm it saves without an error toast — that confirms the
+Last Modified fix. Add two new samples for the same equipment with the
+same Sample ID but different dates (recreating the original collision
+scenario), then edit or delete one of them and confirm only that one
+changed.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

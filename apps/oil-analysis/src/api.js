@@ -30,6 +30,7 @@ import {
   rowToRouteTemplate,
   rowToOilProduct,
   rowToOilMovement,
+  newId,
 } from "./parsers";
 import { API_SECRET } from "./config";
 
@@ -172,6 +173,17 @@ function logVerificationMismatch(label, sentRow, savedRow, headers) {
   console.error(`[${label}] verify-read mismatch on ${diffs.length} column(s):`, diffs);
 }
 
+// Finds the row among `rows` whose values at `matchCols` all equal the
+// corresponding `matchValues` — the read-side counterpart to the backend's
+// own findRowIndex (Utils.js), needed once a verify-read can no longer
+// assume a fixed column position (Patch 6: a sample matched by its
+// Sample_UID has matchCols=[39], not the old hardcoded "column 3").
+function findRowByMatch(rows, matchCols, matchValues) {
+  return (rows || []).find((r) =>
+    matchCols.every((col, i) => String(r[col] ?? "").trim() === String(matchValues[i] ?? "").trim())
+  );
+}
+
 // Action Tracker's "Last Modified" column (index 18 — after Closing
 // Comment) is stamped by the backend itself on every write, independent of
 // whatever we send — so a verification read will always show a fresh value
@@ -189,6 +201,31 @@ const ACTION_DATE_COLS = [5, 6, 9, 13];
 
 // Data_Entry's Sampled Date column (shifted from 3 — same insertion).
 const SAMPLE_DATE_COL = 4;
+
+// Data_Entry's "Last Modified" column — same idea as
+// ACTION_LAST_MODIFIED_COL above: stamped by the backend itself on every
+// write, independent of what the client sends, so a verification read
+// must not compare it. BUG FIX (found while building the Sample_UID
+// column below, but real and pre-existing on its own): updateSample's
+// verify-read was comparing the FULL row array, Last Modified included —
+// the client's row array never had an element there at all (undefined,
+// read as "" by rowsEqual), so it was being compared against whatever
+// real timestamp the server had just stamped, which can never match.
+// Every sample EDIT (not new adds, which verify differently) was very
+// likely hitting this and throwing a false "wasn't confirmed saved"
+// error. See rowsEqual's skipIndices usage in updateSample below.
+const SAMPLE_LAST_MODIFIED_COL = 38;
+
+// Patch 6 (plant-readiness pass): (equipmentCode, sampleId) alone isn't
+// guaranteed unique in the live sheet — see updateSample's own comment
+// below for the full story. This new trailing column gives every sample
+// created from now on a real, client-generated unique id (see saveSample),
+// so it can be matched exactly instead of by that ambiguous pair. A
+// sample saved before this column existed has no value here and keeps
+// using the old (equipmentCode, sampleId) match — exactly as ambiguous as
+// it always was, never worse, since there's no way to retroactively
+// invent a unique id for historical rows.
+const SAMPLE_UID_COL = 39;
 
 // ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -437,27 +474,35 @@ export async function logOilChangeEvent(webhookUrl, event) {
   return saved;
 }
 
+// Patch 6 (plant-readiness pass): every new sample gets a real, unique
+// client-generated id here — the one place every save path (manual add,
+// bulk import) funnels through — so it can be matched exactly on every
+// future edit/delete instead of by the ambiguous (equipmentCode, sampleId)
+// pair described below. newId() (parsers.js) is the same id generator
+// Routines/Oil Inventory already use for exactly this reason.
 export async function saveSample(webhookUrl, sample, headers) {
-  const row = sampleToRow(sample);
+  const sampleUid = sample.sampleUid || newId("SMP");
+  const row = sampleToRow({ ...sample, sampleUid });
   await postBlind(webhookUrl, { action: "append", sheet: "Data_Entry", row, headers });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
-  const savedRow = (verify.samples || []).find((r) => String(r[3]).trim() === String(sample.sampleId).trim());
+  const savedRow = findRowByMatch(verify.samples, [SAMPLE_UID_COL], [sampleUid]);
   if (!savedRow) {
     throw new SaveVerificationError(`The sample wasn't confirmed saved to the sheet — please try again.`);
   }
   return rowToSample(savedRow);
 }
 
-// NOTE: (equipmentCode, sampleId) — this sample's match key — is not
-// guaranteed unique in the live sheet (42 real collisions found during the
-// schema audit; the lab reuses sample IDs across different sampling dates
-// for the same equipment). updateRow/deleteRow hit whichever matching row
-// the sheet lists first, so an edit to a sample sharing its ID with another
-// sample for the same equipment can land on the wrong row. Flagging this
-// here rather than solving it silently — there's no reliable disambiguator
-// available client-side without also matching on sampledDate, which itself
-// isn't guaranteed present/unique either.
+// NOTE: (equipmentCode, sampleId) — the fallback match key for any sample
+// saved before the Sample_UID column existed (see sample._matchCols in
+// parsers.js's rowToSample) — is not guaranteed unique in the live sheet
+// (42 real collisions found during the schema audit; the lab reuses
+// sample IDs across different sampling dates for the same equipment).
+// updateRow/deleteRow hit whichever matching row the sheet lists first, so
+// editing one of those older, UID-less samples can still land on the
+// wrong row if it shares an id with another sample for the same
+// equipment. Every sample created after this column existed no longer has
+// this problem at all — matched by its own unique id instead.
 export async function updateSample(webhookUrl, sample) {
   const row = sampleToRow(sample);
   const matchCols = sample._matchCols || [0, 3];
@@ -465,8 +510,14 @@ export async function updateSample(webhookUrl, sample) {
   await postBlind(webhookUrl, { action: "updateRow", sheet: "Data_Entry", matchCols, matchValues, row });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
-  const savedRow = (verify.samples || []).find((r) => String(r[3]).trim() === String(matchValues[1]).trim());
-  if (!savedRow || !rowsEqual(savedRow, row, { dateIndices: [SAMPLE_DATE_COL] })) {
+  const savedRow = findRowByMatch(verify.samples, matchCols, matchValues);
+  // BUG FIX, found while building the above: SAMPLE_LAST_MODIFIED_COL is
+  // stamped by the backend itself on every write, independent of what
+  // this row array ever contained — comparing it here meant this
+  // verification could never pass, since the freshly-stamped real
+  // timestamp can never equal what the client sent (nothing, at that
+  // position). See SAMPLE_LAST_MODIFIED_COL's own comment above.
+  if (!savedRow || !rowsEqual(savedRow, row, { skipIndices: [SAMPLE_LAST_MODIFIED_COL], dateIndices: [SAMPLE_DATE_COL] })) {
     logVerificationMismatch("updateSample", row, savedRow);
     throw new SaveVerificationError(`The sample wasn't confirmed saved to the sheet. It may not have written — please try again.`);
   }
@@ -479,7 +530,7 @@ export async function deleteSample(webhookUrl, sample) {
   await postBlind(webhookUrl, { action: "deleteRow", sheet: "Data_Entry", matchCols, matchValues });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
-  const stillThere = (verify.samples || []).some((r) => String(r[3]).trim() === String(matchValues[1]).trim());
+  const stillThere = !!findRowByMatch(verify.samples, matchCols, matchValues);
   if (stillThere) {
     throw new SaveVerificationError(`The sample wasn't confirmed deleted from the sheet — please try again.`);
   }

@@ -639,6 +639,8 @@ export function rowToSample(row) {
     alertType,
     recommendationsRaw,
     flaggedParamsRaw,
+    , // server-stamped Last Modified (col 39, see api.js's SAMPLE_LAST_MODIFIED_COL) — not otherwise used here
+    sampleUid, // Patch 6 — see api.js's SAMPLE_UID_COL
   ] = row;
   const num = (v) => (v === "" || v === null || v === undefined ? "" : parseFloat(v));
   return {
@@ -665,9 +667,16 @@ export function rowToSample(row) {
     additives: { B, Ba, Ca, Mg, P, Zn },
     recommendations: recommendationsRaw ? [recommendationsRaw] : [],
     flaggedReadings: parseFlaggedParams(flaggedParamsRaw),
-    _id: `${unitId}_${sampleId}_${sampledDate}`,
-    _matchCols: [0, 3],
-    _matchValues: [unitId, sampleId],
+    sampleUid: sampleUid || "",
+    _id: sampleUid ? `uid_${sampleUid}` : `${unitId}_${sampleId}_${sampledDate}`,
+    // Patch 6: a sample created after the Sample_UID column existed gets
+    // matched by that alone — always unique, no ambiguity possible. A
+    // sample from before it existed (blank sampleUid) falls back to the
+    // original (equipmentCode, sampleId) pair — see updateSample's own
+    // comment in api.js for why that pair isn't guaranteed unique, and why
+    // there's no way to retroactively fix a historical row's ambiguity.
+    _matchCols: sampleUid ? [39] : [0, 3],
+    _matchValues: sampleUid ? [sampleUid] : [unitId, sampleId],
   };
 }
 
@@ -714,6 +723,8 @@ export function sampleToRow(s) {
     s.alertType || "",
     (s.recommendations || []).join("; "),
     formatFlaggedParams(s.flaggedReadings),
+    "", // Last Modified (col 39) — always blank here; the backend stamps the real value itself on every write (see api.js's SAMPLE_LAST_MODIFIED_COL)
+    s.sampleUid || "", // Patch 6 — see api.js's SAMPLE_UID_COL
   ];
 }
 
