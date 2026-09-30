@@ -17,22 +17,59 @@
  */
 
 /**
- * Returns true/false (or throws with a reason) for whether userId may
- * perform actionCode on featureCode within moduleCode/tabCode.
- * TODO: implement against ROLE_PERMISSION + USER_ROLES.
+ * Returns true/false for whether the session's user may perform
+ * actionCode within moduleId. Checked against the live ROLE_PERMISSION
+ * sheet (RoleId, ModuleId, ActionCode, Allowed) for every role on the
+ * session — a grant on any one of the user's roles is enough.
+ *
+ * Takes the already-verified session (from requireSession_), not a raw
+ * userId — roles are captured in the token at login time (see
+ * Session.js), so this never re-reads USER_ROLES; a role change takes
+ * effect on the user's next login, per the v1 decision to skip a
+ * shorter-lived refresh. ModuleId/ActionCode "*" in a grant row is a
+ * wildcard (how ROLE-ADMIN's existing full-access grant is expressed).
+ *
+ * Deliberately checks only Module + Action, not the full Org -> Role ->
+ * Module -> Tab -> Feature -> Action -> Data Scope -> Field Permission
+ * chain the header doc above describes — ROLE_MASTER/MODULE_TAB_MASTER/
+ * FEATURE_MASTER/ACTION_MASTER/SCOPE_MASTER are unused placeholder sheets
+ * (see docs/platform-foundation-spec.md discussion), so this is built
+ * against the schema that's actually live: ROLES + ROLE_PERMISSION.
  */
-function hasPermission_(userId, moduleCode, tabCode, featureCode, actionCode) {
-  throw new Error('Not yet implemented — see Task: Build Apps Script backend: RBAC engine');
+function hasPermission_(session, moduleId, actionCode) {
+  var grants = readSheetAsObjects_(getSheet_(SHEET_NAMES.ROLE_PERMISSION));
+  return (session.roles || []).some(function (roleId) {
+    return grants.some(function (g) {
+      return g.RoleId === roleId
+        && (g.ModuleId === moduleId || g.ModuleId === '*')
+        && (g.ActionCode === actionCode || g.ActionCode === '*')
+        && (g.Allowed === true || g.Allowed === 'TRUE');
+    });
+  });
 }
 
 /**
- * Returns the contractor filter to apply to a data query for userId:
- * null for ACC users (no filter — see all), or the user's OrgId for
- * RHI/ASEC users (hard boundary, per spec §6.2).
- * TODO: implement against USERS + ORG_MASTER.
+ * Same check as hasPermission_, but throws a friendly, safe-to-show error
+ * instead of returning false — for call sites that should reject the
+ * request outright (mirrors requireAppAdmin_'s throw-on-deny style).
  */
-function getContractorScope_(userId) {
-  throw new Error('Not yet implemented — see Task: Build Apps Script backend: RBAC engine');
+function requirePermission_(session, moduleId, actionCode) {
+  if (!hasPermission_(session, moduleId, actionCode)) {
+    throw new Error('You do not have permission to do that.');
+  }
+}
+
+/**
+ * Returns the contractor filter to apply to a data query for the
+ * session's user: null for ACC users (no filter — see all), or the
+ * user's own OrgId for RHI/ASEC users (hard boundary, per spec §6.2).
+ * Scope comes from the user's Org, not their role — a Manager and an
+ * Engineer in the same org get the same scope, per the "solid app" RBAC
+ * planning notes (a role's grants and a user's data scope are separate
+ * questions).
+ */
+function getContractorScope_(session) {
+  return session.orgId === ORG_ACC ? null : session.orgId;
 }
 
 /**

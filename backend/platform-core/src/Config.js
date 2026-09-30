@@ -15,6 +15,11 @@ function getSpreadsheetId_() {
   return id;
 }
 
+// The one org whose users see everything with no contractor filter (spec
+// §6.2) — matches frontend/src/auth/session.ts' ORG_ACC constant exactly;
+// keep both in sync if this ever changes.
+var ORG_ACC = 'ORG-ACC';
+
 var SHEET_NAMES = {
   USERS: 'USERS',
   ROLES: 'ROLES',
