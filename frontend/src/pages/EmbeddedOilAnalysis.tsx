@@ -15,14 +15,26 @@ const BASE_ROUTE = '/oil-analysis';
 // this page owns, instead of linking out to it as a separate page.
 //
 // Rendered unconditionally as a persistent sibling of <Routes> in App.tsx
-// (not as a routed element) so it mounts once, lazily, the first time this
-// module is visited, and then stays mounted — just hidden via CSS — for
-// the rest of the session, no matter what other tab you navigate to.
+// (not as a routed element) so it mounts once — as soon as a session is
+// available, not waiting for this route to actually be visited (see the
+// mount effect below) — and then stays mounted — just hidden via CSS —
+// for the rest of the session, no matter what other tab you navigate to.
 // Unmounting and remounting on every visit (the previous design, tied to
 // React Router mounting/unmounting a routed element) discarded this app's
 // own in-memory synced data on every tab switch, forcing a full re-sync
 // each time you came back. The new Routine-based Oil Analysis module built
 // this session lives separately at /oil-analysis-new.
+//
+// PERFORMANCE: this used to wait for `visible` (the route actually being
+// open) before even starting the download — so the very first click on
+// "Oil Lubrication" paid for downloading and parsing this module's whole
+// embed bundle (~1MB+ gzipped) with the tab just sitting there loading.
+// Starting the same download right after login instead (while the user is
+// still on the Dashboard, where a few extra seconds of background network
+// activity is invisible) means that by the time they do click the tab,
+// it's already downloaded and mounts instantly. Total work is identical —
+// this only moves *when* it happens, not *what* happens — so it doesn't
+// change this module's own behavior once mounted.
 export default function EmbeddedOilAnalysis() {
   const containerRef = useRef<HTMLDivElement>(null);
   const embeddedNav = useEmbeddedNav();
@@ -32,7 +44,7 @@ export default function EmbeddedOilAnalysis() {
   const { sessionToken, claims } = useAuth();
 
   useEffect(() => {
-    if (!visible || startedRef.current) return;
+    if (startedRef.current) return;
     // This whole tree sits behind RequireAuth, so sessionToken is already
     // populated by the time a user can reach here — but guard anyway
     // rather than mount with a half-formed session on some future routing
@@ -42,14 +54,16 @@ export default function EmbeddedOilAnalysis() {
 
     const navBridge: NavBridge = { onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page) };
     embeddedNav.register(MODULE_ID, navBridge);
+    embeddedNav.setLoadState(MODULE_ID, 'loading');
 
     const modulePath = `${import.meta.env.BASE_URL}apps/oil-analysis/embed.js`;
     import(/* @vite-ignore */ modulePath).then((mod: { mountOilAnalysis: MountFn }) => {
+      embeddedNav.setLoadState(MODULE_ID, 'ready');
       if (!containerRef.current) return;
       mod.mountOilAnalysis(containerRef.current, { navBridge, session: { token: sessionToken, claims } });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, the first time `visible` (and sessionToken) is available; embeddedNav's identity is stable enough for this one-shot read
-  }, [visible, sessionToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, as soon as sessionToken is available; embeddedNav's identity is stable enough for this one-shot read
+  }, [sessionToken]);
 
   // Only ever runs its cleanup when this component is truly removed from
   // the tree (e.g. logout unmounting the whole authenticated shell) — never

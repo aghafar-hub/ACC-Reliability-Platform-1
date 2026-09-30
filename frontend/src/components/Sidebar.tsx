@@ -64,6 +64,7 @@ function SubTabItem({ tab, baseRoute, moduleId }: { tab: SubTab; baseRoute: stri
 export default function Sidebar() {
   const { claims, logout } = useAuth();
   const location = useLocation();
+  const embeddedNav = useEmbeddedNav();
 
   return (
     <div className="sidebar-rail">
@@ -95,6 +96,9 @@ export default function Sidebar() {
                     <Icon name={item.icon} size={18} />
                   </span>
                   <span className="sidebar-link-label">{item.label}</span>
+                  {item.moduleId && embeddedNav.loadStateFor(item.moduleId) === 'loading' && (
+                    <span className="sidebar-link-loading" title="Preparing this module in the background…" />
+                  )}
                 </NavLink>
 
                 {showSubTabs && (

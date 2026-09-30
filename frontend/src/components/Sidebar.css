@@ -81,6 +81,7 @@
 }
 
 .sidebar-link {
+  position: relative; /* anchors .sidebar-link-loading to the icon, visible even when the rail is collapsed */
   display: flex;
   align-items: center;
   gap: 0;
@@ -94,6 +95,29 @@
   font-family: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+/* Tiny "still warming up in the background" signal for a module whose
+   embed bundle is preloading after login (see embeddedNav.tsx's
+   loadStateFor) — a small pulsing dot at the icon's corner, positioned so
+   it's visible whether the rail is collapsed (icon only) or expanded
+   (icon + label), and gone entirely once the module finishes loading. */
+.sidebar-link-loading {
+  position: absolute;
+  left: 27px;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 0 2px var(--shell-sidebar-bg, #0f1420);
+  animation: sidebar-loading-pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes sidebar-loading-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
 }
 
 .sidebar-rail:hover .sidebar-link {

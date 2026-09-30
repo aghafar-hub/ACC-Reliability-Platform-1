@@ -17,6 +17,13 @@ export type NavBridge = {
   setTheme?: (themeName: string) => void;
 };
 
+// 'idle': not started yet. 'loading': the embed bundle is downloading/
+// mounting (kicked off right after login now, not on first click — see
+// EmbeddedOilAnalysis.tsx/EmbeddedVibrationAnalysis.tsx). 'ready': mounted
+// and visible instantly on click. Sidebar.tsx reads this to show a small
+// loading signal next to the module's nav item while it's still warming up.
+export type ModuleLoadState = 'idle' | 'loading' | 'ready';
+
 type ModuleEntry = { bridge: NavBridge; activePage: string | null };
 
 // Keyed by moduleId ('oil-analysis' / 'vibration-analysis') rather than
@@ -37,15 +44,22 @@ type EmbeddedNavContextValue = {
   // for one that hasn't wired navBridge.setTheme — either way the choice is
   // still persisted separately, see theme.ts).
   pushTheme: (themeName: string) => void;
+  loadStateFor: (moduleId: string) => ModuleLoadState;
+  setLoadState: (moduleId: string, state: ModuleLoadState) => void;
 };
 
 const EmbeddedNavContext = createContext<EmbeddedNavContextValue | null>(null);
 
 export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<Record<string, ModuleEntry>>({});
+  const [loadStates, setLoadStates] = useState<Record<string, ModuleLoadState>>({});
 
   const value = useMemo<EmbeddedNavContextValue>(
     () => ({
+      loadStateFor: (moduleId) => loadStates[moduleId] ?? 'idle',
+      setLoadState: (moduleId, state) => {
+        setLoadStates((prev) => (prev[moduleId] === state ? prev : { ...prev, [moduleId]: state }));
+      },
       activePageFor: (moduleId) => modules[moduleId]?.activePage ?? null,
       register: (moduleId, bridge) => {
         setModules((prev) => ({ ...prev, [moduleId]: { bridge, activePage: prev[moduleId]?.activePage ?? null } }));
@@ -68,7 +82,7 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
         Object.values(modules).forEach((m) => m.bridge.setTheme?.(themeName));
       },
     }),
-    [modules],
+    [modules, loadStates],
   );
 
   return <EmbeddedNavContext.Provider value={value}>{children}</EmbeddedNavContext.Provider>;
