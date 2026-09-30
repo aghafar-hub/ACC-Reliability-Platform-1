@@ -61,6 +61,21 @@ function createRouteTemplate(ss, data) {
 }
 
 
+// Same purpose as Routines.js#getRoutineContractor_, for an existing
+// template (assign/status/delete actions run their own scope check before
+// touching the sheet).
+function getTemplateContractor_(templateId) {
+  var id = String(templateId || "").trim();
+  if (!id) return null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "ROUTINE_TEMPLATES", true);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === id) return String(rows[i][3] || "").trim();
+  }
+  return null;
+}
+
+
 function setRouteTemplateStatus(ss, data) {
   var templateId = String(data.templateId || "").trim();
   if (!templateId) return { error: "templateId is required" };

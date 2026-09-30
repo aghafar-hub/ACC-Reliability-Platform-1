@@ -142,12 +142,28 @@ function doGet(e) {
         break;
       case "getRoutines":
         result = getRoutines();
+        var routinesScope = getContractorScope_(auth.session);
+        if (routinesScope) {
+          result.routines = result.routines.filter(function (r) { return String(r[3] || "").trim() === routinesScope; });
+          result.count = result.routines.length;
+        }
         break;
       case "getRoutineItems":
-        result = getRoutineItems(e.parameter.routineId || "");
+        var itemsRoutineId = e.parameter.routineId || "";
+        var itemsScope = getContractorScope_(auth.session);
+        if (itemsScope && getRoutineContractor_(itemsRoutineId) !== itemsScope) {
+          result = { items: [], count: 0 };
+        } else {
+          result = getRoutineItems(itemsRoutineId);
+        }
         break;
       case "getRouteTemplates":
         result = readRouteTemplates();
+        var templatesScope = getContractorScope_(auth.session);
+        if (templatesScope) {
+          result.templates = result.templates.filter(function (r) { return String(r[3] || "").trim() === templatesScope; });
+          result.count = result.templates.length;
+        }
         break;
       case "getOilInventory":
         result = getOilInventory();
@@ -216,6 +232,7 @@ function doPost(e) {
 
     try {
       if (data.action === "append") {
+        requirePermission_(auth.session, "Create");
         if (GENERIC_WRITE_ALLOWLIST.append.indexOf(data.sheet) === -1) {
           logError("doPost:append:blocked", "Sheet not allowed via generic append", {sheet: data.sheet});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
@@ -227,78 +244,101 @@ function doPost(e) {
       }
 
       if (data.action === "updateSampleTracker") {
+        requirePermission_(auth.session, "Edit");
         var updateStatus = updateSampleTrackerMonthly(ss, data);
         logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", {data: data, actingUser: actingUser});
         return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
       }
 
       if (data.action === "createRoutine") {
+        requirePermission_(auth.session, "Create");
+        var createRoutineScope = getContractorScope_(auth.session);
+        if (createRoutineScope) data.contractor = createRoutineScope;
         var createResult = createRoutine(ss, data);
         logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
       }
 
       if (data.action === "submitRoutineItem") {
+        requirePermission_(auth.session, "Edit");
+        requireContractorMatch_(auth.session, getRoutineContractor_(getRoutineIdForItem_(data.routineItemId)));
         var itemResult = submitRoutineItem(ss, data);
         logError("doPost:submitRoutineItem", itemResult.error || "ok", {routineItemId: data.routineItemId, actingUser: actingUser});
         return jsonOut(itemResult.error ? {status: "error", message: itemResult.error} : {status: "ok"});
       }
 
       if (data.action === "submitRoutine") {
+        requirePermission_(auth.session, "Edit");
+        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
         var subResult = submitRoutine(ss, data);
         logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(subResult.error ? {status: "error", message: subResult.error} : {status: "ok"});
       }
 
       if (data.action === "approveRoutine") {
+        requirePermission_(auth.session, "Approve");
+        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
         var appResult = approveRoutine(ss, data);
         logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
       }
 
       if (data.action === "addRoutineComment") {
+        requirePermission_(auth.session, "Edit");
+        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
         var commentResult = addRoutineComment(ss, data);
         logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
       }
 
       if (data.action === "assignRoutineTechnician") {
+        requirePermission_(auth.session, "Create");
+        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
         var assignResult = assignRoutineTechnician(ss, data);
         logError("doPost:assignRoutineTechnician", assignResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         return jsonOut(assignResult.error ? {status: "error", message: assignResult.error} : {status: "ok"});
       }
 
       if (data.action === "createRouteTemplate") {
+        requirePermission_(auth.session, "Create");
+        var createTplScope = getContractorScope_(auth.session);
+        if (createTplScope) data.contractor = createTplScope;
         var createTplResult = createRouteTemplate(ss, data);
         logError("doPost:createRouteTemplate", createTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
         return jsonOut(createTplResult.error ? {status: "error", message: createTplResult.error} : {status: "ok", templateId: createTplResult.templateId});
       }
 
       if (data.action === "setRouteTemplateStatus") {
+        requirePermission_(auth.session, "Edit");
+        requireContractorMatch_(auth.session, getTemplateContractor_(data.templateId));
         var tplStatusResult = setRouteTemplateStatus(ss, data);
         logError("doPost:setRouteTemplateStatus", tplStatusResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
         return jsonOut(tplStatusResult.error ? {status: "error", message: tplStatusResult.error} : {status: "ok"});
       }
 
       if (data.action === "deleteRouteTemplate") {
+        requirePermission_(auth.session, "Delete");
         var deleteTplResult = deleteRouteTemplate(ss, data);
         logError("doPost:deleteRouteTemplate", deleteTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
         return jsonOut(deleteTplResult.error ? {status: "error", message: deleteTplResult.error} : {status: "ok"});
       }
 
       if (data.action === "addOilProduct") {
+        requirePermission_(auth.session, "Create");
         var addProdResult = addOilProduct(ss, data);
         logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
       }
 
       if (data.action === "updateOilProduct") {
+        requirePermission_(auth.session, "Edit");
         var updProdResult = updateOilProduct(ss, data);
         logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
       }
 
       if (data.action === "logOilMovement") {
+        requirePermission_(auth.session, "Edit");
         var movResult = logOilMovement(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId, actingUser: actingUser});
@@ -306,6 +346,7 @@ function doPost(e) {
       }
 
       if (data.action === "logOilChangeEvent") {
+        requirePermission_(auth.session, "Edit");
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
@@ -313,6 +354,7 @@ function doPost(e) {
       }
 
       if (data.action === "updateRow") {
+        requirePermission_(auth.session, "Edit");
         if (GENERIC_WRITE_ALLOWLIST.updateRow.indexOf(data.sheet) === -1) {
           logError("doPost:updateRow:blocked", "Sheet not allowed via generic updateRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
@@ -324,6 +366,7 @@ function doPost(e) {
       }
 
       if (data.action === "deleteRow") {
+        requirePermission_(auth.session, "Delete");
         if (GENERIC_WRITE_ALLOWLIST.deleteRow.indexOf(data.sheet) === -1) {
           logError("doPost:deleteRow:blocked", "Sheet not allowed via generic deleteRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});

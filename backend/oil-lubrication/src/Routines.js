@@ -55,6 +55,38 @@ function getRoutines() {
 }
 
 
+// For contractor-scope checks on an action that targets an existing
+// routine (submit item, submit, approve, comment, assign) — null if the
+// routine doesn't exist (the action's own findRowIndex call will report
+// "Routine not found" right after, this is just for the scope check that
+// runs before it).
+function getRoutineContractor_(routineId) {
+  var id = String(routineId || "").trim();
+  if (!id) return null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "ROUTINES", true);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === id) return String(rows[i][3] || "").trim();
+  }
+  return null;
+}
+
+
+// For submitRoutineItem's scope check — that action only carries a
+// routineItemId, not the routineId a contractor-scope check needs, so this
+// looks it up first (before any write happens).
+function getRoutineIdForItem_(routineItemId) {
+  var id = String(routineItemId || "").trim();
+  if (!id) return null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "OA_ROUTINE_ITEMS", true);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === id) return String(rows[i][1] || "").trim();
+  }
+  return null;
+}
+
+
 function getRoutineItems(routineId) {
   var id = String(routineId || "").trim();
   if (!id) return { items: [] };
