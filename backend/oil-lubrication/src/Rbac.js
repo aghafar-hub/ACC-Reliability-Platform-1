@@ -28,25 +28,21 @@ var ROLE_GRANTS = {
 // True when `session` (from checkAuth_, may be null) may perform
 // actionCode ('View'|'Create'|'Edit'|'Approve'|'Delete').
 //
-// Fails OPEN (returns true) in two transitional cases, both deliberate —
-// this mirrors checkSecret_'s own "fails open until configured" stance
-// just above it in Auth.js, for the same reason: this backend has been
-// live for ~20 real people for a long time, and flipping straight to
-// fail-closed the instant this code ships would lock out anyone whose
-// Platform Core account doesn't have a role assigned yet — a regression,
-// not a security fix. Both holes close naturally, with no code change,
-// once the App Admin has gone through Platform Core's Accounts panel and
-// given every real account a role:
-//   - no session at all (a request with no sessionToken — an old/
-//     not-yet-updated client, or a device with no Platform Core account)
-//   - a session with an empty roles array (a real, logged-in account that
-//     just hasn't been assigned a role yet)
-// A session that DOES carry roles is checked for real: an unrecognized
-// role or a role without the needed grant is rejected outright.
+// Patch 7 (plant-readiness pass): this used to fail OPEN (return true) for
+// two transitional cases — no session at all, and a session with an empty
+// roles array — deliberately, while the rollout was still in progress and
+// not every real Platform Core account had a role assigned yet. Confirmed
+// directly by the user that every real account now has a role, so both
+// cases fail CLOSED here now, same as an unrecognized role or a role
+// without the needed grant already did. This only affects WRITES —
+// requirePermission_ is never called from the read side (doGet), which
+// stays gated purely by contractor scope as before — so a request with no
+// session or no role can still read, it just can no longer write anything
+// requiring a specific permission.
 function hasPermission_(session, actionCode) {
-  if (!session) return true;
+  if (!session) return false;
   var roles = session.roles || [];
-  if (roles.length === 0) return true;
+  if (roles.length === 0) return false;
   return roles.some(function (roleId) {
     if (roleId === 'ROLE-ADMIN') return true;
     var grants = ROLE_GRANTS[roleId];

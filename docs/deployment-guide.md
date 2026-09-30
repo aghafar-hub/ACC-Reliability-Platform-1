@@ -445,6 +445,26 @@ same Sample ID but different dates (recreating the original collision
 scenario), then edit or delete one of them and confirm only that one
 changed.
 
+## 4k. RBAC transitional fail-open closed
+
+Security hardening: `hasPermission_` (Rbac.js) used to fail OPEN — grant
+full write access — for two transitional cases: a request with no
+session token at all, and a real logged-in session whose account hadn't
+been assigned a role yet. Deliberate at the time (see RBAC Increment 5's
+own notes) so nobody got locked out mid-rollout, while accounts were
+still being set up. Confirmed directly by the user that every real
+account now has a role, so both cases now fail CLOSED instead — a
+request with no role can no longer write anything, though it can still
+read (reads were never gated by this check, only by contractor scope).
+
+**Code**: `Rbac.js` only — replace with the repo's current version.
+
+**Verify**: every real account's normal workflow should be completely
+unaffected, since everyone already has a role. If anyone reports being
+suddenly unable to save something, check that their account actually has
+a role assigned in Platform Core's Accounts panel — that's now a hard
+requirement to write anything, not just a soft default.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
