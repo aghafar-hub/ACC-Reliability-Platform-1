@@ -148,7 +148,7 @@ function isOverdue(r, now) {
 // contractor", tracked by free-text AssignedTo/CreatedBy fields, not real
 // user accounts. Not synced with the main Full Sync — loaded on demand,
 // same as Equipment Registry.
-export default function Routines({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast }) {
+export default function Routines({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged }) {
   const { T, s } = useTheme();
   const [view, setView] = useState("list"); // "list" | "detail" | "new"
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
@@ -239,6 +239,7 @@ export default function Routines({ webhookUrl, equipmentRegistry, samples, actio
         actions={actions}
         oilChanges={oilChanges}
         pushToast={pushToast}
+        onDataChanged={onDataChanged}
         onBack={() => {
           setView("list");
           setSelectedRoutineId(null);

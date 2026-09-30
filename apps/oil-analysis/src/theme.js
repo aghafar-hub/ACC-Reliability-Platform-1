@@ -569,7 +569,7 @@ export function statusColor(T, status) {
   return T.textSecondary;
 }
 
-// Oil Sample Tracker's single-letter month chip (N/C/A/M/S/U) — shared by
+// Oil Sample Tracker's single-letter month chip (N/C/A/M/S/U/P) — shared by
 // the Sample Tracker page and any condensed per-equipment tracker strip so
 // both read the same cell text the same way.
 export function trackerStatusChip(status) {
@@ -580,6 +580,12 @@ export function trackerStatusChip(status) {
   if (d.startsWith("CAUTI") || d.startsWith("WARN") || d === "C" || d === "W") return { label: "C", color: "#F4A261" };
   if (d.startsWith("ALERT") || d === "A") return { label: "A", color: "#E63946" };
   if (d.startsWith("MISSI") || d === "M") return { label: "M", color: "#6B8CAE" };
+  // Written when a Sampling routine gets approved (RoutineDetail's
+  // handleApprove) — "the sample was collected, lab result not in yet".
+  // overlaySamplesOnTracker (parsers.js) already overwrites this with the
+  // real result the moment a matching Data_Entry sample exists for the
+  // same LP_ID + month, so this never needs to be cleared by hand.
+  if (d.startsWith("PEND") || d === "P") return { label: "P", color: "#3A86FF" };
   if (d.startsWith("SATIS") || d === "S") return { label: "S", color: "#2DC653" };
   if (d.startsWith("UNSAT") || d === "U") return { label: "U", color: "#E63946" };
   return { label: d[0] || "?", color: "#6B8CAE" };

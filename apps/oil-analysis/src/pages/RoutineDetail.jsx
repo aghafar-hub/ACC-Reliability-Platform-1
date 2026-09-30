@@ -126,7 +126,7 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   );
 }
 
-export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onBack }) {
+export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged, onBack }) {
   const { T, s } = useTheme();
   const [routine, setRoutine] = useState(null);
   const [items, setItems] = useState([]);
@@ -232,12 +232,64 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     }
   }
 
+  // Approval is the real "this happened" confirmation for a routine — not
+  // a technician checking a box, which can still be corrected before ACC
+  // signs off. So this is where a completed route's real-world effect
+  // finally lands in the actual system-of-record sheets, per routeType:
+  // Oil Change routes log a real Oil Change LOG event per completed point
+  // (the same write the Equipment page's own "Log Oil Change" button
+  // uses); Sampling routes mark that point's Oil Sample Tracker cell
+  // "Pending" for the month the sample was taken — overlaySamplesOnTracker
+  // (parsers.js) already overwrites "Pending" with the real lab result the
+  // moment someone adds that sample via Add Sample, so nothing else has to
+  // change it back. Best-effort, like every other cross-sheet side effect
+  // in this app (App.jsx's applyOilChangeSideEffect/
+  // applySampleTrackerSideEffect): the approval itself already succeeded,
+  // so a failure here is its own toast, not a reason to undo it.
+  async function applyApprovalSideEffects(approvedRoutine) {
+    const doneItems = items.filter((i) => i.implemented === "Yes");
+    if (doneItems.length === 0) return;
+    const routeType = approvedRoutine.routeType;
+    if (routeType !== "Oil Change" && routeType !== "Sampling") return;
+
+    const results = await Promise.allSettled(
+      doneItems.map((item) => {
+        const eventDate = item.actualDate || new Date().toISOString().slice(0, 10);
+        if (routeType === "Oil Change") {
+          return api.logOilChangeEvent(webhookUrl, {
+            lpId: item.lpId,
+            eventDate,
+            doneBy: approvedRoutine.assignedTo,
+            contractor: approvedRoutine.contractor,
+          });
+        }
+        return api.updateSampleTracker(webhookUrl, { equipmentCode: item.lpId, sampleDate: eventDate, status: "Pending" });
+      })
+    );
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      const target = routeType === "Oil Change" ? "Oil Change Log" : "Sample Tracker";
+      pushToast(
+        `Routine approved, but ${failed.length} of ${doneItems.length} point${doneItems.length !== 1 ? "s" : ""} didn't record to the ${target}: ${failed[0].reason?.message || "unknown error"}`,
+        "error"
+      );
+    }
+    if (onDataChanged) {
+      try {
+        await onDataChanged();
+      } catch {
+        // best-effort refresh — approval + side effects already happened either way
+      }
+    }
+  }
+
   async function handleApprove() {
     setWorking(true);
     try {
       const saved = await api.approveRoutine(webhookUrl, routineId, approvedBy.trim());
       setRoutine(saved);
       pushToast("Routine approved.", "success");
+      await applyApprovalSideEffects(saved);
     } catch (err) {
       pushToast(err.message, "error");
     } finally {

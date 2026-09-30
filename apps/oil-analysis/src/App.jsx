@@ -787,6 +787,7 @@ function AppShell({ config, setConfig, navBridge }) {
               actions={actions}
               oilChanges={oilChanges}
               pushToast={pushToast}
+              onDataChanged={runSync}
             />
           )}
           {page === "inventory" && (
