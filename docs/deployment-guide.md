@@ -350,6 +350,36 @@ aging."
 the function dropdown, click **Run** — check `Debug Log` and your inbox.
 Safe to run any time; it never writes anything, only reads and emails.
 
+## 4h. Oil Inventory low-stock digest
+
+Oil Inventory's "Recorder Level" field has always been there — you set a
+threshold per product — but nothing ever acted on it. The product list
+already shows a "Low" badge when stock is at or under that threshold, but
+only if someone happens to open the page and look.
+
+**Code**: `Notifications.js` gained `sendLowStockDigest_()` this round —
+replace its contents with the repo's current version. No sheet changes,
+no new columns — this only reads the existing Current_Stock (a sheet
+formula, read as-is) and Recorder_Level columns.
+
+**New trigger you set up once** — same pattern as sections 4e and 4g:
+
+**Triggers (clock icon) → Add Trigger**:
+- Function: `sendLowStockDigest_`
+- Event source: Time-driven
+- Type: Day timer (pick any off-peak hour)
+
+Uses the same `OL_NOTIFY_REVIEWERS` sheet sections 4f/4g already have you
+maintain. Once a day, each contractor with at least one Active product at
+or below its recorder level gets one email listing them, with current
+stock and the threshold side by side. A product with no recorder level
+set, an Inactive product, or a brand-new product with no stock movements
+yet (so no computed stock number) are all correctly skipped.
+
+**Verify**: open the script editor, pick `sendLowStockDigest_` from the
+function dropdown, click **Run** — check `Debug Log` and your inbox. Safe
+to run any time; it never writes anything, only reads and emails.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

@@ -155,3 +155,63 @@ function sendAgingActionsDigest_() {
     });
   });
 }
+
+// ─── Low Stock digest (Patch 4) ──────────────────────────────────────────
+// Same "own trigger, not the request path" pattern as
+// sendAgingActionsDigest_ above — read-only, no lock needed. Reuses the
+// same OL_NOTIFY_REVIEWERS list.
+//
+// Oil Inventory's "Recorder Level" field has always been there, but
+// nothing ever acted on it — it was purely a number sitting on the page.
+// This makes it actually do something: once a day, any Active product
+// whose Current_Stock (the sheet's own formula column, read as-is — this
+// never recomputes it) has dropped to or below its Recorder Level gets
+// flagged to that contractor's reviewers.
+function sendLowStockDigest_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Inventory", true);
+
+  var byContractor = {}; // contractor -> [{ productId, lubricantType, lubricantBrand, currentStock, recorderLevel, unit }]
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var status = String(r[11] || "").trim();
+    if (status && status !== "Active") continue; // skip discontinued/inactive; blank status treated as active, same default the app itself uses
+    var recorderLevel = parseFloat(r[7]);
+    if (isNaN(recorderLevel) || recorderLevel <= 0) continue; // not configured for this product — nothing to compare against
+    var currentStock = parseFloat(r[6]);
+    if (isNaN(currentStock)) continue; // formula hasn't produced a number yet (e.g. a brand new product with no movements)
+    if (currentStock > recorderLevel) continue; // plenty of stock
+
+    var contractor = String(r[16] || "").trim();
+    if (!contractor) continue;
+    if (!byContractor[contractor]) byContractor[contractor] = [];
+    byContractor[contractor].push({
+      productId: String(r[0] || "").trim(),
+      lubricantType: String(r[1] || "").trim(),
+      lubricantBrand: String(r[2] || "").trim(),
+      currentStock: currentStock,
+      recorderLevel: recorderLevel,
+      unit: String(r[5] || "").trim(),
+    });
+  }
+
+  KNOWN_CONTRACTORS.forEach(function (contractor) {
+    var items = byContractor[contractor];
+    if (!items || items.length === 0) return;
+    var reviewers = getNotifyReviewers_(contractor);
+    if (reviewers.length === 0) return;
+
+    var lines = [items.length + " product(s) at or below their recorder level for " + contractor + ":", ""];
+    items.forEach(function (it) {
+      lines.push(
+        "  - " + it.lubricantType + (it.lubricantBrand ? " (" + it.lubricantBrand + ")" : "") +
+        ": " + it.currentStock + " " + it.unit + " left, recorder level " + it.recorderLevel + " " + it.unit
+      );
+    });
+    MailApp.sendEmail({
+      to: reviewers.join(","),
+      subject: "Oil Lubrication: " + items.length + " product(s) low on stock — " + contractor,
+      body: lines.join("\n"),
+    });
+  });
+}
