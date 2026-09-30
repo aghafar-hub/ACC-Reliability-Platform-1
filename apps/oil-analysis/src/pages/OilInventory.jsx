@@ -7,6 +7,13 @@ import OilProductDetail from "./OilProductDetail";
 const CONTAINER_TYPES = ["Drum", "Pail", "Bulk Tank", "IBC"];
 const UNITS = ["L", "Drum"];
 const STATUS_OPTIONS = ["Active", "Discontinued"];
+// Same short labels as NewRoutine.jsx's CONTRACTOR_OPTIONS — oil stock is
+// owned by the contractor, not a shared ACC warehouse (confirmed by the
+// user), so every product needs one. For a Contractor Engineer this is
+// overridden server-side to their own org regardless of what's picked
+// here (see backend/oil-lubrication/src/Code.js's addOilProduct handler)
+// — only an ACC/Admin user's choice here actually takes effect.
+const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 
 function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
   const { s, T } = useTheme();
@@ -22,6 +29,7 @@ function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
     unitCost: "",
     status: "Active",
     notes: "",
+    contractor: CONTRACTOR_OPTIONS[0],
   });
   const [saving, setSaving] = useState(false);
 
@@ -110,6 +118,16 @@ function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
             {STATUS_OPTIONS.map((st) => (
               <option key={st} value={st}>
                 {st}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={s.label}>Contractor</label>
+          <select style={s.select} value={form.contractor} onChange={(e) => set("contractor", e.target.value)}>
+            {CONTRACTOR_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>

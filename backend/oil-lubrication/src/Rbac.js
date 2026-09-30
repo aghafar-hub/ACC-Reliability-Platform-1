@@ -79,22 +79,22 @@ var ORG_TO_CONTRACTOR = {
 // for an ACC user (or no session at all) — null means "no filter, see
 // everything," matching Platform Core's own getContractorScope_ exactly.
 //
-// ROUTINES/ROUTINE_TEMPLATES carry their own Contractor column and use
-// this directly. Every other sheet (Equipment Registry, Data_Entry,
-// Action Tracker, Oil Change LOG, Oil Sample Tracker) has no Contractor
-// column of its own, but all of them key their rows by LP_ID — this scope
-// still applies to them via a join through Equipment Registry's own
-// Contractor column, see filterRowsByLpContractor_/
-// filterTrackerRowsByLpContractor_/requireLpContractorMatch_ below.
+// ROUTINES/ROUTINE_TEMPLATES and Oil Inventory each carry their own
+// Contractor column and use this directly (Oil Inventory's stock is
+// contractor-owned, not a shared ACC warehouse — confirmed by the user).
+// Every other sheet (Equipment Registry, Data_Entry, Action Tracker, Oil
+// Change LOG, Oil Sample Tracker) has no Contractor column of its own, but
+// all of them key their rows by LP_ID — this scope still applies to them
+// via a join through Equipment Registry's own Contractor column, see
+// filterRowsByLpContractor_/filterTrackerRowsByLpContractor_/
+// requireLpContractorMatch_ below.
 //
-// STILL NOT COVERED: Oil Inventory (products/movements) has no LP_ID or
-// Contractor concept at all in this schema — it's a shared warehouse, not
-// per-contractor stock, so there's genuinely nothing to scope there. The
-// generic append/updateRow/deleteRow actions (Code.js's
-// GENERIC_WRITE_ALLOWLIST) are permission-gated but not contractor-
-// ownership-verified per row — they take arbitrary matchCols/matchValues,
-// not always an LP_ID at a known column, so a per-call scope check isn't
-// generic; a real fix there is a dedicated follow-up, not a one-line add.
+// STILL NOT COVERED: the generic append/updateRow/deleteRow actions
+// (Code.js's GENERIC_WRITE_ALLOWLIST) are permission-gated but not
+// contractor-ownership-verified per row — they take arbitrary
+// matchCols/matchValues, not always an LP_ID at a known column, so a
+// per-call scope check isn't generic; a real fix there is a dedicated
+// follow-up, not a one-line add.
 function getContractorScope_(session) {
   if (!session || !session.orgId || session.orgId === ORG_ACC) return null;
   return ORG_TO_CONTRACTOR[session.orgId] || null;
@@ -131,16 +131,16 @@ function filterTrackerRowsByLpContractor_(rows, scope) {
 }
 
 // Throws unless the session's contractor scope allows touching a
-// routine/template whose own Contractor is `contractor`. A null contractor
-// (the target wasn't found) passes through — the calling action's own
-// findRowIndex/lookup reports "not found" right after, which is the more
-// useful error for a bad id; this only rejects an id that DOES exist but
-// belongs to a contractor outside the caller's scope.
+// routine/template/product whose own Contractor is `contractor`. A null
+// contractor (the target wasn't found) passes through — the calling
+// action's own findRowIndex/lookup reports "not found" right after, which
+// is the more useful error for a bad id; this only rejects an id that DOES
+// exist but belongs to a contractor outside the caller's scope.
 function requireContractorMatch_(session, contractor) {
   var scope = getContractorScope_(session);
   if (!scope || !contractor) return;
   if (contractor !== scope) {
-    throw new Error('That routine belongs to a different contractor.');
+    throw new Error('That belongs to a different contractor.');
   }
 }
 

@@ -9,7 +9,16 @@
 // 3 Container_Type, 4 Container_Size_L, 5 Unit, 6 Current_Stock (SHEET
 // FORMULA — never written here), 7 Recorder_Level, 8 Storage_Location,
 // 9 Supplier, 10 Unit_Cost, 11 Status, 12 Last_Movement_Date (SHEET FORMULA
-// — never written here), 13 Notes, 14 Created_Date, 15 Modified_Date.
+// — never written here), 13 Notes, 14 Created_Date, 15 Modified_Date,
+// 16 Contractor (RBAC Increment 5c — appended as a NEW LAST column rather
+// than inserted earlier, so the two sheet formulas above and every
+// existing 0-based index in this file keep working unchanged; add a
+// "Contractor" header in the live sheet's column Q). Stock is owned by
+// the contractor, not shared ACC-wide (confirmed directly by the user) —
+// set once at creation (addOilProduct, forced to the creator's own scope)
+// and not editable afterward via updateOilProduct, same as equipment
+// reassignment being a separate, deliberate action rather than a normal
+// edit.
 // "Oil Inventory LOG" columns: 0 MovementId, 1 Product_ID, 2 MovementType
 // ("Receipt"|"Issue"|"Adjustment"), 3 Quantity (always positive for
 // Receipt/Issue; signed +/- for Adjustment — see the Current_Stock formula
@@ -17,16 +26,32 @@
 // 7 Contractor, 8 DoneBy, 9 Reference, 10 Notes, 11 Created_Date. Both
 // sheets: header row 1, data row 2+ (dataStartRowFor's standard default).
 
-function getOilInventory() {
+function getOilInventory(scope) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Oil Inventory", true);
+  if (scope) rows = rows.filter(function (r) { return String(r[16] || "").trim() === scope; });
   return { products: rows, count: rows.length };
 }
 
 
-function getOilInventoryMovements(productId) {
+// For contractor-scope checks on an action targeting an existing product
+// (edit, log a movement, read its movement history).
+function getProductContractor_(productId) {
+  var id = String(productId || "").trim();
+  if (!id) return null;
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Inventory", true);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === id) return String(rows[i][16] || "").trim();
+  }
+  return null;
+}
+
+
+function getOilInventoryMovements(productId, scope) {
   var id = String(productId || "").trim();
   if (!id) return { movements: [] };
+  if (scope && getProductContractor_(id) !== scope) return { movements: [], count: 0 };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Oil Inventory LOG", true).filter(function(r) {
     return String(r[1] || "").trim() === id;
@@ -55,6 +80,7 @@ function addOilProduct(ss, data) {
     data.notes || "",
     new Date(),
     "", // Modified_Date — filled by appendRow's stampLastModified
+    data.contractor || "", // Contractor — see the column-16 comment above; Code.js forces this to the caller's own scope
   ];
   appendRow(ss, "Oil Inventory", row);
   return { status: "ok", productId: productId };

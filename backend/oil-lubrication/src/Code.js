@@ -171,10 +171,10 @@ function doGet(e) {
         }
         break;
       case "getOilInventory":
-        result = getOilInventory();
+        result = getOilInventory(scope);
         break;
       case "getOilInventoryMovements":
-        result = getOilInventoryMovements(e.parameter.productId || "");
+        result = getOilInventoryMovements(e.parameter.productId || "", scope);
         break;
       case "readActionRegistry":
         result = readActionRegistry();
@@ -331,6 +331,8 @@ function doPost(e) {
 
       if (data.action === "addOilProduct") {
         requirePermission_(auth.session, "Create");
+        var addProdScope = getContractorScope_(auth.session);
+        if (addProdScope) data.contractor = addProdScope;
         var addProdResult = addOilProduct(ss, data);
         logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
@@ -338,6 +340,7 @@ function doPost(e) {
 
       if (data.action === "updateOilProduct") {
         requirePermission_(auth.session, "Edit");
+        requireContractorMatch_(auth.session, getProductContractor_(data.productId));
         var updProdResult = updateOilProduct(ss, data);
         logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
@@ -345,6 +348,9 @@ function doPost(e) {
 
       if (data.action === "logOilMovement") {
         requirePermission_(auth.session, "Edit");
+        requireContractorMatch_(auth.session, getProductContractor_(data.productId));
+        var movScope = getContractorScope_(auth.session);
+        if (movScope) data.contractor = movScope;
         var movResult = logOilMovement(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId, actingUser: actingUser});
