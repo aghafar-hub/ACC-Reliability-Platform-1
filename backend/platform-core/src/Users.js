@@ -21,3 +21,43 @@ function listOrgUsers_(session) {
     return { userId: u.UserId, email: u.Email, orgId: u.OrgId, roles: roles };
   });
 }
+
+/**
+ * Every real RoleId (ROLES sheet), for populating a role picker — the
+ * frontend has its own hardcoded copy (frontend/src/auth/session.ts'
+ * ROLE constant) for permission-check convenience, but the *picker* reads
+ * this so a new role added to the sheet shows up without a redeploy.
+ */
+function listRoles_() {
+  return readSheetAsObjects_(getSheet_(SHEET_NAMES.ROLES)).map(function (r) {
+    return { roleId: r.RoleId, roleName: r.RoleName };
+  });
+}
+
+/**
+ * App Admin only — enforced by the RBAC check in Code.js before this is
+ * called, not just by convention here. Replaces a user's entire role set
+ * (not additive) — clearing USER_ROLES then re-adding, same pattern
+ * changePassword_ uses for a single-field replace, just row-level instead
+ * of cell-level since a user can hold more than one role.
+ */
+function setUserRoles_(userId, roleIds) {
+  return withLock_(function () {
+    var usersSheet = getSheet_(SHEET_NAMES.USERS);
+    if (!findRowByColumn_(usersSheet, 'UserId', userId)) {
+      throw new Error('User not found.');
+    }
+    var validRoleIds = readSheetAsObjects_(getSheet_(SHEET_NAMES.ROLES)).map(function (r) { return r.RoleId; });
+    var roles = (roleIds || []).filter(function (r) { return r; });
+    roles.forEach(function (r) {
+      if (validRoleIds.indexOf(r) === -1) throw new Error('Unknown role: ' + r);
+    });
+
+    var userRolesSheet = getSheet_(SHEET_NAMES.USER_ROLES);
+    deleteRowsByColumn_(userRolesSheet, 'UserId', userId);
+    roles.forEach(function (roleId) {
+      appendRow_(userRolesSheet, { UserId: userId, RoleId: roleId });
+    });
+    return { userId: userId, roles: roles };
+  });
+}

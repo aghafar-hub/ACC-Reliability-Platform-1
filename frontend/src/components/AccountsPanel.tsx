@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { describeError } from '../api/client';
-import { adminResetPassword, createUser } from '../api/platformCore';
+import { adminResetPassword, createUser, setUserRoles, type OrgUser } from '../api/platformCore';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { useOrgUsers } from '../hooks/useOrgUsers';
@@ -16,21 +16,101 @@ const ORGS = [
   { id: 'ORG-ASEC', label: 'ASEC' },
 ];
 
+// Same reasoning as ORGS above — the ROLE constant already matches the
+// live ROLES sheet 1:1 (see backend/platform-core/src/Rbac.js's
+// seedRolePermissions_ seeding grants for exactly these role IDs), so
+// this reads from that shared constant rather than a separate fetch.
+const ROLE_OPTIONS = [
+  { id: ROLE.ADMIN, label: 'App Admin' },
+  { id: ROLE.RELIABILITY_ENGINEER, label: 'ACC Engineer' },
+  { id: ROLE.MANAGER, label: 'Manager' },
+  { id: ROLE.CONTRACTOR_ENGINEER, label: 'Contractor Engineer' },
+  { id: ROLE.TECHNICIAN, label: 'Technician' },
+];
+
 function orgLabel(orgId: string): string {
   return ORGS.find((o) => o.id === orgId)?.label ?? orgId;
 }
 
-// App Admin only — adds a new account (email + org, per the Foundation
-// spec: "App Admin can add any user by email" with a system-generated
-// first password) and lets the admin reset any existing account's
-// password. Role assignment isn't wired up yet (backend only takes
-// email + org today) — a later addition, not in scope for this panel.
+function roleLabel(roleId: string): string {
+  return ROLE_OPTIONS.find((r) => r.id === roleId)?.label ?? roleId;
+}
+
+function toggleRole(current: string[], roleId: string): string[] {
+  return current.includes(roleId) ? current.filter((r) => r !== roleId) : [...current, roleId];
+}
+
+function RoleCheckboxes({ selected, onChange, idPrefix }: { selected: string[]; onChange: (next: string[]) => void; idPrefix: string }) {
+  return (
+    <div className="accounts-role-checkboxes">
+      {ROLE_OPTIONS.map((r) => (
+        <label key={r.id} className="accounts-role-checkbox">
+          <input
+            type="checkbox"
+            id={`${idPrefix}-${r.id}`}
+            checked={selected.includes(r.id)}
+            onChange={() => onChange(toggleRole(selected, r.id))}
+          />
+          {r.label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function EditRolesRow({
+  user,
+  sessionToken,
+  onDone,
+}: {
+  user: OrgUser;
+  sessionToken: string;
+  onDone: (updated: OrgUser | null) => void;
+}) {
+  const [roles, setRoles] = useState<string[]>(user.roles);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await setUserRoles(sessionToken, user.userId, roles);
+      onDone({ ...user, roles: result.roles });
+    } catch (err) {
+      setError(describeError(err, 'Could not save roles.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <RoleCheckboxes selected={roles} onChange={setRoles} idPrefix={`edit-${user.userId}`} />
+      {error && <p className="auth-error">{error}</p>}
+      <div className="accounts-role-actions">
+        <button type="button" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button type="button" onClick={() => onDone(null)} disabled={saving}>
+          Cancel
+        </button>
+      </div>
+    </>
+  );
+}
+
+// App Admin only — adds a new account (email + org + roles, per the
+// Foundation spec: "App Admin can add any user by email" with a
+// system-generated first password) and lets the admin reset any existing
+// account's password or change their role set.
 export default function AccountsPanel() {
   const { sessionToken, claims } = useAuth();
   const { users, loading, refetch } = useOrgUsers();
 
   const [email, setEmail] = useState('');
   const [orgId, setOrgId] = useState(ORGS[0].id);
+  const [newRoles, setNewRoles] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [newAccount, setNewAccount] = useState<{ email: string; tempPassword: string } | null>(null);
@@ -38,6 +118,9 @@ export default function AccountsPanel() {
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetResult, setResetResult] = useState<{ email: string; tempPassword: string } | null>(null);
+
+  const [editingRolesId, setEditingRolesId] = useState<string | null>(null);
+  const [localUsers, setLocalUsers] = useState<Record<string, OrgUser>>({});
 
   if (!claims?.roles.includes(ROLE.ADMIN)) return null;
 
@@ -48,9 +131,10 @@ export default function AccountsPanel() {
     setNewAccount(null);
     setCreating(true);
     try {
-      const result = await createUser(sessionToken, email.trim(), orgId);
+      const result = await createUser(sessionToken, email.trim(), orgId, newRoles);
       setNewAccount(result);
       setEmail('');
+      setNewRoles([]);
       refetch();
     } catch (err) {
       setCreateError(describeError(err, 'Could not create the account.'));
@@ -73,6 +157,8 @@ export default function AccountsPanel() {
       setResettingId(null);
     }
   }
+
+  const displayUsers = users.map((u) => localUsers[u.userId] ?? u);
 
   return (
     <div className="accounts-panel">
@@ -98,6 +184,7 @@ export default function AccountsPanel() {
           {creating ? 'Adding…' : 'Add account'}
         </button>
       </form>
+      <RoleCheckboxes selected={newRoles} onChange={setNewRoles} idPrefix="new" />
       {createError && <p className="auth-error">{createError}</p>}
       {newAccount && (
         <div className="accounts-temp-password">
@@ -117,15 +204,39 @@ export default function AccountsPanel() {
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => (
+          {displayUsers.map((u) => (
             <tr key={u.userId}>
               <td>{u.email}</td>
               <td>{orgLabel(u.orgId)}</td>
-              <td>{u.roles.length ? u.roles.join(', ') : '—'}</td>
               <td>
-                <button type="button" onClick={() => handleReset(u.userId)} disabled={resettingId === u.userId}>
-                  {resettingId === u.userId ? 'Resetting…' : 'Reset password'}
-                </button>
+                {editingRolesId === u.userId ? (
+                  sessionToken && (
+                    <EditRolesRow
+                      user={u}
+                      sessionToken={sessionToken}
+                      onDone={(updated) => {
+                        if (updated) setLocalUsers((prev) => ({ ...prev, [u.userId]: updated }));
+                        setEditingRolesId(null);
+                      }}
+                    />
+                  )
+                ) : u.roles.length ? (
+                  u.roles.map(roleLabel).join(', ')
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  {editingRolesId !== u.userId && (
+                    <button type="button" onClick={() => setEditingRolesId(u.userId)}>
+                      Edit roles
+                    </button>
+                  )}
+                  <button type="button" onClick={() => handleReset(u.userId)} disabled={resettingId === u.userId}>
+                    {resettingId === u.userId ? 'Resetting…' : 'Reset password'}
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

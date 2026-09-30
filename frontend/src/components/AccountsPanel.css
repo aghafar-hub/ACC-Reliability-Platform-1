@@ -48,6 +48,28 @@
   cursor: default;
 }
 
+.accounts-role-checkboxes {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+}
+
+.accounts-role-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--shell-text);
+  cursor: pointer;
+}
+
+.accounts-role-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
 .accounts-temp-password {
   background: #ecfdf5;
   border: 1px solid #6ee7b7;

@@ -49,3 +49,68 @@ function requireAppAdmin_(userId) {
     throw new Error('App Admin permission required.');
   }
 }
+
+
+/**
+ * ONE-TIME SEED — run manually from the Apps Script editor's Run dropdown
+ * (pick seedRolePermissions_ from the function list, click Run), not part
+ * of the Web App request path. Grants baseline permissions to the 4
+ * non-admin roles already seeded in ROLES (ROLE-TECH, ROLE-CENG,
+ * ROLE-RENG, ROLE-MGR) — ROLE-ADMIN already has a full "*" wildcard grant
+ * from the original seed, untouched here.
+ *
+ * ModuleId "oil-analysis" is the real module id (see MODULE_REGISTRY) —
+ * what the rest of this project calls "Oil Lubrication". ModuleId
+ * "platform-core" is a pseudo-module (not in MODULE_REGISTRY, which only
+ * lists embedded-app modules) covering Platform Core's own screens
+ * (Accounts, My Work, Dashboard) — ROLE_PERMISSION's ModuleId column is a
+ * free-form key already, so this is consistent with how it's used
+ * elsewhere, not a schema change.
+ *
+ * Safe to re-run: clears any existing non-admin grants first, so running
+ * it twice doesn't duplicate rows.
+ */
+function seedRolePermissions_() {
+  var GRANTS = [
+    // Oil Lubrication: technicians only see + mark their own assigned
+    // work done — no create/approve/delete.
+    ['ROLE-TECH', 'oil-analysis', 'View'],
+    ['ROLE-TECH', 'oil-analysis', 'Edit'],
+    // Contractor Engineer / Reliability (ACC) Engineer / Manager: full
+    // day-to-day authority (create routines/top-ups/actions, edit, approve)
+    // but not Delete — deletion stays Admin-only for now. Manager gets the
+    // identical grant set to its Engineer counterpart per design (same
+    // permissions, contractor scope comes from the user's own OrgId, not
+    // from a separate role) — see the "solid app" RBAC planning notes.
+    ['ROLE-CENG', 'oil-analysis', 'View'],
+    ['ROLE-CENG', 'oil-analysis', 'Create'],
+    ['ROLE-CENG', 'oil-analysis', 'Edit'],
+    ['ROLE-CENG', 'oil-analysis', 'Approve'],
+    ['ROLE-RENG', 'oil-analysis', 'View'],
+    ['ROLE-RENG', 'oil-analysis', 'Create'],
+    ['ROLE-RENG', 'oil-analysis', 'Edit'],
+    ['ROLE-RENG', 'oil-analysis', 'Approve'],
+    ['ROLE-MGR', 'oil-analysis', 'View'],
+    ['ROLE-MGR', 'oil-analysis', 'Create'],
+    ['ROLE-MGR', 'oil-analysis', 'Edit'],
+    ['ROLE-MGR', 'oil-analysis', 'Approve'],
+    // Platform Core's own screens: every non-admin role just needs to be
+    // able to open the shell at all (which specific screen they land on —
+    // My Work vs the normal Sidebar — is a frontend routing decision, not
+    // a permission one).
+    ['ROLE-TECH', 'platform-core', 'View'],
+    ['ROLE-CENG', 'platform-core', 'View'],
+    ['ROLE-RENG', 'platform-core', 'View'],
+    ['ROLE-MGR', 'platform-core', 'View'],
+  ];
+
+  var sheet = getSheet_(SHEET_NAMES.ROLE_PERMISSION);
+  var nonAdminRoles = ['ROLE-TECH', 'ROLE-CENG', 'ROLE-RENG', 'ROLE-MGR'];
+  nonAdminRoles.forEach(function (roleId) {
+    deleteRowsByColumn_(sheet, 'RoleId', roleId);
+  });
+  GRANTS.forEach(function (g) {
+    appendRow_(sheet, { RoleId: g[0], ModuleId: g[1], ActionCode: g[2], Allowed: true });
+  });
+  return { status: 'ok', grantsWritten: GRANTS.length };
+}

@@ -131,3 +131,25 @@ function appendRow_(sheet, rowObject) {
   });
   sheet.appendRow(row);
 }
+
+/**
+ * Deletes every data row where columnName === value (e.g. clearing a
+ * user's old USER_ROLES rows before writing their new role set). Deletes
+ * bottom-to-top so each deleteRow() doesn't shift the index of a
+ * not-yet-processed match above it.
+ */
+function deleteRowsByColumn_(sheet, columnName, value) {
+  var values = sheet.getDataRange().getValues();
+  if (values.length < 2) return 0;
+  var headers = values[0];
+  var col = headers.indexOf(columnName);
+  if (col === -1) return 0;
+  var deleted = 0;
+  for (var i = values.length - 1; i >= 1; i--) {
+    if (values[i][col] === value) {
+      sheet.deleteRow(i + 1); // +1: sheet rows are 1-based
+      deleted++;
+    }
+  }
+  return deleted;
+}

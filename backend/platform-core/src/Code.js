@@ -28,13 +28,18 @@ function doPost(e) {
       case 'createUser':
         return ok_(withIdempotency_(body.operationId, action, function () {
           requireAppAdmin_(session.userId);
-          return createUser_(body.email, body.orgId);
+          return createUser_(body.email, body.orgId, body.roleIds);
         }));
       case 'adminResetPassword':
         requireAppAdmin_(session.userId);
         return ok_(adminResetPassword_(body.userId));
+      case 'setUserRoles':
+        requireAppAdmin_(session.userId);
+        return ok_(setUserRoles_(body.userId, body.roleIds));
       case 'listOrgUsers':
         return ok_(listOrgUsers_(session));
+      case 'listRoles':
+        return ok_(listRoles_());
       // Additional actions (Asset Master, RBAC admin, settings) are wired
       // up as their implementations land — see the open backend tasks.
       default:

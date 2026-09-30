@@ -27,11 +27,13 @@ export function createUser(
   sessionToken: string,
   email: string,
   orgId: string,
+  roleIds: string[],
 ): Promise<{ email: string; tempPassword: string }> {
   return postAction(PLATFORM_CORE_URL, 'createUser', {
     sessionToken,
     email,
     orgId,
+    roleIds,
     operationId: newOperationId(),
   });
 }
@@ -41,4 +43,12 @@ export function adminResetPassword(
   userId: string,
 ): Promise<{ email: string; tempPassword: string }> {
   return postAction(PLATFORM_CORE_URL, 'adminResetPassword', { sessionToken, userId });
+}
+
+export function setUserRoles(
+  sessionToken: string,
+  userId: string,
+  roleIds: string[],
+): Promise<{ userId: string; roles: string[] }> {
+  return postAction(PLATFORM_CORE_URL, 'setUserRoles', { sessionToken, userId, roleIds });
 }

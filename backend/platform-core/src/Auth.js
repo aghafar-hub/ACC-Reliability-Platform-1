@@ -39,18 +39,28 @@ function generateTempPassword_() {
 
 /**
  * App Admin only — enforced by the RBAC check in Code.js before this is
- * called, not just by convention here.
+ * called, not just by convention here. roleIds is optional (a user with
+ * no role yet passes every hasPermission_ check as "nothing granted",
+ * not as an error) — kept optional so this doesn't reject an old-shaped
+ * request from a not-yet-redeployed frontend.
  */
-function createUser_(email, orgId) {
+function createUser_(email, orgId, roleIds) {
   return withLock_(function () {
     var sheet = getSheet_(SHEET_NAMES.USERS);
     if (findRowByColumn_(sheet, 'Email', email)) {
       throw new Error('A user with this email already exists.');
     }
+    var validRoleIds = readSheetAsObjects_(getSheet_(SHEET_NAMES.ROLES)).map(function (r) { return r.RoleId; });
+    var roles = (roleIds || []).filter(function (r) { return r; });
+    roles.forEach(function (r) {
+      if (validRoleIds.indexOf(r) === -1) throw new Error('Unknown role: ' + r);
+    });
+
     var tempPassword = generateTempPassword_();
     var salt = generateSalt_();
+    var userId = Utilities.getUuid();
     appendRow_(sheet, {
-      UserId: Utilities.getUuid(),
+      UserId: userId,
       Email: email,
       PasswordHash: hashPassword_(tempPassword, salt),
       PasswordSalt: salt,
@@ -59,6 +69,10 @@ function createUser_(email, orgId) {
       Status: 'Active',
       CreatedDate: new Date(),
       ModifiedDate: new Date()
+    });
+    var userRolesSheet = getSheet_(SHEET_NAMES.USER_ROLES);
+    roles.forEach(function (roleId) {
+      appendRow_(userRolesSheet, { UserId: userId, RoleId: roleId });
     });
     // Returned once, to the admin's screen, for manual relay — never
     // stored in plaintext and never emailed.
