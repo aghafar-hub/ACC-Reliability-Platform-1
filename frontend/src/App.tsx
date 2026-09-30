@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
 import EmbeddedVibrationAnalysis from './pages/EmbeddedVibrationAnalysis';
 import Login from './pages/Login';
+import MyWork from './pages/MyWork';
 import LpRegisterPage from './pages/oil-analysis/LpRegisterPage';
 import NewRoutinePage from './pages/oil-analysis/NewRoutinePage';
 import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
@@ -52,7 +53,7 @@ function ShellRoot() {
         <EmbeddedOilAnalysis />
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/my-work" element={<ComingSoon title="My Work" />} />
+          <Route path="/my-work" element={<MyWork />} />
           <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
           {/* /oil-analysis/routines and /oil-analysis/inventory have no <Route>
               here on purpose — both are native pages inside apps/oil-analysis now

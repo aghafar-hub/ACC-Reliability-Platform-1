@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/AuthContext';
 import { Icon } from '../icons';
+import MyWork from './MyWork';
 import './TechnicianShell.css';
 
 // The entire authenticated app for a Technician-only user (see
@@ -33,7 +34,7 @@ export default function TechnicianShell() {
         </div>
       </header>
       <main className="tech-shell-content">
-        <p className="tech-shell-empty">No work assigned yet — routines assigned to you will show up here.</p>
+        <MyWork showHeading={false} />
       </main>
     </div>
   );

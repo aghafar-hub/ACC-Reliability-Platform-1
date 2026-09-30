@@ -1,0 +1,185 @@
+.mywork-section {
+  margin-top: 1.5rem;
+}
+
+.mywork-section-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem;
+  color: var(--shell-text, #e7ecf5);
+}
+
+.mywork-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
+
+.mywork-card {
+  text-align: left;
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  padding: 1rem;
+  background: var(--shell-card-bg, rgba(255, 255, 255, 0.03));
+  color: var(--shell-text, #e7ecf5);
+  cursor: pointer;
+  font: inherit;
+}
+
+.mywork-card--static {
+  cursor: default;
+}
+
+.mywork-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.mywork-card-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.mywork-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+.mywork-badge--overdue {
+  background: #ef444422;
+  color: #ef4444;
+}
+
+.mywork-card-meta {
+  font-size: 0.82rem;
+  color: var(--shell-text-secondary, #a9b3c6);
+  margin-bottom: 0.6rem;
+}
+
+.mywork-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.mywork-progress-fill {
+  height: 100%;
+  background: #22c55e;
+}
+
+.mywork-card-count {
+  font-size: 0.78rem;
+  color: var(--shell-text-secondary, #a9b3c6);
+}
+
+.mywork-empty {
+  color: var(--shell-text-secondary, #a9b3c6);
+  font-size: 0.9rem;
+}
+
+.mywork-error {
+  color: #ef4444;
+  font-size: 0.88rem;
+  margin-bottom: 0.75rem;
+}
+
+.mywork-back {
+  border: none;
+  background: transparent;
+  color: var(--shell-text-secondary, #a9b3c6);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+
+.mywork-detail-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+
+.mywork-detail-meta {
+  color: var(--shell-text-secondary, #a9b3c6);
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.mywork-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.mywork-table th {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  color: var(--shell-text-secondary, #a9b3c6);
+  font-weight: 600;
+  border-bottom: 1px solid var(--shell-border, rgba(255, 255, 255, 0.1));
+}
+
+.mywork-td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--shell-border, rgba(255, 255, 255, 0.08));
+}
+
+.mywork-td-lp {
+  font-family: monospace;
+  font-weight: 700;
+}
+
+.mywork-td-center {
+  text-align: center;
+}
+
+.mywork-row--done {
+  background: #22c55e0d;
+}
+
+.mywork-row--warn {
+  background: #f59e0b0d;
+}
+
+.mywork-select,
+.mywork-input {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mywork-btn {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.mywork-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mywork-btn-primary {
+  background: var(--shell-accent, #2563eb);
+  color: var(--shell-accent-text, #fff);
+  border-color: transparent;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9rem;
+}
