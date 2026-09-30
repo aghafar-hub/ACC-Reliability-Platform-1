@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
-import { AuthProvider } from './auth/AuthContext';
+import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
+import { isTechnicianOnly } from './auth/session';
 import { EmbeddedNavProvider } from './embeddedNav';
 import ChangePassword from './pages/ChangePassword';
 import ComingSoon from './pages/ComingSoon';
@@ -16,6 +17,7 @@ import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
 import RoutineDetailPage from './pages/oil-analysis/RoutineDetailPage';
 import RoutinesListPage from './pages/oil-analysis/RoutinesListPage';
 import Settings from './pages/Settings';
+import TechnicianShell from './pages/TechnicianShell';
 import { ShellThemeProvider, useShellTheme } from './shellTheme';
 import './App.css';
 
@@ -82,6 +84,21 @@ function AppShell() {
   );
 }
 
+// Picks which shell an authenticated user gets: a Technician-only user
+// (see auth/session.ts' isTechnicianOnly) never sees the Sidebar or any
+// other tab, full stop — every path under "/*" collapses to the same
+// single-screen My Work view. Everyone else gets the normal shell with
+// full routing. This check runs on every route change (not just once at
+// login) so it also takes effect immediately if the user's own role ever
+// changes mid-session via a fresh login.
+function AuthenticatedShell() {
+  const { claims } = useAuth();
+  if (claims && isTechnicianOnly(claims.roles)) {
+    return <TechnicianShell />;
+  }
+  return <AppShell />;
+}
+
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
@@ -90,7 +107,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<RequireAuth />}>
             <Route path="/change-password" element={<ChangePassword />} />
-            <Route path="/*" element={<AppShell />} />
+            <Route path="/*" element={<AuthenticatedShell />} />
           </Route>
         </Routes>
       </AuthProvider>

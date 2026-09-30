@@ -42,3 +42,17 @@ export const ROLE = {
   RELIABILITY_ENGINEER: 'ROLE-RENG',
   MANAGER: 'ROLE-MGR',
 } as const;
+
+/**
+ * True only for a user whose roles are Technician and nothing else — per
+ * the "technician focus only" requirement, this user gets the separate
+ * full-screen My Work shell (see TechnicianShell.tsx) instead of the
+ * normal Sidebar shell. A user holding Technician alongside a higher role
+ * (e.g. also Contractor Engineer) is treated as that higher role and gets
+ * the full shell — this is a client-side hint for which shell to render,
+ * not a security boundary; every real permission/scope check still runs
+ * server-side per request.
+ */
+export function isTechnicianOnly(roles: string[]): boolean {
+  return roles.length > 0 && roles.every((r) => r === ROLE.TECHNICIAN);
+}

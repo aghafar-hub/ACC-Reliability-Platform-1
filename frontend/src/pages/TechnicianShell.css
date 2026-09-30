@@ -1,0 +1,76 @@
+/* Deliberately its own fixed palette, not the multi-theme system Sidebar.css
+   reads (--shell-*) — a Technician's screen is meant to be minimal and
+   focused, not something they'd customize. */
+.tech-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0f1420;
+  color: #e7ecf5;
+}
+
+.tech-shell-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tech-shell-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tech-shell-logo {
+  height: 28px;
+  width: 28px;
+}
+
+.tech-shell-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.tech-shell-user {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.tech-shell-email {
+  font-size: 0.85rem;
+  color: #a9b3c6;
+}
+
+.tech-shell-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: transparent;
+  color: #e7ecf5;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tech-shell-logout:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tech-shell-content {
+  flex: 1;
+  padding: 2rem 1.5rem;
+  max-width: 720px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tech-shell-empty {
+  color: #a9b3c6;
+  font-size: 0.95rem;
+}
