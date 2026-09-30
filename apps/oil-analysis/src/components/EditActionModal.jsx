@@ -4,6 +4,7 @@ import { nextAcNo, formatDate } from "../parsers";
 import { toISODate, latestOilChangeFor, autofillFromEquipment } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
 import MultiSelectTags from "./MultiSelectTags";
+import TechnicianPicker from "./TechnicianPicker";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Closed", "Waiting Stoppage"];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
@@ -292,6 +293,16 @@ export default function EditActionModal({
                 <option key={c}>{c}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label style={{ ...s.label, fontSize: 11 }}>Assigned To</label>
+            <TechnicianPicker
+              contractor={form.contractor}
+              value={form.assignedTo || ""}
+              onChange={(v) => set("assignedTo", v)}
+              roleFilter={null}
+              placeholder="Who owns this action?"
+            />
           </div>
         </div>
 

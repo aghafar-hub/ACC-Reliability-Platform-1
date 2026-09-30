@@ -380,6 +380,19 @@ export default function ActionTracker({
                     >
                       {a.agreedAction || "—"}
                     </div>
+                    {status !== "Closed" && (
+                      <div style={{ marginTop: 6 }}>
+                        {a.assignedTo ? (
+                          <span style={{ fontSize: 10.5, color: T.textSecondary }}>
+                            <i className="ti ti-user" aria-hidden="true" style={{ marginRight: 3 }} /> {a.assignedTo}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger }}>
+                            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 3 }} /> No owner assigned
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
                       {status === "Closed" ? (
                         <span style={{ fontSize: 10.5, color: T.textMuted }}>Completed {formatDate(a.completedDate) || "—"}</span>
@@ -394,7 +407,7 @@ export default function ActionTracker({
                             color: ageColor(T, days),
                           }}
                         >
-                          {days == null ? "—" : `${days}d open`}
+                          {days != null && days > 14 ? `⚠ ${days}d overdue` : days == null ? "—" : `${days}d open`}
                         </span>
                       )}
                       <span style={{ fontSize: 10.5, fontFamily: "monospace", color: T.textMuted }}>{a.acNo}</span>

@@ -87,3 +87,71 @@ function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
     "\nNo action needed.";
   MailApp.sendEmail(assignedTo, subject, body);
 }
+
+// ─── Aging Actions digest (Patch 3 — owner field + aging escalation) ────
+//
+// Run on its own time-driven trigger, same as RouteTemplates.js's
+// generateDueRouteInstances (see that function's own comment for why:
+// kept off the Web App request path entirely, so it never has to contend
+// with doPost's script lock, and a digest firing once a day has no caller
+// waiting on a response). Read-only — no lock needed, unlike
+// generateDueRouteInstances.
+//
+// "Escalation" here is deliberately a once-a-day roundup, not a
+// per-action reminder to whoever's specifically responsible — there's no
+// concept yet of "seen it, snoozing", so nagging on every single aging
+// action would just get tuned out. One list a reviewer can act on is more
+// realistic. Reuses the same OL_NOTIFY_REVIEWERS list submitRoutine's
+// notification already reads (see that comment for why it's a sheet, not
+// a live Platform Core call).
+var AGING_ACTION_DAYS = 14; // matches ActionTracker.jsx's own ageColor threshold
+
+function sendAgingActionsDigest_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Action Tracker", true);
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - AGING_ACTION_DAYS);
+
+  var byContractor = {}; // contractor -> { noOwner: [...], aging: [...] }
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var status = String(r[10] || "").trim();
+    if (status !== "Open" && status !== "In Progress" && status !== "Waiting Stoppage") continue;
+    var d = r[5] instanceof Date ? r[5] : new Date(r[5]);
+    if (isNaN(d.getTime()) || d > cutoff) continue; // not old enough yet
+    var contractor = String(r[12] || "").trim();
+    if (!contractor) continue;
+    var assignedTo = String(r[19] || "").trim();
+    var entry = { acNo: String(r[0] || "").trim(), equipmentCode: String(r[1] || "").trim(), status: status, revisionDate: d, assignedTo: assignedTo };
+    if (!byContractor[contractor]) byContractor[contractor] = { noOwner: [], aging: [] };
+    if (assignedTo) byContractor[contractor].aging.push(entry);
+    else byContractor[contractor].noOwner.push(entry);
+  }
+
+  KNOWN_CONTRACTORS.forEach(function (contractor) {
+    var bucket = byContractor[contractor];
+    if (!bucket || (bucket.noOwner.length === 0 && bucket.aging.length === 0)) return;
+    var reviewers = getNotifyReviewers_(contractor);
+    if (reviewers.length === 0) return;
+
+    var lines = ["Actions open " + AGING_ACTION_DAYS + "+ days for " + contractor + ":", ""];
+    if (bucket.noOwner.length) {
+      lines.push(bucket.noOwner.length + " with NO OWNER assigned:");
+      bucket.noOwner.forEach(function (e) {
+        lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (" + e.status + ", opened " + formatDateForEmail_(e.revisionDate) + ")");
+      });
+      lines.push("");
+    }
+    if (bucket.aging.length) {
+      lines.push(bucket.aging.length + " assigned but still aging:");
+      bucket.aging.forEach(function (e) {
+        lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (" + e.status + ", assigned to " + e.assignedTo + ", opened " + formatDateForEmail_(e.revisionDate) + ")");
+      });
+    }
+    MailApp.sendEmail({
+      to: reviewers.join(","),
+      subject: "Oil Lubrication: " + (bucket.noOwner.length + bucket.aging.length) + " aging action(s) — " + contractor,
+      body: lines.join("\n"),
+    });
+  });
+}

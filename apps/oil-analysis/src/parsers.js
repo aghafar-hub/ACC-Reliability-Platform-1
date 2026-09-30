@@ -393,6 +393,7 @@ export const ACTION_HEADERS = [
   "Agreed Action",
   "Closing Comment",
   "Last Modified",
+  "Assigned To",
 ];
 
 export function rowToAction(row) {
@@ -416,6 +417,7 @@ export function rowToAction(row) {
     agreedAction,
     closingComment,
     lastModified,
+    assignedTo,
   ] = row;
   return {
     acNo,
@@ -438,6 +440,7 @@ export function rowToAction(row) {
     agreedAction,
     closingComment,
     lastModified,
+    assignedTo: assignedTo || "",
     _id: `${equipmentCode}_${acNo}_${revisionDate}`,
     _matchCols: [0, 1],
     _matchValues: [acNo, equipmentCode],
@@ -465,6 +468,7 @@ export function actionToRow(a) {
     a.agreedAction || "",
     a.closingComment || "",
     a.lastModified || "",
+    a.assignedTo || "",
   ];
 }
 

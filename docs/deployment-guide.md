@@ -310,6 +310,46 @@ arrives. Check `Debug Log` in the sheet for a `notifyRoutine*` entry if
 one doesn't show up — that'll say why (bad address, MailApp quota, etc.)
 without having broken the actual routine action.
 
+## 4g. Action Tracker "Assigned To" + aging digest
+
+Part of the same plant-readiness pass as 4f: Action Tracker actions had no
+owner at all — just a Contractor, never a specific person — so a problem
+could sit "Open" indefinitely with nobody accountable for closing it.
+
+**Sheet change you need to make yourself**: the "Action Tracker" sheet
+needs one new column at the end (column **T**, right after the existing
+"Last Modified" column) with the header text `Assigned To`. Nothing else
+about the sheet's layout changes — every existing column keeps its exact
+position. Until you add this header, the app still works exactly as
+before; the new field just won't have anywhere to land.
+
+**Code**: `Notifications.js` gained `sendAgingActionsDigest_()` this
+round — replace its contents with the repo's current version (same file
+from section 4f, just grown). No other backend file changed for this
+patch; the frontend-side "Assigned To" picker and the "No owner
+assigned"/"Xd overdue" badges on the Action Tracker board are all
+frontend-only, already live once you push (see the top-level workflow —
+this branch auto-deploys to GitHub Pages).
+
+**New trigger you set up once** — same pattern as section 4e's
+`generateDueRouteInstances`, a separate scheduled check, not tied to any
+button in the app:
+
+**Triggers (clock icon) → Add Trigger**:
+- Function: `sendAgingActionsDigest_`
+- Event source: Time-driven
+- Type: Day timer (pick any off-peak hour)
+
+Uses the same `OL_NOTIFY_REVIEWERS` sheet section 4f already has you
+maintain — no second list to keep in sync. Once a day, each contractor
+with at least one action open 14+ days gets one email to its reviewers,
+split into "no owner assigned" (the most urgent) and "assigned but still
+aging."
+
+**Verify**: open the script editor, pick `sendAgingActionsDigest_` from
+the function dropdown, click **Run** — check `Debug Log` and your inbox.
+Safe to run any time; it never writes anything, only reads and emails.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
