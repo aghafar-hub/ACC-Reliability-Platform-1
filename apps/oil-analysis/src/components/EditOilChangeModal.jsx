@@ -11,7 +11,7 @@ import { toISODate } from "../actionAutofill";
 // point's own Equipment Registry entry; Next Due Date is computed
 // server-side too (shown below as a live preview only). Done By and
 // Notes are the two fields this form actually asks for beyond the date.
-export default function EditOilChangeModal({ oilChange, onClose, onSave, saving }) {
+export default function EditOilChangeModal({ oilChange, onClose, onSave }) {
   const { T, s } = useTheme();
   const sessionEmail = useSessionEmail();
   // A fresh modal mount each time it opens, and the session (if any) is
@@ -25,8 +25,8 @@ export default function EditOilChangeModal({ oilChange, onClose, onSave, saving 
 
   const nextDuePreview = computeOilChangeNextDue(form.changeDate, oilChange.frequency);
 
-  async function handleSave() {
-    await onSave({
+  function handleSave() {
+    onSave({
       lpId: oilChange.lpId,
       eventDate: form.changeDate,
       doneBy: form.doneBy.trim(),
@@ -46,7 +46,7 @@ export default function EditOilChangeModal({ oilChange, onClose, onSave, saving 
         alignItems: "center",
         justifyContent: "center",
       }}
-      onClick={() => !saving && onClose()}
+      onClick={onClose}
     >
       <div
         style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24, width: 360 }}
@@ -81,11 +81,11 @@ export default function EditOilChangeModal({ oilChange, onClose, onSave, saving 
           Next due: {nextDuePreview ? nextDuePreview : "no fixed interval for this point"}
         </p>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button style={s.btn} onClick={onClose} disabled={saving}>
+          <button style={s.btn} onClick={onClose}>
             Cancel
           </button>
-          <button style={s.btnPrimary} onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+          <button style={s.btnPrimary} onClick={handleSave}>
+            Save
           </button>
         </div>
       </div>

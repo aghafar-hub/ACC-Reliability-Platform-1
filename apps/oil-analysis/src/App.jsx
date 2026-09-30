@@ -36,6 +36,23 @@ function mergeById(prev, incoming, keyFn) {
   return Array.from(byKey.values());
 }
 
+let optimisticIdCounter = 0;
+// A save's full row is already known client-side before the network call
+// (the form/caller builds the complete object) — only the write's
+// confirmation is what the blind-POST-then-verify round trip is actually
+// waiting on (see api.js's SaveVerificationError doc comment). So every
+// add/edit/delete handler below applies its change to local state
+// immediately under a temporary key, then reconciles once the network call
+// settles: on success, the temp entry is replaced with the server-confirmed
+// one (in case of e.g. server-side normalization); on failure, it's rolled
+// back and the already-shown success toast is followed by an error one.
+// This is what makes saving feel instant while keeping the exact same
+// correctness guarantee — a save is never reported as real until it comes
+// back from this same verify step, same as before this change.
+function makeOptimisticId() {
+  return `_optimistic_${Date.now()}_${++optimisticIdCounter}`;
+}
+
 // navBridge (only passed when mounted embedded — see src/embed.jsx) is a
 // plain JS object, not React state: the embedding shell runs its own
 // separate React root (React 19; this app is React 18), so there's no
@@ -384,16 +401,28 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onAddAction = useCallback(
     async (action) => {
+      const tempId = makeOptimisticId();
+      setActions((prev) => {
+        const next = [...prev, { ...action, _id: tempId }];
+        writeCache("actions", next);
+        return next;
+      });
+      pushToast("Action added.", "success");
       try {
         const saved = await api.saveAction(config.webhookUrl, action, { isNew: true });
         setActions((prev) => {
-          const next = [...prev, saved];
+          const next = prev.map((a) => (a._id === tempId ? saved : a));
           writeCache("actions", next);
           return next;
         });
-        pushToast("Action added.", "success");
         await applyOilChangeSideEffect(action);
+        return saved;
       } catch (err) {
+        setActions((prev) => {
+          const next = prev.filter((a) => a._id !== tempId);
+          writeCache("actions", next);
+          return next;
+        });
         pushToast(err.message, "error");
         throw err;
       }
@@ -403,18 +432,34 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onUpdateAction = useCallback(
     async (action) => {
+      const matches = (a) =>
+        a._matchValues?.[0] === action._matchValues?.[0] && a._matchValues?.[1] === action._matchValues?.[1];
+      let previousAction;
+      setActions((prev) => {
+        const next = prev.map((a) => {
+          if (!matches(a)) return a;
+          previousAction = a;
+          return { ...a, ...action };
+        });
+        writeCache("actions", next);
+        return next;
+      });
+      pushToast("Action saved.", "success");
       try {
         const saved = await api.saveAction(config.webhookUrl, action, { isNew: false });
         setActions((prev) => {
-          const next = prev.map((a) =>
-            a._matchValues?.[0] === action._matchValues?.[0] && a._matchValues?.[1] === action._matchValues?.[1] ? saved : a
-          );
+          const next = prev.map((a) => (matches(a) ? saved : a));
           writeCache("actions", next);
           return next;
         });
-        pushToast("Action saved.", "success");
         await applyOilChangeSideEffect(action);
+        return saved;
       } catch (err) {
+        setActions((prev) => {
+          const next = prev.map((a) => (matches(a) && previousAction ? previousAction : a));
+          writeCache("actions", next);
+          return next;
+        });
         pushToast(err.message, "error");
         throw err;
       }
@@ -424,15 +469,29 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onDeleteAction = useCallback(
     async (action) => {
+      let removedAction;
+      let removedIndex = -1;
+      setActions((prev) => {
+        const idx = prev.findIndex((a) => a._id === action._id);
+        if (idx === -1) return prev;
+        removedIndex = idx;
+        removedAction = prev[idx];
+        const next = prev.filter((a) => a._id !== action._id);
+        writeCache("actions", next);
+        return next;
+      });
+      pushToast("Action deleted.", "success");
       try {
         await api.deleteAction(config.webhookUrl, action);
-        setActions((prev) => {
-          const next = prev.filter((a) => a._id !== action._id);
-          writeCache("actions", next);
-          return next;
-        });
-        pushToast("Action deleted.", "success");
       } catch (err) {
+        if (removedAction) {
+          setActions((prev) => {
+            const next = [...prev];
+            next.splice(Math.min(removedIndex, next.length), 0, removedAction);
+            writeCache("actions", next);
+            return next;
+          });
+        }
         pushToast(err.message, "error");
         throw err;
       }
@@ -442,15 +501,31 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onSaveOilChange = useCallback(
     async (event) => {
+      // eventId is server-generated (a UUID minted in OilChanges.js), so it
+      // isn't known yet at this point — tracked under a temp marker instead
+      // until the real one comes back, then swapped in by that same key
+      // mergeById/runIncrementalSync already use for this array elsewhere.
+      const tempId = makeOptimisticId();
+      setOilChangeEvents((prev) => {
+        const next = [...prev, { ...event, eventId: tempId }];
+        writeCache("oilChangeEvents", next);
+        return next;
+      });
+      pushToast("Oil change logged.", "success");
       try {
         const saved = await api.logOilChangeEvent(config.webhookUrl, event);
         setOilChangeEvents((prev) => {
-          const next = [...prev, saved];
+          const next = prev.map((e) => (e.eventId === tempId ? saved : e));
           writeCache("oilChangeEvents", next);
           return next;
         });
-        pushToast("Oil change logged.", "success");
+        return saved;
       } catch (err) {
+        setOilChangeEvents((prev) => {
+          const next = prev.filter((e) => e.eventId !== tempId);
+          writeCache("oilChangeEvents", next);
+          return next;
+        });
         pushToast(err.message, "error");
         throw err;
       }
@@ -460,17 +535,28 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onAddSample = useCallback(
     async (sample, headers) => {
+      const tempId = makeOptimisticId();
+      setSamples((prev) => {
+        const next = [...prev, { ...sample, _id: tempId }];
+        writeCache("samples", next);
+        return next;
+      });
+      pushToast("Sample saved.", "success");
       try {
         const saved = await api.saveSample(config.webhookUrl, sample, headers);
         setSamples((prev) => {
-          const next = [...prev, saved];
+          const next = prev.map((s2) => (s2._id === tempId ? saved : s2));
           writeCache("samples", next);
           return next;
         });
-        pushToast("Sample saved.", "success");
         await applySampleTrackerSideEffect(saved);
         return saved;
       } catch (err) {
+        setSamples((prev) => {
+          const next = prev.filter((s2) => s2._id !== tempId);
+          writeCache("samples", next);
+          return next;
+        });
         pushToast(err.message, "error");
         throw err;
       }
@@ -529,6 +615,17 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onEditSample = useCallback(
     async (original, updates) => {
+      let previousSample;
+      setSamples((prev) => {
+        const next = prev.map((s2) => {
+          if (s2._id !== original._id) return s2;
+          previousSample = s2;
+          return { ...s2, ...updates };
+        });
+        writeCache("samples", next);
+        return next;
+      });
+      pushToast("Sample saved.", "success");
       try {
         const saved = await api.updateSample(config.webhookUrl, { ...original, ...updates });
         setSamples((prev) => {
@@ -536,8 +633,15 @@ function AppShell({ config, setConfig, navBridge }) {
           writeCache("samples", next);
           return next;
         });
-        pushToast("Sample saved.", "success");
+        return saved;
       } catch (err) {
+        if (previousSample) {
+          setSamples((prev) => {
+            const next = prev.map((s2) => (s2._id === original._id ? previousSample : s2));
+            writeCache("samples", next);
+            return next;
+          });
+        }
         pushToast(err.message, "error");
         throw err;
       }
@@ -547,15 +651,29 @@ function AppShell({ config, setConfig, navBridge }) {
 
   const onDeleteSample = useCallback(
     async (sample) => {
+      let removedSample;
+      let removedIndex = -1;
+      setSamples((prev) => {
+        const idx = prev.findIndex((s2) => s2._id === sample._id);
+        if (idx === -1) return prev;
+        removedIndex = idx;
+        removedSample = prev[idx];
+        const next = prev.filter((s2) => s2._id !== sample._id);
+        writeCache("samples", next);
+        return next;
+      });
+      pushToast("Sample deleted.", "success");
       try {
         await api.deleteSample(config.webhookUrl, sample);
-        setSamples((prev) => {
-          const next = prev.filter((s2) => s2._id !== sample._id);
-          writeCache("samples", next);
-          return next;
-        });
-        pushToast("Sample deleted.", "success");
       } catch (err) {
+        if (removedSample) {
+          setSamples((prev) => {
+            const next = [...prev];
+            next.splice(Math.min(removedIndex, next.length), 0, removedSample);
+            writeCache("samples", next);
+            return next;
+          });
+        }
         pushToast(err.message, "error");
         throw err;
       }

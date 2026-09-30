@@ -50,7 +50,6 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
   const [contractorFilter, setContractorFilter] = useState("All");
   const [groupBy, setGroupBy] = useState("equipment");
   const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
@@ -90,16 +89,14 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
   };
   const countColorKey = { Overdue: "danger", "Due this week": "warning", "Due this month": "accent", "On track": "success" };
 
-  async function handleSave(updated) {
-    setSaving(true);
-    try {
-      await onSave(updated);
-      setEditing(null);
-    } catch {
-      // toast already shown
-    } finally {
-      setSaving(false);
-    }
+  // PERFORMANCE: onSave (App.jsx's onSaveOilChange) already applies this
+  // event to local state immediately and only verifies/rolls back in the
+  // background — see that function's own comment. Not awaiting it here,
+  // and closing the modal right away, is what makes this feel instant
+  // instead of sitting on "Saving…" for the network round trip.
+  function handleSave(updated) {
+    onSave(updated).catch(() => {});
+    setEditing(null);
   }
 
   function rowLabel(p) {
@@ -398,7 +395,7 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         <span style={{ fontSize: 11, color: T.textMuted, marginLeft: "auto" }}>Hover a dot for its exact due date.</span>
       </div>
 
-      {editing && <EditOilChangeModal oilChange={editing} saving={saving} onClose={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <EditOilChangeModal oilChange={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
 
       {generating && (
         <GenerateOilChangeActionsModal

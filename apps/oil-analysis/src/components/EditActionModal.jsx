@@ -19,7 +19,6 @@ export default function EditActionModal({
   onClose,
   onSave,
   onDelete,
-  saving,
 }) {
   const { T, s } = useTheme();
   const deps = { equipmentRegistry, oilChanges, allActions, excludeId: action._id };
@@ -312,11 +311,11 @@ export default function EditActionModal({
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button style={s.btn} onClick={onClose} disabled={saving}>
+          <button style={s.btn} onClick={onClose}>
             Cancel
           </button>
-          <button style={s.btnPrimary} onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+          <button style={s.btnPrimary} onClick={handleSave}>
+            Save
           </button>
         </div>
       </div>

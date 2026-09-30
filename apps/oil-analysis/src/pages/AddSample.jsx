@@ -59,7 +59,6 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
   const [mode, setMode] = useState("manual"); // "manual" | "bulk"
   const [form, setForm] = useState(EMPTY);
   const [recommendationsText, setRecommendationsText] = useState("");
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
 
@@ -98,22 +97,26 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
     doSave();
   }
 
-  async function doSave() {
-    setSaving(true);
-    try {
-      const recommendations = recommendationsText
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
-      await onAdd({ ...form, recommendations });
-      resetForm();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch {
-      // toast already shown by App
-    } finally {
-      setSaving(false);
-    }
+  // PERFORMANCE: onAdd (App.jsx's onAddSample) already applies this sample
+  // to local state immediately and only verifies/rolls back in the
+  // background (see that function's own comment) — so this form doesn't
+  // need to wait for the network round trip either. Not awaiting here is
+  // what actually makes the save feel instant: the form resets and shows
+  // "saved" right away, and the already-reset form itself is what guards
+  // against a double-submit (a second click lands on an empty form and
+  // fails validation) now that there's no "Saving…" disabled window to do
+  // that job. A failure a moment later still surfaces via the toast
+  // onAdd shows internally, and the optimistic row it added is rolled back
+  // the same way.
+  function doSave() {
+    const recommendations = recommendationsText
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    onAdd({ ...form, recommendations }).catch(() => {});
+    resetForm();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   }
 
   const numField = (label, key) => (
@@ -144,8 +147,8 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
               <button style={{ ...s.btn, fontSize: 12 }} onClick={resetForm}>
                 <i className="ti ti-refresh" aria-hidden="true" /> Reset Form
               </button>
-              <button style={{ ...s.btnPrimary, fontSize: 13 }} onClick={handleSubmitClick} disabled={saving}>
-                <i className="ti ti-database-plus" aria-hidden="true" /> {saving ? "Saving…" : "Save Sample"}
+              <button style={{ ...s.btnPrimary, fontSize: 13 }} onClick={handleSubmitClick}>
+                <i className="ti ti-database-plus" aria-hidden="true" /> Save Sample
               </button>
             </>
           )}
@@ -199,7 +202,7 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
             <button style={{ ...s.btn, fontSize: 12 }} onClick={() => setConfirmDuplicate(false)}>
               Cancel
             </button>
-            <button style={{ ...s.btnPrimary, fontSize: 12 }} onClick={doSave} disabled={saving}>
+            <button style={{ ...s.btnPrimary, fontSize: 12 }} onClick={doSave}>
               Save Anyway
             </button>
           </div>

@@ -51,9 +51,7 @@ export default function Equipment({
 
   const [editingSample, setEditingSample] = useState(null);
   const [editingAction, setEditingAction] = useState(null); // { action, isNew }
-  const [savingAction, setSavingAction] = useState(false);
   const [editingOilChange, setEditingOilChange] = useState(null);
-  const [savingOilChange, setSavingOilChange] = useState(false);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -156,40 +154,25 @@ export default function Equipment({
     if (entry) setEditingOilChange(entry);
   }
 
-  async function handleSaveOilChange(updated) {
-    setSavingOilChange(true);
-    try {
-      await onSaveOilChange(updated);
-      setEditingOilChange(null);
-    } catch {
-      // toast already shown
-    } finally {
-      setSavingOilChange(false);
-    }
+  // PERFORMANCE: these handlers (onSaveOilChange/onAddAction/onUpdateAction/
+  // onDeleteAction, all from App.jsx) already apply the change to local
+  // state immediately and only verify/roll back in the background — see
+  // their own comments. Not awaiting them here, and closing the modal right
+  // away, is what makes this feel instant instead of sitting on "Saving…"
+  // for the network round trip.
+  function handleSaveOilChange(updated) {
+    onSaveOilChange(updated).catch(() => {});
+    setEditingOilChange(null);
   }
 
-  async function handleSaveAction(payload) {
-    setSavingAction(true);
-    try {
-      if (editingAction.isNew) await onAddAction(payload);
-      else await onUpdateAction(payload);
-      setEditingAction(null);
-    } catch {
-      // toast already shown
-    } finally {
-      setSavingAction(false);
-    }
+  function handleSaveAction(payload) {
+    if (editingAction.isNew) onAddAction(payload).catch(() => {});
+    else onUpdateAction(payload).catch(() => {});
+    setEditingAction(null);
   }
-  async function handleDeleteAction() {
-    setSavingAction(true);
-    try {
-      await onDeleteAction(editingAction.action);
-      setEditingAction(null);
-    } catch {
-      // toast already shown
-    } finally {
-      setSavingAction(false);
-    }
+  function handleDeleteAction() {
+    onDeleteAction(editingAction.action).catch(() => {});
+    setEditingAction(null);
   }
 
   const tag = (text) => (
@@ -915,20 +898,14 @@ export default function Equipment({
           oilChanges={oilChanges}
           equipmentRegistry={registry}
           actionRegistry={actionRegistry}
-          saving={savingAction}
-          onClose={() => !savingAction && setEditingAction(null)}
+          onClose={() => setEditingAction(null)}
           onSave={handleSaveAction}
           onDelete={editingAction.isNew ? null : handleDeleteAction}
         />
       )}
 
       {editingOilChange && (
-        <EditOilChangeModal
-          oilChange={editingOilChange}
-          saving={savingOilChange}
-          onClose={() => setEditingOilChange(null)}
-          onSave={handleSaveOilChange}
-        />
+        <EditOilChangeModal oilChange={editingOilChange} onClose={() => setEditingOilChange(null)} onSave={handleSaveOilChange} />
       )}
     </div>
   );

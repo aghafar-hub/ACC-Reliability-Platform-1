@@ -61,7 +61,6 @@ export default function ActionTracker({
   const [areaFilter, setAreaFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
   const [editing, setEditing] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
@@ -114,29 +113,22 @@ export default function ActionTracker({
     return list.sort((x, y) => (ageDays(y.revisionDate) ?? -1) - (ageDays(x.revisionDate) ?? -1));
   }
 
-  async function handleSave(updated) {
-    setSaving(true);
-    try {
-      if (editing.isNew) await onAddAction(updated);
-      else await onUpdateAction(updated);
-      setEditing(null);
-    } catch {
-      // toast already shown by App
-    } finally {
-      setSaving(false);
-    }
+  // PERFORMANCE: onAddAction/onUpdateAction/onDeleteAction (App.jsx) already
+  // apply the change to local state immediately and only verify/roll back
+  // in the background — see those functions' own comments. Not awaiting
+  // them here, and closing the modal right away, is what makes this feel
+  // instant instead of sitting on "Saving…" for the network round trip. A
+  // failure surfaces a moment later via the toast those handlers already
+  // show, with the optimistic change rolled back the same way.
+  function handleSave(updated) {
+    if (editing.isNew) onAddAction(updated).catch(() => {});
+    else onUpdateAction(updated).catch(() => {});
+    setEditing(null);
   }
 
-  async function handleDelete() {
-    setSaving(true);
-    try {
-      await onDeleteAction(editing.action);
-      setEditing(null);
-    } catch {
-      // toast already shown
-    } finally {
-      setSaving(false);
-    }
+  function handleDelete() {
+    onDeleteAction(editing.action).catch(() => {});
+    setEditing(null);
   }
 
   async function handleDrop(newStatus) {
@@ -424,8 +416,7 @@ export default function ActionTracker({
           oilChanges={oilChanges}
           equipmentRegistry={registry}
           actionRegistry={actionRegistry}
-          saving={saving}
-          onClose={() => !saving && setEditing(null)}
+          onClose={() => setEditing(null)}
           onSave={handleSave}
           onDelete={editing.isNew ? null : handleDelete}
         />
