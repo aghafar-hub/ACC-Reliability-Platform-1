@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail } from "../SessionContext";
+import TechnicianPicker from "../components/TechnicianPicker";
 import * as api from "../api";
 import { newId, suggestedRoutinePoints, SUGGESTION_PRESETS } from "../parsers";
 
@@ -376,13 +377,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
               <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 16 }}>
                 <div style={{ flex: 1 }}>
                   <label style={s.label}>Assign Technician</label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Technician or team name"
-                    value={assignedTo}
-                    onChange={(e) => setAssignedTo(e.target.value)}
-                  />
+                  <TechnicianPicker contractor={contractor} value={assignedTo} onChange={setAssignedTo} />
                 </div>
               </div>
 

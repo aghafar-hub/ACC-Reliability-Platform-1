@@ -14,12 +14,15 @@ import ErrorBoundary from "./components/ErrorBoundary";
 // this app's page navigation from the embedding shell across the React
 // 18/19 root boundary.
 //
-// session (optional, Option B Phase 1): { token, claims } from the shell's
-// own Platform Core login (frontend/src/auth/AuthContext) — passed once at
-// mount, since this app only ever mounts while already behind the shell's
-// RequireAuth (a logout unmounts the whole shell, embedded app included,
-// rather than leaving this mounted with a stale session). Absent entirely
-// for a standalone build, where there's no shell login to read.
+// session (optional, Option B Phase 1): { token, claims, platformCoreUrl }
+// from the shell's own Platform Core login (frontend/src/auth/AuthContext) —
+// passed once at mount, since this app only ever mounts while already
+// behind the shell's RequireAuth (a logout unmounts the whole shell,
+// embedded app included, rather than leaving this mounted with a stale
+// session). Absent entirely for a standalone build, where there's no shell
+// login to read. platformCoreUrl lets this app call Platform Core's own
+// actions directly (see api.js's listOrgUsers) — it has no other way to
+// know that URL.
 export function mountOilAnalysis(container, { navBridge, session } = {}) {
   const root = ReactDOM.createRoot(container);
   root.render(

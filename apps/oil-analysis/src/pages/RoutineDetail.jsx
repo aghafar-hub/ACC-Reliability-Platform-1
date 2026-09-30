@@ -4,6 +4,7 @@ import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
 import { routineSuggestionReason } from "../parsers";
 import ProgressBar from "../components/ProgressBar";
+import TechnicianPicker from "../components/TechnicianPicker";
 
 const REASON_COLOR = { resample: "danger", overdue: "warning", missing: "danger", due: "accent" };
 
@@ -357,13 +358,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             <div style={{ flex: 1, maxWidth: 320 }}>
               <label style={s.label}>Assign Technician</label>
-              <input
-                style={s.input}
-                type="text"
-                placeholder="Technician or team name"
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-              />
+              <TechnicianPicker contractor={routine.contractor} value={assignee} onChange={setAssignee} />
             </div>
             <button style={s.btnPrimary} onClick={handleAssign} disabled={working}>
               {working ? "…" : "Assign"}

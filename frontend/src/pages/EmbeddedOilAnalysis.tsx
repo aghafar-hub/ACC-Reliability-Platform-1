@@ -1,9 +1,20 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { PLATFORM_CORE_URL } from '../config';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
 
-type EmbeddedSession = { token: string; claims: { userId: string; email: string; orgId: string; roles: string[] } | null };
+// platformCoreUrl lets this embedded app call Platform Core's own actions
+// directly (listOrgUsers, so far) — see apps/oil-analysis/src/api.js's
+// listOrgUsers() for the client side of this. The embedded app has no other
+// way to know this URL: unlike the Oil Lubrication webhook URL (baked into
+// its own build), Platform Core's URL is only known to the shell that logged
+// the user in.
+type EmbeddedSession = {
+  token: string;
+  claims: { userId: string; email: string; orgId: string; roles: string[] } | null;
+  platformCoreUrl: string;
+};
 type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge; session?: EmbeddedSession }) => () => void;
 
 const MODULE_ID = 'oil-analysis';
@@ -60,7 +71,10 @@ export default function EmbeddedOilAnalysis() {
     import(/* @vite-ignore */ modulePath).then((mod: { mountOilAnalysis: MountFn }) => {
       embeddedNav.setLoadState(MODULE_ID, 'ready');
       if (!containerRef.current) return;
-      mod.mountOilAnalysis(containerRef.current, { navBridge, session: { token: sessionToken, claims } });
+      mod.mountOilAnalysis(containerRef.current, {
+        navBridge,
+        session: { token: sessionToken, claims, platformCoreUrl: PLATFORM_CORE_URL },
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, as soon as sessionToken is available; embeddedNav's identity is stable enough for this one-shot read
   }, [sessionToken]);

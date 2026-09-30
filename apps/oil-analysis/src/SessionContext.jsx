@@ -24,3 +24,13 @@ export function useSessionEmail() {
   const session = useSession();
   return session?.claims?.email || "";
 }
+
+// "" (never null/undefined) for the same reason useSessionEmail() is — a
+// standalone build or an embedded mount from before platformCoreUrl existed
+// both leave this blank, and every consumer already treats blank as
+// "can't reach Platform Core from here, fall back to free text" rather
+// than as an error.
+export function usePlatformCoreUrl() {
+  const session = useSession();
+  return session?.platformCoreUrl || "";
+}

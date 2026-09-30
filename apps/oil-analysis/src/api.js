@@ -752,3 +752,41 @@ export async function logOilMovement(webhookUrl, movement) {
   }
   return saved;
 }
+
+// ── Platform Core (real account lookups) ────────────────────────────────
+// A different backend from everything above (its own Apps Script Web App,
+// its own URL — see SessionContext.jsx's usePlatformCoreUrl) and its own
+// envelope shape: POST { action, sessionToken, ...} -> { ok: true, data } |
+// { ok: false, error: { message, correlationId } } (see
+// frontend/src/api/client.ts's matching doc comment — same backend, same
+// contract, this is just a second client for it from inside this app).
+// text/plain avoids a CORS preflight against the Apps Script Web App, which
+// doesn't handle OPTIONS — the body is still JSON underneath.
+//
+// Used so "Assign Technician" can be a picker of real accounts instead of
+// free text (see NewRoutine.jsx / RoutineDetail.jsx) — a typo there used to
+// mean the routine silently never showed up for the right person's My Work
+// list, since matching is by exact email.
+export async function listOrgUsers(platformCoreUrl, sessionToken) {
+  if (!platformCoreUrl || !sessionToken) return [];
+  let res;
+  try {
+    res = await fetch(platformCoreUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "listOrgUsers", sessionToken }),
+    });
+  } catch (err) {
+    throw new Error(`Could not reach the account directory: ${err.message}`);
+  }
+  let envelope;
+  try {
+    envelope = await res.json();
+  } catch {
+    throw new Error("The account directory returned an unexpected response.");
+  }
+  if (!envelope.ok) {
+    throw new Error(envelope.error?.message || "Could not load the account directory.");
+  }
+  return envelope.data || [];
+}
