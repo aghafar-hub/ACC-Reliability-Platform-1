@@ -114,3 +114,14 @@ function seedRolePermissions_() {
   });
   return { status: 'ok', grantsWritten: GRANTS.length };
 }
+
+/**
+ * Public wrapper for seedRolePermissions_ — Apps Script's Run dropdown
+ * hides any function ending in "_", so this is the one to pick from that
+ * list (same pattern as Oil Analysis's runDailyDueDateCheck wrapper).
+ */
+function runSeedRolePermissions() {
+  var result = seedRolePermissions_();
+  Logger.log(result);
+  return result;
+}
