@@ -133,6 +133,16 @@ function RouteTemplatesPanel({ webhookUrl, pushToast, refreshSignal }) {
   );
 }
 
+// A routine's own due-passed check — distinct from its workflow status
+// (Unassigned/Assigned/.../Approved), since a route can be "Assigned" and
+// still be sitting past its due date. Submitted/Approved routines are done
+// with, so they don't count as overdue even past their due date.
+function isOverdue(r, now) {
+  if (!r.dueDate || r.status === "Submitted" || r.status === "Approved") return false;
+  const d = new Date(r.dueDate);
+  return !isNaN(d) && d.getTime() < now;
+}
+
 // No login system exists in this app (see parsers.js's Routines section) —
 // a Routine here is "assign a checklist of lubrication points to a
 // contractor", tracked by free-text AssignedTo/CreatedBy fields, not real
@@ -147,7 +157,48 @@ export default function Routines({ webhookUrl, equipmentRegistry, samples, actio
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [templatesRefreshKey, setTemplatesRefreshKey] = useState(0);
+
+  const now = Date.now();
+  const overdueList = useMemo(() => routines.filter((r) => isOverdue(r, now)), [routines, now]);
+  const unassignedList = useMemo(() => routines.filter((r) => r.status === "Unassigned"), [routines]);
+  const inProgressCount = routines.filter((r) => r.status === "InProgress").length;
+  const completedThisMonthCount = routines.filter((r) => {
+    if (r.status !== "Approved" || !r.approvedDate) return false;
+    const d = new Date(r.approvedDate);
+    const t = new Date(now);
+    return !isNaN(d) && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear();
+  }).length;
+
+  // key -> the STATUS_FILTERS value each card filters to when clicked
+  // (null for "overdue", which is the separate overdueOnly toggle instead).
+  const overviewCards = [
+    { key: "unassigned", label: "Unassigned", value: unassignedList.length, color: "danger", icon: "ti-user-off", filtersToStatus: "Unassigned" },
+    { key: "inprogress", label: "In Progress", value: inProgressCount, color: "warning", icon: "ti-clock", filtersToStatus: "InProgress" },
+    { key: "overdue", label: "Overdue", value: overdueList.length, color: "danger", icon: "ti-alert-triangle", filtersToStatus: null },
+    { key: "completed", label: "Completed This Month", value: completedThisMonthCount, color: "success", icon: "ti-check", filtersToStatus: "Approved" },
+  ];
+
+  // Unassigned + overdue routines, most urgent first (unassigned-and-
+  // overdue worst of all), each opening straight into RoutineDetail —
+  // same "cross-cutting risk list" role Dashboard's Needs Attention plays.
+  const needsAttention = useMemo(() => {
+    const seen = new Set();
+    const list = [];
+    for (const r of unassignedList) {
+      seen.add(r.routineId);
+      list.push({ r, overdue: isOverdue(r, now) });
+    }
+    for (const r of overdueList) {
+      if (seen.has(r.routineId)) continue;
+      list.push({ r, overdue: true });
+    }
+    return list.sort((a, b) => {
+      const score = (x) => (x.r.status === "Unassigned" ? 2 : 0) + (x.overdue ? 1 : 0);
+      return score(b) - score(a);
+    });
+  }, [unassignedList, overdueList, now]);
 
   // Real contractor values from the registry, not a hardcoded guess — so a
   // future third contractor shows up here automatically.
@@ -200,8 +251,14 @@ export default function Routines({ webhookUrl, equipmentRegistry, samples, actio
   const visible = routines.filter((r) => {
     if (statusFilter !== "All" && r.status !== statusFilter) return false;
     if (contractorFilter !== "All" && r.contractor !== contractorFilter) return false;
+    if (overdueOnly && !isOverdue(r, now)) return false;
     return true;
   });
+
+  function openRoutine(routineId) {
+    setSelectedRoutineId(routineId);
+    setView("detail");
+  }
 
   return (
     <div>
@@ -232,6 +289,122 @@ export default function Routines({ webhookUrl, equipmentRegistry, samples, actio
           onCancel={() => setView("list")}
         />
       )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 20 }}>
+        {overviewCards.map((m) => {
+          const isActive = m.key === "overdue" ? overdueOnly : statusFilter === m.filtersToStatus;
+          return (
+          <div
+            key={m.key}
+            onClick={() => {
+              if (m.key === "overdue") {
+                setOverdueOnly((v) => !v);
+                setStatusFilter("All");
+              } else {
+                setOverdueOnly(false);
+                setStatusFilter((cur) => (cur === m.filtersToStatus ? "All" : m.filtersToStatus));
+              }
+            }}
+            title={`${m.value} ${m.label} — click to filter the list below`}
+            style={{
+              ...s.metricCard,
+              cursor: "pointer",
+              border: `1px solid ${isActive ? T[m.color] : T.border}`,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 9,
+                  background: T[m.color] + "2A",
+                  color: T[m.color],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <i className={`ti ${m.icon}`} style={{ fontSize: 16 }} aria-hidden="true" />
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+                <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+              </div>
+            </div>
+          </div>
+          );
+        })}
+      </div>
+
+      <p
+        style={{
+          fontSize: 12,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: 0.5,
+          color: T.textSecondary,
+          margin: "0 0 12px",
+        }}
+      >
+        Needs Attention
+      </p>
+      <div style={{ marginBottom: 20 }}>
+        {needsAttention.length === 0 ? (
+          <div style={{ ...s.card, textAlign: "center", padding: 24, color: T.textMuted, fontSize: 13 }}>
+            Nothing unassigned or overdue right now.
+          </div>
+        ) : (
+          needsAttention.map(({ r, overdue }) => {
+            const sev = r.status === "Unassigned" ? T.danger : T.warning;
+            return (
+              <div
+                key={r.routineId}
+                onClick={() => openRoutine(r.routineId)}
+                style={{
+                  ...s.card,
+                  marginBottom: 10,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 14,
+                  borderLeft: `3px solid ${sev}`,
+                  padding: "14px 16px",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 9,
+                    background: sev + "2A",
+                    color: sev,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <i className={`ti ${r.status === "Unassigned" ? "ti-user-off" : "ti-alert-triangle"}`} style={{ fontSize: 16 }} aria-hidden="true" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.textHighlight }}>{r.routeName || r.assignedTo || r.routineId}</div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                    {r.status === "Unassigned" && (
+                      <span style={{ ...s.badge("Unassigned"), fontSize: 10 }}>No technician assigned</span>
+                    )}
+                    {overdue && <span style={{ ...s.badge("MISSING"), color: T.warning, background: T.warning + "22", fontSize: 10 }}>Overdue{r.dueDate ? ` — was due ${r.dueDate}` : ""}</span>}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 4 }}>
+                    {r.contractor || "—"} · {r.routeType || "—"}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
 
       <RouteTemplatesPanel webhookUrl={webhookUrl} pushToast={pushToast} refreshSignal={templatesRefreshKey} />
 
@@ -267,6 +440,17 @@ export default function Routines({ webhookUrl, equipmentRegistry, samples, actio
             {c}
           </button>
         ))}
+        {overdueOnly && (
+          <>
+            <div style={{ width: 1, background: T.border, margin: "0 4px" }} />
+            <button
+              style={{ ...s.btn, fontSize: 12, background: T.danger, color: "#fff", borderColor: T.danger }}
+              onClick={() => setOverdueOnly(false)}
+            >
+              Overdue only <i className="ti ti-x" aria-hidden="true" style={{ marginLeft: 4 }} />
+            </button>
+          </>
+        )}
       </div>
 
       {loading ? (
@@ -295,14 +479,12 @@ export default function Routines({ webhookUrl, equipmentRegistry, samples, actio
             <tbody>
               {visible.map((r) => {
                 const aging = agingLabel(r.createdDate, r.status);
+                const overdue = isOverdue(r, now);
                 return (
                   <tr
                     key={r.routineId}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => {
-                      setSelectedRoutineId(r.routineId);
-                      setView("detail");
-                    }}
+                    style={{ cursor: "pointer", background: overdue ? T.danger + "0d" : "transparent" }}
+                    onClick={() => openRoutine(r.routineId)}
                   >
                     <td style={s.td}>{r.routeName || r.assignedTo || "—"}</td>
                     <td style={s.td}>{r.routeType || "—"}</td>
