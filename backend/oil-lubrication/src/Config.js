@@ -32,6 +32,26 @@ var GENERIC_WRITE_ALLOWLIST = {
   deleteRow: ["Data_Entry", "Action Tracker"]
 };
 
+// RBAC hardening (Patch 5 of the plant-readiness pass, see
+// docs/oil-lubrication-migration-notes.md): the allowlist above stops a
+// scoped caller from writing to the WRONG SHEET, but said nothing about
+// the wrong ROW within an allowed sheet — a Contractor Engineer could
+// still, in principle, edit or delete another contractor's Data_Entry/
+// Action Tracker row, or another contractor's Equipment Registry entry,
+// through these generic actions (every OTHER write path in this codebase
+// — logOilChangeEvent, createRoutine, addOilProduct, … — already checks
+// this; these three generic ones were the one gap). This is which array
+// index in that sheet's own row layout holds the LP_ID/equipment code a
+// row belongs to — used by Code.js to look up that row's real contractor
+// and compare it against the caller's scope before the write goes
+// through. A sheet with no entry here (OL_ACTION_PHRASES) has no LP_ID
+// concept at all — nothing to check.
+var GENERIC_WRITE_LP_COL = {
+  "Data_Entry": 0,
+  "Action Tracker": 1,
+  "Equipment Registry": 0
+};
+
 
 
 // ─── Oil Sample Tracker update (monthly format) ──────────────────────────

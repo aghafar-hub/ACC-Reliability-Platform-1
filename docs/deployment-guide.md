@@ -380,6 +380,38 @@ yet (so no computed stock number) are all correctly skipped.
 function dropdown, click **Run** — check `Debug Log` and your inbox. Safe
 to run any time; it never writes anything, only reads and emails.
 
+## 4i. Closing the generic-write contractor-ownership gap
+
+Security hardening, not a new feature: the generic `append`/`updateRow`/
+`deleteRow` actions (the low-level write path a few specific edits still
+use — Data_Entry, Action Tracker, Equipment Registry) were already
+permission-checked and sheet-allowlisted, but never checked WHICH ROW a
+scoped caller (a Contractor Engineer) was touching. Every other write in
+this backend (logOilChangeEvent, createRoutine, addOilProduct, …) already
+verifies the row's contractor matches the caller's scope — these three
+generic actions were the one gap. A Contractor Engineer using the app
+normally was never exposed to this (the UI never lets them target another
+contractor's row), so this closes a gap in defense-in-depth rather than a
+gap someone could trip on by accident.
+
+Also locks Equipment Registry's Contractor column specifically: a scoped
+caller's `row` payload now has its Contractor value silently overwritten
+with whatever the sheet already has, before the write — reassigning
+equipment between contractors is meant to be its own deliberate action
+(nothing in the app exposes this as a normal edit today), not something
+that rides along on an unrelated field change.
+
+**Code**: `Config.js`, `Rbac.js`, and `Code.js` all changed — replace all
+three with the repo's current versions. No sheet or schema changes, no
+new trigger — this is pure backend logic.
+
+**Verify**: nothing to click through specially — every existing
+add/edit/delete flow (samples, actions, the equipment interval editor)
+should work exactly as before, since none of them were ever touching
+another contractor's row to begin with. If you want to specifically
+confirm the block works, you'd need to hand-craft a request with another
+contractor's LP_ID as a scoped user — not something the UI can do.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

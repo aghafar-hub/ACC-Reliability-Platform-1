@@ -254,6 +254,10 @@ function doPost(e) {
           logError("doPost:append:blocked", "Sheet not allowed via generic append", {sheet: data.sheet});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
+        var appendLpCol = GENERIC_WRITE_LP_COL[data.sheet];
+        if (appendLpCol !== undefined && data.row) {
+          requireLpContractorMatch_(auth.session, data.row[appendLpCol]);
+        }
         appendRow(ss, data.sheet, data.row, data.headers);
         invalidateDashboardCache();
         logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
@@ -392,6 +396,15 @@ function doPost(e) {
           logError("doPost:updateRow:blocked", "Sheet not allowed via generic updateRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
+        var updateLpId = genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
+        if (updateLpId !== null) requireLpContractorMatch_(auth.session, updateLpId);
+        if (data.sheet === "Equipment Registry") {
+          var eqSheet = ss.getSheetByName("Equipment Registry");
+          if (eqSheet) {
+            var eqRowIdx = findRowIndex(eqSheet, data.matchCols, data.matchValues, dataStartRowFor("Equipment Registry"));
+            if (eqRowIdx !== -1) data.row = lockEquipmentRegistryContractor_(auth.session, eqSheet, eqRowIdx, data.row);
+          }
+        }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         invalidateDashboardCache();
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
@@ -404,6 +417,8 @@ function doPost(e) {
           logError("doPost:deleteRow:blocked", "Sheet not allowed via generic deleteRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
+        var deleteLpId = genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
+        if (deleteLpId !== null) requireLpContractorMatch_(auth.session, deleteLpId);
         var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
         invalidateDashboardCache();
         logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});

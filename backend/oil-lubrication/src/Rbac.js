@@ -158,3 +158,53 @@ function requireLpContractorMatch_(session, lpId) {
     throw new Error('That equipment belongs to a different contractor.');
   }
 }
+
+// Patch 5 (plant-readiness pass) — closes the one contractor-ownership gap
+// left after Increment 5b: the GENERIC append/updateRow/deleteRow actions
+// (Code.js) were permission-gated (requirePermission_) and sheet-gated
+// (GENERIC_WRITE_ALLOWLIST) but never row-gated — nothing stopped a scoped
+// caller from touching another contractor's Data_Entry/Action Tracker row,
+// or another contractor's Equipment Registry entry, through these generic,
+// client-driven paths. Every OTHER write in this codebase (logOilChangeEvent,
+// createRoutine, addOilProduct, …) already checks this; these three were
+// the gap.
+//
+// Finds which value in `matchValues` identifies the row's own LP_ID/
+// equipment code, using GENERIC_WRITE_LP_COL (Config.js) to know which
+// SHEET COLUMN that is, then GENERIC_WRITE_LP_COL's position within the
+// caller-supplied matchCols to know where that lands in matchValues —
+// deliberately not a fixed matchValues index, since different call sites
+// order these differently (Action Tracker's own convention matches Ac. No.
+// first, Equipment Code second; Data_Entry matches equipment code first).
+// Returns null when the sheet has no LP_ID concept (OL_ACTION_PHRASES) or
+// the caller didn't match on that column at all — either way there's
+// nothing here to check, and the write's own row-lookup logic gives the
+// right error for a genuinely malformed request.
+function genericWriteLpId_(sheetName, matchCols, matchValues) {
+  var col = GENERIC_WRITE_LP_COL[sheetName];
+  if (col === undefined) return null;
+  var idx = (matchCols || []).indexOf(col);
+  if (idx === -1) return null;
+  return (matchValues || [])[idx];
+}
+
+// Equipment Registry's Contractor column (index 17) is meant to change
+// hands only as its own deliberate action (see OilInventory.js's own
+// comment on this) — nothing in this app exposes an in-UI "reassign
+// contractor" flow today, so the only way it could change via the generic
+// updateRow path is a client sending a different value than what's
+// already there, by bug or by intent. For a scoped caller (never for
+// ACC/Admin, who have no scope to enforce), this overwrites whatever
+// Contractor the client sent in `row` with the row's EXISTING value read
+// fresh from the sheet, the same "force the server-trusted value, ignore
+// the client's" pattern createRoutine/addOilProduct already use for their
+// own contractor field — silent, not a thrown error, since an unscoped
+// field the caller didn't mean to touch (this form only ever edits the
+// sampling interval) shouldn't block their actual edit.
+function lockEquipmentRegistryContractor_(session, sheet, rowIdx, row) {
+  var scope = getContractorScope_(session);
+  if (!scope || !row || row.length <= 17) return row;
+  var existing = sheet.getRange(rowIdx, 18).getValue(); // column 18 = 1-indexed Contractor
+  row[17] = existing;
+  return row;
+}
