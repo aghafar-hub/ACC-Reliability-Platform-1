@@ -79,15 +79,55 @@ var ORG_TO_CONTRACTOR = {
 // for an ACC user (or no session at all) — null means "no filter, see
 // everything," matching Platform Core's own getContractorScope_ exactly.
 //
-// KNOWN LIMITATION: ROUTINES and ROUTINE_TEMPLATES are the only sheets in
-// this app that carry a Contractor column at all — Equipment Registry,
-// Data_Entry (samples), Action Tracker, Oil Change LOG and Oil Inventory
-// have no per-row contractor tag today, so this scope can only be applied
-// to Routines/Route Templates until one is added to those sheets too (a
-// schema change, not something this function can paper over).
+// ROUTINES/ROUTINE_TEMPLATES carry their own Contractor column and use
+// this directly. Every other sheet (Equipment Registry, Data_Entry,
+// Action Tracker, Oil Change LOG, Oil Sample Tracker) has no Contractor
+// column of its own, but all of them key their rows by LP_ID — this scope
+// still applies to them via a join through Equipment Registry's own
+// Contractor column, see filterRowsByLpContractor_/
+// filterTrackerRowsByLpContractor_/requireLpContractorMatch_ below.
+//
+// STILL NOT COVERED: Oil Inventory (products/movements) has no LP_ID or
+// Contractor concept at all in this schema — it's a shared warehouse, not
+// per-contractor stock, so there's genuinely nothing to scope there. The
+// generic append/updateRow/deleteRow actions (Code.js's
+// GENERIC_WRITE_ALLOWLIST) are permission-gated but not contractor-
+// ownership-verified per row — they take arbitrary matchCols/matchValues,
+// not always an LP_ID at a known column, so a per-call scope check isn't
+// generic; a real fix there is a dedicated follow-up, not a one-line add.
 function getContractorScope_(session) {
   if (!session || !session.orgId || session.orgId === ORG_ACC) return null;
   return ORG_TO_CONTRACTOR[session.orgId] || null;
+}
+
+// Filters `rows` (raw sheet rows, LP_ID at `lpIndex`) down to the ones
+// whose Equipment Registry contractor matches `scope` — a no-op (rows
+// unchanged) when scope is null (ACC user, or no session). A row whose
+// LP_ID isn't in the registry at all (a data inconsistency, or a row keyed
+// some other way) is dropped once scoped, rather than guessed into either
+// side. Used for every sheet that has NO Contractor column of its own but
+// keys its rows by LP_ID — Data_Entry, Action Tracker, Oil Change LOG —
+// see EquipmentRegistry.js's getLpContractorMap_ for the join itself.
+function filterRowsByLpContractor_(rows, lpIndex, scope) {
+  if (!scope) return rows;
+  var map = getLpContractorMap_();
+  return rows.filter(function (r) {
+    return map[String(r[lpIndex] || '').trim()] === scope;
+  });
+}
+
+// Same idea, for Oil Sample Tracker specifically: that sheet is read WITH
+// its header row included (readAll() passes skipHeader=false, since the
+// header carries the month column names the client's own parser needs) —
+// a plain filterRowsByLpContractor_ call would drop row 0 too, since no
+// real LP_ID equals a header cell. This keeps row 0 unconditionally.
+function filterTrackerRowsByLpContractor_(rows, scope) {
+  if (!scope) return rows;
+  var map = getLpContractorMap_();
+  return rows.filter(function (r, i) {
+    if (i === 0) return true;
+    return map[String(r[0] || '').trim()] === scope;
+  });
 }
 
 // Throws unless the session's contractor scope allows touching a
@@ -101,5 +141,20 @@ function requireContractorMatch_(session, contractor) {
   if (!scope || !contractor) return;
   if (contractor !== scope) {
     throw new Error('That routine belongs to a different contractor.');
+  }
+}
+
+// Same idea as requireContractorMatch_, for an action identified by LP_ID
+// rather than an existing routine/template — logOilChangeEvent,
+// updateSampleTracker. An LP_ID with no registry entry (or none at all)
+// passes through — the action's own validation gives the more useful
+// error for a bad/missing id.
+function requireLpContractorMatch_(session, lpId) {
+  var scope = getContractorScope_(session);
+  if (!scope) return;
+  var contractor = getLpContractorMap_()[String(lpId || '').trim()];
+  if (!contractor) return;
+  if (contractor !== scope) {
+    throw new Error('That equipment belongs to a different contractor.');
   }
 }

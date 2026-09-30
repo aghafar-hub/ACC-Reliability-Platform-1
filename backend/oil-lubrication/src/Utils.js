@@ -78,8 +78,18 @@ function readSheet(ss, name, skipHeader) {
 }
 
 
+// getDashboard() now caches one entry per contractor scope plus one for
+// the unscoped/ACC view (see its own comment) — a single remove() would
+// only ever clear the unscoped key, leaving stale scoped numbers to serve
+// for up to DASHBOARD_CACHE_SECONDS after a real write. KNOWN_CONTRACTORS
+// mirrors Rbac.js's ORG_TO_CONTRACTOR values; extend both together if a
+// new contractor is ever added.
+var KNOWN_CONTRACTORS = ["RHI", "ASEC"];
+
 function invalidateDashboardCache() {
-  CacheService.getScriptCache().remove(DASHBOARD_CACHE_KEY);
+  var keys = [DASHBOARD_CACHE_KEY];
+  KNOWN_CONTRACTORS.forEach(function (c) { keys.push(DASHBOARD_CACHE_KEY + ":" + c); });
+  CacheService.getScriptCache().removeAll(keys);
 }
 
 
@@ -109,9 +119,10 @@ function toComparableDate(v) {
 // Returns: { rows:[...], page, limit, total, totalPages }
 // newestFirst=true reverses the row order (used for getRecentSamples).
 
-function getPaginated(sheetName, pageParam, limitParam, newestFirst) {
+function getPaginated(sheetName, pageParam, limitParam, newestFirst, scope, lpIndex) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, sheetName, true);
+  if (scope && lpIndex != null) rows = filterRowsByLpContractor_(rows, lpIndex, scope);
 
   if (newestFirst) rows = rows.slice().reverse();
 

@@ -6,13 +6,13 @@
 
 // ─── readAll (legacy, full sync — unchanged behaviour) ──────────────────────
 
-function readAll() {
+function readAll(scope) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   return {
-    samples:    readSheet(ss, "Data_Entry",         true),
-    actions:    readSheet(ss, "Action Tracker",     true),
-    oilChanges: readSheet(ss, "Oil Change LOG",     true), // raw events — client derives current-state-per-LP itself
-    tracker:    readSheet(ss, "Oil Sample Tracker", false),
+    samples:    filterRowsByLpContractor_(readSheet(ss, "Data_Entry", true), 0, scope),
+    actions:    filterRowsByLpContractor_(readSheet(ss, "Action Tracker", true), 1, scope),
+    oilChanges: filterRowsByLpContractor_(readSheet(ss, "Oil Change LOG", true), 1, scope), // raw events — client derives current-state-per-LP itself
+    tracker:    filterTrackerRowsByLpContractor_(readSheet(ss, "Oil Sample Tracker", false), scope),
   };
 }
 
@@ -27,9 +27,15 @@ function readAll() {
 // equipment (matches the 3-tier status model used by the Dashboard UI:
 // Alert=critical, Caution=warning, Normal=normal).
 
-function getDashboard() {
+// scope (nullable — see Rbac.js#getContractorScope_) confines every count
+// below to that contractor's own equipment. Cache key includes it: the
+// unscoped/ACC view and each contractor's own view are genuinely different
+// numbers, so they can't share one cache entry — see
+// invalidateDashboardCache's own comment for the matching clear-all logic.
+function getDashboard(scope) {
+  var cacheKey = DASHBOARD_CACHE_KEY + (scope ? (":" + scope) : "");
   var cache = CacheService.getScriptCache();
-  var cached = cache.get(DASHBOARD_CACHE_KEY);
+  var cached = cache.get(cacheKey);
   if (cached) {
     var parsed = JSON.parse(cached);
     parsed.fromCache = true;
@@ -37,6 +43,10 @@ function getDashboard() {
   }
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var lpMap = scope ? getLpContractorMap_() : null;
+  function inScope(lpId) {
+    return !scope || lpMap[String(lpId || "").trim()] === scope;
+  }
 
   // Samples — col A = LP_ID (equipment code — unaffected by the Report
   // Equipment ID column inserted at B), col E = sample date, col F = report
@@ -47,7 +57,7 @@ function getDashboard() {
   for (var i = 0; i < sampleRows.length; i++) {
     var r = sampleRows[i];
     var code = r[0];
-    if (!code) continue;
+    if (!code || !inScope(code)) continue;
     var dateVal = r[4];
     var status = r[5];
     var existing = latestByEquip[code];
@@ -72,7 +82,7 @@ function getDashboard() {
   var latestDueByLp = {};
   for (var j = 0; j < ocRows.length; j++) {
     var evLpId = String(ocRows[j][1] || "").trim();
-    if (!evLpId) continue;
+    if (!evLpId || !inScope(evLpId)) continue;
     var evDate = ocRows[j][4];
     var existingEv = latestDueByLp[evLpId];
     if (!existingEv || compareDates(evDate, existingEv.date) > 0) {
@@ -93,9 +103,12 @@ function getDashboard() {
   var actRows = readSheet(ss, "Action Tracker", true);
   var pendingActions = 0;
   for (var k = 0; k < actRows.length; k++) {
+    if (!inScope(actRows[k][1])) continue;
     var astatus = (actRows[k][10] || "").toString().trim();
     if (astatus === "Open" || astatus === "In Progress" || astatus === "Waiting Stoppage") pendingActions++;
   }
+
+  var scopedSampleCount = scope ? sampleRows.filter(function (r) { return inScope(r[0]); }).length : sampleRows.length;
 
   var result = {
     criticalCount: criticalCount,
@@ -103,13 +116,13 @@ function getDashboard() {
     normalCount: normalCount,
     overdueOilChanges: overdueOilChanges,
     pendingActions: pendingActions,
-    totalSamples: sampleRows.length,
+    totalSamples: scopedSampleCount,
     totalEquipment: Object.keys(latestByEquip).length,
     lastUpdated: new Date().toISOString(),
     fromCache: false
   };
 
-  cache.put(DASHBOARD_CACHE_KEY, JSON.stringify(result), DASHBOARD_CACHE_SECONDS);
+  cache.put(cacheKey, JSON.stringify(result), DASHBOARD_CACHE_SECONDS);
   return result;
 }
 
@@ -120,10 +133,17 @@ function getDashboard() {
 // Returns: { samples:[...], actions:[...], oilChanges:[...] } filtered to the
 // given equipment code (column A match on each sheet).
 
-function getEquipmentData(equipmentId) {
+function getEquipmentData(equipmentId, scope) {
   if (!equipmentId) return { samples: [], actions: [], oilChanges: [] };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var id = String(equipmentId).trim();
+
+  // equipmentId here IS the LP_ID (see EquipmentRegistry.js's file
+  // comment) — a scoped caller asking for one outside their own
+  // contractor gets treated as not found, same as a bad id would.
+  if (scope && getLpContractorMap_()[id] !== scope) {
+    return { samples: [], actions: [], oilChanges: [] };
+  }
 
   var samples = readSheet(ss, "Data_Entry", true).filter(function(r) {
     return String(r[0]).trim() === id;
@@ -145,10 +165,11 @@ function getEquipmentData(equipmentId) {
 // Matches against Equipment Code (col A) or Description (col C), case-insensitive.
 // Returns deduplicated equipment codes with their latest sample row.
 
-function searchEquipment(q) {
+function searchEquipment(q, scope) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Data_Entry", true);
   var query = String(q || "").trim().toLowerCase();
+  var lpMap = scope ? getLpContractorMap_() : null;
 
   var seen = {};
   var results = [];
@@ -158,6 +179,7 @@ function searchEquipment(q) {
     var code = String(r[0] || "");
     var desc = String(r[2] || ""); // col C — col B is now Report Equipment ID
     if (!code) continue;
+    if (scope && lpMap[code] !== scope) continue;
     if (query && code.toLowerCase().indexOf(query) === -1 && desc.toLowerCase().indexOf(query) === -1) continue;
     if (seen[code]) continue; // one (most recent) row per equipment
     seen[code] = true;
@@ -186,7 +208,7 @@ function searchEquipment(q) {
 //  - If `since` is missing/invalid, fullSyncRequired:true is returned and the
 //    client should fall back to readAll().
 
-function getChanges(since) {
+function getChanges(since, scope) {
   var serverTime = new Date().toISOString();
   var sinceDate = since ? new Date(since) : null;
 
@@ -196,9 +218,9 @@ function getChanges(since) {
 
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   return {
-    samples:    filterChangedSince(ss, "Data_Entry",     sinceDate),
-    actions:    filterChangedSince(ss, "Action Tracker", sinceDate),
-    oilChanges: filterChangedSince(ss, "Oil Change LOG", sinceDate),
+    samples:    filterRowsByLpContractor_(filterChangedSince(ss, "Data_Entry", sinceDate), 0, scope),
+    actions:    filterRowsByLpContractor_(filterChangedSince(ss, "Action Tracker", sinceDate), 1, scope),
+    oilChanges: filterRowsByLpContractor_(filterChangedSince(ss, "Oil Change LOG", sinceDate), 1, scope),
     serverTime: serverTime,
     since: since,
     fullSyncRequired: false

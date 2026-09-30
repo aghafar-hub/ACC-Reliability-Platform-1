@@ -98,9 +98,10 @@ function addMonths_(date, months) {
 
 // All Oil Change LOG events for one LP_ID, newest first — backs both the
 // write-verification read in api.js and an eventual per-point history view.
-function getOilChangesForLp(lpId) {
+function getOilChangesForLp(lpId, scope) {
   var id = String(lpId || "").trim();
   if (!id) return { events: [] };
+  if (scope && getLpContractorMap_()[id] !== scope) return { events: [], count: 0 };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Oil Change LOG", true).filter(function(r) {
     return String(r[1] || "").trim() === id;

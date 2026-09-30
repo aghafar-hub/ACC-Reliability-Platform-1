@@ -31,6 +31,26 @@
 // L=Lubricant_Type, M=Lubricant_Brand, N=Lubricant_Quantity_L,
 // O=Oil_Analysis_Required, P=Oil_Analysis_Interval, Q=Oil_Change_Interval,
 // R=Contractor, S=LP_Status, T=Created_Date, U=Modified_Date
+// LP_ID -> Contractor (column R, same column readEquipmentRegistry() below
+// exposes as `contractor`) — the join key that makes contractor scoping
+// possible for every OTHER sheet too (Data_Entry, Action Tracker, Oil
+// Change LOG, Oil Sample Tracker all key their rows by LP_ID, none of them
+// carry their own Contractor column), see Rbac.js's filterRowsByLpContractor_.
+function getLpContractorMap_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Equipment Registry");
+  if (!sheet) return {};
+  var vals = sheet.getDataRange().getValues();
+  var map = {};
+  for (var i = 2; i < vals.length; i++) {
+    var lpId = String(vals[i][0] || "").trim();
+    if (!lpId) continue;
+    map[lpId] = String(vals[i][17] || "").trim();
+  }
+  return map;
+}
+
+
 function readEquipmentRegistry() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("Equipment Registry");

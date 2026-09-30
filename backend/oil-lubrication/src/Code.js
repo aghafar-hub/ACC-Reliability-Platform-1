@@ -109,49 +109,55 @@ function doGet(e) {
   }
 
   try {
+    // Computed once, reused by every case below — see Rbac.js's
+    // getContractorScope_ for what null vs. a contractor label means.
+    var scope = getContractorScope_(auth.session);
+
     switch (action) {
       case "readAll":
-        result = readAll();
+        result = readAll(scope);
         break;
       case "getDashboard":
-        result = getDashboard();
+        result = getDashboard(scope);
         break;
       case "getEquipment":
-        result = getEquipmentData(e.parameter.id || "");
+        result = getEquipmentData(e.parameter.id || "", scope);
         break;
       case "searchEquipment":
-        result = searchEquipment(e.parameter.q || "");
+        result = searchEquipment(e.parameter.q || "", scope);
         break;
       case "getActions":
-        result = getPaginated("Action Tracker", e.parameter.page, e.parameter.limit);
+        result = getPaginated("Action Tracker", e.parameter.page, e.parameter.limit, false, scope, 1);
         break;
       case "getOilChanges":
-        result = getPaginated("Oil Change LOG", e.parameter.page, e.parameter.limit);
+        result = getPaginated("Oil Change LOG", e.parameter.page, e.parameter.limit, false, scope, 1);
         break;
       case "getOilChangesForLp":
-        result = getOilChangesForLp(e.parameter.lpId || "");
+        result = getOilChangesForLp(e.parameter.lpId || "", scope);
         break;
       case "getRecentSamples":
-        result = getPaginated("Data_Entry", e.parameter.page, e.parameter.limit, true); // newest first
+        result = getPaginated("Data_Entry", e.parameter.page, e.parameter.limit, true, scope, 0); // newest first
         break;
       case "getChanges":
-        result = getChanges(e.parameter.since || "");
+        result = getChanges(e.parameter.since || "", scope);
         break;
       case "readEquipmentRegistry":
         result = readEquipmentRegistry();
+        if (scope) {
+          result.equipment = result.equipment.filter(function (eq) { return eq.contractor === scope; });
+          result.count = result.equipment.length;
+        }
         break;
       case "getRoutines":
         result = getRoutines();
-        var routinesScope = getContractorScope_(auth.session);
-        if (routinesScope) {
-          result.routines = result.routines.filter(function (r) { return String(r[3] || "").trim() === routinesScope; });
+        if (scope) {
+          result.routines = result.routines.filter(function (r) { return String(r[3] || "").trim() === scope; });
           result.count = result.routines.length;
         }
         break;
       case "getRoutineItems":
         var itemsRoutineId = e.parameter.routineId || "";
-        var itemsScope = getContractorScope_(auth.session);
-        if (itemsScope && getRoutineContractor_(itemsRoutineId) !== itemsScope) {
+        if (scope && getRoutineContractor_(itemsRoutineId) !== scope) {
           result = { items: [], count: 0 };
         } else {
           result = getRoutineItems(itemsRoutineId);
@@ -159,9 +165,8 @@ function doGet(e) {
         break;
       case "getRouteTemplates":
         result = readRouteTemplates();
-        var templatesScope = getContractorScope_(auth.session);
-        if (templatesScope) {
-          result.templates = result.templates.filter(function (r) { return String(r[3] || "").trim() === templatesScope; });
+        if (scope) {
+          result.templates = result.templates.filter(function (r) { return String(r[3] || "").trim() === scope; });
           result.count = result.templates.length;
         }
         break;
@@ -245,6 +250,7 @@ function doPost(e) {
 
       if (data.action === "updateSampleTracker") {
         requirePermission_(auth.session, "Edit");
+        requireLpContractorMatch_(auth.session, data.equipmentCode);
         var updateStatus = updateSampleTrackerMonthly(ss, data);
         logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", {data: data, actingUser: actingUser});
         return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
@@ -347,6 +353,7 @@ function doPost(e) {
 
       if (data.action === "logOilChangeEvent") {
         requirePermission_(auth.session, "Edit");
+        requireLpContractorMatch_(auth.session, data.lpId);
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
