@@ -667,6 +667,7 @@ export async function addOilProduct(webhookUrl, product) {
     unitCost: product.unitCost || "",
     status: product.status || "Active",
     notes: product.notes || "",
+    contractor: product.contractor || "",
   });
 
   const products = await getOilInventory(webhookUrl);

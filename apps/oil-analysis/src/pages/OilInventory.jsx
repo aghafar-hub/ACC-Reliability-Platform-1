@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import { newId } from "../parsers";
@@ -15,8 +15,32 @@ const STATUS_OPTIONS = ["Active", "Discontinued"];
 // — only an ACC/Admin user's choice here actually takes effect.
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 
-function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
+// Distinct (Lubricant_Type, Lubricant_Brand, Contractor) combinations
+// already in use across the Equipment Registry — lets Add Product offer a
+// pick-from-list instead of free text. This is the actual fix for "an
+// engineer types the same oil with different spacing and the app treats
+// it as a different product": picking from here guarantees the exact
+// string already on real LP rows, so it always matches for auto-
+// deduction/forecast (which key on lubricant+brand+contractor). Sorted by
+// contractor then type so the two contractors' lists aren't interleaved.
+function knownOilsFromRegistry(equipmentRegistry) {
+  const seen = new Map(); // "contractor|type|brand" -> {lubricant, lubricantBrand, contractor}
+  (equipmentRegistry || []).forEach((reg) => {
+    const lubricant = (reg.lubricant || "").trim();
+    const contractor = (reg.contractor || "").trim();
+    if (!lubricant || !contractor) return;
+    const lubricantBrand = (reg.lubricantBrand || "").trim();
+    const key = `${contractor}|${lubricant.toLowerCase()}|${lubricantBrand.toLowerCase()}`;
+    if (!seen.has(key)) seen.set(key, { lubricant, lubricantBrand, contractor });
+  });
+  return Array.from(seen.values()).sort((a, b) => a.contractor.localeCompare(b.contractor) || a.lubricant.localeCompare(b.lubricant));
+}
+
+function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, onCancel }) {
   const { s, T } = useTheme();
+  const knownOils = useMemo(() => knownOilsFromRegistry(equipmentRegistry), [equipmentRegistry]);
+  const [oilMode, setOilMode] = useState(knownOils.length > 0 ? "registry" : "custom");
+  const [selectedOilKey, setSelectedOilKey] = useState("");
   const [form, setForm] = useState({
     lubricantType: "",
     lubricantBrand: "",
@@ -37,9 +61,20 @@ function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  function oilKeyFor(o) {
+    return `${o.contractor}|${o.lubricant}|${o.lubricantBrand}`;
+  }
+
+  function handleSelectKnownOil(key) {
+    setSelectedOilKey(key);
+    const picked = knownOils.find((o) => oilKeyFor(o) === key);
+    if (!picked) return;
+    setForm((f) => ({ ...f, lubricantType: picked.lubricant, lubricantBrand: picked.lubricantBrand, contractor: picked.contractor }));
+  }
+
   async function handleCreate() {
     if (!form.lubricantType.trim()) {
-      pushToast("Lubricant type is required.", "error");
+      pushToast(oilMode === "registry" ? "Select an oil from the list first." : "Lubricant type is required.", "error");
       return;
     }
     setSaving(true);
@@ -64,14 +99,46 @@ function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
         </button>
       </div>
       <div style={{ ...s.card, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <div>
-          <label style={s.label}>Lubricant Type</label>
-          <input style={s.input} type="text" placeholder="e.g. Mobil SHC 630" value={form.lubricantType} onChange={(e) => set("lubricantType", e.target.value)} />
-        </div>
-        <div>
-          <label style={s.label}>Lubricant Brand</label>
-          <input style={s.input} type="text" placeholder="e.g. Mobil" value={form.lubricantBrand} onChange={(e) => set("lubricantBrand", e.target.value)} />
-        </div>
+        {knownOils.length > 0 && (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={s.label}>Oil</label>
+            <div style={{ display: "flex", gap: 10, marginBottom: 6 }}>
+              <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                <input type="radio" checked={oilMode === "registry"} onChange={() => setOilMode("registry")} /> Pick from registry
+              </label>
+              <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                <input type="radio" checked={oilMode === "custom"} onChange={() => setOilMode("custom")} /> Not in registry yet
+              </label>
+            </div>
+            {oilMode === "registry" && (
+              <select style={s.select} value={selectedOilKey} onChange={(e) => handleSelectKnownOil(e.target.value)}>
+                <option value="">Select an oil already used on equipment…</option>
+                {knownOils.map((o) => (
+                  <option key={oilKeyFor(o)} value={oilKeyFor(o)}>
+                    {o.lubricant}
+                    {o.lubricantBrand ? ` (${o.lubricantBrand})` : ""} — {o.contractor}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
+              Picking from the registry guarantees the exact spelling already used on equipment, so it always matches for auto-deduction
+              and the forecast — typing it yourself (even a small spacing difference) can silently create a second, unmatched product.
+            </p>
+          </div>
+        )}
+        {(oilMode === "custom" || knownOils.length === 0) && (
+          <>
+            <div>
+              <label style={s.label}>Lubricant Type</label>
+              <input style={s.input} type="text" placeholder="e.g. Mobil SHC 630" value={form.lubricantType} onChange={(e) => set("lubricantType", e.target.value)} />
+            </div>
+            <div>
+              <label style={s.label}>Lubricant Brand</label>
+              <input style={s.input} type="text" placeholder="e.g. Mobil" value={form.lubricantBrand} onChange={(e) => set("lubricantBrand", e.target.value)} />
+            </div>
+          </>
+        )}
         <div>
           <label style={s.label}>Container Type</label>
           <select style={s.select} value={form.containerType} onChange={(e) => set("containerType", e.target.value)}>
@@ -287,6 +354,7 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
     return (
       <AddProductForm
         webhookUrl={webhookUrl}
+        equipmentRegistry={equipmentRegistry}
         pushToast={pushToast}
         onCreated={(productId) => {
           setSelectedProductId(productId);
