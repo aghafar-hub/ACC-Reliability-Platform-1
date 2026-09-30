@@ -52,22 +52,23 @@ function getProductContractor_(productId) {
 //
 // Projects how much of each oil (Lubricant_Type + Brand, per contractor)
 // will be needed over the next `months`, so it can be compared against
-// current stock before it runs out. Two sources per LP, never double-
-// counted since they describe the same underlying demand:
-//  1. Registry interval projection — for any LP with at least one real
-//     Oil Change LOG event, walk forward from its own next-due-date by
-//     its registered interval, counting every occurrence that falls
-//     within the window (a short-interval LP can contribute more than
-//     once). Mirrors apps/oil-analysis's own computeOilChangeNextDue
-//     convention, recomputed here since this runs server-side.
-//  2. Open assigned routines — an LP with an open ("Assigned"/
-//     "InProgress") Oil Change routine item but NO change history yet
-//     (so source 1 has nothing to project from) still counts once: a
-//     routine already exists to do the work, which source 1 alone would
-//     miss entirely.
-// LPs with neither a change history nor an open routine contribute
-// nothing — there's no date to anchor a projection to, same limitation
-// the rest of the app already has for a never-yet-changed point.
+// current stock before it runs out. Every LP with a registered interval
+// contributes something — "registry intervals x quantity," the baseline
+// the user asked for — refined with real history where it exists:
+//  1. Has a logged Oil Change LOG event: precise — walk forward from its
+//     own last change by its own interval, counting every occurrence
+//     that falls within the window (so a short-interval LP can
+//     contribute more than once).
+//  2. No logged event yet (the normal case for most real equipment today
+//     — this log only fills in as changes get logged going forward): a
+//     steady-state rate estimate, months / intervalMonths — fractional
+//     on purpose (a 6-month interval over a 3-month window is 0.5 of a
+//     change), since there's no history to say exactly when in its cycle
+//     the LP currently is.
+//  3. No usable interval at all, but an open ("Assigned"/"InProgress")
+//     Oil Change routine item already targets it: counts once — known,
+//     scheduled demand neither of the above would otherwise see.
+// An LP with none of the three contributes nothing.
 function getOilInventoryForecast(monthsParam, scope) {
   var months = Math.max(1, parseInt(monthsParam, 10) || 3);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -114,6 +115,9 @@ function getOilInventoryForecast(monthsParam, scope) {
     var intervalMonths = intervalMonthsForOilChange_(reg.oilChangeInterval);
     var lastChange = lastEventByLp[reg.code];
     if (lastChange && intervalMonths) {
+      // Precise: walk forward from the LP's own last logged change, by its
+      // own interval, counting every occurrence that falls within the
+      // window — a short-interval LP can contribute more than once.
       var d = new Date(lastChange.getTime());
       d.setMonth(d.getMonth() + intervalMonths);
       var iterations = 0;
@@ -122,7 +126,19 @@ function getOilInventoryForecast(monthsParam, scope) {
         d.setMonth(d.getMonth() + intervalMonths);
         iterations++;
       }
-    } else if (!lastChange && lpsOnOpenRoutine[reg.code]) {
+    } else if (intervalMonths) {
+      // No logged change history for this LP (expected for most real
+      // equipment today — Oil Change LOG only starts filling in as events
+      // get logged through this app going forward) — fall back to a
+      // steady-state consumption-rate estimate instead of contributing
+      // nothing: "registry intervals x quantity," the baseline the user
+      // asked for. Fractional on purpose (e.g. a 6-month interval over a
+      // 3-month window is 0.5 of a change) — this is a demand-rate
+      // estimate, not a claim about exactly which month it happens.
+      occurrences = months / intervalMonths;
+    } else if (lpsOnOpenRoutine[reg.code]) {
+      // No usable interval at all, but a routine is already scheduled —
+      // known, real demand the rate estimate above has no way to see.
       occurrences = 1;
     }
     if (occurrences === 0) return;
