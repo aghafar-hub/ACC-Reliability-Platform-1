@@ -827,6 +827,7 @@ export function rowToOilProduct(row) {
     notes: row[13] || "",
     createdDate: formatDate(row[14]),
     modifiedDate: row[15] || "",
+    contractor: row[16] || "",
   };
 }
 

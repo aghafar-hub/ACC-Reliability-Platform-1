@@ -23,6 +23,7 @@
 //   ?action=getRoutineItems&routineId=XXXX  → all OA_ROUTINE_ITEMS rows for one routine
 //   ?action=getRouteTemplates               → all ROUTINE_TEMPLATES rows (recurring routes)
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
+//   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
 //   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
 //
 // STEP 5 (see docs/oil-lubrication-migration-notes.md): Oil Inventory —
@@ -175,6 +176,9 @@ function doGet(e) {
         break;
       case "getOilInventoryMovements":
         result = getOilInventoryMovements(e.parameter.productId || "", scope);
+        break;
+      case "getOilInventoryForecast":
+        result = getOilInventoryForecast(e.parameter.months, scope);
         break;
       case "readActionRegistry":
         result = readActionRegistry();
@@ -363,7 +367,13 @@ function doPost(e) {
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
-        return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {status: "ok", eventId: logResult.eventId, nextDueDate: logResult.nextDueDate});
+        return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {
+          status: "ok",
+          eventId: logResult.eventId,
+          nextDueDate: logResult.nextDueDate,
+          inventoryDeducted: logResult.inventoryDeducted,
+          inventoryNote: logResult.inventoryNote,
+        });
       }
 
       if (data.action === "updateRow") {

@@ -28,6 +28,9 @@ function logOilChangeEvent(ss, data) {
   var months = intervalMonthsForOilChange_(reg ? reg.oilChangeInterval : "");
   var nextDueDate = months ? addMonths_(eventDate, months) : "";
 
+  var quantityUsed = data.quantityUsed || (reg ? reg.lubricantQuantityL : "") || "";
+  var contractor = data.contractor || (reg ? reg.contractor : "") || "";
+
   var eventId = "EVT-" + Utilities.getUuid();
   var row = [
     eventId,
@@ -35,17 +38,38 @@ function logOilChangeEvent(ss, data) {
     data.routineItemId || "",
     data.eventType || "Change",
     eventDate,
-    data.quantityUsed || (reg ? reg.lubricantQuantityL : "") || "",
+    quantityUsed,
     data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
     data.doneBy || "",
-    data.contractor || (reg ? reg.contractor : "") || "",
+    contractor,
     data.conditionNotes || "",
     data.photoUrl || "",
     nextDueDate,
     "", // Created_Date — filled by appendRow's own stampLastModified, same as every other tracked sheet
   ];
   appendRow(ss, "Oil Change LOG", row);
-  return { status: "ok", eventId: eventId, nextDueDate: nextDueDate instanceof Date ? nextDueDate.toISOString() : nextDueDate };
+
+  // Best-effort: draw down the matching Oil Inventory product's stock —
+  // see tryAutoDeductInventory_'s own comment (OilInventory.js) for why
+  // this never fails the oil-change write itself.
+  var inventory = tryAutoDeductInventory_(ss, {
+    lpId: lpId,
+    lubricant: reg ? reg.lubricant : "",
+    lubricantBrand: reg ? reg.lubricantBrand : "",
+    contractor: contractor,
+    quantityUsed: quantityUsed,
+    eventId: eventId,
+    eventDate: eventDate,
+    doneBy: data.doneBy || "",
+  });
+
+  return {
+    status: "ok",
+    eventId: eventId,
+    nextDueDate: nextDueDate instanceof Date ? nextDueDate.toISOString() : nextDueDate,
+    inventoryDeducted: inventory.deducted,
+    inventoryNote: inventory.deducted ? "" : inventory.reason,
+  };
 }
 
 

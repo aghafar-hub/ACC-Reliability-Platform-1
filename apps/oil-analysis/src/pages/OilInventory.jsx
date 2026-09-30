@@ -148,9 +148,113 @@ function AddProductForm({ webhookUrl, pushToast, onCreated, onCancel }) {
   );
 }
 
+// Projected consumption vs. current stock over the next N months — see
+// backend/oil-lubrication/src/OilInventory.js's getOilInventoryForecast
+// for how this is computed (registry interval projection, refined by any
+// LP already on an open assigned routine). A Contractor Engineer only
+// ever sees their own contractor's lines (enforced server-side); ACC/
+// Admin sees every contractor's, one row per oil per contractor.
+const FORECAST_MONTHS_OPTIONS = [1, 3, 6];
+
+function ForecastView({ webhookUrl }) {
+  const { T, s } = useTheme();
+  const [months, setMonths] = useState(3);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .getOilInventoryForecast(webhookUrl, months)
+      .then((res) => { if (!cancelled) setData(res); })
+      .catch((err) => { if (!cancelled) setError(err.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [webhookUrl, months]);
+
+  const rows = data?.forecast || [];
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <label style={s.label}>Forecast window</label>
+        <select style={{ ...s.select, width: 140 }} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
+          {FORECAST_MONTHS_OPTIONS.map((m) => (
+            <option key={m} value={m}>
+              Next {m} {m === 1 ? "month" : "months"}
+            </option>
+          ))}
+        </select>
+        {data?.windowEnd && (
+          <span style={{ fontSize: 12, color: T.textSecondary }}>through {data.windowEnd}</span>
+        )}
+      </div>
+
+      {loading ? (
+        <p style={{ color: T.textSecondary }}>Loading forecast…</p>
+      ) : error ? (
+        <p style={{ color: T.danger }}>{error}</p>
+      ) : rows.length === 0 ? (
+        <div style={s.card}>
+          <p style={{ color: T.textSecondary, margin: 0 }}>
+            Nothing projected as due in this window — either no lubrication points are due, or none have an oil-change history or open
+            routine to project from yet.
+          </p>
+        </div>
+      ) : (
+        <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>Oil</th>
+                <th style={s.th}>Contractor</th>
+                <th style={s.th}>LPs Contributing</th>
+                <th style={s.th}>Projected Need</th>
+                <th style={s.th}>Current Stock</th>
+                <th style={s.th}>Shortfall</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const short = r.shortfall != null && r.shortfall > 0;
+                return (
+                  <tr key={`${r.contractor}|${r.lubricant}|${r.lubricantBrand}`}>
+                    <td style={s.td}>
+                      <div style={{ fontWeight: 700 }}>{r.lubricant}</div>
+                      <div style={{ fontSize: 11.5, color: T.textSecondary }}>{r.lubricantBrand}</div>
+                    </td>
+                    <td style={s.td}>{r.contractor}</td>
+                    <td style={s.td}>{r.lpCount}</td>
+                    <td style={s.td}>{r.quantityNeeded} L</td>
+                    <td style={s.td}>{r.currentStock != null ? `${r.currentStock} L` : "No matching product"}</td>
+                    <td style={s.td}>
+                      {r.shortfall == null ? (
+                        "—"
+                      ) : short ? (
+                        <span style={{ ...s.badge("Overdue") }}>
+                          <i className="ti ti-alert-triangle" aria-hidden="true" /> {r.shortfall} L short
+                        </span>
+                      ) : (
+                        <span style={{ color: T.success }}>Covered</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast }) {
   const { T, s } = useTheme();
-  const [view, setView] = useState("list"); // "list" | "add" | "detail"
+  const [view, setView] = useState("list"); // "list" | "add" | "detail" | "forecast"
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +298,20 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
     );
   }
 
+  if (view === "forecast") {
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
+          <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Inventory Forecast</p>
+          <button style={s.btn} onClick={() => setView("list")}>
+            <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Inventory
+          </button>
+        </div>
+        <ForecastView webhookUrl={webhookUrl} />
+      </div>
+    );
+  }
+
   if (view === "detail" && selectedProductId) {
     return (
       <OilProductDetail
@@ -220,9 +338,14 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Inventory</p>
-        <button style={s.btnPrimary} onClick={() => setView("add")}>
-          <i className="ti ti-plus" aria-hidden="true" /> Add Product
-        </button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button style={s.btn} onClick={() => setView("forecast")}>
+            <i className="ti ti-chart-line" aria-hidden="true" /> Forecast
+          </button>
+          <button style={s.btnPrimary} onClick={() => setView("add")}>
+            <i className="ti ti-plus" aria-hidden="true" /> Add Product
+          </button>
+        </div>
       </div>
 
       <input

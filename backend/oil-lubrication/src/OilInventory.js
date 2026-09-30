@@ -48,6 +48,124 @@ function getProductContractor_(productId) {
 }
 
 
+// ─── Consumption forecast ───────────────────────────────────────────────
+//
+// Projects how much of each oil (Lubricant_Type + Brand, per contractor)
+// will be needed over the next `months`, so it can be compared against
+// current stock before it runs out. Two sources per LP, never double-
+// counted since they describe the same underlying demand:
+//  1. Registry interval projection — for any LP with at least one real
+//     Oil Change LOG event, walk forward from its own next-due-date by
+//     its registered interval, counting every occurrence that falls
+//     within the window (a short-interval LP can contribute more than
+//     once). Mirrors apps/oil-analysis's own computeOilChangeNextDue
+//     convention, recomputed here since this runs server-side.
+//  2. Open assigned routines — an LP with an open ("Assigned"/
+//     "InProgress") Oil Change routine item but NO change history yet
+//     (so source 1 has nothing to project from) still counts once: a
+//     routine already exists to do the work, which source 1 alone would
+//     miss entirely.
+// LPs with neither a change history nor an open routine contribute
+// nothing — there's no date to anchor a projection to, same limitation
+// the rest of the app already has for a never-yet-changed point.
+function getOilInventoryForecast(monthsParam, scope) {
+  var months = Math.max(1, parseInt(monthsParam, 10) || 3);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var windowEnd = new Date();
+  windowEnd.setMonth(windowEnd.getMonth() + months);
+
+  var registryRows = readEquipmentRegistry().equipment;
+
+  var ocRows = readSheet(ss, "Oil Change LOG", true);
+  var lastEventByLp = {};
+  ocRows.forEach(function (r) {
+    var lpId = String(r[1] || "").trim();
+    if (!lpId) return;
+    var d = r[4] instanceof Date ? r[4] : new Date(r[4]);
+    if (isNaN(d.getTime())) return;
+    var prev = lastEventByLp[lpId];
+    if (!prev || d.getTime() > prev.getTime()) lastEventByLp[lpId] = d;
+  });
+
+  var routineRows = readSheet(ss, "ROUTINES", true);
+  var openOilChangeRoutineIds = {};
+  routineRows.forEach(function (r) {
+    var status = String(r[5] || "").trim();
+    var routeType = String(r[13] || "").trim();
+    if ((status === "Assigned" || status === "InProgress") && routeType === "Oil Change") {
+      openOilChangeRoutineIds[String(r[0] || "").trim()] = true;
+    }
+  });
+  var itemRows = readSheet(ss, "OA_ROUTINE_ITEMS", true);
+  var lpsOnOpenRoutine = {};
+  itemRows.forEach(function (r) {
+    var routineId = String(r[1] || "").trim();
+    if (openOilChangeRoutineIds[routineId]) lpsOnOpenRoutine[String(r[2] || "").trim()] = true;
+  });
+
+  var needed = {}; // "contractor|type|brand" -> { contractor, lubricant, lubricantBrand, quantityNeeded, lpCount }
+  registryRows.forEach(function (reg) {
+    if (scope && reg.contractor !== scope) return;
+    if (!reg.lubricant || !reg.contractor) return;
+    var qtyPerChange = parseFloat(reg.lubricantQuantityL) || 0;
+    if (qtyPerChange <= 0) return;
+
+    var occurrences = 0;
+    var intervalMonths = intervalMonthsForOilChange_(reg.oilChangeInterval);
+    var lastChange = lastEventByLp[reg.code];
+    if (lastChange && intervalMonths) {
+      var d = new Date(lastChange.getTime());
+      d.setMonth(d.getMonth() + intervalMonths);
+      var iterations = 0;
+      while (d.getTime() <= windowEnd.getTime() && iterations < 36) {
+        occurrences++;
+        d.setMonth(d.getMonth() + intervalMonths);
+        iterations++;
+      }
+    } else if (!lastChange && lpsOnOpenRoutine[reg.code]) {
+      occurrences = 1;
+    }
+    if (occurrences === 0) return;
+
+    var key = reg.contractor + "|" + reg.lubricant.trim().toLowerCase() + "|" + (reg.lubricantBrand || "").trim().toLowerCase();
+    if (!needed[key]) {
+      needed[key] = { contractor: reg.contractor, lubricant: reg.lubricant, lubricantBrand: reg.lubricantBrand || "", quantityNeeded: 0, lpCount: 0 };
+    }
+    needed[key].quantityNeeded += qtyPerChange * occurrences;
+    needed[key].lpCount++;
+  });
+
+  var productRows = readSheet(ss, "Oil Inventory", true);
+  var forecast = Object.keys(needed).map(function (key) {
+    var n = needed[key];
+    var product = null;
+    for (var i = 0; i < productRows.length; i++) {
+      var r = productRows[i];
+      if (String(r[1] || "").trim().toLowerCase() === n.lubricant.trim().toLowerCase()
+        && String(r[2] || "").trim().toLowerCase() === n.lubricantBrand.trim().toLowerCase()
+        && String(r[16] || "").trim() === n.contractor) {
+        product = r;
+        break;
+      }
+    }
+    var currentStock = product ? (parseFloat(product[6]) || 0) : null;
+    var quantityNeeded = Math.round(n.quantityNeeded * 100) / 100;
+    return {
+      contractor: n.contractor,
+      lubricant: n.lubricant,
+      lubricantBrand: n.lubricantBrand,
+      quantityNeeded: quantityNeeded,
+      lpCount: n.lpCount,
+      productId: product ? String(product[0] || "").trim() : "",
+      currentStock: currentStock,
+      shortfall: currentStock === null ? null : Math.max(0, Math.round((quantityNeeded - currentStock) * 100) / 100),
+    };
+  });
+
+  return { forecast: forecast, months: months, windowEnd: windowEnd.toISOString().slice(0, 10) };
+}
+
+
 function getOilInventoryMovements(productId, scope) {
   var id = String(productId || "").trim();
   if (!id) return { movements: [] };
@@ -111,6 +229,66 @@ function updateOilProduct(ss, data) {
   sheet.getRange(rowIdx, 14).setValue(data.notes || "");
   stampLastModified(sheet, "Oil Inventory", rowIdx);
   return { status: "ok" };
+}
+
+
+// Finds the one Oil Inventory product matching a given lubricant type +
+// brand + contractor (case-insensitive, trimmed) — the same identity
+// tryAutoDeductInventory_ below uses to know which contractor's stock an
+// oil-change event should draw down. Ambiguous by design if a contractor
+// somehow has two rows for the exact same type+brand (not expected, not
+// prevented elsewhere either) — returns the first match.
+function findMatchingProduct_(ss, lubricant, lubricantBrand, contractor) {
+  var type = String(lubricant || "").trim().toLowerCase();
+  var brand = String(lubricantBrand || "").trim().toLowerCase();
+  if (!type || !contractor) return null;
+  var rows = readSheet(ss, "Oil Inventory", true);
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (String(r[1] || "").trim().toLowerCase() !== type) continue;
+    if (brand && String(r[2] || "").trim().toLowerCase() !== brand) continue;
+    if (String(r[16] || "").trim() !== contractor) continue;
+    return { productId: String(r[0] || "").trim(), unit: String(r[5] || "").trim() };
+  }
+  return null;
+}
+
+
+// Best-effort auto-deduction of Oil Inventory stock when an oil-change
+// event is logged (see OilChanges.js#logOilChangeEvent) — never blocks or
+// fails the oil-change itself, since that's the primary action here and
+// this is a secondary side-effect (same "best-effort, never block the
+// primary write" convention the routine-approval side-effects in
+// apps/oil-analysis/src/pages/RoutineDetail.jsx already use). Only
+// deducts when it can find one unambiguous matching product AND that
+// product is tracked in Liters — a "Drum"-unit product has no safe
+// conversion from a liters-used quantity, so it's left for a manual Issue
+// instead of guessed at.
+function tryAutoDeductInventory_(ss, info) {
+  var qty = parseFloat(info.quantityUsed);
+  if (isNaN(qty) || qty <= 0) return { deducted: false, reason: "no usable quantity to deduct" };
+  if (!info.lubricant || !info.contractor) {
+    return { deducted: false, reason: "equipment has no registered lubricant type/contractor to match against" };
+  }
+  var product = findMatchingProduct_(ss, info.lubricant, info.lubricantBrand, info.contractor);
+  if (!product) return { deducted: false, reason: "no matching Oil Inventory product found for this lubricant and contractor" };
+  if (product.unit !== "L") {
+    return { deducted: false, reason: "matched product is tracked in " + (product.unit || "an unknown unit") + ", not Liters — log this Issue manually" };
+  }
+
+  var movResult = logOilMovement(ss, {
+    productId: product.productId,
+    movementType: "Issue",
+    quantity: qty,
+    movementDate: info.eventDate,
+    linkedLpId: info.lpId,
+    linkedEventId: info.eventId,
+    contractor: info.contractor,
+    doneBy: info.doneBy,
+    reference: "Auto-deducted from oil change event " + info.eventId,
+  });
+  if (movResult.error) return { deducted: false, reason: movResult.error };
+  return { deducted: true, productId: product.productId, movementId: movResult.movementId };
 }
 
 

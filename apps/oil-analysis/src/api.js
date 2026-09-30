@@ -641,6 +641,15 @@ export async function getOilInventoryMovements(webhookUrl, productId) {
   return (json.movements || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilMovement);
 }
 
+// Projected consumption vs. current stock, per oil (type+brand+contractor),
+// over the next `months` — see backend/oil-lubrication/src/OilInventory.js's
+// getOilInventoryForecast for the projection logic. Already shaped for
+// display (not raw sheet rows), so no row-parser needed here.
+export async function getOilInventoryForecast(webhookUrl, months = 3) {
+  const json = await getJSON(webhookUrl, { action: "getOilInventoryForecast", months });
+  return { forecast: json.forecast || [], months: json.months || months, windowEnd: json.windowEnd || "" };
+}
+
 // productId is client-generated (newId() in parsers.js) for the same
 // exact-verification reason as Routines' ids.
 export async function addOilProduct(webhookUrl, product) {
