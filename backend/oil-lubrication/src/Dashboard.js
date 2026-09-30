@@ -16,6 +16,33 @@ function readAll(scope) {
   };
 }
 
+// PERFORMANCE: combines readAll() + readEquipmentRegistry() +
+// readActionRegistry() into the single GET the embedded Oil Lubrication app
+// issues on first mount (see apps/oil-analysis/src/App.jsx's mount effect).
+// Those three used to be three separate sequential requests — sequential
+// because Apps Script Web Apps don't reliably serve simultaneous GETs to the
+// same deployment (see that effect's own BUGFIX comment) — so first load
+// paid for three full round trips before the app had anything to render.
+// This is still exactly one request, just carrying all three payloads in one
+// response, which keeps that same "never parallel GETs" constraint intact
+// while cutting three round trips down to one.
+//
+// Deliberately NOT used by the periodic background re-sync
+// (runIncrementalSync in App.jsx), which keeps calling readAll()/getChanges()
+// on their own — equipment and action-phrase registries change rarely, so
+// folding them into every periodic poll would make routine syncs heavier for
+// no benefit. This bundle exists purely for the one-time startup fetch.
+function getStartupBundle(scope) {
+  var bundle = readAll(scope);
+  var registry = readEquipmentRegistry();
+  bundle.equipment = scope
+    ? registry.equipment.filter(function (eq) { return eq.contractor === scope; })
+    : registry.equipment;
+  var actionRegistry = readActionRegistry();
+  bundle.actionPhrases = actionRegistry.actions;
+  return bundle;
+}
+
 
 
 // ─── PHASE 7: Dashboard — aggregated counts only, cached 5 minutes ──────────

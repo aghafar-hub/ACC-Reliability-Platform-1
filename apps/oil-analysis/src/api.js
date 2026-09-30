@@ -244,6 +244,29 @@ export async function getEquipmentRegistry(webhookUrl) {
   return json.equipment || [];
 }
 
+// PERFORMANCE: one combined request for everything the app needs on first
+// load — readAll() + Equipment Registry + Action Registry — instead of the
+// three separate sequential requests App.jsx's mount effect used to make
+// one after another (see that effect's own comment for why they're
+// sequential, not parallel, either way: Apps Script Web Apps don't reliably
+// serve simultaneous GETs to the same deployment). Still exactly one
+// request under the hood — this only merges three payloads into one
+// response, it doesn't change that constraint. Only used for the initial
+// mount fetch; periodic background re-sync keeps using readAll()/
+// getChanges() on their own, since equipment/action-phrase data changes
+// rarely and doesn't need to ride along on every routine poll.
+export async function getStartupBundle(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getStartupBundle" });
+  return {
+    samples: (json.samples || []).filter((r) => Array.isArray(r) && r[0]).map(rowToSample),
+    actions: (json.actions || []).filter((r) => Array.isArray(r) && r[0]).map(rowToAction),
+    oilChangeEvents: (json.oilChanges || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent),
+    trackerRaw: Array.isArray(json.tracker) ? json.tracker : [],
+    equipment: json.equipment || [],
+    actionPhrases: (json.actionPhrases || []).map((s) => String(s).trim()).filter(Boolean),
+  };
+}
+
 // Column order matches the current "Equipment Registry" sheet exactly (see
 // backend/oil-lubrication/src/Code.js's readEquipmentRegistry — this is its
 // inverse): LP_ID, Equipment_ID, Report Equipment ID, Lubrication_Location,

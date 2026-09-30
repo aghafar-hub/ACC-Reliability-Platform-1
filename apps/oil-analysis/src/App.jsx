@@ -227,7 +227,16 @@ function AppShell({ config, setConfig, navBridge }) {
   // a fresh device) — which looked exactly like old equipment codes
   // reappearing and new equipment never showing up, even though the sheet
   // data, the backend, and the grouping logic were all independently
-  // confirmed correct. Fix: run them one at a time, not in parallel.
+  // confirmed correct.
+  //
+  // PERFORMANCE: originally fixed by running three requests one at a time
+  // instead of in parallel — correct, but still three full round trips
+  // before first paint. Now uses one combined request instead
+  // (api.getStartupBundle, backed by the backend's getStartupBundle action —
+  // see Dashboard.js) that carries all three payloads in a single response.
+  // This is still just ONE request in flight at a time, so the
+  // never-parallel-GETs constraint above still holds — it's just one
+  // request instead of three now, not three run concurrently.
   //
   // Equipment/Action Registry used to also need a manual "Sync" click in
   // Settings, once per device — the data was always in the sheet, the app
@@ -238,40 +247,49 @@ function AppShell({ config, setConfig, navBridge }) {
   // place this data is ever created, so anything sitting in the local cache
   // that's no longer in the sheet is stale leftover, never a legitimate
   // app-only addition — same reasoning as the "Remove all" fix this
-  // replaced. No toast on the two registry fetches' own failure — runSync()
-  // already surfaces a toast for real connectivity problems, and a
-  // stale-but-present cache is a safe fallback either way — but still
-  // logged to the console rather than swallowed silently.
+  // replaced.
   useEffect(() => {
     if (!config.webhookUrl) return;
     let cancelled = false;
     (async () => {
-      await runSync();
-      if (cancelled) return;
+      setSyncState("loading");
+      setSyncMsg("Syncing from Google Sheets…");
+      const requestStartedAt = new Date().toISOString();
       try {
-        const sheetEquip = await api.getEquipmentRegistry(config.webhookUrl);
-        if (sheetEquip && sheetEquip.length) {
-          saveEquipmentRegistry(sheetEquip);
-          setEquipmentRegistry(sheetEquip);
+        const { samples: sm, actions: ac, oilChangeEvents: oc, trackerRaw: tr, equipment, actionPhrases } =
+          await api.getStartupBundle(config.webhookUrl);
+        if (cancelled) return;
+        setSamples(sm);
+        setActions(ac);
+        setOilChangeEvents(oc);
+        setTrackerRaw(tr);
+        writeCache("samples", sm);
+        writeCache("actions", ac);
+        writeCache("oilChangeEvents", oc);
+        writeCache("trackerRaw", tr);
+        setLastSyncAt(requestStartedAt);
+        writeCache("lastSyncAt", requestStartedAt);
+        setSyncMsg(`Synced — ${sm.length} samples · ${ac.length} actions · ${oc.length} oil change events — ${new Date().toLocaleTimeString()}`);
+        setSyncState("idle");
+        if (equipment && equipment.length) {
+          saveEquipmentRegistry(equipment);
+          setEquipmentRegistry(equipment);
+        }
+        if (actionPhrases && actionPhrases.length) {
+          saveActionRegistry(actionPhrases);
+          setActionRegistry(actionPhrases);
         }
       } catch (err) {
-        console.error("Auto equipment registry sync failed:", err);
-      }
-      if (cancelled) return;
-      try {
-        const actions = await api.getActionRegistry(config.webhookUrl);
-        if (actions && actions.length) {
-          saveActionRegistry(actions);
-          setActionRegistry(actions);
-        }
-      } catch (err) {
-        console.error("Auto action registry sync failed:", err);
+        if (cancelled) return;
+        setSyncMsg(`Sync failed: ${err.message}`);
+        setSyncState("error");
+        pushToast(`Sync failed: ${err.message}`, "error");
       }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- runSync's own identity changes with config.webhookUrl/pushToast, which would re-trigger this same effect redundantly; config.webhookUrl alone is the real trigger
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pushToast's own identity changes with config.webhookUrl, which would re-trigger this same effect redundantly; config.webhookUrl alone is the real trigger
   }, [config.webhookUrl]);
 
   // Jittered polling, mostly incremental: a plain setInterval would have

@@ -25,6 +25,10 @@
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
 //   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
 //   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
+//   ?action=getStartupBundle                → readAll + Equipment Registry + Action
+//                                              Registry in one response — used only for
+//                                              the app's first-load fetch (see Dashboard.js's
+//                                              getStartupBundle), not periodic re-sync
 //
 // STEP 5 (see docs/oil-lubrication-migration-notes.md): Oil Inventory —
 // same split as Step 2's Oil Change LOG. "Oil Inventory LOG" is the
@@ -117,6 +121,9 @@ function doGet(e) {
     switch (action) {
       case "readAll":
         result = readAll(scope);
+        break;
+      case "getStartupBundle":
+        result = getStartupBundle(scope);
         break;
       case "getDashboard":
         result = getDashboard(scope);
