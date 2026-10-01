@@ -1643,6 +1643,45 @@ color (`rgb(11,35,64)` = `#0B2340`) and the embedded Oil Lubrication
 module's background (`rgb(244,246,249)` = `#F4F6F9`) both match the new
 palette after selecting it once in Settings.
 
+## 4ai. Shell-level TopBar (Patch 28)
+
+New `frontend/src/components/TopBar.tsx` + `TopBar.css`, matching the
+reference mockup's own top bar — mounted once in `App.tsx`'s `ShellRoot`,
+visible above every route. Contains, left to right: a breadcrumb for
+whichever module/sub-tab is active (derived from `NAV_ITEMS` + the
+current route + `useEmbeddedNav().activePageFor`), a language toggle
+("EN / عربي" — UI-only, confirmed directly by the user: "make it no on
+front end but we will not design the full Arabic view now"), the
+notification bell, a settings shortcut, and a user-profile dropdown.
+
+**Replaces the floating bell**: `NotificationBell.css`'s `.notif-bell`
+was `position: fixed; top: 14px; right: 20px` (Patch 15) — changed to
+`position: relative` so it lays out inline inside the new TopBar instead
+of floating over the whole viewport. No change to `NotificationBell.tsx`
+itself — same component, just repositioned by its container.
+
+**Consolidates the account block — "replace sidebar, no duplicate"**,
+confirmed directly by the user: Sidebar's old bottom block (General
+Settings link, the signed-in email, Sign Out button —
+`.sidebar-footer`/`.sidebar-settings-link`/`.sidebar-user`/
+`.sidebar-logout`) was removed entirely from both `Sidebar.tsx` and
+`Sidebar.css`. That functionality now lives only in the TopBar's own
+settings icon and user-profile dropdown (email + role + Settings link +
+Sign Out).
+
+**Layout**: `App.tsx`'s `.app-shell` used to lay Sidebar and `.app-content`
+side by side directly. Now there's a `.app-shell-right` flex-column
+wrapper (TopBar fixed-height on top, `.app-content` filling the rest)
+sitting next to Sidebar — Sidebar itself is unchanged, still spanning the
+full viewport height as a direct `.app-shell` child.
+
+**Verify**: open any page and confirm the TopBar's breadcrumb matches the
+active module/sub-tab, the bell/settings/user-menu all still work exactly
+as before (just relocated), and the old sidebar bottom block is gone.
+Verified with a Playwright test confirming all of the above, including
+that the breadcrumb updates correctly after navigating into an embedded
+module's own sub-tab.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

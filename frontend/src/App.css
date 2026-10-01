@@ -4,6 +4,18 @@
   background: var(--shell-bg);
 }
 
+/* Patch 28: the column to the right of Sidebar — TopBar on top (fixed
+   height, see TopBar.css), app-content filling the rest. Sidebar itself
+   stays a direct child of .app-shell so it still spans the full viewport
+   height exactly as before. */
+.app-shell-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .app-content {
   flex: 1;
   padding: 2rem;

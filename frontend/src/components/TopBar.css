@@ -1,0 +1,181 @@
+.shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+  flex-shrink: 0;
+  background: var(--shell-card-bg, #0d1e35);
+  border-bottom: 1px solid var(--shell-border, #1e3a5f);
+  color: var(--shell-text, #e2e8f0);
+}
+
+.shell-topbar-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.shell-topbar-module {
+  font-weight: 700;
+  color: var(--shell-text, #e2e8f0);
+  white-space: nowrap;
+}
+
+.shell-topbar-sep {
+  color: var(--shell-text-secondary, #8ea0bb);
+}
+
+.shell-topbar-page {
+  color: var(--shell-text-secondary, #8ea0bb);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.shell-topbar-lang {
+  border: 1px solid var(--shell-border, #1e3a5f);
+  background: transparent;
+  color: var(--shell-text-secondary, #8ea0bb);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shell-topbar-lang:hover {
+  border-color: var(--shell-accent, #38bdf8);
+  color: var(--shell-text, #e2e8f0);
+}
+
+.shell-topbar-lang-sep {
+  opacity: 0.5;
+  margin: 0 2px;
+}
+
+/* NotificationBell.css's own .notif-bell is `position: relative` now
+   (Patch 28 — no longer fixed/floating), so it lays out inline here like
+   any other action; its dropdown panel still positions itself relative to
+   this trigger via its own `position: absolute`. */
+
+.shell-topbar-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid var(--shell-border, #1e3a5f);
+  background: var(--shell-card-bg, #0d1e35);
+  color: var(--shell-text, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.shell-topbar-icon-btn:hover {
+  border-color: var(--shell-accent, #38bdf8);
+}
+
+.shell-topbar-user {
+  position: relative;
+}
+
+.shell-topbar-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--shell-border, #1e3a5f);
+  background: var(--shell-card-bg, #0d1e35);
+  color: var(--shell-text, #e2e8f0);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  cursor: pointer;
+}
+
+.shell-topbar-user-trigger:hover {
+  border-color: var(--shell-accent, #38bdf8);
+}
+
+.shell-topbar-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--shell-accent, #38bdf8);
+  color: var(--shell-accent-text, #0a1628);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.shell-topbar-user-info {
+  display: none;
+  flex-direction: column;
+  line-height: 1.25;
+  text-align: left;
+  max-width: 160px;
+}
+
+.shell-topbar-user-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-topbar-user-role {
+  font-size: 10px;
+  color: var(--shell-text-secondary, #8ea0bb);
+}
+
+.shell-topbar-user-menu {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  min-width: 170px;
+  background: var(--shell-card-bg, #16213a);
+  border: 1px solid var(--shell-border, #1e293b);
+  border-radius: 10px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 210;
+}
+
+.shell-topbar-user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  color: var(--shell-text, #e2e8f0);
+  font-size: 12.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.shell-topbar-user-menu-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media (min-width: 720px) {
+  .shell-topbar-user-info {
+    display: flex;
+  }
+}

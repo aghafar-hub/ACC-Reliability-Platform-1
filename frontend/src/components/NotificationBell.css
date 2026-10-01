@@ -1,12 +1,10 @@
-/* Fixed to the viewport, not the layout flow — so it sits in the top-right
-   corner identically on every screen (Dashboard, Settings, My Work, the
-   embedded modules) without needing a new shell-level header bar just to
-   host it. z-index above Sidebar.css's 100 (the sidebar's hover-expand
-   shadow) so the panel is never clipped underneath it. */
+/* Patch 28: laid out inline inside the new shell-level TopBar (see
+   TopBar.tsx) instead of floating fixed to the viewport — relative
+   positioning keeps this the containing block for the dropdown panel
+   below. z-index kept above Sidebar.css's 100 so the panel is never
+   clipped underneath it. */
 .notif-bell {
-  position: fixed;
-  top: 14px;
-  right: 20px;
+  position: relative;
   z-index: 200;
 }
 

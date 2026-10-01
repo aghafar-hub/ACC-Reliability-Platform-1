@@ -1,5 +1,4 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
 import { useEmbeddedNav } from '../embeddedNav';
 import { Icon, TablerIcon } from '../icons';
 import { NAV_ITEMS, type SubTab } from '../navigation';
@@ -62,7 +61,6 @@ function SubTabItem({ tab, baseRoute, moduleId }: { tab: SubTab; baseRoute: stri
 }
 
 export default function Sidebar() {
-  const { claims, logout } = useAuth();
   const location = useLocation();
   const embeddedNav = useEmbeddedNav();
 
@@ -114,25 +112,6 @@ export default function Sidebar() {
             );
           })}
         </ul>
-
-        <div className="sidebar-footer">
-          <NavLink
-            className={({ isActive: navActive }) =>
-              navActive ? 'sidebar-link sidebar-settings-link sidebar-link--active' : 'sidebar-link sidebar-settings-link'
-            }
-            to="/settings"
-          >
-            <span className="sidebar-link-icon">
-              <Icon name="settings" size={18} />
-            </span>
-            <span className="sidebar-link-label">General Settings</span>
-          </NavLink>
-          {claims && <span className="sidebar-user">{claims.email}</span>}
-          <button className="sidebar-logout" onClick={logout} type="button" title="Sign out">
-            <Icon name="logout" size={16} />
-            <span className="sidebar-link-label">Sign out</span>
-          </button>
-        </div>
       </nav>
     </div>
   );

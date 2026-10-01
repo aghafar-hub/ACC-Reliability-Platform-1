@@ -200,67 +200,9 @@
   font-weight: 600;
 }
 
-.sidebar-footer {
-  flex-shrink: 0;
-  padding: 0.5rem 0 1rem;
-  border-top: 1px solid var(--shell-border, #1e293b);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.sidebar-settings-link {
-  padding: 0.5rem 1.25rem;
-}
-
-.sidebar-user {
-  font-size: 0.72rem;
-  color: var(--shell-text-secondary, #94a3b8);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  opacity: 0;
-  height: 0;
-  margin: 0 1.25rem;
-  transition: opacity 0.1s ease;
-}
-
-.sidebar-rail:hover .sidebar-user {
-  opacity: 1;
-  height: auto;
-}
-
-.sidebar-logout {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  background: transparent;
-  border: 1px solid var(--shell-border, #334155);
-  color: var(--shell-text, #cbd5e1);
-  border-radius: 6px;
-  padding: 0.5rem 0.6rem;
-  margin: 0 1.25rem;
-  cursor: pointer;
-  font-size: 0.78rem;
-  flex-shrink: 0;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-/* .sidebar-nav-root is always 248px wide (only the outer rail visually
-   clips it to 68px when collapsed — see the comment up top), so this
-   button is always stretched to that full width by the footer's flex
-   column; centering its content would center within that hidden width,
-   landing outside the visible 68px strip. Left-aligned (the flex
-   default) keeps the icon inside the visible strip either way, matching
-   every other sidebar icon above it. */
-.sidebar-rail:hover .sidebar-logout {
-  gap: 8px;
-}
-
-.sidebar-logout svg {
-  flex-shrink: 0;
-}
-
-.sidebar-logout:hover {
-  background: var(--shell-border, #1e293b);
-}
+/* Patch 28: the old bottom account block (General Settings link, email,
+   Sign out button — .sidebar-footer/.sidebar-settings-link/.sidebar-user/
+   .sidebar-logout) was removed from Sidebar.tsx; that functionality now
+   lives in the shell-level TopBar's settings icon + user-profile dropdown
+   (see TopBar.tsx) — "replace sidebar, no duplicate," confirmed directly
+   by the user. */

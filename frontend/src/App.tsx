@@ -12,7 +12,7 @@ import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
 import EmbeddedVibrationAnalysis from './pages/EmbeddedVibrationAnalysis';
 import Login from './pages/Login';
 import MyWork from './pages/MyWork';
-import NotificationBell from './components/NotificationBell';
+import TopBar from './components/TopBar';
 import LpRegisterPage from './pages/oil-analysis/LpRegisterPage';
 import NewRoutinePage from './pages/oil-analysis/NewRoutinePage';
 import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
@@ -43,36 +43,38 @@ function ShellRoot() {
 
   return (
     <div className="app-shell" style={themeVars}>
-      <NotificationBell />
       <Sidebar />
-      <main className="app-content">
-        {/* Rendered unconditionally, outside <Routes> — each mounts itself
-            lazily on first visit and then stays mounted (hidden via CSS)
-            for the rest of the session; see their own file comments for
-            why. Neither has a matching <Route> below on purpose: these ARE
-            the content for /oil-analysis and /vibration-analysis. */}
-        <EmbeddedVibrationAnalysis />
-        <EmbeddedOilAnalysis />
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/my-work" element={<MyWork />} />
-          <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
-          {/* /oil-analysis/routines and /oil-analysis/inventory have no <Route>
-              here on purpose — both are native pages inside apps/oil-analysis now
-              (see EmbeddedOilAnalysis above), same as /oil-analysis itself. */}
-          <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
-          <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
-          <Route path="/settings" element={<Settings />} />
-          {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
-          <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
-            <Route index element={<Navigate to="routines" replace />} />
-            <Route path="lp-register" element={<LpRegisterPage />} />
-            <Route path="routines" element={<RoutinesListPage />} />
-            <Route path="routines/new" element={<NewRoutinePage />} />
-            <Route path="routines/:routineId" element={<RoutineDetailPage />} />
-          </Route>
-        </Routes>
-      </main>
+      <div className="app-shell-right">
+        <TopBar />
+        <main className="app-content">
+          {/* Rendered unconditionally, outside <Routes> — each mounts itself
+              lazily on first visit and then stays mounted (hidden via CSS)
+              for the rest of the session; see their own file comments for
+              why. Neither has a matching <Route> below on purpose: these ARE
+              the content for /oil-analysis and /vibration-analysis. */}
+          <EmbeddedVibrationAnalysis />
+          <EmbeddedOilAnalysis />
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/my-work" element={<MyWork />} />
+            <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
+            {/* /oil-analysis/routines and /oil-analysis/inventory have no <Route>
+                here on purpose — both are native pages inside apps/oil-analysis now
+                (see EmbeddedOilAnalysis above), same as /oil-analysis itself. */}
+            <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
+            <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
+            <Route path="/settings" element={<Settings />} />
+            {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
+            <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
+              <Route index element={<Navigate to="routines" replace />} />
+              <Route path="lp-register" element={<LpRegisterPage />} />
+              <Route path="routines" element={<RoutinesListPage />} />
+              <Route path="routines/new" element={<NewRoutinePage />} />
+              <Route path="routines/:routineId" element={<RoutineDetailPage />} />
+            </Route>
+          </Routes>
+        </main>
+      </div>
     </div>
   );
 }
