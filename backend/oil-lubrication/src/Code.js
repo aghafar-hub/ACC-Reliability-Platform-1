@@ -18,6 +18,9 @@
 //   ?action=getActions&page=1&limit=50      → paginated Action Tracker rows
 //   ?action=getOilChanges&page=1&limit=50   → paginated Oil Change LOG rows
 //   ?action=getOilChangesForLp&lpId=XXXX    → all Oil Change LOG events for one LP_ID
+//   ?action=getTopUpsForLp&lpId=XXXX        → all Oil Top Up LOG events for one LP_ID
+//                                              (see TopUps.js) — doPost logOilTopUp is
+//                                              the only way this app writes to it
 //   ?action=getRecentSamples&page=1&limit=50→ paginated Data_Entry rows (newest first)
 //   ?action=getRoutines                     → all ROUTINES rows
 //   ?action=getRoutineItems&routineId=XXXX  → all OA_ROUTINE_ITEMS rows for one routine
@@ -103,6 +106,8 @@
 //   SampleTracker.js      — "Oil Sample Tracker" monthly-column updates
 //   SheetTriggers.js      — installed Sheets trigger(s) (not part of the Web App API)
 //   OilChanges.js         — Oil Change LOG logging + history
+//   TopUps.js             — Oil Top Up LOG logging + history (Patch 17 — emergency/
+//                            ad-hoc top-ups, tracked separately from Oil Change LOG)
 //   Routines.js           — Routine workflow (create/submit/approve/comment)
 //   RouteTemplates.js     — recurring Route templates + due-instance generation
 //   OilInventory.js       — Oil Inventory product registry + movement log
@@ -158,6 +163,9 @@ function doGet(e) {
         break;
       case "getOilChangesForLp":
         result = getOilChangesForLp(e.parameter.lpId || "", scope);
+        break;
+      case "getTopUpsForLp":
+        result = getTopUpsForLp(e.parameter.lpId || "", scope);
         break;
       case "getRecentSamples":
         result = getPaginated("Data_Entry", e.parameter.page, e.parameter.limit, true, scope, 0); // newest first
@@ -443,6 +451,21 @@ function doPost(e) {
           nextDueDate: logResult.nextDueDate,
           inventoryDeducted: logResult.inventoryDeducted,
           inventoryNote: logResult.inventoryNote,
+        });
+      }
+
+      if (data.action === "logOilTopUp") {
+        requirePermission_(auth.session, "Edit");
+        requireLpContractorMatch_(auth.session, data.lpId);
+        var topUpResult = logOilTopUp_(ss, data);
+        invalidateDashboardCache();
+        logError("doPost:logOilTopUp", topUpResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
+        if (!topUpResult.error) recordAudit_(ss, "Oil Top Up LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil top-up: " + (data.reason || ""));
+        return jsonOut(topUpResult.error ? {status: "error", message: topUpResult.error} : {
+          status: "ok",
+          topUpId: topUpResult.topUpId,
+          inventoryDeducted: topUpResult.inventoryDeducted,
+          inventoryNote: topUpResult.inventoryNote,
         });
       }
 

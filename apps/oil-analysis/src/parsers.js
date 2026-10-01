@@ -515,6 +515,26 @@ export function rowToOilChangeEvent(row) {
   };
 }
 
+// Oil Top Up LOG (Patch 17) — columns: 0 TopUpId, 1 LP_ID, 2 RoutineId,
+// 3 EventDate, 4 Quantity, 5 OilBrandType, 6 Reason, 7 RequestedBy,
+// 8 DoneBy, 9 Contractor, 10 Remarks, 11 Created_Date.
+export function rowToTopUpEvent(row) {
+  return {
+    topUpId: row[0] || "",
+    lpId: row[1] || "",
+    routineId: row[2] || "",
+    eventDate: formatDate(row[3]),
+    quantity: row[4] || "",
+    oilBrandType: row[5] || "",
+    reason: row[6] || "",
+    requestedBy: row[7] || "",
+    doneBy: row[8] || "",
+    contractor: row[9] || "",
+    remarks: row[10] || "",
+    createdDate: row[11] || "",
+  };
+}
+
 // Builds the "current state per lubrication point" view every existing page
 // (Dashboard, Oil Change Log, Equipment, Reports, Sample Tracker, action
 // autofill…) already expects — same shape the old per-LP "current row"

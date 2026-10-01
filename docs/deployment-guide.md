@@ -1101,6 +1101,45 @@ default — worth tightening to fail closed on reads with no session,
 independent of this frontend fix, as defense in depth rather than relying
 solely on the frontend always sending the token correctly.
 
+## 4v. Oil Top Up LOG (Patch 17) — foundation for Emergency Top Up
+
+New, separate history for ad-hoc oil top-ups (leakage, low level, seal
+issue — anything reactive, not a scheduled change), tracked apart from
+Oil Change LOG rather than folded into it — confirmed directly by the
+user. This patch is just the storage + logging primitive; the Emergency
+Top Up route type that actually produces these entries is a separate,
+later patch.
+
+**Code**: new `TopUps.js` — `logOilTopUp_` (mirrors `logOilChangeEvent`'s
+shape and conventions, OilChanges.js) and `getTopUpsForLp`. `Code.js`
+gained the `getTopUpsForLp` GET case and the `logOilTopUp` POST action
+(same permission/contractor-match/audit pattern as `logOilChangeEvent`).
+Frontend: `parsers.js` gained `rowToTopUpEvent`; `api.js` gained
+`logOilTopUp`/`getTopUpsForLp` (same blind-POST-then-verify-read pattern
+as every other write in this app).
+
+**Deliberately different from Oil Change LOG in one way**: quantity is
+never defaulted from the registry's `Lubricant_Quantity_L` — a top-up is
+normally a partial amount, and silently assuming a full change's worth
+would overstate how much is deducted from Oil Inventory. The caller must
+supply a real `quantityUsed`.
+
+**Inventory deduction**: reuses the exact same `tryAutoDeductInventory_`
+path a regular oil change uses (confirmed directly by the user: a top-up
+draws down stock exactly like a change does, just usually a smaller
+quantity) — no new inventory logic needed.
+
+**Nothing to pre-create in the Sheet** — `Oil Top Up LOG` is a brand new
+tab with no equivalent in the original workbook, so (unlike Oil Change
+LOG, which assumes it already exists) this self-creates with the right
+header row on its first write, same pattern Patch 9's Audit Log and
+Patch 15's `OL_IN_APP_NOTIFICATIONS` already use.
+
+**Verify**: log a top-up for an LP with a valid Oil Inventory product
+match, confirm a new `Oil Top Up LOG` row appears with the right Reason/
+RequestedBy/quantity, and confirm an `Issue` movement for that same
+quantity appears in `Oil Inventory LOG` against the matching product.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

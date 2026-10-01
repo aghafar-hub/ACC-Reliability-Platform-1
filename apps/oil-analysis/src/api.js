@@ -22,6 +22,7 @@ import {
   actionToRow,
   ACTION_HEADERS,
   rowToOilChangeEvent,
+  rowToTopUpEvent,
   rowToSample,
   sampleToRow,
   sameCalendarDay,
@@ -533,6 +534,41 @@ export async function logOilChangeEvent(webhookUrl, event) {
     throw new SaveVerificationError(`The oil change wasn't confirmed saved to the sheet — please try again.`);
   }
   return saved;
+}
+
+// Appends a new event to "Oil Top Up LOG" (Patch 17) — tracked separately
+// from Oil Change LOG, same auto-deduction path against Oil Inventory.
+// Unlike logOilChangeEvent, quantity is never defaulted server-side — a
+// top-up is normally partial, so the caller must supply a real amount.
+export async function logOilTopUp(webhookUrl, topUp) {
+  const lpId = topUp.lpId || "";
+  const eventDate = topUp.eventDate || "";
+  const doneBy = topUp.doneBy || "";
+  await postBlind(webhookUrl, {
+    action: "logOilTopUp",
+    lpId,
+    eventDate,
+    quantityUsed: topUp.quantityUsed,
+    reason: topUp.reason || "",
+    requestedBy: topUp.requestedBy || "",
+    doneBy,
+    routineId: topUp.routineId || "",
+    remarks: topUp.remarks || "",
+    contractor: topUp.contractor || "",
+  });
+
+  const verify = await getJSON(webhookUrl, { action: "getTopUpsForLp", lpId });
+  const events = (verify.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToTopUpEvent);
+  const saved = events.find((ev) => sameCalendarDay(ev.eventDate, eventDate) && (ev.doneBy || "") === doneBy);
+  if (!saved) {
+    throw new SaveVerificationError(`The top-up wasn't confirmed saved to the sheet — please try again.`);
+  }
+  return saved;
+}
+
+export async function getTopUpsForLp(webhookUrl, lpId) {
+  const json = await getJSON(webhookUrl, { action: "getTopUpsForLp", lpId });
+  return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToTopUpEvent);
 }
 
 // Patch 6 (plant-readiness pass): every new sample gets a real, unique

@@ -1,0 +1,103 @@
+// Oil Top Up LOG (Patch 17, plant-readiness pass): emergency/ad-hoc oil
+// top-ups, tracked separately from Oil Change LOG — a top-up is a smaller,
+// reactive event (leakage, low level, seal issue) triggered by the
+// "Emergency Top Up" route type (Patch 18), not a scheduled change. Mirrors
+// logOilChangeEvent's own shape and conventions (OilChanges.js) deliberately,
+// but as its own sheet/history rather than folded into Oil Change LOG, so the
+// two can be reported on, filtered, and displayed separately (confirmed
+// directly by the user) while still sharing the exact same inventory
+// auto-deduction path.
+//
+// "Oil Top Up LOG" columns: 0 TopUpId, 1 LP_ID, 2 RoutineId (which Emergency
+// Top Up routine generated this entry — blank for a standalone log, same as
+// RoutineItemId is optional on Oil Change LOG), 3 EventDate, 4 Quantity,
+// 5 OilBrandType, 6 Reason, 7 RequestedBy, 8 DoneBy, 9 Contractor,
+// 10 Remarks, 11 Created_Date. Header row 1, data row 2+ (dataStartRowFor's
+// standard default) — same as every other tracked sheet in this backend.
+//
+// Unlike Oil Change LOG, quantity is NOT defaulted from the registry's
+// Lubricant_Quantity_L: a top-up is normally a partial amount, and silently
+// assuming a full change's worth would overstate the inventory deduction.
+// The caller (the Emergency Top Up routine's approval side effect) must
+// supply a real quantity.
+
+var TOP_UP_LOG_HEADERS = [
+  "TopUpId", "LP_ID", "RoutineId", "EventDate", "Quantity", "OilBrandType",
+  "Reason", "RequestedBy", "DoneBy", "Contractor", "Remarks", "Created_Date",
+];
+
+function logOilTopUp_(ss, data) {
+  var lpId = String(data.lpId || "").trim();
+  if (!lpId) return { error: "lpId is required" };
+
+  var reason = String(data.reason || "").trim();
+  if (!reason) return { error: "reason is required" };
+
+  var quantityUsed = parseFloat(data.quantityUsed);
+  if (isNaN(quantityUsed) || quantityUsed <= 0) return { error: "quantityUsed is required and must be a positive number" };
+
+  var eventDate = data.eventDate ? new Date(data.eventDate) : new Date();
+  if (isNaN(eventDate.getTime())) return { error: "eventDate is invalid" };
+
+  var reg = findRegistryEntryForOilChange_(ss, lpId); // OilChanges.js — same minimal lookup, same fields a top-up needs
+  var contractor = data.contractor || (reg ? reg.contractor : "") || "";
+
+  var topUpId = "TU-" + Utilities.getUuid();
+  var row = [
+    topUpId,
+    lpId,
+    data.routineId || "",
+    eventDate,
+    quantityUsed,
+    data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
+    reason,
+    data.requestedBy || "",
+    data.doneBy || "",
+    contractor,
+    data.remarks || "",
+    "", // Created_Date — filled by appendRow's own stampLastModified
+  ];
+  // Unlike Oil Change LOG (a tab that already existed in the original
+  // workbook), "Oil Top Up LOG" is brand new — passing the header row here
+  // lets Utils.js's appendRow self-create the sheet correctly on first
+  // write (same reasoning AuditLog.js/InAppNotifications.js's own
+  // self-creating sheets use), instead of requiring it to be pre-created
+  // by hand with exact header spelling.
+  appendRow(ss, "Oil Top Up LOG", row, TOP_UP_LOG_HEADERS);
+
+  // Same auto-deduction path a regular oil change uses (OilInventory.js) —
+  // confirmed directly by the user: a top-up draws down stock exactly like
+  // a change does, just a smaller quantity.
+  var inventory = tryAutoDeductInventory_(ss, {
+    lpId: lpId,
+    lubricant: reg ? reg.lubricant : "",
+    lubricantBrand: reg ? reg.lubricantBrand : "",
+    contractor: contractor,
+    quantityUsed: quantityUsed,
+    eventId: topUpId,
+    eventDate: eventDate,
+    doneBy: data.doneBy || "",
+  });
+
+  return {
+    status: "ok",
+    topUpId: topUpId,
+    inventoryDeducted: inventory.deducted,
+    inventoryNote: inventory.deducted ? "" : inventory.reason,
+  };
+}
+
+// All Oil Top Up LOG events for one LP_ID, newest first — same shape/role
+// as OilChanges.js's getOilChangesForLp, used by Equipment Viewer's
+// "Top Ups" tab and "Recent Top Ups" card.
+function getTopUpsForLp(lpId, scope) {
+  var id = String(lpId || "").trim();
+  if (!id) return { events: [] };
+  if (scope && getLpContractorMap_()[id] !== scope) return { events: [], count: 0 };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Top Up LOG", true).filter(function (r) {
+    return String(r[1] || "").trim() === id;
+  });
+  rows.sort(function (a, b) { return new Date(b[3]) - new Date(a[3]); });
+  return { events: rows, count: rows.length };
+}
