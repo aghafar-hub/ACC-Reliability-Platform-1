@@ -12,6 +12,7 @@ import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
 import EmbeddedVibrationAnalysis from './pages/EmbeddedVibrationAnalysis';
 import Login from './pages/Login';
 import MyWork from './pages/MyWork';
+import NotificationBell from './components/NotificationBell';
 import LpRegisterPage from './pages/oil-analysis/LpRegisterPage';
 import NewRoutinePage from './pages/oil-analysis/NewRoutinePage';
 import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
@@ -42,6 +43,7 @@ function ShellRoot() {
 
   return (
     <div className="app-shell" style={themeVars}>
+      <NotificationBell />
       <Sidebar />
       <main className="app-content">
         {/* Rendered unconditionally, outside <Routes> — each mounts itself

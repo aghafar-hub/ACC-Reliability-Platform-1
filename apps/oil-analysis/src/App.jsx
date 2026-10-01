@@ -104,6 +104,12 @@ function AppShell({ config, setConfig, navBridge }) {
   const [reportOrigin, setReportOrigin] = useState("dashboard"); // where "Back" on the Oil Analysis Report returns to
   const [equipmentSelectedCode, setEquipmentSelectedCode] = useState(""); // sticky so Equipment restores the same equipment after Back
   const [oilReportCode, setOilReportCode] = useState("");
+  // Patch 15: set when the shell's notification bell navigates here with a
+  // specific record (e.g. navBridge.navigate("routines", "RT-123")) — read
+  // once by Routines below to open that routine's detail view directly,
+  // then cleared so a later plain navBridge.navigate("routines") (no
+  // recordId) isn't misread as "re-open the same routine again".
+  const [deepLinkRoutineId, setDeepLinkRoutineId] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [samples, setSamples] = useState(() => readCache("samples")?.data || []);
@@ -879,8 +885,9 @@ function AppShell({ config, setConfig, navBridge }) {
     setMobileNavOpen(false);
   }
 
-  function navigate(nextPage) {
+  function navigate(nextPage, recordId) {
     if (nextPage !== "equipment") setSelectedEquipment(null);
+    setDeepLinkRoutineId(nextPage === "routines" && recordId ? recordId : null);
     setPage(nextPage);
     setMobileNavOpen(false);
   }
@@ -1096,6 +1103,8 @@ function AppShell({ config, setConfig, navBridge }) {
               oilChanges={oilChanges}
               pushToast={pushToast}
               onDataChanged={runSync}
+              initialRoutineId={deepLinkRoutineId}
+              onInitialRoutineConsumed={() => setDeepLinkRoutineId(null)}
             />
           )}
           {page === "inventory" && (

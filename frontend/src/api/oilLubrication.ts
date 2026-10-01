@@ -196,3 +196,41 @@ export async function submitRoutine(sessionToken: string, routineId: string): Pr
   }
   return saved;
 }
+
+// Patch 15 — the platform shell's notification bell (frontend/src/components/
+// NotificationBell.tsx). Reads/writes InAppNotifications.js on the Oil
+// Lubrication backend directly, same as the rest of this file — there's
+// nothing module-specific about the feed itself even though every event it
+// currently carries happens to originate in Oil Lubrication.
+export type InAppNotification = {
+  notificationId: string;
+  type: string;
+  message: string;
+  contractor: string;
+  linkPage: string;
+  linkRecordId: string;
+  createdDate: string;
+  read: boolean;
+};
+
+export async function getInAppNotifications(
+  sessionToken: string,
+  limit = 30,
+): Promise<{ notifications: InAppNotification[]; unreadCount: number }> {
+  const json = await getJSON(sessionToken, { action: 'getInAppNotifications', limit: String(limit) });
+  return { notifications: json.notifications || [], unreadCount: json.unreadCount || 0 };
+}
+
+// Deliberately no verify-read-after-write here, unlike every other write in
+// this file: this is a low-stakes, user-initiated "mark read" action with no
+// data to lose if the blind POST silently fails — the bell's own next poll
+// (NotificationBell.tsx) just shows it unread again, which is a harmless,
+// self-correcting outcome, not worth a round trip + SaveVerificationError
+// toast for something this minor.
+export async function markNotificationRead(sessionToken: string, notificationId: string): Promise<void> {
+  await postBlind(sessionToken, { action: 'markNotificationRead', notificationId });
+}
+
+export async function markAllNotificationsRead(sessionToken: string): Promise<void> {
+  await postBlind(sessionToken, { action: 'markAllNotificationsRead' });
+}

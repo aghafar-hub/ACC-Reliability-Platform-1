@@ -37,6 +37,11 @@
 //                                              (see Notifications.js) — admin-only to
 //                                              change (doPost updateNotificationSettings),
 //                                              open to read like every other GET
+//   ?action=getInAppNotifications&limit=     → the caller's own in-app notification feed
+//                                              (see InAppNotifications.js) — scoped to the
+//                                              session's email, empty for an anonymous
+//                                              request. doPost markNotificationRead /
+//                                              markAllNotificationsRead mark them read.
 //
 // STEP 5 (see docs/oil-lubrication-migration-notes.md): Oil Inventory —
 // same split as Step 2's Oil Change LOG. "Oil Inventory LOG" is the
@@ -103,6 +108,7 @@
 //   OilInventory.js       — Oil Inventory product registry + movement log
 //   ActionRegistry.js     — OL_ACTION_PHRASES reads
 //   Notifications.js      — best-effort email on Routine assigned/submitted/approved
+//   InAppNotifications.js — in-app notification bell feed (same 5 events as Notifications.js)
 //   AuditLog.js           — "who changed what, when" feed (recordAudit_/getAuditTrail)
 // Apps Script shares one global scope across every file in a project, so this
 // split changes nothing about how the code runs — same deployment, same URL,
@@ -205,6 +211,9 @@ function doGet(e) {
         break;
       case "getNotificationSettings":
         result = getNotificationSettings_();
+        break;
+      case "getInAppNotifications":
+        result = getInAppNotifications_(auth.session ? auth.session.email : "", e.parameter.limit);
         break;
       case "test":
         result = { status:"ok", time: new Date().toISOString(), version:"4.0" };
@@ -502,6 +511,22 @@ function doPost(e) {
         var notifyResult = updateNotificationSettings_(data);
         logError("doPost:updateNotificationSettings", notifyResult.error || "ok", {actingUser: actingUser});
         return jsonOut(notifyResult.error ? {status: "error", message: notifyResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "markNotificationRead") {
+        // No requirePermission_/contractor check — markInAppNotificationRead_
+        // itself is the gate: it only ever touches a row whose RecipientEmail
+        // matches the caller's own session email (see InAppNotifications.js),
+        // so any logged-in user may call this for their own notifications.
+        var markResult = markInAppNotificationRead_(data.notificationId, actingUser);
+        logError("doPost:markNotificationRead", markResult.error || "ok", {notificationId: data.notificationId, actingUser: actingUser});
+        return jsonOut(markResult.error ? {status: "error", message: markResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "markAllNotificationsRead") {
+        var markAllResult = markAllInAppNotificationsRead_(actingUser);
+        logError("doPost:markAllNotificationsRead", markAllResult.error || "ok", {actingUser: actingUser});
+        return jsonOut(markAllResult.error ? {status: "error", message: markAllResult.error} : {status: "ok"});
       }
 
       logError("doPost:unknown-action", "no valid action", data);

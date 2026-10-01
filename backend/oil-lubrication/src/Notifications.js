@@ -27,10 +27,11 @@ function getNotificationSettings_() {
   var props = PropertiesService.getScriptProperties();
   var enabledRaw = props.getProperty(NOTIFY_ENABLED_PROP);
   return {
-    // No stored value yet = ON, matching exactly how every notification in
-    // this file already behaved before this setting existed — turning this
-    // feature off is an explicit admin choice, not a surprise default.
-    enabled: enabledRaw === null ? true : enabledRaw === "true",
+    // Patch 15: no stored value yet now defaults to OFF — the in-app bell
+    // (InAppNotifications.js) is the primary, always-on channel; email is
+    // an explicit opt-in an admin turns on from Settings, not a surprise
+    // default landing in someone's personal inbox.
+    enabled: enabledRaw === null ? false : enabledRaw === "true",
     fromEmail: props.getProperty(NOTIFY_FROM_EMAIL_PROP) || "",
     fromName: props.getProperty(NOTIFY_FROM_NAME_PROP) || "",
   };
@@ -112,8 +113,17 @@ function formatDateForEmail_(value) {
 }
 
 function notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate) {
-  if (!looksLikeEmail_(assignedTo)) return; // free-text fallback value — nowhere real to send this
   var label = routeName || routineId;
+  // Patch 15: the in-app bell fires even when assignedTo is a free-text
+  // fallback name (no real login to deliver an email to) — recordInAppNotification_
+  // itself is a no-op for anything that isn't a real address, same guard,
+  // just centralized there instead of repeated at every call site.
+  recordInAppNotification_(
+    SpreadsheetApp.getActiveSpreadsheet(), assignedTo, "routine-assigned",
+    "You've been assigned routine " + label + (dueDate ? " (due " + formatDateForEmail_(dueDate) + ")" : ""),
+    "", "routines", routineId
+  );
+  if (!looksLikeEmail_(assignedTo)) return; // free-text fallback value — nowhere real to send this
   var subject = "Oil Lubrication: routine assigned to you — " + label;
   var body =
     "You've been assigned a new lubrication routine.\n\n" +
@@ -127,6 +137,11 @@ function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) 
   var reviewers = getNotifyReviewers_(contractor);
   if (reviewers.length === 0) return;
   var label = routeName || routineId;
+  recordInAppNotificationForEach_(
+    SpreadsheetApp.getActiveSpreadsheet(), reviewers, "routine-submitted",
+    "Routine " + label + " was submitted for review" + (submittedBy ? " by " + submittedBy : ""),
+    contractor, "routines", routineId
+  );
   var subject = "Oil Lubrication: routine submitted for review — " + label;
   var body =
     "A routine has been submitted and is waiting for approval.\n\n" +
@@ -138,8 +153,13 @@ function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) 
 }
 
 function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
-  if (!looksLikeEmail_(assignedTo)) return;
   var label = routeName || routineId;
+  recordInAppNotification_(
+    SpreadsheetApp.getActiveSpreadsheet(), assignedTo, "routine-approved",
+    "Routine " + label + " was approved" + (approvedBy ? " by " + approvedBy : ""),
+    "", "routines", routineId
+  );
+  if (!looksLikeEmail_(assignedTo)) return;
   var subject = "Oil Lubrication: routine approved — " + label;
   var body =
     "Your routine has been approved.\n\n" +
@@ -209,9 +229,15 @@ function sendAgingActionsDigest_() {
         lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (" + e.status + ", assigned to " + e.assignedTo + ", opened " + formatDateForEmail_(e.revisionDate) + ")");
       });
     }
+    var agingCount = bucket.noOwner.length + bucket.aging.length;
+    recordInAppNotificationForEach_(
+      ss, reviewers, "aging-actions",
+      agingCount + " action(s) open " + AGING_ACTION_DAYS + "+ days for " + contractor,
+      contractor, "actions", ""
+    );
     sendNotificationEmail_({
       to: reviewers.join(","),
-      subject: "Oil Lubrication: " + (bucket.noOwner.length + bucket.aging.length) + " aging action(s) — " + contractor,
+      subject: "Oil Lubrication: " + agingCount + " aging action(s) — " + contractor,
       body: lines.join("\n"),
     });
   });
@@ -269,6 +295,11 @@ function sendLowStockDigest_() {
         ": " + it.currentStock + " " + it.unit + " left, recorder level " + it.recorderLevel + " " + it.unit
       );
     });
+    recordInAppNotificationForEach_(
+      ss, reviewers, "low-stock",
+      items.length + " product(s) at or below their recorder level for " + contractor,
+      contractor, "inventory", ""
+    );
     sendNotificationEmail_({
       to: reviewers.join(","),
       subject: "Oil Lubrication: " + items.length + " product(s) low on stock — " + contractor,

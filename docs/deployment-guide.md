@@ -866,9 +866,12 @@ gained the `NotificationSettingsCard` component, reads the session's
 roles via `useSession()` (SessionContext.jsx) to decide whether to allow
 editing.
 
-**No stored value yet = notifications ON** — matches exactly how every
-notification already behaved before this setting existed, so deploying
-this patch changes nothing until an admin actively turns something off.
+**No stored value yet = notifications ON** when this patch first shipped —
+**as of 4s below, it's the opposite**: a fresh deployment now defaults to
+email OFF, since the in-app bell is the primary channel and nobody asked
+for a personal inbox flooded by default. An admin who already saved a
+value (on or off) before 4s keeps that exact value — only a never-touched
+install changes behavior.
 
 **Verify**: as an Admin, open the card, confirm it loads the current
 state, toggle it off, save, and confirm (e.g. by approving a routine)
@@ -876,6 +879,90 @@ that no email goes out. Turn it back on, set a Display Name, save, and
 confirm a real notification shows that name in the From line. As a
 non-admin account, confirm the card shows read-only with the explanatory
 note instead of editable fields.
+
+## 4s. In-app notification bell (platform-wide, not just Oil Lubrication)
+
+A bell in the platform shell's top-right corner, visible on every screen
+(Dashboard, My Work, Settings, both embedded modules) — not something you
+have to be inside Oil Lubrication to see. Fires on the exact same five
+events 4f/4g/4h's emails already cover (routine assigned/submitted/
+approved, aging-actions digest, low-stock digest); no new trigger types.
+Unlike email, it is never gated by the Email Notifications toggle in 4r —
+it's always on, since it's now the primary channel (see 4r's default-flip
+note above).
+
+**Where it lives**: `frontend/src/components/NotificationBell.tsx` (shell-
+level, mounted once in `App.tsx`'s `ShellRoot`) reads straight from the Oil
+Lubrication backend via `frontend/src/api/oilLubrication.ts` — the same
+direct-to-`OIL_ANALYSIS_URL` client My Work's native routine list already
+uses — rather than living inside the embedded Oil Lubrication app itself.
+That's deliberate: every event today happens to originate there, but the
+bell is a platform concept, not an Oil-Lubrication-page concept, so it
+stays visible no matter which tab is open. Not shown for a Technician-only
+account — `TechnicianShell` was already deliberately stripped down to just
+My Work with no other chrome, and this doesn't change that.
+
+**Clicking a notification**: marks it read (optimistic — the bell's own
+next poll self-corrects if the blind "mark read" POST silently fails, same
+spirit as every other best-effort write in this codebase) and navigates to
+where it's about:
+- A routine-related notification (assigned/submitted/approved) deep-links
+  straight into **that specific routine's** detail view — not just the
+  Routines list. This needed a small navigation extension: `embeddedNav.tsx`'s
+  `navigateTo(moduleId, pageId)` gained an optional third `recordId` arg,
+  threaded through to the embedded app's own `navBridge.navigate(pageId,
+  recordId)`; `apps/oil-analysis/src/App.jsx`'s internal `navigate()` now
+  stores that id and passes it to `Routines.jsx` as `initialRoutineId`,
+  which opens `RoutineDetail` directly on mount (same pattern
+  Equipment/OilReportSearch already use for "arrived wanting one specific
+  record" via `initialCode`).
+- A digest notification (aging actions / low stock) lands on the relevant
+  list page itself (Action Tracker / Oil Inventory) — a digest covers
+  multiple records, so there's no single one to deep-link to.
+
+**Code**:
+- `backend/oil-lubrication/src/InAppNotifications.js` (new) — the sheet
+  `OL_IN_APP_NOTIFICATIONS` (self-creating, same pattern as `AuditLog.js`'s
+  Audit Log), `recordInAppNotification_`/`recordInAppNotificationForEach_`
+  (one row per recipient, so each reviewer's read state is independent even
+  when several of them get the same digest), `getInAppNotifications_`
+  (scoped strictly to the caller's own email — personal, like the email it
+  parallels, never contractor-wide), `markInAppNotificationRead_`
+  (ownership-checked — a notification can only be marked read by the email
+  it's addressed to) and `markAllInAppNotificationsRead_`.
+- `Notifications.js` — each of the five existing notify functions
+  (`notifyRoutineAssigned_`, `notifyRoutineSubmitted_`,
+  `notifyRoutineApproved_`, `sendAgingActionsDigest_`,
+  `sendLowStockDigest_`) now also calls into InAppNotifications.js,
+  unconditionally (not gated by `notify_email_enabled`). Also where the
+  settings default flipped — see 4r's updated note above.
+- `Code.js` — new `getInAppNotifications` GET case (scoped by
+  `auth.session.email`, empty for an anonymous request) and
+  `markNotificationRead`/`markAllNotificationsRead` POST actions (no
+  `requirePermission_`/contractor check needed — ownership is enforced
+  inside `markInAppNotificationRead_`/`markAllInAppNotificationsRead_`
+  themselves, by email, so any logged-in user may call these for their own
+  notifications only).
+- `frontend/src/api/oilLubrication.ts` — `getInAppNotifications`,
+  `markNotificationRead`, `markAllNotificationsRead`.
+- `frontend/src/embeddedNav.tsx`, `apps/oil-analysis/src/App.jsx`,
+  `apps/oil-analysis/src/pages/Routines.jsx` — the record-level deep-link
+  plumbing described above.
+- `frontend/src/components/NotificationBell.tsx` + `.css` (new) — the bell
+  itself; polls every 60s plus once on mount.
+
+**Nothing new to deploy in Apps Script beyond what 4f/4g/4h/4r already
+need** — `InAppNotifications.js` is a new file to add to the Apps Script
+project alongside the rest of `backend/oil-lubrication/src/`, same as any
+other patch in this guide; the `OL_IN_APP_NOTIFICATIONS` sheet creates
+itself on first use, nothing to pre-create by hand.
+
+**Verify**: as a user with at least one notification addressed to their
+email (e.g. assign yourself a routine), confirm the bell shows an unread
+badge on login, the dropdown lists it, clicking it opens that exact
+routine's detail view and the badge count drops by one; confirm "Mark all
+read" clears the badge entirely; confirm a second account's unread
+notifications are unaffected by the first account's mark-read actions.
 
 ## 5. What's still open after this
 

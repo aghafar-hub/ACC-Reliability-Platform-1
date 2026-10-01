@@ -8,7 +8,12 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
  * its page changes so we can mirror it here.
  */
 export type NavBridge = {
-  navigate?: (pageId: string) => void;
+  // recordId (Patch 15, notification bell deep-linking): an optional id the
+  // embedded app's own navigate() may use to open a specific record on that
+  // page (e.g. a routineId) instead of just landing on the page's list view.
+  // An embedded app that doesn't recognize it for a given page just ignores
+  // the extra argument and behaves exactly as before.
+  navigate?: (pageId: string, recordId?: string) => void;
   onNavigate?: (pageId: string) => void;
   // Set by the embedded app itself (see each app's ThemeContext/App) so the
   // platform Settings page can push a live theme change into whichever
@@ -39,7 +44,7 @@ type EmbeddedNavContextValue = {
   register: (moduleId: string, bridge: NavBridge) => void;
   unregister: (moduleId: string) => void;
   setActivePage: (moduleId: string, pageId: string) => void;
-  navigateTo: (moduleId: string, pageId: string) => void;
+  navigateTo: (moduleId: string, pageId: string, recordId?: string) => void;
   // Live-pushes a theme change to every currently-registered module (no-op
   // for one that hasn't wired navBridge.setTheme — either way the choice is
   // still persisted separately, see theme.ts).
@@ -77,7 +82,7 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
           prev[moduleId] ? { ...prev, [moduleId]: { ...prev[moduleId], activePage: pageId } } : prev,
         );
       },
-      navigateTo: (moduleId, pageId) => modules[moduleId]?.bridge.navigate?.(pageId),
+      navigateTo: (moduleId, pageId, recordId) => modules[moduleId]?.bridge.navigate?.(pageId, recordId),
       pushTheme: (themeName) => {
         Object.values(modules).forEach((m) => m.bridge.setTheme?.(themeName));
       },

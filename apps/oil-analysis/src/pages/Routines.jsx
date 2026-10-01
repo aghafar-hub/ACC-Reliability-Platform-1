@@ -148,10 +148,33 @@ function isOverdue(r, now) {
 // contractor", tracked by free-text AssignedTo/CreatedBy fields, not real
 // user accounts. Not synced with the main Full Sync — loaded on demand,
 // same as Equipment Registry.
-export default function Routines({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged }) {
+export default function Routines({
+  webhookUrl,
+  equipmentRegistry,
+  samples,
+  actions,
+  oilChanges,
+  pushToast,
+  onDataChanged,
+  initialRoutineId,
+  onInitialRoutineConsumed,
+}) {
   const { T, s } = useTheme();
   const [view, setView] = useState("list"); // "list" | "detail" | "new"
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
+
+  // Patch 15: the notification bell deep-links straight into a specific
+  // routine's detail view (e.g. "you were assigned RT-123") instead of
+  // leaving the user to find it in the list themselves — mirrors the
+  // initialCode/oilReportCode pattern Equipment/OilReportSearch already
+  // use for the same "arrived here from outside wanting one specific
+  // record" case.
+  useEffect(() => {
+    if (!initialRoutineId) return;
+    setSelectedRoutineId(initialRoutineId);
+    setView("detail");
+    onInitialRoutineConsumed?.();
+  }, [initialRoutineId, onInitialRoutineConsumed]);
   const [routines, setRoutines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
