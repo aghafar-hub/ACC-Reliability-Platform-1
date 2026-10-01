@@ -1305,6 +1305,34 @@ template's drill-down.
 Changes stacked bar, Routines by Area donut, Completion Rate Trend using
 the agreed item-weighted formula) and the "Next 7 Days Due" side panel.
 
+## 4aa. Oil Inventory monthly consumption — backend (Patch 21)
+
+Backend for the Oil Inventory redesign's "Consumption" tab (design review:
+Oil Inventory becomes a 5-tab page — Overview/Stock List/Consumption/
+Forecast/Movements, Reorder Requests dropped). Distinct from
+`getOilInventoryForecast` (Patch pre-existing, projects FUTURE need from
+registry intervals): this is ACTUAL historical usage, as logged.
+
+**Code**: new `getOilInventoryConsumption(monthsParam, scope)` in
+`OilInventory.js`. Sums "Oil Inventory LOG" rows with `MovementType ===
+"Issue"` (both auto-deducted ones from logged oil-change/top-up events and
+manual Issues — Receipt/Adjustment never count as consumption), bucketed
+by calendar month, for each product in scope, over a trailing window
+(`months` param, default 6, capped at 24). Returns `{ months: [...
+"YYYY-MM" labels, oldest first], byProduct: [{ productId, lubricant,
+lubricantBrand, contractor, monthly: [...], total, averageMonthly }, ...],
+totalsByMonth: [...] }` — `byProduct` only includes products with nonzero
+consumption in the window (an all-zero row would just clutter the chart).
+`totalsByMonth` is the scoped aggregate per month, for the tab's own
+top-of-page trend chart; `byProduct` feeds both a per-product breakdown
+table and (via `OilProductDetail`, a later patch) a per-product history
+chart. New `Code.js` doGet case `getOilInventoryConsumption`.
+
+**Verify**: hit `?action=getOilInventoryConsumption&months=6` and confirm
+the month labels run oldest-to-newest ending at the current month, and
+that a product with only Receipt/Adjustment movements (no Issues) is
+correctly excluded from `byProduct`.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

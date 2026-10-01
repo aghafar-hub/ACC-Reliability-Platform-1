@@ -192,6 +192,81 @@ function getOilInventoryForecast(monthsParam, scope) {
 }
 
 
+function monthKey_(d) {
+  var m = d.getMonth() + 1;
+  return d.getFullYear() + "-" + (m < 10 ? "0" + m : String(m));
+}
+
+// ─── Monthly consumption (Patch 21) ─────────────────────────────────────
+//
+// Actual historical usage, as logged — distinct from getOilInventoryForecast
+// above, which projects FUTURE need from registry intervals. This instead
+// sums real "Issue" movements from Oil Inventory LOG (both the auto-deducted
+// kind from logged oil-change/top-up events, and manual Issues) per product,
+// bucketed by calendar month, for the Consumption tab's trend chart and
+// per-product history.
+function getOilInventoryConsumption(monthsParam, scope) {
+  var months = Math.max(1, Math.min(24, parseInt(monthsParam, 10) || 6));
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var now = new Date();
+
+  var monthKeys = [];
+  for (var i = months - 1; i >= 0; i--) {
+    monthKeys.push(monthKey_(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  }
+  var monthIndex = {};
+  monthKeys.forEach(function (k, idx) { monthIndex[k] = idx; });
+  var windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+  var productRows = readSheet(ss, "Oil Inventory", true);
+  var products = {};
+  productRows.forEach(function (r) {
+    var productId = String(r[0] || "").trim();
+    if (!productId) return;
+    var contractor = String(r[16] || "").trim();
+    if (scope && contractor !== scope) return;
+    products[productId] = {
+      productId: productId,
+      lubricant: String(r[1] || "").trim(),
+      lubricantBrand: String(r[2] || "").trim(),
+      contractor: contractor,
+      monthly: monthKeys.map(function () { return 0; }),
+    };
+  });
+
+  readSheet(ss, "Oil Inventory LOG", true).forEach(function (r) {
+    if (String(r[2] || "").trim() !== "Issue") return;
+    var product = products[String(r[1] || "").trim()];
+    if (!product) return; // out of scope, or product since deleted
+    var d = r[4] instanceof Date ? r[4] : new Date(r[4]);
+    if (isNaN(d.getTime()) || d.getTime() < windowStart.getTime()) return;
+    var idx = monthIndex[monthKey_(d)];
+    if (idx === undefined) return;
+    product.monthly[idx] += parseFloat(r[3]) || 0;
+  });
+
+  var byProduct = Object.keys(products)
+    .map(function (id) {
+      var p = products[id];
+      p.monthly = p.monthly.map(function (q) { return Math.round(q * 100) / 100; });
+      p.total = Math.round(p.monthly.reduce(function (a, b) { return a + b; }, 0) * 100) / 100;
+      p.averageMonthly = Math.round((p.total / months) * 100) / 100;
+      return p;
+    })
+    // Only products with real consumption history — an all-zero row (never
+    // issued, or issued outside this window) would just clutter the chart.
+    .filter(function (p) { return p.total > 0; });
+
+  var totalsByMonth = monthKeys.map(function (_, idx) {
+    var sum = 0;
+    byProduct.forEach(function (p) { sum += p.monthly[idx]; });
+    return Math.round(sum * 100) / 100;
+  });
+
+  return { months: monthKeys, byProduct: byProduct, totalsByMonth: totalsByMonth };
+}
+
+
 function getOilInventoryMovements(productId, scope) {
   var id = String(productId || "").trim();
   if (!id) return { movements: [] };

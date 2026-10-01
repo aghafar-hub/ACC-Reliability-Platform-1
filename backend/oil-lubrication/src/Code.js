@@ -34,6 +34,7 @@
 //                                              Routines list's data source
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
 //   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
+//   ?action=getOilInventoryConsumption&months=6 → actual historical monthly usage (Patch 21)
 //   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
 //   ?action=getStartupBundle                → readAll + Equipment Registry + Action
 //                                              Registry in one response — used only for
@@ -220,6 +221,9 @@ function doGet(e) {
         break;
       case "getOilInventoryForecast":
         result = getOilInventoryForecast(e.parameter.months, scope);
+        break;
+      case "getOilInventoryConsumption":
+        result = getOilInventoryConsumption(e.parameter.months, scope);
         break;
       case "readActionRegistry":
         result = readActionRegistry();
