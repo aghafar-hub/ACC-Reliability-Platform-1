@@ -323,6 +323,20 @@ function getOilInventoryMovements(productId, scope) {
 }
 
 
+// All movements across every product (Patch 23) — the Movements tab's own
+// unified ledger, as opposed to getOilInventoryMovements above which is
+// scoped to one product's own history (still used by OilProductDetail).
+// Scoped directly off the LOG row's own Contractor column (7) rather than
+// joining back to Oil Inventory, since every logged movement already
+// carries its own contractor.
+function getAllOilInventoryMovements(scope) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Inventory LOG", true);
+  if (scope) rows = rows.filter(function (r) { return String(r[7] || "").trim() === scope; });
+  return { movements: rows.slice().reverse(), count: rows.length };
+}
+
+
 function addOilProduct(ss, data) {
   var productId = String(data.productId || "").trim();
   if (!productId) return { error: "productId is required" };

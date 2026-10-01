@@ -1371,6 +1371,62 @@ it appears in `insufficientHistory` instead of just being absent from
 surface `insufficientHistory` — a flagged equipment list or a small callout
 — rather than leaving it in the response unused.
 
+## 4ac. Oil Inventory redesign — Movements endpoint + 5-tab frontend rebuild (Patch 23/24)
+
+Closes out the Oil Inventory redesign agreed during design review: a
+5-tab page (Overview/Stock List/Consumption/Forecast/Movements —
+"Reorder Requests" dropped; a low-stock list already covers that need
+without a separate approval-style tab duplicating the same record).
+
+**Backend (Patch 23)**: new `getAllOilInventoryMovements(scope)` in
+`OilInventory.js` — the Movements tab's own unified ledger across every
+product, as opposed to the pre-existing `getOilInventoryMovements`
+(still used by `OilProductDetail`, scoped to one product). Scoped
+directly off each LOG row's own Contractor column rather than joining
+back to Oil Inventory, since every logged movement already carries its
+own contractor. New `Code.js` doGet case `getAllOilInventoryMovements`.
+
+**Frontend (Patch 24)**: `apps/oil-analysis/src/pages/OilInventory.jsx`
+rebuilt around a `TabBar` + 5 tab components, replacing the old flat
+list + separate "Forecast" sub-view:
+
+- **Overview** (new, default landing tab): 4 KPI cards (Total Products,
+  Low Stock, This Month's Consumption, Open Shortfalls over a 3-month
+  window), a 6-month consumption trend area chart (Recharts, from
+  Patch 21's `getOilInventoryConsumption`), and a Low Stock quick table.
+- **Stock List**: the original flat product list, search, and Add
+  Product button — unchanged behavior, just relocated into its own tab.
+- **Consumption** (new): a months selector (3/6/12), a bar chart of
+  total consumption per month, and a per-product breakdown table sorted
+  by total descending — both from Patch 21's aggregation.
+- **Forecast**: the existing projected-need table, PLUS (closing the
+  Patch 22 follow-up) a callout listing every equipment in
+  `insufficientHistory` — condition-based equipment with no logged
+  history to project from. Required also fixing `api.js`'s
+  `getOilInventoryForecast`, which was silently dropping
+  `insufficientHistory` from the backend response before this patch —
+  caught via a Playwright assertion that the callout wasn't rendering
+  despite the mocked backend response carrying it.
+- **Movements** (new): the unified ledger from Patch 23, joined
+  client-side against the already-fetched product list for
+  lubricant/brand display, with a movement-type filter (All/Receipt/
+  Issue/Adjustment) and a search box. Capped at displaying the first 200
+  matching rows with a "narrow your filter" note, so an old plant with a
+  long history doesn't render an unbounded table.
+
+Recharts (`^3.10.1`, added to `package.json` in Patch 20's prep) is now
+actually used — `AreaChart` for the Overview trend, `BarChart` for
+Consumption — both themed off the active theme's own `accent`/`border`/
+`textSecondary` tokens via a shared `ChartTooltip` component, so they
+follow whichever of the (now 10, soon 11 — Patch 27) themes is active
+rather than being hardcoded to one palette.
+
+**Verify**: open Oil Inventory — Overview should load with KPI cards and
+a trend chart; Stock List/Consumption/Forecast/Movements should each
+load their own data on first click (not all fetched eagerly up front);
+a condition-based LP with no logged history should show up in the
+Forecast tab's callout, not just be silently absent from the table.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

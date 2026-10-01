@@ -827,13 +827,37 @@ export async function getOilInventoryMovements(webhookUrl, productId) {
   return (json.movements || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilMovement);
 }
 
+// Patch 23: unified ledger across every product, for the Movements tab —
+// distinct from getOilInventoryMovements above (one product's own history,
+// still used by OilProductDetail).
+export async function getAllOilInventoryMovements(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getAllOilInventoryMovements" });
+  return (json.movements || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilMovement);
+}
+
+// Patch 21: actual historical monthly usage — see
+// backend/oil-lubrication/src/OilInventory.js's getOilInventoryConsumption.
+// Already shaped for display, no row-parser needed.
+export async function getOilInventoryConsumption(webhookUrl, months = 6) {
+  const json = await getJSON(webhookUrl, { action: "getOilInventoryConsumption", months });
+  return { months: json.months || [], byProduct: json.byProduct || [], totalsByMonth: json.totalsByMonth || [] };
+}
+
 // Projected consumption vs. current stock, per oil (type+brand+contractor),
 // over the next `months` — see backend/oil-lubrication/src/OilInventory.js's
 // getOilInventoryForecast for the projection logic. Already shaped for
 // display (not raw sheet rows), so no row-parser needed here.
 export async function getOilInventoryForecast(webhookUrl, months = 3) {
   const json = await getJSON(webhookUrl, { action: "getOilInventoryForecast", months });
-  return { forecast: json.forecast || [], months: json.months || months, windowEnd: json.windowEnd || "" };
+  return {
+    forecast: json.forecast || [],
+    months: json.months || months,
+    windowEnd: json.windowEnd || "",
+    // Patch 22 — condition-based equipment with no logged history and no
+    // open routine to project from; surfaced separately rather than just
+    // being absent from `forecast`.
+    insufficientHistory: json.insufficientHistory || [],
+  };
 }
 
 // productId is client-generated (newId() in parsers.js) for the same
