@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
 
 const PAGE_TITLES = {
-  dashboard: "Dashboard",
-  equipment: "Equipment",
+  dashboard: "Oil Dashboard",
+  equipment: "Oil Equipment",
   oilreport: "Oil Analysis Report",
   upload: "Add Sample",
   actions: "Action Tracker",

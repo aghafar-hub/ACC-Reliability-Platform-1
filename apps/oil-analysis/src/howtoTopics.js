@@ -22,7 +22,7 @@ export const HOWTO_TOPICS = [
   {
     id: "dashboard",
     icon: "ti-layout-dashboard",
-    title: "Dashboard",
+    title: "Oil Dashboard",
     color: "#2DC653",
     steps: [
       {

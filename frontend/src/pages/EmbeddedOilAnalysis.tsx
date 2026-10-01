@@ -19,14 +19,6 @@ type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge; sessi
 
 const MODULE_ID = 'oil-analysis';
 const BASE_ROUTE = '/oil-analysis';
-// Shell-level routes that show this module's own content directly, rather
-// than being reached through /oil-analysis's sub-tabs — see the FORCED_PAGE
-// effect below. Patch 31 ("treat it all as one app"): the platform's
-// top-level Dashboard and Equipment nav items used to point at separate,
-// empty shell-level stub pages that duplicated/shadowed this module's own
-// real Dashboard and Equipment pages — removed in favor of just showing the
-// real ones here.
-const FORCED_PAGE_BY_ROUTE: Record<string, string> = { '/': 'dashboard', '/equipment': 'equipment' };
 
 // Loads the as-is copied app's own pre-built embed bundle (its own React
 // 18 + every dependency bundled in — see
@@ -64,25 +56,12 @@ export default function EmbeddedOilAnalysis() {
   // this module visible — in place, showing its own internal Settings page
   // — while its "Oil Lubrication" side tab is selected (?module=oil-analysis
   // on /settings), reusing this same persistent-mount instance rather than
-  // navigating away to /oil-analysis. Patch 31: the shell's top-level
-  // Dashboard (/) and Equipment (/equipment) routes do the same, for the
-  // same reason — see FORCED_PAGE_BY_ROUTE above.
-  const forcedPage = FORCED_PAGE_BY_ROUTE[location.pathname];
-  const visible =
-    location.pathname === BASE_ROUTE ||
-    forcedPage !== undefined ||
-    (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
+  // navigating away to /oil-analysis. (Patch 31 briefly did the same for the
+  // shell's top-level "/" and "/equipment" routes too — reverted in Patch 32:
+  // those are meant for a future HIGH-level, platform-wide Dashboard/
+  // Equipment, not this module's own LOW-level ones — see App.tsx.)
+  const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
   const { sessionToken, claims } = useAuth();
-
-  // Drives this module to its own Dashboard/Equipment page whenever one of
-  // the shell routes above is visited — a no-op before the module has
-  // registered (see navBridge.navigate's own comment in embeddedNav.tsx),
-  // which is fine: it mounts with page="dashboard" as its own default
-  // (apps/oil-analysis/src/App.jsx), already matching the "/" case.
-  useEffect(() => {
-    if (forcedPage) embeddedNav.navigateTo(MODULE_ID, forcedPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when the forced route itself changes; embeddedNav's identity is stable
-  }, [forcedPage]);
 
   useEffect(() => {
     if (startedRef.current) return;

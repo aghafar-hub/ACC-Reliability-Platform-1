@@ -52,13 +52,18 @@ function ShellRoot() {
         <TopBar />
         <main className="app-content">
           <Routes>
+            {/* Patch 31 briefly pointed "/" and "/equipment" at Oil
+                Lubrication's own Dashboard/Equipment pages directly — reverted
+                (Patch 32): those are the LOW-level, module-scoped pages (now
+                labeled "Oil Dashboard"/"Oil Equipment" to make that explicit —
+                see navigation.ts and apps/oil-analysis's TopBar.jsx), not the
+                HIGH-level, platform-wide Dashboard/Equipment these top-level
+                nav slots are meant for — which aren't designed yet. Back to
+                plain placeholders, same treatment as Reliability Measures/
+                Compressors below, until the real high-level pages are built. */}
+            <Route path="/" element={<ComingSoon title="Dashboard" />} />
             <Route path="/my-work" element={<MyWork />} />
-            {/* "/" and "/equipment" have no <Route> here on purpose, same as
-                /oil-analysis and /vibration-analysis below — Patch 31
-                removed the separate shell-level stub pages that used to
-                duplicate/shadow Oil Lubrication's own real Dashboard and
-                Equipment pages ("treat it all as one app"); EmbeddedOilAnalysis
-                now shows those real pages directly for these routes too. */}
+            <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />

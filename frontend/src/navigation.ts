@@ -45,7 +45,7 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
 // docs/oil-lubrication-migration-notes.md) built them as native pages.
 export const OIL_SUB_TABS: SubTab[] = [
   { id: 'dashboard', label: 'Oil Dashboard', icon: 'ti-layout-dashboard' },
-  { id: 'equipment', label: 'Equipment', icon: 'ti-engine' },
+  { id: 'equipment', label: 'Oil Equipment', icon: 'ti-engine' },
   { id: 'routines', label: 'Routines', icon: 'ti-route' },
   { id: 'oilreport', label: 'Oil Analysis Report', icon: 'ti-file-analytics' },
   { id: 'upload', label: 'Add Report', icon: 'ti-plus' },

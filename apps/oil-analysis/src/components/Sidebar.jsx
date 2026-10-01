@@ -4,8 +4,8 @@ import logo from "../assets/arabian-cement-logo.png";
 // Nav id/label/icon list ported verbatim from the original app's own `mh`
 // array — do not reorder or relabel without re-checking the original.
 const NAV = [
-  { id: "dashboard", label: "Dashboard", icon: "ti-layout-dashboard" },
-  { id: "equipment", label: "Equipment", icon: "ti-engine" },
+  { id: "dashboard", label: "Oil Dashboard", icon: "ti-layout-dashboard" },
+  { id: "equipment", label: "Oil Equipment", icon: "ti-engine" },
   { id: "routines", label: "Routines", icon: "ti-route" },
   { id: "oilreport", label: "Oil Analysis Report", icon: "ti-file-analytics" },
   { id: "upload", label: "Add Sample", icon: "ti-plus" },

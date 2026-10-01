@@ -1846,6 +1846,51 @@ equipment"), no "still to come" text. Verified with a 7-assertion
 Playwright test, plus a full rerun of the Patch 28/29/30 regression tests
 (TopBar, Settings tabs, Equipment Viewer merge) to confirm no regression.
 
+## 4am. Patch 31 reverted — high-level vs. low-level Dashboard/Equipment (Patch 32)
+
+Direct correction after Patch 31: "i think you mixed, between high level
+and low level Equipment and dashboard, high level equipment and
+dashboard it still not designed yet, we can call Oil Dashboard, Oil
+Equipment." Patch 31 made the shell's top-level `/` and `/equipment`
+nav items show Oil Lubrication's own Dashboard/Equipment pages directly.
+That was wrong: those top-level slots are meant for a future, platform-
+wide (HIGH-level) Dashboard and Equipment — covering every module, not
+just Oil Lubrication — which hasn't been designed yet. Oil Lubrication's
+own pages are the LOW-level, module-scoped versions, and showing them at
+the top level misrepresented them as the whole platform's view.
+
+**Reverted**: `frontend/src/App.tsx`'s `/` and `/equipment` routes are
+back to plain `<ComingSoon>` placeholders, same treatment as Reliability
+Measures/Compressors, until the real high-level pages are designed.
+`EmbeddedOilAnalysis.tsx`'s `visible` check and its forcing effect are
+back to Patch 29's state (just `/oil-analysis` and the Settings
+`?module=` case) — the `FORCED_PAGE_BY_ROUTE` mechanism added in Patch 31
+is gone.
+
+**Renamed for clarity, so this distinction stays obvious going
+forward**: Oil Lubrication's own Dashboard and Equipment sub-tabs/pages
+are now explicitly labeled "Oil Dashboard" / "Oil Equipment" everywhere
+a user sees them — `frontend/src/navigation.ts`'s `OIL_SUB_TABS` (the
+real nav source), `apps/oil-analysis/src/components/TopBar.jsx`'s
+`PAGE_TITLES` (the in-app page header shown inside the embedded module
+itself), `apps/oil-analysis/src/components/Sidebar.jsx`'s own `NAV`
+array (dead code in production, kept in sync per this project's own
+convention), and the "How to Use" help topic title in `howtoTopics.js`.
+`OIL_SUB_TABS`'s `dashboard` entry was already "Oil Dashboard" (it
+predates this patch); only `equipment` needed renaming. The component
+files themselves (`Dashboard.jsx`, `Equipment.jsx`) keep their plain
+names — only user-facing labels changed.
+
+**Verify**: top-level "Dashboard" and "Equipment" in the sidebar are
+plain "this tab is on the sidebar — its design is still to come." stubs
+again, with no Oil Lubrication content ever visible there. Inside Oil
+Lubrication's own sub-nav, the entries read "Oil Dashboard" and "Oil
+Equipment"; clicking either shows the same real pages as before (Patch
+26's KPI dashboard, Patch 30's tabbed equipment profile), now with
+matching in-app page headers. Verified with an 8-assertion Playwright
+test, plus a full rerun of the Patch 28/29/30 regression suite (TopBar,
+Settings tabs, Equipment merge) to confirm no regression.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
