@@ -30,6 +30,7 @@ import {
   rowToRouteTemplate,
   rowToOilProduct,
   rowToOilMovement,
+  rowToAuditEntry,
   newId,
 } from "./parsers";
 import { API_SECRET } from "./config";
@@ -806,6 +807,21 @@ export async function logOilMovement(webhookUrl, movement) {
     throw new SaveVerificationError(`The movement wasn't confirmed saved to the sheet — please try again.`);
   }
   return saved;
+}
+
+// ── Audit trail (Patch 9, plant-readiness pass) ─────────────────────────
+// Read-only, paginated, newest-first — no verify-on-write dance needed
+// since nothing here is ever edited client-side. recordId narrows to one
+// equipment/routine/template/product id; omit it for the global feed.
+export async function getAuditTrail(webhookUrl, { recordId = "", page = 1, limit = 50 } = {}) {
+  const json = await getJSON(webhookUrl, { action: "getAuditTrail", recordId, page, limit });
+  return {
+    entries: (json.rows || []).filter((r) => Array.isArray(r) && r[0]).map(rowToAuditEntry),
+    page: json.page || page,
+    limit: json.limit || limit,
+    total: json.total || 0,
+    totalPages: json.totalPages || 1,
+  };
 }
 
 // ── Platform Core (real account lookups) ────────────────────────────────

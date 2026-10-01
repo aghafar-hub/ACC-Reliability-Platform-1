@@ -54,6 +54,7 @@ export const OIL_SUB_TABS: SubTab[] = [
   { id: 'tracker', label: 'Sample Tracking', icon: 'ti-timeline' },
   { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Reports', icon: 'ti-report' },
+  { id: 'activity', label: 'Activity', icon: 'ti-history' },
   { id: 'settings', label: 'Settings', icon: 'ti-settings' },
 ];
 

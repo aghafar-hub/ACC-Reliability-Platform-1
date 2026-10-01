@@ -872,3 +872,19 @@ export function rowToOilMovement(row) {
     createdDate: row[11] || "",
   };
 }
+
+// Patch 9 — "Audit Log" columns: 0 Timestamp, 1 Sheet, 2 RecordId,
+// 3 Action ("create"|"update"|"delete"), 4 ActingUser, 5 Contractor,
+// 6 Summary. See backend/oil-lubrication/src/AuditLog.js for what writes
+// this row and why it carries no field-level before/after diff.
+export function rowToAuditEntry(row) {
+  return {
+    timestamp: row[0] || "",
+    sheet: row[1] || "",
+    recordId: row[2] || "",
+    action: row[3] || "",
+    actingUser: row[4] || "",
+    contractor: row[5] || "",
+    summary: row[6] || "",
+  };
+}

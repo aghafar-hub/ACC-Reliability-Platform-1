@@ -541,6 +541,10 @@ export function buildStyles(T) {
         Approved: T.success,
         Active: T.success,
         Paused: T.textMuted,
+        // Patch 9 — Audit Log action types (Activity.jsx).
+        create: T.success,
+        update: T.accent,
+        delete: T.danger,
       };
       const color = map[value] || T.textSecondary;
       return {

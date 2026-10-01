@@ -155,6 +155,19 @@ function requireLpContractorMatch_(session, lpId) {
   }
 }
 
+// Patch 9 (plant-readiness pass) — the audit trail (Code.js's recordAudit_
+// calls) needs a Contractor value for every write, including ones made by
+// an unscoped ACC/Admin caller (getContractorScope_ returns null for them,
+// which tells a permission check "no restriction" but isn't itself a
+// contractor label to log). This is the read-only counterpart to
+// requireLpContractorMatch_'s lookup — same join through Equipment
+// Registry, just returning the value instead of throwing on a mismatch.
+// "" (not null) for an LP_ID with no registry entry, so callers can use it
+// directly as the audit row's Contractor cell.
+function resolveLpContractor_(lpId) {
+  return getLpContractorMap_()[String(lpId || "").trim()] || "";
+}
+
 // Patch 5 (plant-readiness pass) — closes the one contractor-ownership gap
 // left after Increment 5b: the GENERIC append/updateRow/deleteRow actions
 // (Code.js) were permission-gated (requirePermission_) and sheet-gated

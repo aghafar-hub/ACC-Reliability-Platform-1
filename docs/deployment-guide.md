@@ -507,6 +507,60 @@ exact-match product in inventory) and confirm the new product's stock
 goes down, not nothing. Check the Forecast view shows that original
 spec's projected demand matched against the new product's current stock.
 
+## 4m. Visible audit trail
+
+Previously, "who changed this and when" meant opening the raw Google
+Sheet and reading a bare Last Modified timestamp — no who, and nothing
+any normal user could get to from inside the app. This adds a real
+"who changed what, when" feed, visible from a new Activity page in the
+sidebar.
+
+**Sheet created automatically**: a new "Audit Log" tab, created the
+first time any write happens after this deploys (same self-creating
+pattern as the existing "Debug Log" tab) — nothing to add by hand.
+Columns: Timestamp, Sheet, RecordId, Action, ActingUser, Contractor,
+Summary. One row per successful create/update/delete, written
+alongside every write this backend already makes (append, updateRow,
+deleteRow, and every named action — createRoutine, logOilChangeEvent,
+addOilProduct, etc.). Deliberately a plain one-line description of
+what happened, not a field-by-field before/after diff — this codebase
+has no single column→header map that would make a generic diff
+readable across every sheet, and a vague diff is worse than a clear
+sentence.
+
+**New endpoint**: `getAuditTrail` (GET), paginated and newest-first,
+scoped to the caller's own contractor exactly like every other read —
+a Contractor Engineer only ever sees their own contractor's activity.
+Optionally narrowed to one `recordId` (an LP_ID, routine id, template
+id, or product id) for "show me this record's history."
+
+**New page**: Activity, in the sidebar (both the standalone app's own
+sidebar and the unified platform shell's Oil Lubrication sub-tabs) —
+a simple filterable, paginated feed.
+
+**Also fixed in passing**: `deleteRouteTemplate` had no
+contractor-ownership check at all — the one generic-write-style gap
+Patch 5's own pass missed, since every other mutating action on a
+route template already has one. Noticed while resolving the record's
+contractor for its audit entry (the same lookup both needed), fixed
+the same way as Patch 5's others: `requireContractorMatch_` before the
+delete goes through.
+
+**Code**: new `AuditLog.js` (backend); `Rbac.js` gained
+`resolveLpContractor_`; `Code.js` wires `recordAudit_` into every write
+branch and adds the `getAuditTrail` GET case. Frontend: new
+`pages/Activity.jsx`; `parsers.js` gained `rowToAuditEntry`; `api.js`
+gained `getAuditTrail`; `theme.js`'s shared badge color map gained
+`create`/`update`/`delete`; both `Sidebar.jsx` (standalone) and
+`frontend/src/navigation.ts` (unified shell) gained the "Activity" nav
+entry.
+
+**Verify**: make any save (add a sample, log an oil change, approve a
+routine), then open Activity and confirm a new entry appears at the
+top with the right record id, action type, and your own account's
+email. Try the record-id filter against that same LP_ID/routine id and
+confirm only its own entries show.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

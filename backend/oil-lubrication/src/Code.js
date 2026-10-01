@@ -29,6 +29,10 @@
 //                                              Registry in one response — used only for
 //                                              the app's first-load fetch (see Dashboard.js's
 //                                              getStartupBundle), not periodic re-sync
+//   ?action=getAuditTrail&recordId=&page=&limit= → paginated "who changed what, when"
+//                                              feed (see AuditLog.js), optionally
+//                                              narrowed to one equipment/routine/
+//                                              template/product id
 //
 // STEP 5 (see docs/oil-lubrication-migration-notes.md): Oil Inventory —
 // same split as Step 2's Oil Change LOG. "Oil Inventory LOG" is the
@@ -95,6 +99,7 @@
 //   OilInventory.js       — Oil Inventory product registry + movement log
 //   ActionRegistry.js     — OL_ACTION_PHRASES reads
 //   Notifications.js      — best-effort email on Routine assigned/submitted/approved
+//   AuditLog.js           — "who changed what, when" feed (recordAudit_/getAuditTrail)
 // Apps Script shares one global scope across every file in a project, so this
 // split changes nothing about how the code runs — same deployment, same URL,
 // same single global scope every function in every file already shared.
@@ -191,6 +196,9 @@ function doGet(e) {
       case "readActionRegistry":
         result = readActionRegistry();
         break;
+      case "getAuditTrail":
+        result = getAuditTrail(e.parameter.recordId || "", scope, e.parameter.page, e.parameter.limit);
+        break;
       case "test":
         result = { status:"ok", time: new Date().toISOString(), version:"4.0" };
         break;
@@ -255,12 +263,14 @@ function doPost(e) {
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
         var appendLpCol = GENERIC_WRITE_LP_COL[data.sheet];
+        var appendLpId = (appendLpCol !== undefined && data.row) ? data.row[appendLpCol] : "";
         if (appendLpCol !== undefined && data.row) {
-          requireLpContractorMatch_(auth.session, data.row[appendLpCol]);
+          requireLpContractorMatch_(auth.session, appendLpId);
         }
         appendRow(ss, data.sheet, data.row, data.headers);
         invalidateDashboardCache();
         logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
+        recordAudit_(ss, data.sheet, appendLpId, "create", actingUser, scope || resolveLpContractor_(appendLpId), "New " + data.sheet + " entry added");
         return jsonOut({status:"ok"});
       }
 
@@ -269,6 +279,7 @@ function doPost(e) {
         requireLpContractorMatch_(auth.session, data.equipmentCode);
         var updateStatus = updateSampleTrackerMonthly(ss, data);
         logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", {data: data, actingUser: actingUser});
+        if (updateStatus) recordAudit_(ss, "Oil Sample Tracker", data.equipmentCode, "update", actingUser, scope || resolveLpContractor_(data.equipmentCode), "Updated monthly sample status");
         return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
       }
 
@@ -278,48 +289,60 @@ function doPost(e) {
         if (createRoutineScope) data.contractor = createRoutineScope;
         var createResult = createRoutine(ss, data);
         logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!createResult.error) recordAudit_(ss, "ROUTINES", createResult.routineId, "create", actingUser, data.contractor, "Created routine");
         return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
       }
 
       if (data.action === "submitRoutineItem") {
         requirePermission_(auth.session, "Edit");
-        requireContractorMatch_(auth.session, getRoutineContractor_(getRoutineIdForItem_(data.routineItemId)));
+        var itemRoutineId = getRoutineIdForItem_(data.routineItemId);
+        var itemContractor = getRoutineContractor_(itemRoutineId);
+        requireContractorMatch_(auth.session, itemContractor);
         var itemResult = submitRoutineItem(ss, data);
         logError("doPost:submitRoutineItem", itemResult.error || "ok", {routineItemId: data.routineItemId, actingUser: actingUser});
+        if (!itemResult.error) recordAudit_(ss, "OA_ROUTINE_ITEMS", itemRoutineId, "update", actingUser, itemContractor, "Submitted routine item " + data.routineItemId);
         return jsonOut(itemResult.error ? {status: "error", message: itemResult.error} : {status: "ok"});
       }
 
       if (data.action === "submitRoutine") {
         requirePermission_(auth.session, "Edit");
-        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
+        var submitContractor = getRoutineContractor_(data.routineId);
+        requireContractorMatch_(auth.session, submitContractor);
         data.actingUser = actingUser;
         var subResult = submitRoutine(ss, data);
         logError("doPost:submitRoutine", subResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!subResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, submitContractor, "Submitted routine for review");
         return jsonOut(subResult.error ? {status: "error", message: subResult.error} : {status: "ok"});
       }
 
       if (data.action === "approveRoutine") {
         requirePermission_(auth.session, "Approve");
-        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
+        var approveContractor = getRoutineContractor_(data.routineId);
+        requireContractorMatch_(auth.session, approveContractor);
         data.actingUser = actingUser;
         var appResult = approveRoutine(ss, data);
         logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!appResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, approveContractor, "Approved routine");
         return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
       }
 
       if (data.action === "addRoutineComment") {
         requirePermission_(auth.session, "Edit");
-        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
+        var commentContractor = getRoutineContractor_(data.routineId);
+        requireContractorMatch_(auth.session, commentContractor);
         var commentResult = addRoutineComment(ss, data);
         logError("doPost:addRoutineComment", commentResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!commentResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, commentContractor, "Commented on routine");
         return jsonOut(commentResult.error ? {status: "error", message: commentResult.error} : {status: "ok"});
       }
 
       if (data.action === "assignRoutineTechnician") {
         requirePermission_(auth.session, "Create");
-        requireContractorMatch_(auth.session, getRoutineContractor_(data.routineId));
+        var assignContractor = getRoutineContractor_(data.routineId);
+        requireContractorMatch_(auth.session, assignContractor);
         var assignResult = assignRoutineTechnician(ss, data);
         logError("doPost:assignRoutineTechnician", assignResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!assignResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, assignContractor, "Assigned technician to routine");
         return jsonOut(assignResult.error ? {status: "error", message: assignResult.error} : {status: "ok"});
       }
 
@@ -329,21 +352,32 @@ function doPost(e) {
         if (createTplScope) data.contractor = createTplScope;
         var createTplResult = createRouteTemplate(ss, data);
         logError("doPost:createRouteTemplate", createTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
+        if (!createTplResult.error) recordAudit_(ss, "ROUTINE_TEMPLATES", createTplResult.templateId, "create", actingUser, data.contractor, "Created route template");
         return jsonOut(createTplResult.error ? {status: "error", message: createTplResult.error} : {status: "ok", templateId: createTplResult.templateId});
       }
 
       if (data.action === "setRouteTemplateStatus") {
         requirePermission_(auth.session, "Edit");
-        requireContractorMatch_(auth.session, getTemplateContractor_(data.templateId));
+        var tplStatusContractor = getTemplateContractor_(data.templateId);
+        requireContractorMatch_(auth.session, tplStatusContractor);
         var tplStatusResult = setRouteTemplateStatus(ss, data);
         logError("doPost:setRouteTemplateStatus", tplStatusResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
+        if (!tplStatusResult.error) recordAudit_(ss, "ROUTINE_TEMPLATES", data.templateId, "update", actingUser, tplStatusContractor, "Changed route template status to " + (data.status || ""));
         return jsonOut(tplStatusResult.error ? {status: "error", message: tplStatusResult.error} : {status: "ok"});
       }
 
       if (data.action === "deleteRouteTemplate") {
         requirePermission_(auth.session, "Delete");
+        // Patch 9: this branch had no contractor-ownership check at all (the
+        // one gap Patch 5's own pass missed — every other mutating action
+        // on a route template/routine/product already has one). Added here
+        // as part of resolving the record's contractor for the audit entry
+        // below, since both need the same lookup done before the row is gone.
+        var deleteTplContractor = getTemplateContractor_(data.templateId);
+        requireContractorMatch_(auth.session, deleteTplContractor);
         var deleteTplResult = deleteRouteTemplate(ss, data);
         logError("doPost:deleteRouteTemplate", deleteTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
+        if (!deleteTplResult.error) recordAudit_(ss, "ROUTINE_TEMPLATES", data.templateId, "delete", actingUser, deleteTplContractor, "Deleted route template");
         return jsonOut(deleteTplResult.error ? {status: "error", message: deleteTplResult.error} : {status: "ok"});
       }
 
@@ -353,25 +387,30 @@ function doPost(e) {
         if (addProdScope) data.contractor = addProdScope;
         var addProdResult = addOilProduct(ss, data);
         logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
+        if (!addProdResult.error) recordAudit_(ss, "Oil Inventory", addProdResult.productId, "create", actingUser, data.contractor, "Added oil product");
         return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
       }
 
       if (data.action === "updateOilProduct") {
         requirePermission_(auth.session, "Edit");
-        requireContractorMatch_(auth.session, getProductContractor_(data.productId));
+        var updProdContractor = getProductContractor_(data.productId);
+        requireContractorMatch_(auth.session, updProdContractor);
         var updProdResult = updateOilProduct(ss, data);
         logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
+        if (!updProdResult.error) recordAudit_(ss, "Oil Inventory", data.productId, "update", actingUser, updProdContractor, "Updated oil product");
         return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
       }
 
       if (data.action === "logOilMovement") {
         requirePermission_(auth.session, "Edit");
-        requireContractorMatch_(auth.session, getProductContractor_(data.productId));
+        var movProdContractor = getProductContractor_(data.productId);
+        requireContractorMatch_(auth.session, movProdContractor);
         var movScope = getContractorScope_(auth.session);
         if (movScope) data.contractor = movScope;
         var movResult = logOilMovement(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId, actingUser: actingUser});
+        if (!movResult.error) recordAudit_(ss, "Oil Inventory LOG", data.productId, "create", actingUser, movScope || movProdContractor, "Logged " + (data.type || "movement") + " of " + (data.quantity || "") + " for product " + data.productId);
         return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
       }
 
@@ -381,6 +420,7 @@ function doPost(e) {
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
+        if (!logResult.error) recordAudit_(ss, "Oil Change LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil change");
         return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {
           status: "ok",
           eventId: logResult.eventId,
@@ -408,6 +448,7 @@ function doPost(e) {
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         invalidateDashboardCache();
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
+        if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId), "Updated " + data.sheet + " entry");
         return jsonOut({status: ok1 ? "ok" : "row_not_found"});
       }
 
@@ -422,6 +463,7 @@ function doPost(e) {
         var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
         invalidateDashboardCache();
         logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
+        if (ok2) recordAudit_(ss, data.sheet, deleteLpId || data.matchValues.join(","), "delete", actingUser, scope || resolveLpContractor_(deleteLpId), "Deleted " + data.sheet + " entry");
         return jsonOut({status: ok2 ? "ok" : "row_not_found"});
       }
 
