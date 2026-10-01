@@ -28,6 +28,10 @@ export const THEME_PALETTES: ThemePalette[] = [
   { name: 'Rose Light', appBg: '#FFF1F2', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#FECDD3', textPrimary: '#3B0A14', textSecondary: '#9F3040', accent: '#BE123C', accentText: '#FFFFFF' },
   { name: 'Mint Fresh', appBg: '#F0FDF4', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#BBF7D0', textPrimary: '#052E16', textSecondary: '#166534', accent: '#15803D', accentText: '#FFFFFF' },
   { name: 'Carbon Dark', appBg: '#111111', sidebarBg: '#1C1C1C', cardBg: '#1C1C1C', border: '#303030', textPrimary: '#F2F2F2', textSecondary: '#A0A0A0', accent: '#E63946', accentText: '#FFFFFF' },
+  // New theme (Patch 27) — matches the same palette added to both embedded
+  // apps' own theme.js files, kept in sync so the shell's own chrome looks
+  // identical to the embedded modules under this theme.
+  { name: 'ACC Corporate', appBg: '#F4F6F9', sidebarBg: '#0B2340', cardBg: '#FFFFFF', border: '#D7DEE8', textPrimary: '#0F1E2D', textSecondary: '#5B6B7F', accent: '#2563EB', accentText: '#FFFFFF' },
 ];
 
 export const THEME_NAMES = THEME_PALETTES.map((t) => t.name);

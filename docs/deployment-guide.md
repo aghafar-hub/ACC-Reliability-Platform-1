@@ -1608,6 +1608,41 @@ Activities-by-Contractor dropdown between Oil Change/Oil Sample/Top Up
 and confirm the donut updates, and check that Top Overdue Routines pulls
 real entries when a template/routine is actually overdue.
 
+## 4ah. New "ACC Corporate" theme (Patch 27)
+
+New 11th theme, matching the reference mockups' visual language (dark
+navy sidebar/topbar `#0B2340`, white cards `#FFFFFF` on a light app
+background `#F4F6F9`, blue accent `#2563EB`) — confirmed directly by the
+user ("make new theme style but keep all old styles, and be careful the
+[theme is] always for whole platform"). None of the original 10 themes
+were touched.
+
+**Added in 3 places, kept in perfect sync** (the platform already
+duplicates its theme palettes across these files, not something this
+patch introduced):
+- `apps/oil-analysis/src/theme.js` — full 31-key entry.
+- `apps/vibration-analysis/src/theme.js` — the same palette, adapted to
+  this file's own conventions (solid-hex pills instead of rgba, plus its
+  `purple`/`purpleBg`/`pillPurple` extra keys every other theme there
+  also has).
+- `frontend/src/theme.ts` — the shell's own 9-key mini palette, which
+  drives the Sidebar/every shell page's CSS custom properties.
+
+No other wiring needed — `THEME_NAMES`/`THEME_PALETTES` are both
+`Object.keys`/`.map()` over their respective theme objects, so the new
+entry appears in both the shell's `ThemePicker` (`/settings`) and each
+embedded app's own Appearance tab automatically.
+
+**Verify**: open `/settings`, pick "ACC Corporate" — the shell's Sidebar
+should restyle immediately; open Oil Lubrication (or Vibration Analysis)
+and confirm it picked up the same theme without a manual reselect
+(`persistPlatformTheme` writes into both embedded apps' own storage keys,
+`embeddedNav`'s `pushTheme` live-updates one that's already mounted).
+Verified with a Playwright test confirming the shell's own background
+color (`rgb(11,35,64)` = `#0B2340`) and the embedded Oil Lubrication
+module's background (`rgb(244,246,249)` = `#F4F6F9`) both match the new
+palette after selecting it once in Settings.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

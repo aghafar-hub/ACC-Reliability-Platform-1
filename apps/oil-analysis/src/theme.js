@@ -383,6 +383,49 @@ export const THEMES = {
     pillSuccess: "rgba(45,198,83,0.15)",
     pillInfo: "rgba(96,192,224,0.15)",
   },
+  // New theme (Patch 27, plant-readiness pass): matches the reference
+  // mockups' visual language — dark navy sidebar/topbar, white cards on a
+  // light app background, blue accent — added as an 11th option alongside
+  // the original 10 (none of which were touched), confirmed directly by
+  // the user ("make new theme style but keep all old styles").
+  "ACC Corporate": {
+    appBg: "#F4F6F9",
+    sidebarBg: "#0B2340",
+    cardBg: "#FFFFFF",
+    topbarBg: "#0B2340",
+    border: "#D7DEE8",
+    border2: "#E6EBF2",
+    inputBg: "#FFFFFF",
+    metricBg: "#FFFFFF",
+    textPrimary: "#0F1E2D",
+    textSecondary: "#5B6B7F",
+    textMuted: "#8796A8",
+    textHighlight: "#0B2340",
+    textSubtle: "#3D4C5E",
+    accent: "#2563EB",
+    accentText: "#FFFFFF",
+    navActive: "rgba(37,99,235,0.08)",
+    tableHead: "#F0F3F8",
+    tableRow: "#FFFFFF",
+    tableRowAlt: "#F7F9FC",
+    tableHover: "rgba(37,99,235,0.05)",
+    scrollThumb: "#C3CEDC",
+    cardSubBg: "#F4F6F9",
+    infoBarBg: "#EAF1FB",
+    codeBg: "#EEF1F6",
+    codeText: "#1E40AF",
+    danger: "#DC2626",
+    warning: "#D97706",
+    success: "#16A34A",
+    info: "#2563EB",
+    dangerBg: "#FDEAEA",
+    warningBg: "#FDF3E3",
+    successBg: "#E8F8EE",
+    pillDanger: "rgba(220,38,38,0.12)",
+    pillWarning: "rgba(217,119,6,0.12)",
+    pillSuccess: "rgba(22,163,74,0.12)",
+    pillInfo: "rgba(37,99,235,0.12)",
+  },
 };
 
 export const DEFAULT_THEME = "Navy Dark";

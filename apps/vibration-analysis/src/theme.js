@@ -422,6 +422,52 @@ export const THEMES = {
     purpleBg: "#EDE9FE",
     pillPurple: "#7C3AED",
   },
+  // New theme (Patch 27, plant-readiness pass) — matches the exact same
+  // palette added to apps/oil-analysis/src/theme.js, kept in sync so the
+  // platform-wide theme choice (Settings' Appearance picker) looks
+  // identical across both embedded modules. None of the original themes
+  // above were touched.
+  "ACC Corporate": {
+    appBg: "#F4F6F9",
+    sidebarBg: "#0B2340",
+    cardBg: "#FFFFFF",
+    topbarBg: "#0B2340",
+    border: "#D7DEE8",
+    border2: "#E6EBF2",
+    inputBg: "#FFFFFF",
+    metricBg: "#FFFFFF",
+    textPrimary: "#0F1E2D",
+    textSecondary: "#5B6B7F",
+    textMuted: "#8796A8",
+    textHighlight: "#0B2340",
+    textSubtle: "#3D4C5E",
+    accent: "#2563EB",
+    accentText: "#FFFFFF",
+    navActive: "rgba(37,99,235,0.08)",
+    tableHead: "#F0F3F8",
+    tableRow: "#FFFFFF",
+    tableRowAlt: "#F7F9FC",
+    tableHover: "#EAF1FB",
+    scrollThumb: "#C3CEDC",
+    cardSubBg: "#F4F6F9",
+    infoBarBg: "#EAF1FB",
+    codeBg: "#EEF1F6",
+    codeText: "#1E40AF",
+    danger: "#DC2626",
+    warning: "#D97706",
+    success: "#16A34A",
+    info: "#2563EB",
+    dangerBg: "#FDEAEA",
+    warningBg: "#FDF3E3",
+    successBg: "#E8F8EE",
+    pillDanger: "#DC2626",
+    pillWarning: "#D97706",
+    pillSuccess: "#16A34A",
+    pillInfo: "#2563EB",
+    purple: "#7C3AED",
+    purpleBg: "#EDE9FE",
+    pillPurple: "#7C3AED",
+  },
 };
 
 export const DEFAULT_THEME = "Navy Dark";
