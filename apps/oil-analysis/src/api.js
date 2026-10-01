@@ -742,6 +742,8 @@ export async function addOilProduct(webhookUrl, product) {
     status: product.status || "Active",
     notes: product.notes || "",
     contractor: product.contractor || "",
+    equivalentToType: product.equivalentToType || "",
+    equivalentToBrand: product.equivalentToBrand || "",
   });
 
   const products = await getOilInventory(webhookUrl);
@@ -767,6 +769,8 @@ export async function updateOilProduct(webhookUrl, product) {
     unitCost: product.unitCost || "",
     status: product.status || "",
     notes: product.notes || "",
+    equivalentToType: product.equivalentToType || "",
+    equivalentToBrand: product.equivalentToBrand || "",
   });
 
   const products = await getOilInventory(webhookUrl);

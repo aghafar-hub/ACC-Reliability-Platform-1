@@ -54,8 +54,23 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
     status: "Active",
     notes: "",
     contractor: CONTRACTOR_OPTIONS[0],
+    equivalentToType: "",
+    equivalentToBrand: "",
   });
   const [saving, setSaving] = useState(false);
+  // Patch 8: "this product is a substitute for an oil the market no longer
+  // carries" — a simple pairing (this product replaces ONE original spec,
+  // not a group of several interchangeable brands), declarable here by any
+  // Contractor Engineer for their own contractor's stock, no ACC approval
+  // needed (confirmed directly by the user). Only offered against the SAME
+  // contractor's own registry oils — equivalence never crosses contractor
+  // lines, same as the stock itself never does.
+  const [equivalentEnabled, setEquivalentEnabled] = useState(false);
+  const [selectedEquivalentKey, setSelectedEquivalentKey] = useState("");
+  const knownOilsForContractor = useMemo(
+    () => knownOils.filter((o) => o.contractor === form.contractor),
+    [knownOils, form.contractor]
+  );
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -72,15 +87,30 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
     setForm((f) => ({ ...f, lubricantType: picked.lubricant, lubricantBrand: picked.lubricantBrand, contractor: picked.contractor }));
   }
 
+  function handleSelectEquivalent(key) {
+    setSelectedEquivalentKey(key);
+    const picked = knownOilsForContractor.find((o) => oilKeyFor(o) === key);
+    setForm((f) => ({ ...f, equivalentToType: picked?.lubricant || "", equivalentToBrand: picked?.lubricantBrand || "" }));
+  }
+
   async function handleCreate() {
     if (!form.lubricantType.trim()) {
       pushToast(oilMode === "registry" ? "Select an oil from the list first." : "Lubricant type is required.", "error");
       return;
     }
+    if (equivalentEnabled && !form.equivalentToType.trim()) {
+      pushToast("Select which oil this product replaces, or uncheck the equivalent-oil option.", "error");
+      return;
+    }
     setSaving(true);
     try {
       const productId = newId("OIL");
-      const saved = await api.addOilProduct(webhookUrl, { productId, ...form });
+      const payload = { productId, ...form };
+      if (!equivalentEnabled) {
+        payload.equivalentToType = "";
+        payload.equivalentToBrand = "";
+      }
+      const saved = await api.addOilProduct(webhookUrl, payload);
       pushToast("Product added. Remember to copy the Current_Stock / Last_Movement_Date formulas down into its row.", "success");
       onCreated(saved.productId);
     } catch (err) {
@@ -139,6 +169,48 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
             </div>
           </>
         )}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input type="checkbox" checked={equivalentEnabled} onChange={(e) => setEquivalentEnabled(e.target.checked)} />
+            This replaces a different spec'd oil (market doesn't carry the original anymore)
+          </label>
+          {equivalentEnabled && (
+            <div style={{ marginTop: 6 }}>
+              {knownOilsForContractor.length > 0 ? (
+                <select style={s.select} value={selectedEquivalentKey} onChange={(e) => handleSelectEquivalent(e.target.value)}>
+                  <option value="">Select the original oil this product replaces…</option>
+                  {knownOilsForContractor.map((o) => (
+                    <option key={oilKeyFor(o)} value={oilKeyFor(o)}>
+                      {o.lubricant}
+                      {o.lubricantBrand ? ` (${o.lubricantBrand})` : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    style={s.input}
+                    type="text"
+                    placeholder="Original Lubricant Type"
+                    value={form.equivalentToType}
+                    onChange={(e) => set("equivalentToType", e.target.value)}
+                  />
+                  <input
+                    style={s.input}
+                    type="text"
+                    placeholder="Original Brand"
+                    value={form.equivalentToBrand}
+                    onChange={(e) => set("equivalentToBrand", e.target.value)}
+                  />
+                </div>
+              )}
+              <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
+                Auto-deduction and the forecast will use this product for that original oil's equipment whenever there's no exact match
+                in {form.contractor || "this contractor"}'s own stock.
+              </p>
+            </div>
+          )}
+        </div>
         <div>
           <label style={s.label}>Container Type</label>
           <select style={s.select} value={form.containerType} onChange={(e) => set("containerType", e.target.value)}>

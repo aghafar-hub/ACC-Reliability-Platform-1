@@ -19,6 +19,22 @@
 // and not editable afterward via updateOilProduct, same as equipment
 // reassignment being a separate, deliberate action rather than a normal
 // edit.
+// 17 EquivalentToType, 18 EquivalentToBrand (Patch 8, plant-readiness
+// pass — add "EquivalentToType"/"EquivalentToBrand" headers to the live
+// sheet's columns R/S). Blank for a product that exactly matches its
+// equipment's own registered spec. Set when the market no longer carries
+// the original brand and a Contractor Engineer has declared THIS product
+// as what they're actually using instead — e.g. EquivalentToType="Shell
+// Gadus S2 V220", EquivalentToBrand="Shell" on a Mobilgrease product,
+// meaning "treat me as filling that role." Unlike Contractor, these ARE
+// editable after creation via updateOilProduct — correcting a declared
+// equivalence (or the market situation changing again) is an ordinary
+// edit, not the once-only deliberate action Contractor reassignment is.
+// See findInventoryProductRow_ for how this is actually used: a simple
+// pairing (this product replaces ONE original spec, not a group of
+// several interchangeable brands), declarable by any Contractor Engineer
+// for their own contractor's stock, no ACC approval needed — confirmed
+// directly by the user.
 // "Oil Inventory LOG" columns: 0 MovementId, 1 Product_ID, 2 MovementType
 // ("Receipt"|"Issue"|"Adjustment"), 3 Quantity (always positive for
 // Receipt/Issue; signed +/- for Adjustment — see the Current_Stock formula
@@ -154,16 +170,10 @@ function getOilInventoryForecast(monthsParam, scope) {
   var productRows = readSheet(ss, "Oil Inventory", true);
   var forecast = Object.keys(needed).map(function (key) {
     var n = needed[key];
-    var product = null;
-    for (var i = 0; i < productRows.length; i++) {
-      var r = productRows[i];
-      if (String(r[1] || "").trim().toLowerCase() === n.lubricant.trim().toLowerCase()
-        && String(r[2] || "").trim().toLowerCase() === n.lubricantBrand.trim().toLowerCase()
-        && String(r[16] || "").trim() === n.contractor) {
-        product = r;
-        break;
-      }
-    }
+    // Patch 8: falls back to a declared equivalent product when the exact
+    // originally-spec'd brand isn't in this contractor's inventory — see
+    // findInventoryProductRow_'s own comment.
+    var product = findInventoryProductRow_(productRows, n.lubricant, n.lubricantBrand, n.contractor);
     var currentStock = product ? (parseFloat(product[6]) || 0) : null;
     var quantityNeeded = Math.round(n.quantityNeeded * 100) / 100;
     return {
@@ -215,6 +225,8 @@ function addOilProduct(ss, data) {
     new Date(),
     "", // Modified_Date — filled by appendRow's stampLastModified
     data.contractor || "", // Contractor — see the column-16 comment above; Code.js forces this to the caller's own scope
+    data.equivalentToType || "",
+    data.equivalentToBrand || "",
   ];
   appendRow(ss, "Oil Inventory", row);
   return { status: "ok", productId: productId };
@@ -243,30 +255,59 @@ function updateOilProduct(ss, data) {
   sheet.getRange(rowIdx, 11).setValue(data.unitCost || "");
   sheet.getRange(rowIdx, 12).setValue(data.status || "");
   sheet.getRange(rowIdx, 14).setValue(data.notes || "");
+  // Equivalence IS editable after creation — see the column-17/18 comment
+  // above for why this is treated differently from Contractor (locked).
+  sheet.getRange(rowIdx, 18).setValue(data.equivalentToType || "");
+  sheet.getRange(rowIdx, 19).setValue(data.equivalentToBrand || "");
   stampLastModified(sheet, "Oil Inventory", rowIdx);
   return { status: "ok" };
 }
 
 
-// Finds the one Oil Inventory product matching a given lubricant type +
-// brand + contractor (case-insensitive, trimmed) — the same identity
-// tryAutoDeductInventory_ below uses to know which contractor's stock an
-// oil-change event should draw down. Ambiguous by design if a contractor
-// somehow has two rows for the exact same type+brand (not expected, not
-// prevented elsewhere either) — returns the first match.
-function findMatchingProduct_(ss, lubricant, lubricantBrand, contractor) {
+// Two-tier match against a lubricant type/brand/contractor identity — the
+// shared logic tryAutoDeductInventory_ and getOilInventoryForecast both
+// need to go from "what the equipment's own registry entry specifies" to
+// "which real Oil Inventory product covers that." Tier 1: an EXACT match
+// on the product's own Lubricant_Type/Brand (unchanged behavior from
+// before Patch 8). Tier 2 (Patch 8): falls back to a product whose
+// EquivalentToType/Brand names this spec — a Contractor Engineer's
+// declared substitute for a brand the market no longer carries. Both
+// tiers require the SAME contractor; equivalence never crosses contractor
+// lines, same as stock itself never does. Ambiguous by design if a
+// contractor somehow has two rows matching the same tier (not expected,
+// not prevented elsewhere either) — returns the first match, exact tier
+// always preferred over an equivalence tier.
+function findInventoryProductRow_(productRows, lubricant, lubricantBrand, contractor) {
   var type = String(lubricant || "").trim().toLowerCase();
   var brand = String(lubricantBrand || "").trim().toLowerCase();
   if (!type || !contractor) return null;
-  var rows = readSheet(ss, "Oil Inventory", true);
-  for (var i = 0; i < rows.length; i++) {
-    var r = rows[i];
+
+  for (var i = 0; i < productRows.length; i++) {
+    var r = productRows[i];
+    if (String(r[16] || "").trim() !== contractor) continue;
     if (String(r[1] || "").trim().toLowerCase() !== type) continue;
     if (brand && String(r[2] || "").trim().toLowerCase() !== brand) continue;
-    if (String(r[16] || "").trim() !== contractor) continue;
-    return { productId: String(r[0] || "").trim(), unit: String(r[5] || "").trim() };
+    return r;
+  }
+  for (var j = 0; j < productRows.length; j++) {
+    var r2 = productRows[j];
+    if (String(r2[16] || "").trim() !== contractor) continue;
+    if (String(r2[17] || "").trim().toLowerCase() !== type) continue;
+    if (brand && String(r2[18] || "").trim().toLowerCase() !== brand) continue;
+    return r2;
   }
   return null;
+}
+
+// Finds the one Oil Inventory product matching a given lubricant type +
+// brand + contractor — the identity tryAutoDeductInventory_ below uses to
+// know which contractor's stock an oil-change event should draw down. See
+// findInventoryProductRow_ for the two-tier (exact, then equivalent) match.
+function findMatchingProduct_(ss, lubricant, lubricantBrand, contractor) {
+  var rows = readSheet(ss, "Oil Inventory", true);
+  var r = findInventoryProductRow_(rows, lubricant, lubricantBrand, contractor);
+  if (!r) return null;
+  return { productId: String(r[0] || "").trim(), unit: String(r[5] || "").trim() };
 }
 
 

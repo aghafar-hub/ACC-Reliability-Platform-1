@@ -843,6 +843,12 @@ export function rowToOilProduct(row) {
     createdDate: formatDate(row[14]),
     modifiedDate: row[15] || "",
     contractor: row[16] || "",
+    // Patch 8 — blank for a product that exactly matches its equipment's
+    // own registered spec; set when this product is a declared substitute
+    // for a brand the market no longer carries (see OilInventory.js's own
+    // column-17/18 comment).
+    equivalentToType: row[17] || "",
+    equivalentToBrand: row[18] || "",
   };
 }
 

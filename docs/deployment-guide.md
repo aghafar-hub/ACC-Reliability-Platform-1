@@ -465,6 +465,48 @@ suddenly unable to save something, check that their account actually has
 a role assigned in Platform Core's Accounts panel — that's now a hard
 requirement to write anything, not just a soft default.
 
+## 4l. Equivalent oils
+
+Answers a gap discussed earlier but not built until now: when the market
+no longer carries the exact oil brand a piece of equipment is spec'd for,
+there was no way to record a substitute without creating a second,
+unmatched inventory product that auto-deduction and the forecast could
+never find. Confirmed directly by the user: this is a simple pairing
+(one product replaces ONE original spec, not a group of several
+interchangeable brands), and any Contractor Engineer can declare it for
+their own contractor's stock — no ACC approval needed.
+
+**Sheet change you need to make yourself**: the "Oil Inventory" sheet
+needs two new columns at the end — columns **R** and **S** (right after
+the existing "Contractor" column) — with the header text
+`EquivalentToType` and `EquivalentToBrand`. Blank for every existing
+product (an exact match, same as always); only set on a NEW product
+created through the "This replaces a different spec'd oil" checkbox in
+Add Product.
+
+**Code**: `OilInventory.js` (backend) and `parsers.js`/`api.js`/
+`OilInventory.jsx` (frontend) all changed. Auto-deduction
+(`tryAutoDeductInventory_`) and the consumption forecast
+(`getOilInventoryForecast`) both now fall back to a declared-equivalent
+product whenever the exact originally-spec'd brand isn't in that
+contractor's own inventory — see `findInventoryProductRow_`'s own
+comment in OilInventory.js for the two-tier (exact, then equivalent)
+matching logic both now share.
+
+**Known gap, not addressed here**: there's currently no "Edit Product"
+UI anywhere in the app (the backend's `updateOilProduct` exists and is
+wired up, but nothing calls it) — equivalence, like every other editable
+Oil Inventory field, can only be set at creation time today. Worth its
+own follow-up if correcting a declared equivalence later turns out to be
+needed in practice.
+
+**Verify**: create a product, check "This replaces a different spec'd
+oil," pick an original spec from the dropdown, save. Then log an oil
+change against equipment registered for that ORIGINAL spec (with no
+exact-match product in inventory) and confirm the new product's stock
+goes down, not nothing. Check the Forecast view shows that original
+spec's projected demand matched against the new product's current stock.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
