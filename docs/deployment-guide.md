@@ -1490,6 +1490,29 @@ Patch 18). Confirm an area keeps the same donut color across tab
 switches. Verified with a Playwright test against the assembled
 combined-site covering all of the above.
 
+## 4ae. KPI card icon badges — Routines and Oil Inventory
+
+Matches the reference mockup's circular icon badges on each KPI card —
+flagged directly by the user after the route-type-tab pass above. Applied
+to both `Routines.jsx`'s overview KPIs (Total Routines/On Schedule/Due
+Soon/Overdue) and `OilInventory.jsx`'s Overview tab KPIs (Total Products/
+Low Stock/This Month's Consumption/Open Shortfalls), plus icons on
+Routines' 3 route-type tabs (droplet/flask/alert-triangle). Same pattern
+in both files: a 36px circular badge, background = the KPI's status color
+at ~13% opacity, icon in the solid color — all Tabler icon classes already
+proven to render elsewhere in this codebase (`ti-box`, `ti-alert-triangle`,
+`ti-chart-bar`, `ti-alert-circle`, `ti-calendar`, `ti-circle-check`,
+`ti-clock`, `ti-droplet`, `ti-flask`).
+
+**Known test-environment limitation**: this sandbox's egress proxy blocks
+`cdn.jsdelivr.net` (where the Tabler icon webfont loads from, per
+`index.html`), so none of this session's Playwright screenshots have ever
+rendered any icon glyph — not just these new ones. Verified structurally
+instead: lint, build, and the full Playwright assertion suites all still
+pass post-change. The live GitHub Pages deployment has normal internet
+access and will render these correctly for real users; there's nothing
+to fix here, just nothing this sandbox can visually confirm.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

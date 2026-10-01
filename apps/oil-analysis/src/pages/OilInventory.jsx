@@ -373,14 +373,32 @@ function OverviewTab({ webhookUrl, products, onOpenProduct }) {
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
         {[
-          { label: "Total Products", value: products.length, color: "accent" },
-          { label: "Low Stock", value: lowStock.length, color: lowStock.length ? "danger" : "success" },
-          { label: "This Month's Consumption", value: `${thisMonthTotal} L`, color: "textPrimary" },
-          { label: "Open Shortfalls (3mo)", value: openShortfalls, color: openShortfalls ? "warning" : "success" },
+          { label: "Total Products", value: products.length, color: "accent", icon: "ti-box" },
+          { label: "Low Stock", value: lowStock.length, color: lowStock.length ? "danger" : "success", icon: "ti-alert-triangle" },
+          { label: "This Month's Consumption", value: `${thisMonthTotal} L`, color: "textPrimary", icon: "ti-chart-bar" },
+          { label: "Open Shortfalls (3mo)", value: openShortfalls, color: openShortfalls ? "warning" : "success", icon: "ti-alert-circle" },
         ].map((m) => (
-          <div key={m.label} style={s.metricCard}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-            <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+          <div key={m.label} style={{ ...s.metricCard, display: "flex", alignItems: "center", gap: 12 }}>
+            <span
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: T[m.color] + "22",
+                color: T[m.color],
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 16,
+                flexShrink: 0,
+              }}
+            >
+              <i className={`ti ${m.icon}`} aria-hidden="true" />
+            </span>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+              <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+            </div>
           </div>
         ))}
       </div>

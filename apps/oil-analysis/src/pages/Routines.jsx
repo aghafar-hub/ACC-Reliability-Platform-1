@@ -27,10 +27,13 @@ const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitte
 // default, same as the user's own framing ("tab for all routines, and
 // split in the oil analysis sampling and emergency top up").
 const ROUTE_TYPE_TABS = [
-  { key: "All", label: "All Routines" },
-  { key: "Sampling", label: "Oil Sampling" },
-  { key: "Emergency Top Up", label: "Emergency Top Up" },
+  { key: "All", label: "All Routines", icon: "ti-droplet" },
+  { key: "Sampling", label: "Oil Sampling", icon: "ti-flask" },
+  { key: "Emergency Top Up", label: "Emergency Top Up", icon: "ti-alert-triangle" },
 ];
+
+// Icon + circular badge color per KPI card, matching the reference mockup.
+const KPI_ICONS = { All: "ti-calendar", "On Schedule": "ti-circle-check", "Due Soon": "ti-clock", Overdue: "ti-alert-triangle" };
 
 // dataviz skill's validated 8-slot categorical palette (references/palette.md)
 // — light- and dark-surface steps of the same 8 hues, picked by a crude
@@ -618,7 +621,7 @@ export default function Routines({
             }}
             onClick={() => setRouteTypeTab(t.key)}
           >
-            {t.label} ({routeTypeCounts[t.key] ?? 0})
+            <i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label} ({routeTypeCounts[t.key] ?? 0})
           </button>
         ))}
       </div>
@@ -634,10 +637,28 @@ export default function Routines({
             key={m.key}
             onClick={() => setDueStatusFilter((cur) => (cur === m.key ? "All" : m.key))}
             title={`${m.value} ${m.label} — click to filter the list below`}
-            style={{ ...s.metricCard, cursor: "pointer", border: `1px solid ${dueStatusFilter === m.key ? T[m.color] : T.border}` }}
+            style={{ ...s.metricCard, cursor: "pointer", border: `1px solid ${dueStatusFilter === m.key ? T[m.color] : T.border}`, display: "flex", alignItems: "center", gap: 12 }}
           >
-            <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-            <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+            <span
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: T[m.color] + "22",
+                color: T[m.color],
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 16,
+                flexShrink: 0,
+              }}
+            >
+              <i className={`ti ${KPI_ICONS[m.key]}`} aria-hidden="true" />
+            </span>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+              <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+            </div>
           </div>
         ))}
       </div>
