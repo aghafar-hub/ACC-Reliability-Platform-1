@@ -1034,8 +1034,9 @@ function AppShell({ config, setConfig, navBridge }) {
             <Dashboard
               samples={samples}
               actions={actions}
-              oilChanges={oilChanges}
+              oilChangeEvents={oilChangeEvents}
               equipmentRegistry={equipmentRegistry}
+              webhookUrl={config.webhookUrl}
               onSelectSample={(sm) => goToReport(sm, "dashboard")}
             />
           )}

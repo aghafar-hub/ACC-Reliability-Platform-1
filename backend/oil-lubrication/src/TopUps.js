@@ -101,3 +101,14 @@ function getTopUpsForLp(lpId, scope) {
   rows.sort(function (a, b) { return new Date(b[3]) - new Date(a[3]); });
   return { events: rows, count: rows.length };
 }
+
+// Every top-up across every LP (Patch 26) — the Dashboard's own
+// dashboard-wide count/trend source, as opposed to getTopUpsForLp above
+// (one LP's own history). Scoped directly off the LOG row's own
+// Contractor column (9), same pattern as getAllOilInventoryMovements.
+function getAllTopUps(scope) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "Oil Top Up LOG", true);
+  if (scope) rows = rows.filter(function (r) { return String(r[9] || "").trim() === scope; });
+  return { events: rows, count: rows.length };
+}

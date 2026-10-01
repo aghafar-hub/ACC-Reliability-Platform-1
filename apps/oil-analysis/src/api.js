@@ -571,6 +571,13 @@ export async function getTopUpsForLp(webhookUrl, lpId) {
   return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToTopUpEvent);
 }
 
+// Every top-up across every LP (Patch 26) — the Dashboard's own
+// dashboard-wide source, as opposed to getTopUpsForLp above (one LP).
+export async function getAllTopUps(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getAllTopUps" });
+  return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToTopUpEvent);
+}
+
 // Full Oil Change LOG history for one LP, newest first — mirrors
 // getTopUpsForLp above. Used by logOilChangeEvent's own write-verification
 // (inlined there before this existed as a standalone export) and now also

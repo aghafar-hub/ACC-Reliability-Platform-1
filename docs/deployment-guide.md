@@ -1559,6 +1559,55 @@ top-up), the Lubrication Timeline (merged chronological events), and the
 4 "Recent" quick tables all populate; check Oil Changes/Top Ups/Actions/
 Equipment Info tabs individually.
 
+## 4ag. Dashboard rebuild (Patch 26)
+
+Full rewrite of `apps/oil-analysis/src/pages/Dashboard.jsx` (custom SVG
+donut-arc rendering replaced with Recharts, consistent with every other
+page rebuilt this round), covering every explicitly agreed point from
+design review:
+
+- **Equipment vs LP Points, as two separate KPIs** — Total Equipment
+  (distinct `equipmentId` count) and Total LP Points (registry row
+  count), each with an RHI/ASEC breakdown pill.
+- **Real period-over-period comparison** ("make it a real working
+  control for both") — a period selector (30/90/180 days) and a
+  `periodStats` helper that counts real rows in the current window vs
+  the immediately-preceding window of the same length, for Oil Changes/
+  Oil Samples/Emergency Top Ups. No fabricated deltas.
+- **Routine Compliance Rate split by type** — Oil Change/Sampling/
+  Overall progress bars, each the share of that route type's items (from
+  the existing `getRoutinesOverview`) that aren't Overdue.
+- **Overdue Routines by Contractor**, **Activities by Contractor**
+  (togglable donut: Oil Change/Oil Sample/Top Up), **Activities Trend**
+  (6-month stacked bar, same toggle).
+- **Condensed Oil Inventory widget** — an Inventory Status donut
+  (Sufficient/Watch/Low/Out of Stock, tiered off `currentStock` vs
+  `recorderLevel`) plus this month's consumption total, replacing the
+  mockup's full Reorder Requests tab (already dropped per design review).
+- **3 summary tables** — Top Overdue Routines, Open Actions, Upcoming
+  Forecast Alerts (shortfalls + `insufficientHistory` from Patch 22).
+- Area is used everywhere a "Line" grouping would have appeared in the
+  mockup — no separate Line dimension exists in the data model, same
+  simplification already applied throughout this round.
+- A scoped RHI/ASEC session (`useSessionContractor()`) skips the
+  Contractor filter entirely, same auto-lock pattern as Patch 16.
+
+**New backend**: `getAllTopUps(scope)` in `TopUps.js` — every top-up
+across every LP, the one aggregate the Dashboard needed that no existing
+endpoint provided (mirrors `getAllOilInventoryMovements`'s pattern
+exactly). New `Code.js` doGet case; new `api.js` client function. No
+other new backend was needed — Oil Changes/Samples pull from data
+already passed to every page (`oilChangeEvents`, newly threaded through
+from `App.jsx`, and the existing `samples`/`actions` props), and
+Inventory/Routines reuse the aggregations built in Patches 20-24.
+
+**Verify**: open the Dashboard, confirm all 6 KPI cards show both a
+value and an RHI/ASEC split, switch the period selector and confirm the
+Oil Change/Sample/Top Up counts and % change update, switch the
+Activities-by-Contractor dropdown between Oil Change/Oil Sample/Top Up
+and confirm the donut updates, and check that Top Overdue Routines pulls
+real entries when a template/routine is actually overdue.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

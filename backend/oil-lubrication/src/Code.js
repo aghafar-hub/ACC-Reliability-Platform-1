@@ -177,6 +177,9 @@ function doGet(e) {
       case "getTopUpsForLp":
         result = getTopUpsForLp(e.parameter.lpId || "", scope);
         break;
+      case "getAllTopUps":
+        result = getAllTopUps(scope);
+        break;
       case "getRecentSamples":
         result = getPaginated("Data_Entry", e.parameter.page, e.parameter.limit, true, scope, 0); // newest first
         break;
