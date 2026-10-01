@@ -1181,6 +1181,42 @@ the created routine shows Reason correctly; submit its one item with a
 quantity and approve it; confirm an `Oil Top Up LOG` row appears (not
 `Oil Change LOG`) and Oil Inventory is deducted by that quantity.
 
+## 4x. ACC equipment-first contractor derivation (Patch 19)
+
+An ACC/unscoped account creating a one-time route (Oil Change, Sampling,
+or Emergency Top Up) no longer picks a Contractor from a dropdown up
+front — confirmed directly by the user during design review. Instead:
+the equipment table shows both contractors' candidates at once; the
+moment they pick (or Select All adds) their first piece of equipment,
+Contractor locks to that equipment's own contractor and the candidate
+list narrows to just that contractor, so a second, conflicting-contractor
+pick is never even offered. Clearing the selection back to zero unlocks
+it. An RHI/ASEC-scoped account is unaffected (already locked from mount,
+Patch 16). A **recurring** route template still uses a real manual
+Contractor dropdown for an ACC account — a template has no equipment list
+to derive a contractor from at creation time (it's defined by Area/Oil
+Type filters instead), so this one case keeps the old picker.
+
+**Code** (all `NewRoutine.jsx`): `contractor` state now starts at `""`
+for an ACC account (was defaulted to `"RHI"`); `toggleRow`/
+`selectAllShown` lock it on first add; a small effect unlocks it back to
+`""` once the one-time-route selection empties. The pre-existing "re-
+apply the suggestion preset when contractor changes" effect **no longer
+watches `contractor`** — only `routeType` — specifically so a manual
+equipment pick never gets silently wiped out by the preset re-running
+right after it locks the contractor (this was a real interaction bug
+during implementation, caught before shipping: the old effect would fire
+immediately after the lock and replace the just-picked equipment with
+whatever the current suggestion preset selected instead).
+
+**Verify**: as an ACC/Admin account, open Create Route (not recurring),
+confirm Contractor shows "Set automatically once you pick equipment
+below" and the table lists both RHI and ASEC equipment; pick one RHI row,
+confirm Contractor now shows "RHI" and ASEC rows disappear from the
+table; Clear Selection, confirm it unlocks and ASEC rows reappear. Switch
+Frequency to Monthly/Quarterly and confirm Contractor becomes a real
+RHI/ASEC dropdown again.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

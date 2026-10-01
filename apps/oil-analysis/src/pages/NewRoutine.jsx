@@ -5,6 +5,11 @@ import TechnicianPicker from "../components/TechnicianPicker";
 import * as api from "../api";
 import { newId, suggestedRoutinePoints, SUGGESTION_PRESETS } from "../parsers";
 
+// Only used for the recurring-template path (isRecurring), which has no
+// equipment-first contractor derivation — a template is defined by Area/
+// Oil Type filters, not a picked equipment list, so there's nothing to
+// derive the contractor FROM at creation time. A one-time route's ACC
+// flow (see the `contractor`/toggleRow logic below) doesn't use this.
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 const ROUTE_TYPES = [
   { id: "Oil Change", icon: "ti-droplet", desc: "Change / top-up" },
@@ -60,7 +65,10 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   const [routeName, setRouteName] = useState("");
   const [frequency, setFrequency] = useState("One-time");
   const [dueDate, setDueDate] = useState("");
-  const [contractor, setContractor] = useState(scopedContractor || CONTRACTOR_OPTIONS[0]);
+  // Patch 19: "" for an ACC/unscoped account until they pick their first
+  // piece of equipment — see toggleRow/selectAllShown, which derive and
+  // lock it from there instead of a manual dropdown.
+  const [contractor, setContractor] = useState(scopedContractor || "");
   const [assignedTo, setAssignedTo] = useState("");
   const [area, setArea] = useState("All");
   const [oilType, setOilType] = useState("All");
@@ -124,16 +132,41 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   }
 
   // Re-apply the current preset whenever what it would suggest changes
-  // (route type / contractor switch) so the list stays in sync instead of
-  // showing a stale selection for the wrong type.
+  // (a route type switch) so the list stays in sync instead of showing a
+  // stale selection for the wrong type. Patch 19: deliberately does NOT
+  // watch `contractor` any more — an ACC/unscoped account no longer has a
+  // manual Contractor dropdown to change (see below), so the only way
+  // `contractor` changes now is equipment-first derivation from a manual
+  // pick, and that pick must never get silently wiped out by a preset
+  // re-applying right after it.
   useEffect(() => {
     applyPreset(presetId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only route type/contractor swaps should reset the pick; re-running on presetId here would fight the dropdown's own onChange
-  }, [routeType, contractor, equipmentRegistry, samples, actions, oilChanges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a route type swap should reset the pick; re-running on presetId here would fight the dropdown's own onChange
+  }, [routeType, equipmentRegistry, samples, actions, oilChanges]);
+
+  // Patch 19: an ACC/unscoped account has no manual Contractor dropdown —
+  // contractor is derived from whichever equipment they pick first (see
+  // toggleRow/selectAllShown below). Once the selection empties back out,
+  // unlock it so they can start over with either contractor. A scoped
+  // RHI/ASEC account is unaffected: contractor is fixed from mount and
+  // this never fires for them.
+  useEffect(() => {
+    if (!isRecurring && !scopedContractor && selected.length === 0 && contractor) setContractor("");
+  }, [isRecurring, scopedContractor, selected.length, contractor]);
+
+  // Recurring templates have no equipment-first pick to derive a
+  // contractor from (see CONTRACTOR_OPTIONS' own comment) — an ACC
+  // account still gets a real dropdown there, defaulted here the first
+  // time they switch into a recurring frequency with nothing set yet.
+  useEffect(() => {
+    if (isRecurring && !scopedContractor && !contractor) setContractor(CONTRACTOR_OPTIONS[0]);
+  }, [isRecurring, scopedContractor, contractor]);
 
   const q = search.trim().toLowerCase();
   const candidates = registry.filter((r) => {
-    if (r.contractor && r.contractor !== contractor) return false;
+    // contractor is "" for an ACC account that hasn't picked any equipment
+    // yet — show both contractors' equipment until the first pick locks it.
+    if (contractor && r.contractor && r.contractor !== contractor) return false;
     if (routeType === "Sampling" && r.oilAnalysisRequired !== "Yes") return false;
     if (area !== "All" && r.area !== area) return false;
     if (oilType !== "All" && r.lubricant !== oilType) return false;
@@ -150,15 +183,38 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     // new row replaces whatever was selected instead of adding to it, and
     // clicking the already-selected row clears it back to none.
     if (isEmergencyTopUp) {
-      setSelected((prev) => (prev[0]?.lpId === r.code ? [] : [toChipRow(r)]));
+      setSelected((prev) => {
+        const deselecting = prev[0]?.lpId === r.code;
+        if (!deselecting && !contractor && r.contractor) setContractor(r.contractor);
+        return deselecting ? [] : [toChipRow(r)];
+      });
       return;
     }
-    setSelected((prev) => (prev.some((sel) => sel.lpId === r.code) ? prev.filter((sel) => sel.lpId !== r.code) : [...prev, toChipRow(r)]));
+    setSelected((prev) => {
+      const adding = !prev.some((sel) => sel.lpId === r.code);
+      // Patch 19: an ACC account's first pick locks contractor to that
+      // equipment's own contractor — candidates then narrow to just that
+      // contractor (see the `candidates` filter above), so there's nothing
+      // more to guard here; a second, conflicting-contractor row simply
+      // can't appear in the list to click on.
+      if (adding && !contractor && r.contractor) setContractor(r.contractor);
+      return adding ? [...prev, toChipRow(r)] : prev.filter((sel) => sel.lpId !== r.code);
+    });
   }
   function selectAllShown() {
     setSelected((prev) => {
       const have = new Set(prev.map((sel) => sel.lpId));
-      return [...prev, ...shownCandidates.filter((r) => !have.has(r.code)).map(toChipRow)];
+      const toAdd = shownCandidates.filter((r) => !have.has(r.code));
+      // Patch 19: if contractor isn't locked yet (ACC, nothing selected),
+      // lock to the first shown candidate's contractor and only add rows
+      // that match it — "Select All" must never pull in both contractors
+      // at once, same rule a single pick already enforces.
+      if (!contractor && toAdd.length > 0 && toAdd[0].contractor) {
+        setContractor(toAdd[0].contractor);
+        const locked = toAdd[0].contractor;
+        return [...prev, ...toAdd.filter((r) => r.contractor === locked).map(toChipRow)];
+      }
+      return [...prev, ...toAdd.map(toChipRow)];
     });
   }
   function clearSelection() {
@@ -387,11 +443,24 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 16 }}>
             <div>
               <label style={s.label}>Contractor</label>
-              {scopedContractor ? (
-                <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-                  {scopedContractor}
-                </div>
+              {scopedContractor || !isRecurring ? (
+                contractor ? (
+                  <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+                    {contractor}
+                  </div>
+                ) : (
+                  // Patch 19: a one-time route for an ACC/unscoped account
+                  // no longer picks a contractor up front — it's derived
+                  // from whichever equipment they select first below, and
+                  // a routine can't mix both contractors' equipment.
+                  <p style={{ ...s.input, background: "transparent", color: T.textMuted, fontStyle: "italic", display: "flex", alignItems: "center", fontSize: 12.5, margin: 0 }}>
+                    Set automatically once you pick equipment below
+                  </p>
+                )
               ) : (
+                // Recurring template, ACC/unscoped account — see
+                // CONTRACTOR_OPTIONS' own comment for why this one case
+                // still needs a real manual dropdown.
                 <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
                   {CONTRACTOR_OPTIONS.map((c) => (
                     <option key={c} value={c}>
