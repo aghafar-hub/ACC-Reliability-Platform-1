@@ -1742,6 +1742,68 @@ rerun of the existing TopBar test (Patch 28) to confirm the `App.tsx`
 reordering caused no regression on the plain `/oil-analysis` and
 `/vibration-analysis` routes.
 
+## 4ak. Equipment Viewer folded back into the Equipment tab (Patch 30)
+
+Patch 25 built a new per-LP profile page ("Equipment Viewer") as its own
+separate sidebar sub-tab. Direct feedback: that design belongs on the
+existing "Equipment" tab's own single-lubrication-point view, not a
+second tab — "that design is belong actually to equipment tab, not
+required new tab." This patch merges the two and removes the duplicate.
+
+**`apps/oil-analysis/src/pages/Equipment.jsx`**: the search screen (top
+of the page — search by equipment code or LP_ID, the equipment/LP
+autocomplete dropdown) and the combined multi-LP "equipment group" view
+(selecting an Equipment_ID with several lubrication points) are
+**unchanged** — explicitly kept the same per the request ("keep the
+first search screen same equipment"). Only the single-lubrication-point
+view (`isLpView` — reached by selecting one LP_ID, or clicking "Open
+point" from the group view) was replaced with Equipment Viewer's tabbed
+profile design: a health badge (Good/Fair/Poor) and criticality badge
+(computed exactly as before — oil analysis status / oil-change overdue /
+open actions), a sibling-LP count card, and six tabs (Overview, Oil
+Samples, Oil Changes, Top Ups, Actions, Equipment Info) replacing the
+old single stacked-sections layout.
+
+**Real history, not just the derived current state**: the old single-LP
+view's "Oil Change History" section only ever showed 0–1 rows — it read
+from the same derived-current-state `oilChanges` prop used for the
+"Next Oil Change" KPI, not an actual log. The new Oil Changes and Top Ups
+tabs fetch the real per-LP history via `api.getOilChangesForLp`/
+`api.getTopUpsForLp` (the same calls Equipment Viewer used), so this is a
+genuine data upgrade, not just a visual one — Top Ups had no view at all
+on Equipment before this.
+
+**Nothing dropped**: every write/edit affordance the old single-LP view
+had is still there, just relocated into the new tabs — View Report/Edit/
+Delete buttons on the Oil Samples tab, Edit on the Actions tab, and the
+header's Log Oil Change/New Action/Full Report buttons and "View all of
+{equipmentId}" back-to-group button, unchanged.
+
+**Removed entirely**: `apps/oil-analysis/src/pages/EquipmentViewer.jsx`
+(deleted), its `page === "equipmentviewer"` branch, props, and sticky
+`equipmentViewerSelectedCode` state in `App.jsx`, and its sidebar entry
+in both `frontend/src/navigation.ts` (`OIL_SUB_TABS`, the real nav source
+the shell renders) and `apps/oil-analysis/src/components/Sidebar.jsx`
+(dead code in production, kept in sync anyway). `Equipment.jsx` now takes
+two new props, `webhookUrl` and `pushToast` (same ones Equipment Viewer
+took), passed from `App.jsx`'s existing `config.webhookUrl`/`pushToast`.
+
+Note: there are two different "Equipment" entries in the shell — the
+top-level sidebar item (`frontend/src/pages/`, route `/equipment`) is
+still an unrelated `ComingSoon` placeholder; the page this patch changed
+is Oil Lubrication's own "Equipment" sub-tab (`OIL_SUB_TABS`, reached via
+Sidebar → Oil Lubrication → Equipment) — the real, working page the
+request was about.
+
+**Verify**: Sidebar → Oil Lubrication → Equipment sub-tab — the search
+screen looks exactly as before; searching and selecting a single LP_ID
+shows the new tabbed profile (health/criticality badges, 6 tabs); the Oil
+Samples tab still has View Report/Edit/Delete icons; the Oil Changes/Top
+Ups tabs show real fetched history; "View all of {equipmentId}" still
+returns to the combined multi-LP group view, which renders exactly as
+before. "Equipment Viewer" no longer appears anywhere in the sidebar.
+Verified with a 10-assertion Playwright test.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

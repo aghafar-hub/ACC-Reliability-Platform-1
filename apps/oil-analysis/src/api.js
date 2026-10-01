@@ -581,7 +581,8 @@ export async function getAllTopUps(webhookUrl) {
 // Full Oil Change LOG history for one LP, newest first — mirrors
 // getTopUpsForLp above. Used by logOilChangeEvent's own write-verification
 // (inlined there before this existed as a standalone export) and now also
-// by EquipmentViewer.jsx's Oil Changes tab (Patch 25).
+// by Equipment.jsx's single-LP "Oil Changes" tab (originally built as a
+// separate Equipment Viewer page/tab — folded back in, see Equipment.jsx).
 export async function getOilChangesForLp(webhookUrl, lpId) {
   const json = await getJSON(webhookUrl, { action: "getOilChangesForLp", lpId });
   return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent);

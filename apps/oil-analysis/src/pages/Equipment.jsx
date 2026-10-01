@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { formatDate, sampleTriggerReadings } from "../parsers";
+import { formatDate } from "../parsers";
 import { statusColor } from "../theme";
+import * as api from "../api";
 import EditSampleModal from "../components/EditSampleModal";
 import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
@@ -11,6 +12,132 @@ const STATUS_ACTION_COLOR = { Open: "danger", "In Progress": "warning", "Waiting
 // Severity ranking for picking the "worst" status across several
 // lubrication points' latest samples — higher wins.
 const STATUS_SEVERITY = { Alert: 3, Caution: 2, Warning: 2, Normal: 1 };
+
+// Single lubrication point ("equipment view") tabs — the profile layout
+// originally built as a separate "Equipment Viewer" page/tab, folded back
+// into Equipment's own single-LP view since it's the same concept (one
+// profile per LP_ID) and didn't need its own nav entry.
+const LP_TABS = [
+  { key: "overview", label: "Overview", icon: "ti-layout-dashboard" },
+  { key: "samples", label: "Oil Samples", icon: "ti-flask" },
+  { key: "changes", label: "Oil Changes", icon: "ti-droplet" },
+  { key: "topups", label: "Top Ups", icon: "ti-droplet-plus" },
+  { key: "actions", label: "Actions", icon: "ti-checklist" },
+  { key: "info", label: "Equipment Info", icon: "ti-info-circle" },
+];
+const TIMELINE_COLOR = { Change: "accent", Sample: "info", TopUp: "danger" };
+
+function statusColorKey(status) {
+  if (status === "Alert") return "danger";
+  if (status === "Caution" || status === "Warning") return "warning";
+  if (status === "Normal") return "success";
+  return "textMuted";
+}
+
+// Criticality is computed, not stored — confirmed directly by the user
+// ("criticality depend on oil analysis or oil change over due"): High if
+// the latest oil sample is in Alert, or the oil change is overdue; Medium
+// for Caution/Warning; Normal otherwise.
+function criticalityFor(latestSample, oilChangeOverdue) {
+  if (latestSample?.reportStatus === "Alert" || oilChangeOverdue) return "High";
+  if (latestSample?.reportStatus === "Caution" || latestSample?.reportStatus === "Warning") return "Medium";
+  return "Normal";
+}
+
+function SmallBadge({ T, color, children }) {
+  return (
+    <span
+      style={{
+        fontSize: 10.5,
+        fontWeight: 700,
+        color: T[color] || color,
+        background: (T[color] || color) + "22",
+        borderRadius: 4,
+        padding: "2px 8px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function RecentTable({ T, s, title, rows, columns, headers }) {
+  return (
+    <div style={s.card}>
+      <p style={{ fontWeight: 700, margin: "0 0 10px" }}>{title}</p>
+      {rows.length === 0 ? (
+        <p style={{ color: T.textSecondary, fontSize: 12, margin: 0 }}>None yet.</p>
+      ) : (
+        <table style={{ width: "100%", fontSize: 11.5, borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {headers.map((h) => (
+                <th key={h} style={{ textAlign: "left", color: T.textSecondary, fontWeight: 600, padding: "4px 6px 6px 0" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                {columns.map((c) => (
+                  <td key={c} style={{ padding: "6px 6px 6px 0" }}>
+                    {r[c] ?? "—"}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+// `renderActions(row)` is optional — lets a tab keep its existing
+// View Report/Edit/Delete row buttons (Oil Samples, Actions) while the
+// read-only tabs (Oil Changes, Top Ups) pass nothing.
+function HistoryTable({ T, s, rows, empty, columns, renderActions }) {
+  if (rows.length === 0) {
+    return (
+      <div style={s.card}>
+        <p style={{ color: T.textSecondary, margin: 0 }}>{empty}</p>
+      </div>
+    );
+  }
+  return (
+    <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+      <table style={s.table}>
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th key={c.key} style={s.th}>
+                {c.label}
+              </th>
+            ))}
+            {renderActions && <th style={s.th} />}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r._id || i}>
+              {columns.map((c) => (
+                <td key={c.key} style={s.td}>
+                  {c.badge ? <SmallBadge T={T} color={c.badge(r[c.key])}>{r[c.key] ?? "—"}</SmallBadge> : r[c.key] ?? "—"}
+                </td>
+              ))}
+              {renderActions && (
+                <td style={{ ...s.td, textAlign: "right", whiteSpace: "nowrap" }}>{renderActions(r)}</td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 // Search finds either an EQUIPMENT (one Equipment_ID, e.g. "111.HC100" —
 // lands on a combined dashboard covering every lubrication point under it)
@@ -26,6 +153,8 @@ export default function Equipment({
   actions,
   oilChanges,
   actionRegistry,
+  webhookUrl,
+  pushToast,
   onSelectSample,
   onEditSample,
   onDeleteSample,
@@ -52,6 +181,30 @@ export default function Equipment({
   const [editingSample, setEditingSample] = useState(null);
   const [editingAction, setEditingAction] = useState(null); // { action, isNew }
   const [editingOilChange, setEditingOilChange] = useState(null);
+
+  // ── single lubrication point ("equipment view") tab state ──────────────
+  const [lpTab, setLpTab] = useState("overview");
+  const [changeHistory, setChangeHistory] = useState([]);
+  const [topUps, setTopUps] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const isLpViewSelected = selection?.mode === "lp";
+  const lpCode = isLpViewSelected ? selection.id : null;
+
+  useEffect(() => {
+    if (!lpCode || !webhookUrl) return;
+    let cancelled = false;
+    setLoadingHistory(true);
+    Promise.all([api.getOilChangesForLp(webhookUrl, lpCode), api.getTopUpsForLp(webhookUrl, lpCode)])
+      .then(([changes, tops]) => {
+        if (cancelled) return;
+        setChangeHistory(changes);
+        setTopUps(tops);
+      })
+      .catch((err) => pushToast?.(err.message, "error"))
+      .finally(() => { if (!cancelled) setLoadingHistory(false); });
+    return () => { cancelled = true; };
+  }, [lpCode, webhookUrl, pushToast]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -89,6 +242,7 @@ export default function Equipment({
     setSelectionSynced({ mode: "lp", id: code });
     setQuery("");
     setOpen(false);
+    setLpTab("overview");
   }
 
   const isEquipmentView = selection?.mode === "equipment";
@@ -109,6 +263,33 @@ export default function Equipment({
     : [];
   const openActionsCount = actionsForEquip.filter((a) => a.status !== "Closed").length;
   const nextDue = [...oilChangesForEquip].filter((o) => o.nextDueDate).sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate))[0];
+
+  // health/criticality/timeline — the "Equipment Viewer" profile design,
+  // folded into this single-LP view rather than living on its own tab.
+  const lpOilChangeState = oilChangesForEquip[0] || null;
+  const oilChangeOverdue = lpOilChangeState?.status === "Overdue";
+  const openActions = actionsForEquip.filter((a) => a.status !== "Closed");
+  const latestChange = changeHistory[0] || null;
+  const latestTopUp = topUps[0] || null;
+  const criticality = isLpView ? criticalityFor(latest, oilChangeOverdue) : "Normal";
+  const criticalityColor = criticality === "High" ? "danger" : criticality === "Medium" ? "warning" : "success";
+  const healthScore =
+    (latest?.reportStatus === "Alert" ? 2 : latest?.reportStatus === "Caution" || latest?.reportStatus === "Warning" ? 1 : 0) +
+    (oilChangeOverdue ? 2 : 0) +
+    (openActions.length > 0 ? 1 : 0);
+  const health = healthScore >= 3 ? "Poor" : healthScore >= 1 ? "Fair" : "Good";
+  const healthColor = health === "Poor" ? "danger" : health === "Fair" ? "warning" : "success";
+  const siblingCount = isLpView ? (groups.get(reg?.equipmentId)?.length || 0) : 0;
+
+  const lpTimeline = useMemo(() => {
+    if (!isLpView) return [];
+    const events = [];
+    changeHistory.forEach((c) => events.push({ type: "Change", date: c.eventDate, label: `${c.quantityUsed || "—"} L`, detail: c.oilBrandType }));
+    samplesForEquip.forEach((sm) => events.push({ type: "Sample", date: sm.sampledDate, label: sm.reportStatus || "—", detail: sm.sampleId }));
+    topUps.forEach((t) => events.push({ type: "TopUp", date: t.eventDate, label: `${t.quantity || "—"} L`, detail: t.reason }));
+    return events.filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLpView, changeHistory, samplesForEquip, topUps]);
 
   // ── combined equipment view (new) ───────────────────────────────────────
   const pointSummaries = useMemo(() => {
@@ -614,34 +795,36 @@ export default function Equipment({
         </div>
       )}
 
-      {/* ── single lubrication point ──────────────────────────────────── */}
+      {/* ── single lubrication point ("equipment view" profile) ─────────── */}
       {isLpView && (
-        <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden" }}>
-          <div style={{ padding: "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
-                  {latest ? (
-                    <span style={s.badge(latest.reportStatus)}>
-                      {latest.reportStatus === "Alert" && <span style={{ ...s.alertPulse, marginRight: 5 }} />}
-                      {latest.reportStatus} · {formatDate(latest.sampledDate)}
-                    </span>
-                  ) : (
-                    <span style={{ ...s.badge(), background: T.cardSubBg, color: T.textMuted }}>No samples yet</span>
-                  )}
-                </div>
-                <div style={{ fontSize: 14, color: T.textSecondary, marginTop: 4 }}>{reg?.description || "—"}</div>
-                {reg?.equipmentId && (
-                  <button
-                    style={{ ...s.btn, padding: "3px 8px", fontSize: 11, marginTop: 8 }}
-                    onClick={() => selectEquipmentGroup(reg.equipmentId)}
-                  >
-                    <i className="ti ti-arrow-left" aria-hidden="true" /> View all of {reg.equipmentId}
-                  </button>
-                )}
-                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>{[reg?.area, reg?.contractor].filter(Boolean).map(tag)}</div>
+        <div>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
+                <SmallBadge T={T} color={healthColor}>{health}</SmallBadge>
               </div>
+              <div style={{ fontSize: 14, color: T.textSecondary, marginTop: 4 }}>{reg?.lubricationPoint || reg?.description || "—"}</div>
+              {reg?.equipmentId && (
+                <button
+                  style={{ ...s.btn, padding: "3px 8px", fontSize: 11, marginTop: 8 }}
+                  onClick={() => selectEquipmentGroup(reg.equipmentId)}
+                >
+                  <i className="ti ti-arrow-left" aria-hidden="true" /> View all of {reg.equipmentId}
+                </button>
+              )}
+              <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                {[reg?.area, reg?.contractor].filter(Boolean).map(tag)}
+                <SmallBadge T={T} color={criticalityColor}>Criticality: {criticality}</SmallBadge>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              {siblingCount > 1 && (
+                <div style={{ ...s.metricCard, textAlign: "center", minWidth: 110 }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: T.accent }}>{siblingCount}</div>
+                  <div style={{ fontSize: 10, color: T.textSecondary }}>LP Points on this equipment</div>
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button style={s.btn} onClick={handleLogOilChange} disabled={oilChangesForEquip.length === 0}>
                   <i className="ti ti-droplet-plus" aria-hidden="true" /> Log Oil Change
@@ -656,223 +839,238 @@ export default function Equipment({
                 )}
               </div>
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 18 }}>
-              {[
-                ["Total Samples", samplesForEquip.length, null],
-                ["Latest Result", latest ? latest.reportStatus : "—", latest ? statusColor(T, latest.reportStatus) : null],
-                ["Open Actions", openActionsCount, openActionsCount > 0 ? T.danger : T.success],
-                [
-                  "Next Oil Change",
-                  nextDue ? formatDate(nextDue.nextDueDate) : "—",
-                  nextDue?.status === "Overdue" ? T.danger : null,
-                  nextDue?.lubricationPoint,
-                ],
-              ].map(([label, val, color, sub]) => (
-                <div
-                  key={label}
-                  style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "11px 13px" }}
-                >
-                  <div
-                    style={{
-                      fontSize: 10.5,
-                      fontWeight: 600,
-                      letterSpacing: 0.4,
-                      textTransform: "uppercase",
-                      color: T.textMuted,
-                      marginBottom: 5,
-                    }}
-                  >
-                    {label}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: color || T.textHighlight }}>{val}</div>
-                  {sub && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{sub}</div>}
-                </div>
-              ))}
-            </div>
           </div>
 
-          {cardSection(
-            <>
-              {sectionLabel("ti-info-square-rounded", "Registry Details")}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: "14px 20px" }}>
-                {[
-                  ["Report Equipment ID", reg?.reportEquipmentId],
-                  ["Position", reg?.position],
-                  ["Manufacturer", reg?.manufacturer],
-                  ["Model", reg?.model],
-                  ["Lubricant", reg?.lubricant],
-                  ["Change Interval", reg?.oilChangeInterval],
-                  ["Area", reg?.area],
-                  ["Contractor", reg?.contractor],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <div style={{ fontSize: 10.5, color: T.textMuted, marginBottom: 2 }}>{k}</div>
-                    <div style={{ fontSize: 12.5, color: T.textPrimary, fontWeight: 500 }}>{v || "—"}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${T.border}`, paddingBottom: 14 }}>
+            {LP_TABS.map((t) => (
+              <button
+                key={t.key}
+                style={{
+                  ...s.btn,
+                  background: lpTab === t.key ? T.accent : "transparent",
+                  color: lpTab === t.key ? T.accentText : T.textSecondary,
+                  borderColor: lpTab === t.key ? T.accent : T.border,
+                }}
+                onClick={() => setLpTab(t.key)}
+              >
+                <i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label}
+              </button>
+            ))}
+          </div>
+
+          {lpTab === "overview" && (
+            <div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginBottom: 20 }}>
+                <div style={s.card}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Equipment Health Status</p>
+                  {[
+                    { label: "Oil Analysis", value: latest?.reportStatus || "No data", color: latest ? statusColorKey(latest.reportStatus) : "textMuted" },
+                    { label: "Oil Change", value: lpOilChangeState?.status || "No data", color: oilChangeOverdue ? "danger" : "success" },
+                    { label: "Top Up", value: latestTopUp ? "Logged" : "None", color: "textSecondary" },
+                    { label: "Open Actions", value: String(openActions.length), color: openActions.length ? "warning" : "success" },
+                  ].map((row) => (
+                    <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                      <span style={{ color: T.textSecondary }}>{row.label}</span>
+                      <span style={{ color: T[row.color], fontWeight: 700 }}>{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={s.card}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-flask" aria-hidden="true" /> Last Oil Sample</p>
+                  {latest ? (
+                    <>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latest.sampledDate)}</div>
+                      <SmallBadge T={T} color={statusColorKey(latest.reportStatus)}>{latest.reportStatus}</SmallBadge>
+                      <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>Sample {latest.sampleId}</div>
+                    </>
+                  ) : (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No samples logged.</p>
+                  )}
+                </div>
+
+                <div style={s.card}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-droplet" aria-hidden="true" /> Last Oil Change</p>
+                  {latestChange ? (
+                    <>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latestChange.eventDate)}</div>
+                      <SmallBadge T={T} color={oilChangeOverdue ? "danger" : "success"}>{lpOilChangeState?.status || "—"}</SmallBadge>
+                      <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>{latestChange.quantityUsed} L · {latestChange.oilBrandType}</div>
+                    </>
+                  ) : loadingHistory ? (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
+                  ) : (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No oil changes logged.</p>
+                  )}
+                </div>
+
+                <div style={s.card}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-droplet-plus" aria-hidden="true" /> Last Top Up</p>
+                  {latestTopUp ? (
+                    <>
+                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latestTopUp.eventDate)}</div>
+                      <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>{latestTopUp.quantity} L · {latestTopUp.reason}</div>
+                    </>
+                  ) : loadingHistory ? (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
+                  ) : (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No top-ups logged.</p>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ ...s.card, marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Lubrication Timeline</p>
+                {lpTimeline.length === 0 ? (
+                  <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No lubrication activity logged yet.</p>
+                ) : (
+                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }}>
+                    {lpTimeline.map((e, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          flex: "0 0 auto",
+                          minWidth: 110,
+                          border: `1px solid ${T[TIMELINE_COLOR[e.type]]}`,
+                          borderRadius: 8,
+                          padding: "8px 10px",
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: 10, fontWeight: 700, color: T[TIMELINE_COLOR[e.type]] }}>{e.type}</div>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, margin: "4px 0" }}>{formatDate(e.date)}</div>
+                        <div style={{ fontSize: 10.5, color: T.textSecondary }}>{e.label}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            </>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
+                <RecentTable T={T} s={s} title="Recent Oil Samples" rows={samplesForEquip.slice(0, 5)} columns={["sampledDate", "sampleId", "reportStatus"]} headers={["Date", "Sample ID", "Status"]} />
+                <RecentTable T={T} s={s} title="Recent Oil Changes" rows={changeHistory.slice(0, 5)} columns={["eventDate", "quantityUsed", "oilBrandType"]} headers={["Date", "Qty (L)", "Oil"]} />
+                <RecentTable T={T} s={s} title="Recent Top Ups" rows={topUps.slice(0, 5)} columns={["eventDate", "quantity", "reason"]} headers={["Date", "Qty (L)", "Reason"]} />
+                <RecentTable T={T} s={s} title="Recent Actions" rows={actionsForEquip.slice(0, 5)} columns={["revisionDate", "status", "agreedAction"]} headers={["Date", "Status", "Action"]} />
+              </div>
+            </div>
           )}
 
-          {cardSection(
-            <>
-              {sectionLabel("ti-timeline", "Sample Timeline", samplesForEquip.length)}
-              {samplesForEquip.length === 0 ? (
-                <div style={{ color: T.textMuted, fontSize: 12.5 }}>No samples recorded for this equipment.</div>
-              ) : (
-                samplesForEquip.map((sm, i) => {
-                  const color = statusColor(T, sm.reportStatus);
-                  const isFlagged = sm.reportStatus === "Alert" || sm.reportStatus === "Caution" || sm.reportStatus === "Warning";
-                  const triggers = isFlagged ? sampleTriggerReadings(sm) : [];
-                  return (
-                    <div
-                      key={sm._id || i}
-                      style={{
-                        display: "flex",
-                        gap: 11,
-                        padding: i === 0 ? "0 0 10px" : "10px 0",
-                        borderBottom: i < samplesForEquip.length - 1 ? `1px solid ${T.border2}` : "none",
-                      }}
+          {lpTab === "samples" && (
+            <HistoryTable
+              T={T} s={s}
+              rows={samplesForEquip}
+              empty="No oil samples logged for this lubrication point."
+              columns={[
+                { key: "sampledDate", label: "Date" },
+                { key: "sampleId", label: "Sample ID" },
+                { key: "reportStatus", label: "Status", badge: statusColorKey },
+              ]}
+              renderActions={(sm) => (
+                <>
+                  {onSelectSample && (
+                    <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => onSelectSample(sm)} title="View report">
+                      <i className="ti ti-file-analytics" aria-hidden="true" />
+                    </button>
+                  )}
+                  {onEditSample && (
+                    <button style={{ ...s.btn, padding: "3px 7px", marginLeft: 4 }} onClick={() => setEditingSample(sm)} title="Edit sample">
+                      <i className="ti ti-edit" aria-hidden="true" />
+                    </button>
+                  )}
+                  {onDeleteSample && (
+                    <button
+                      style={{ ...s.btn, padding: "3px 7px", marginLeft: 4, color: T.danger, borderColor: T.danger }}
+                      onClick={() => window.confirm("Delete this sample?") && onDeleteSample(sm)}
+                      title="Delete sample"
                     >
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
-                        <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                        {i < samplesForEquip.length - 1 && <span style={{ width: 1.5, flex: 1, background: T.border, marginTop: 4 }} />}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-                          <span style={{ fontWeight: 700, fontSize: 12.5 }}>{formatDate(sm.sampledDate)}</span>
-                          <span style={s.badge(sm.reportStatus)}>{sm.reportStatus}</span>
-                        </div>
-                        <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 5, display: "flex", flexWrap: "wrap", gap: 12 }}>
-                          <span>
-                            ID: <span style={{ fontFamily: "monospace", color: T.accent }}>{sm.sampleId || "—"}</span>
-                          </span>
-                          {triggers.length > 0
-                            ? triggers.map((t) => (
-                                <span key={t.label}>
-                                  {t.label}:{" "}
-                                  <span style={{ color: T.danger, fontWeight: 700 }}>
-                                    {t.value}
-                                    {t.unit ? ` ${t.unit}` : ""}
-                                  </span>
-                                </span>
-                              ))
-                            : [
-                                <span key="visc">Visc: {sm.visc40C ?? "—"} cSt</span>,
-                                <span key="fe">Fe: {sm.wear?.Fe ?? "—"} ppm</span>,
-                                <span key="si">Si: {sm.contaminants?.Si ?? "—"} ppm</span>,
-                                <span key="water">Water: {sm.water ?? "—"}</span>,
-                              ]}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                        {onSelectSample && (
-                          <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => onSelectSample(sm)} title="View report">
-                            <i className="ti ti-file-analytics" aria-hidden="true" />
-                          </button>
-                        )}
-                        {onEditSample && (
-                          <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => setEditingSample(sm)} title="Edit sample">
-                            <i className="ti ti-edit" aria-hidden="true" />
-                          </button>
-                        )}
-                        {onDeleteSample && (
-                          <button
-                            style={{ ...s.btn, padding: "3px 7px", color: T.danger, borderColor: T.danger }}
-                            onClick={() => window.confirm("Delete this sample?") && onDeleteSample(sm)}
-                            title="Delete sample"
-                          >
-                            <i className="ti ti-trash" aria-hidden="true" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
+                      <i className="ti ti-trash" aria-hidden="true" />
+                    </button>
+                  )}
+                </>
               )}
-            </>
+            />
           )}
 
-          {cardSection(
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 24 }}>
-              <div>
-                {sectionLabel("ti-droplet", "Oil Change History", oilChangesForEquip.length)}
-                {oilChangesForEquip.length === 0 ? (
-                  <div style={{ color: T.textMuted, fontSize: 12.5 }}>No oil change history for this equipment.</div>
-                ) : (
-                  oilChangesForEquip.map((oc, i) => (
-                    <div
-                      key={oc._id || i}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: i === 0 ? "0 0 10px" : "10px 0",
-                        borderBottom: i < oilChangesForEquip.length - 1 ? `1px solid ${T.border2}` : "none",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 600 }}>{oc.lubricationPoint}</div>
-                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
-                          {oc.oilType} · last changed {formatDate(oc.changeDate) || "—"}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: oc.status === "Overdue" ? T.danger : T.textPrimary }}>
-                          {formatDate(oc.nextDueDate) || "—"}
-                        </div>
-                        <div style={{ fontSize: 10, color: T.textMuted }}>next due</div>
-                      </div>
-                      <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => setEditingOilChange(oc)} title="Edit">
-                        <i className="ti ti-edit" aria-hidden="true" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
+          {lpTab === "changes" &&
+            (loadingHistory ? (
+              <p style={{ color: T.textSecondary }}>Loading…</p>
+            ) : (
+              <HistoryTable
+                T={T} s={s}
+                rows={changeHistory}
+                empty="No oil changes logged for this lubrication point."
+                columns={[
+                  { key: "eventDate", label: "Date" },
+                  { key: "quantityUsed", label: "Quantity (L)" },
+                  { key: "oilBrandType", label: "Oil" },
+                  { key: "doneBy", label: "Done By" },
+                  { key: "nextDueDate", label: "Next Due" },
+                ]}
+              />
+            ))}
 
-              <div>
-                {sectionLabel("ti-clipboard-check", "Actions Taken", actionsForEquip.length)}
-                {actionsForEquip.length === 0 ? (
-                  <div style={{ color: T.textMuted, fontSize: 12.5 }}>No actions recorded for this equipment.</div>
-                ) : (
-                  actionsForEquip.map((a, i) => (
-                    <div
-                      key={a._id || i}
-                      style={{
-                        padding: i === 0 ? "0 0 10px" : "10px 0",
-                        borderBottom: i < actionsForEquip.length - 1 ? `1px solid ${T.border2}` : "none",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <span style={{ fontFamily: "monospace", fontSize: 11, color: T.textMuted }}>{a.acNo}</span>
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            background: T[STATUS_ACTION_COLOR[a.status]] + "22",
-                            color: T[STATUS_ACTION_COLOR[a.status]] || T.textSecondary,
-                          }}
-                        >
-                          {a.status}
-                        </span>
-                        <span style={{ fontSize: 11, color: T.textMuted, marginLeft: "auto" }}>{formatDate(a.revisionDate)}</span>
-                        <button
-                          style={{ ...s.btn, padding: "2px 6px" }}
-                          onClick={() => setEditingAction({ action: a, isNew: false })}
-                          title="Edit"
-                        >
-                          <i className="ti ti-edit" aria-hidden="true" />
-                        </button>
-                      </div>
-                      <div style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.5 }}>{a.agreedAction || "—"}</div>
-                    </div>
-                  ))
-                )}
-              </div>
+          {lpTab === "topups" &&
+            (loadingHistory ? (
+              <p style={{ color: T.textSecondary }}>Loading…</p>
+            ) : (
+              <HistoryTable
+                T={T} s={s}
+                rows={topUps}
+                empty="No top-ups logged for this lubrication point."
+                columns={[
+                  { key: "eventDate", label: "Date" },
+                  { key: "quantity", label: "Quantity (L)" },
+                  { key: "reason", label: "Reason" },
+                  { key: "doneBy", label: "Done By" },
+                ]}
+              />
+            ))}
+
+          {lpTab === "actions" && (
+            <HistoryTable
+              T={T} s={s}
+              rows={actionsForEquip}
+              empty="No actions logged for this lubrication point."
+              columns={[
+                { key: "revisionDate", label: "Date" },
+                { key: "status", label: "Status", badge: () => "textSecondary" },
+                { key: "agreedAction", label: "Action" },
+                { key: "contractor", label: "Contractor" },
+              ]}
+              renderActions={(a) => (
+                <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => setEditingAction({ action: a, isNew: false })} title="Edit">
+                  <i className="ti ti-edit" aria-hidden="true" />
+                </button>
+              )}
+            />
+          )}
+
+          {lpTab === "info" && (
+            <div style={{ ...s.card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
+              {[
+                ["Report Equipment ID", reg?.reportEquipmentId],
+                ["Lubrication Location", reg?.lubricationLocation],
+                ["Point Code", reg?.pointCode],
+                ["Type / Position", reg?.position],
+                ["Manufacturer", reg?.manufacturer],
+                ["Model", reg?.model],
+                ["Operating Temp (°C)", reg?.operatingTempC],
+                ["Lubricant", reg?.lubricant],
+                ["Lubricant Brand", reg?.lubricantBrand],
+                ["Quantity (L)", reg?.lubricantQuantityL],
+                ["Oil Analysis Required", reg?.oilAnalysisRequired],
+                ["Sampling Interval", reg?.interval],
+                ["Oil Change Interval", reg?.oilChangeInterval],
+                ["Area", reg?.area],
+                ["Contractor", reg?.contractor],
+                ["Status", reg?.status],
+                ["Created Date", reg?.createdDate],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div style={{ fontSize: 10.5, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>{value || "—"}</div>
+                </div>
+              ))}
             </div>
           )}
         </div>
