@@ -82,6 +82,14 @@ password on first login, same as a real one. Safe to run more than
 once — an account that already exists is reported and skipped rather
 than erroring out the whole batch.
 
+**Lost or never copied one of those passwords?** Don't re-run
+`createSampleTestUsers_()` — it skips anything that already exists, so it
+won't give you a new one. Run `resetSampleTestUserPasswords_()` instead
+(same file) — it looks all 7 sample emails up and issues each a fresh
+temporary password in one pass, logged the same way. Works for any subset
+of the 7 too (e.g. if only one account's password got lost, it still
+re-logs all 7, so you don't have to remember which one).
+
 ## 3. Oil Analysis project
 
 Same steps, against the "Oil Lubrication Data Base" Sheet instead:
