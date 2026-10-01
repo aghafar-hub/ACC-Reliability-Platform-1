@@ -25,6 +25,13 @@
 //   ?action=getRoutines                     → all ROUTINES rows
 //   ?action=getRoutineItems&routineId=XXXX  → all OA_ROUTINE_ITEMS rows for one routine
 //   ?action=getRouteTemplates               → all ROUTINE_TEMPLATES rows (recurring routes)
+//   ?action=getRoutinesOverview              → unified list (Patch 20, see RouteTemplates.js):
+//                                              every recurring template + every standalone
+//                                              one-time routine, each with a computed
+//                                              Equipment Count/Next Due Date/dueStatus
+//                                              (Overdue/Due Soon/On Schedule/Paused/
+//                                              Completed)/Last Completed — the main
+//                                              Routines list's data source
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
 //   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
 //   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
@@ -201,6 +208,9 @@ function doGet(e) {
           result.templates = result.templates.filter(function (r) { return String(r[3] || "").trim() === scope; });
           result.count = result.templates.length;
         }
+        break;
+      case "getRoutinesOverview":
+        result = getRoutinesOverview(scope);
         break;
       case "getOilInventory":
         result = getOilInventory(scope);

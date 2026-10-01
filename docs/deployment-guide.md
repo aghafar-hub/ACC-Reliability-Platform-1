@@ -1217,6 +1217,39 @@ table; Clear Selection, confirm it unlocks and ASEC rows reappear. Switch
 Frequency to Monthly/Quarterly and confirm Contractor becomes a real
 RHI/ASEC dropdown again.
 
+## 4y. Unified Routines overview — backend (Patch 20a)
+
+Backend half of the Routines main-view redesign agreed during design
+review: recurring templates become the primary list, each with a
+computed Equipment Count / Next Due Date / Status / Last Completed, and a
+standalone one-time routine (not generated from any template) shows up
+as its own row in the exact same list — "each line on the table view is
+for a routine," the user's own words. A template-generated instance does
+NOT get its own top-level row; it's reached by drilling into its parent
+template (frontend half, a later patch).
+
+**Code**: new `getRoutinesOverview(scope)` in `RouteTemplates.js`. For
+each `ROUTINE_TEMPLATES` row: `equipmentCount` is a fresh count against
+the live Equipment Registry (not cached — reflects reality even if
+equipment changed since the template was made); `nextDueDate` is simply
+the template's own `NextGenerateDate`; `dueStatus` is `"Paused"` for a
+paused template (its due date is stale/meaningless until resumed),
+otherwise `"Overdue"` / `"Due Soon"` (≤7 days) / `"On Schedule"` from
+comparing that date to today; `lastCompleted` is the most recent
+`ApprovedDate` among `ROUTINES` rows whose `SourceTemplateId` matches.
+For each standalone `ROUTINES` row (`SourceTemplateId` blank):
+`frequency` is always the literal string `"One-time"` (there's no stored
+frequency on a routine itself); `dueStatus` is `"Completed"` if already
+Approved, otherwise the same Overdue/Due Soon/On Schedule comparison
+against its own `DueDate`; `equipmentCount` comes from its own
+`OA_ROUTINE_ITEMS` rows. New `Code.js` doGet case `getRoutinesOverview`.
+
+**Verify**: hit `?action=getRoutinesOverview` directly (or via the old
+UI's network tab until the new frontend view ships) and confirm the
+counts/statuses match what you'd expect for a few real templates and
+routines — a template-generated instance should never appear by its own
+RoutineId in the response.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

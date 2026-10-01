@@ -294,6 +294,136 @@ function intervalMonthsForRoute_(freqText) {
 }
 
 
+// ─── Unified Routines overview (Patch 20) ─────────────────────────────────
+//
+// The new main Routines view promotes recurring templates to be the
+// primary list (confirmed directly by the user during design review),
+// with a standalone one-time routine (SourceTemplateId blank — the only
+// other way a ROUTINES row is ever created, see createRoutine) appearing
+// as its own row in the exact same list rather than a separate concept —
+// "each line on the table view is for a routine," the user's own words.
+// A template-GENERATED routine instance (SourceTemplateId set) does NOT
+// get its own top-level row here — it's reached by drilling into its
+// parent template instead (frontend concern, not this endpoint's).
+//
+// dueStatus values: "Paused" (template only — never auto-generates until
+// resumed, so a due-date comparison would be misleading), "Completed"
+// (standalone routine only — already Approved, nothing left to do),
+// "Overdue" / "Due Soon" / "On Schedule" (everything else, from comparing
+// the item's own due date against today).
+var ROUTINE_DUE_SOON_DAYS = 7;
+
+function countMatchingEquipment_(registry, routeType, area, oilType, contractor) {
+  var count = 0;
+  for (var i = 0; i < registry.length; i++) {
+    var reg = registry[i];
+    if (!reg.code) continue;
+    if (contractor && reg.contractor !== contractor) continue;
+    if (area && reg.area !== area) continue;
+    if (oilType && reg.lubricant !== oilType) continue;
+    if (routeType === "Sampling" && reg.oilAnalysisRequired !== "Yes") continue;
+    count++;
+  }
+  return count;
+}
+
+function classifyDueStatus_(dueDate, today) {
+  if (!dueDate || isNaN(dueDate.getTime())) return "Unknown";
+  var diffDays = Math.floor((dueDate.getTime() - today.getTime()) / 86400000);
+  if (diffDays < 0) return "Overdue";
+  if (diffDays <= ROUTINE_DUE_SOON_DAYS) return "Due Soon";
+  return "On Schedule";
+}
+
+function getRoutinesOverview(scope) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var registry = readEquipmentRegistry().equipment;
+  var templateRows = readSheet(ss, "ROUTINE_TEMPLATES", true);
+  var routineRows = readSheet(ss, "ROUTINES", true);
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Latest Approved routine's ApprovedDate per SourceTemplateId — "Last
+  // Completed" for a template is the most recent instance it generated
+  // that actually got signed off, not the template's own ModifiedDate.
+  var lastCompletedByTemplate = {};
+  routineRows.forEach(function (r) {
+    var sourceTemplateId = String(r[15] || "").trim();
+    if (!sourceTemplateId) return;
+    if (String(r[5] || "").trim() !== "Approved") return;
+    var approvedDate = r[8] ? new Date(r[8]) : null;
+    if (!approvedDate || isNaN(approvedDate.getTime())) return;
+    var prev = lastCompletedByTemplate[sourceTemplateId];
+    if (!prev || approvedDate.getTime() > prev.getTime()) lastCompletedByTemplate[sourceTemplateId] = approvedDate;
+  });
+
+  var items = [];
+
+  templateRows.forEach(function (t) {
+    var templateId = String(t[0] || "").trim();
+    if (!templateId) return;
+    var contractor = String(t[3] || "").trim();
+    if (scope && contractor !== scope) return;
+    var routeType = String(t[2] || "").trim();
+    var area = String(t[4] || "").trim();
+    var oilType = String(t[5] || "").trim();
+    var templateStatus = String(t[8] || "").trim();
+    var nextGenDate = t[7] ? new Date(t[7]) : null;
+    var lastCompleted = lastCompletedByTemplate[templateId];
+
+    items.push({
+      kind: "template",
+      id: templateId,
+      routeName: String(t[1] || "").trim(),
+      routeType: routeType,
+      contractor: contractor,
+      area: area,
+      frequency: String(t[6] || "").trim(),
+      equipmentCount: countMatchingEquipment_(registry, routeType, area, oilType, contractor),
+      nextDueDate: nextGenDate && !isNaN(nextGenDate.getTime()) ? nextGenDate.toISOString() : "",
+      dueStatus: templateStatus === "Paused" ? "Paused" : classifyDueStatus_(nextGenDate, today),
+      lastCompleted: lastCompleted ? lastCompleted.toISOString() : "",
+      templateStatus: templateStatus,
+    });
+  });
+
+  var itemCounts = {}; // routineId -> OA_ROUTINE_ITEMS row count
+  readSheet(ss, "OA_ROUTINE_ITEMS", true).forEach(function (r) {
+    var rid = String(r[1] || "").trim();
+    if (rid) itemCounts[rid] = (itemCounts[rid] || 0) + 1;
+  });
+
+  routineRows.forEach(function (r) {
+    if (String(r[15] || "").trim()) return; // belongs to a template — not a standalone top-level row
+    var routineId = String(r[0] || "").trim();
+    if (!routineId) return;
+    var contractor = String(r[3] || "").trim();
+    if (scope && contractor !== scope) return;
+    var workflowStatus = String(r[5] || "").trim();
+    var dueDate = r[14] ? new Date(r[14]) : null;
+    var approvedDate = r[8] ? new Date(r[8]) : null;
+    var isApproved = workflowStatus === "Approved";
+
+    items.push({
+      kind: "routine",
+      id: routineId,
+      routeName: String(r[12] || "").trim(),
+      routeType: String(r[13] || "").trim(),
+      contractor: contractor,
+      area: "",
+      frequency: "One-time",
+      equipmentCount: itemCounts[routineId] || 0,
+      nextDueDate: dueDate && !isNaN(dueDate.getTime()) ? dueDate.toISOString() : "",
+      dueStatus: isApproved ? "Completed" : classifyDueStatus_(dueDate, today),
+      lastCompleted: isApproved && approvedDate && !isNaN(approvedDate.getTime()) ? approvedDate.toISOString() : "",
+      workflowStatus: workflowStatus,
+    });
+  });
+
+  return { items: items, count: items.length };
+}
+
+
 function advanceByFrequency_(date, frequency) {
   var origDay = date.getDate();
   var d = new Date(date.getTime());
