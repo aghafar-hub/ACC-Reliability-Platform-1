@@ -9,6 +9,14 @@ const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 const ROUTE_TYPES = [
   { id: "Oil Change", icon: "ti-droplet", desc: "Change / top-up" },
   { id: "Sampling", icon: "ti-flask", desc: "Oil analysis sample" },
+  // Patch 18: single-equipment only (not a batch like the other two — see
+  // the equipment-selection section below, which switches toggleRow to
+  // single-select for this type), goes through the same Assign -> Submit
+  // -> Approve workflow, always one-time (never recurring) — confirmed
+  // directly by the user. Approval logs an Oil Top Up LOG entry (see
+  // RoutineDetail.jsx's applyApprovalSideEffects) instead of an Oil
+  // Change LOG one.
+  { id: "Emergency Top Up", icon: "ti-alert-triangle", desc: "Urgent, single equipment" },
 ];
 const FREQUENCIES = ["One-time", "Weekly", "Monthly", "Quarterly"];
 
@@ -59,10 +67,21 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   const [presetId, setPresetId] = useState("recommended");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]); // [{ lpId, label, equipmentId, oilType, suggestionReason? }]
+  const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const isRecurring = frequency !== "One-time";
+  const isEmergencyTopUp = routeType === "Emergency Top Up";
+  const isRecurring = !isEmergencyTopUp && frequency !== "One-time";
   const registry = equipmentRegistry || [];
+
+  // Emergency Top Up is always one-time and ad-hoc — never a recurring
+  // template. Force the frequency back if someone had Weekly/Monthly/
+  // Quarterly selected on a different route type and then switches to
+  // this one (the Frequency selector itself is hidden for this type too,
+  // see the render below, so this only matters for that switch moment).
+  useEffect(() => {
+    if (isEmergencyTopUp && frequency !== "One-time") setFrequency("One-time");
+  }, [isEmergencyTopUp, frequency]);
 
   const areaOptions = useMemo(
     () => ["All", ...Array.from(new Set((equipmentRegistry || []).map((r) => r.area).filter(Boolean))).sort()],
@@ -127,6 +146,13 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     return selected.some((sel) => sel.lpId === lpId);
   }
   function toggleRow(r) {
+    // Emergency Top Up covers exactly one piece of equipment — picking a
+    // new row replaces whatever was selected instead of adding to it, and
+    // clicking the already-selected row clears it back to none.
+    if (isEmergencyTopUp) {
+      setSelected((prev) => (prev[0]?.lpId === r.code ? [] : [toChipRow(r)]));
+      return;
+    }
     setSelected((prev) => (prev.some((sel) => sel.lpId === r.code) ? prev.filter((sel) => sel.lpId !== r.code) : [...prev, toChipRow(r)]));
   }
   function selectAllShown() {
@@ -163,7 +189,11 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
         return;
       }
       if (selected.length === 0) {
-        pushToast("Add at least one lubrication point.", "error");
+        pushToast(isEmergencyTopUp ? "Select the equipment that needs the top-up." : "Add at least one lubrication point.", "error");
+        return;
+      }
+      if (isEmergencyTopUp && !reason.trim()) {
+        pushToast("Enter a reason for the top-up.", "error");
         return;
       }
     }
@@ -196,6 +226,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
           contractor,
           createdBy,
           items,
+          reason: isEmergencyTopUp ? reason.trim() : undefined,
         });
         pushToast("Route created.", "success");
         onCreated(saved.routineId, null);
@@ -291,59 +322,67 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 onChange={(e) => setRouteName(e.target.value)}
               />
             </div>
-            <div>
-              <label style={s.label}>Frequency</label>
-              <select style={s.select} value={frequency} onChange={(e) => setFrequency(e.target.value)}>
-                {FREQUENCIES.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!isEmergencyTopUp && (
+              <div>
+                <label style={s.label}>Frequency</label>
+                <select style={s.select} value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+                  {FREQUENCIES.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label style={s.label}>{isRecurring ? "Starts On" : "Due Date"}</label>
               <input style={s.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
 
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <p style={{ fontWeight: 700, marginBottom: 10, fontSize: 13 }}>Filters &amp; Suggestion</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 14 }}>
-              <div>
-                <label style={s.label}>Area</label>
-                <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)}>
-                  {areaOptions.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={s.label}>Oil Type</label>
-                <select style={s.select} value={oilType} onChange={(e) => setOilType(e.target.value)}>
-                  {oilTypeOptions.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {!isRecurring && (
+          {/* Emergency Top Up is one equipment, picked straight from the
+              search below — Area/Oil Type filtering and a suggestion
+              preset exist to help build a multi-LP batch route, which
+              doesn't apply here. */}
+          {!isEmergencyTopUp && (
+            <div style={{ ...s.card, marginBottom: 16 }}>
+              <p style={{ fontWeight: 700, marginBottom: 10, fontSize: 13 }}>Filters &amp; Suggestion</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 14 }}>
                 <div>
-                  <label style={s.label}>Suggestion</label>
-                  <select style={s.select} value={presetId} onChange={(e) => applyPreset(e.target.value)}>
-                    {SUGGESTION_PRESETS.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
+                  <label style={s.label}>Area</label>
+                  <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)}>
+                    {areaOptions.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
                       </option>
                     ))}
                   </select>
                 </div>
-              )}
+                <div>
+                  <label style={s.label}>Oil Type</label>
+                  <select style={s.select} value={oilType} onChange={(e) => setOilType(e.target.value)}>
+                    {oilTypeOptions.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {!isRecurring && (
+                  <div>
+                    <label style={s.label}>Suggestion</label>
+                    <select style={s.select} value={presetId} onChange={(e) => applyPreset(e.target.value)}>
+                      {SUGGESTION_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 16 }}>
             <div>
@@ -400,8 +439,21 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 </div>
               </div>
 
+              {isEmergencyTopUp && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={s.label}>Reason</label>
+                  <input
+                    style={s.input}
+                    type="text"
+                    placeholder="e.g. Leakage, low level, seal issue…"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </div>
+              )}
+
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>Lubrication Points</p>
+                <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{isEmergencyTopUp ? "Equipment" : "Lubrication Points"}</p>
                 <span style={{ fontSize: 12, color: T.textSecondary }}>{candidates.length} LPs available</span>
               </div>
               <input
@@ -412,9 +464,11 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 onChange={(e) => setSearch(e.target.value)}
               />
               <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 12.5 }}>
-                <button style={{ ...s.btn, padding: "4px 10px" }} onClick={selectAllShown}>
-                  Select All ({shownCandidates.length} shown)
-                </button>
+                {!isEmergencyTopUp && (
+                  <button style={{ ...s.btn, padding: "4px 10px" }} onClick={selectAllShown}>
+                    Select All ({shownCandidates.length} shown)
+                  </button>
+                )}
                 <button style={{ ...s.btn, padding: "4px 10px" }} onClick={clearSelection}>
                   Clear Selection
                 </button>
@@ -459,7 +513,9 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 </p>
               )}
 
-              <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Selected Lubrication Points ({selected.length})</p>
+              <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+                {isEmergencyTopUp ? "Selected Equipment" : "Selected Lubrication Points"} ({selected.length})
+              </p>
               {selected.length === 0 ? (
                 <p style={{ color: T.textSecondary, fontSize: 13 }}>No LPs selected.</p>
               ) : (

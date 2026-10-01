@@ -1140,6 +1140,47 @@ match, confirm a new `Oil Top Up LOG` row appears with the right Reason/
 RequestedBy/quantity, and confirm an `Issue` movement for that same
 quantity appears in `Oil Inventory LOG` against the matching product.
 
+## 4w. Emergency Top Up route type (Patch 18)
+
+A third route type alongside Oil Change/Sampling, for an urgent, reactive
+top-up (leakage, low level, seal issue) — confirmed directly by the user
+during design review. Always single-equipment (never a batch) and always
+one-time (never recurring), but goes through the exact same Assign ->
+Submit -> Approve workflow every other routine does. Approval logs an
+**Oil Top Up LOG** entry (Patch 17) instead of an Oil Change LOG one, and
+deducts from Oil Inventory the same way.
+
+**Where**: New Route -> Route Type -> "Emergency Top Up". The form adapts:
+Frequency and the "Filters & Suggestion" card disappear (don't apply to
+picking one specific piece of equipment), a required **Reason** field
+appears, "Select All" disappears, and picking equipment from the table
+becomes single-select — choosing a different row replaces the previous
+pick rather than adding to it.
+
+**Code**: `Routines.js`'s `createRoutine` accepts `routeType ===
+"Emergency Top Up"`, validates exactly one item and a non-blank `reason`,
+and stores it in **ROUTINES' new trailing column 16 (Reason)** — blank
+for every other route type. Item type for this route is `"TopUp"`,
+distinct from `"Change"`/`"Sample"`. `NewRoutine.jsx` adapts the form as
+above. `RoutineDetail.jsx`'s `applyApprovalSideEffects` gained an
+`Emergency Top Up` branch calling `api.logOilTopUp` (quantity from the
+item's own `actualQuantity`, same field the checklist already captures)
+instead of `api.logOilChangeEvent`.
+
+**IMPORTANT — column shift**: adding Reason as ROUTINES' column 16 means
+the two columns `getRoutines()` appends after the real row (ItemsTotal,
+ItemsDone) moved from index 16/17 to **17/18**. Both frontend row parsers
+(`apps/oil-analysis/src/parsers.js`'s `rowToRoutine` and
+`frontend/src/api/oilLubrication.ts`'s own copy) were updated together —
+if you ever add another trailing ROUTINES column, update both of these,
+or the item progress bar will silently show wrong/blank counts.
+
+**Verify**: create an Emergency Top Up routine as a Contractor Engineer,
+confirm it rejects more than one equipment and a blank reason, confirm
+the created routine shows Reason correctly; submit its one item with a
+quantity and approve it; confirm an `Oil Top Up LOG` row appears (not
+`Oil Change LOG`) and Oil Inventory is deducted by that quantity.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

@@ -69,8 +69,12 @@ function rowToRoutine(row: unknown[]): Routine {
     routeName: String(row[12] || ''),
     routeType: String(row[13] || ''),
     dueDate: formatDate(row[14]),
-    itemsTotal: Number(row[16]) || 0,
-    itemsDone: Number(row[17]) || 0,
+    // Patch 18: ROUTINES gained a raw column 16 (Reason, Emergency Top Up
+    // only) — itemsTotal/itemsDone are NOT raw sheet columns, getRoutines()
+    // (Routines.js) appends them after the real row, so they now trail one
+    // index further than before.
+    itemsTotal: Number(row[17]) || 0,
+    itemsDone: Number(row[18]) || 0,
   };
 }
 

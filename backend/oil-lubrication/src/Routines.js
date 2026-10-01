@@ -17,7 +17,12 @@
 // generateDueRouteInstances — see RouteTemplates.js). Status also gained
 // "Unassigned": a recurring template generates a routine with no
 // AssignedTo yet, and assignRoutineTechnician (below) is the only way to
-// move it to "Assigned".
+// move it to "Assigned". Patch 18 (plant-readiness pass): 16 Reason —
+// blank except for a RouteType="Emergency Top Up" routine, where it's
+// required (why the top-up was needed — leakage, low level, etc.). An
+// Emergency Top Up routine is always single-equipment (exactly one item),
+// confirmed directly by the user, unlike Oil Change/Sampling routes which
+// can cover many LPs.
 // OA_ROUTINE_ITEMS columns: 0 RoutineItemId, 1 RoutineId, 2 LP_ID,
 // 3 ItemType, 4 RequiredOilType, 5 Implemented, 6 NotImplementedReason,
 // 7 ActualDate, 8 ActualQuantity, 9 SampleTaken, 10 CreatedDate,
@@ -104,11 +109,19 @@ function createRoutine(ss, data) {
   var assignedTo = String(data.assignedTo || "").trim();
   if (!assignedTo) return { error: "assignedTo is required" };
   var routeType = String(data.routeType || "").trim();
-  if (routeType !== "Oil Change" && routeType !== "Sampling") return { error: "routeType must be 'Oil Change' or 'Sampling'" };
+  if (routeType !== "Oil Change" && routeType !== "Sampling" && routeType !== "Emergency Top Up") {
+    return { error: "routeType must be 'Oil Change', 'Sampling', or 'Emergency Top Up'" };
+  }
   var routeName = String(data.routeName || "").trim();
   if (!routeName) return { error: "routeName is required" };
   var items = Array.isArray(data.items) ? data.items : [];
   if (items.length === 0) return { error: "At least one lubrication point is required" };
+
+  var reason = String(data.reason || "").trim();
+  if (routeType === "Emergency Top Up") {
+    if (items.length !== 1) return { error: "An Emergency Top Up routine covers exactly one piece of equipment" };
+    if (!reason) return { error: "A reason is required for an Emergency Top Up" };
+  }
 
   var now = new Date();
   var dueDate = data.dueDate ? new Date(data.dueDate) : "";
@@ -130,12 +143,13 @@ function createRoutine(ss, data) {
     routeType,
     dueDate,
     "", // SourceTemplateId — blank for a manually-created routine
+    reason,
   ];
   appendRow(ss, "ROUTINES", routineRow);
 
   // Whole-route type: every item gets the same itemType, derived from
   // routeType rather than picked per point (see the header comment above).
-  var itemType = routeType === "Sampling" ? "Sample" : "Change";
+  var itemType = routeType === "Sampling" ? "Sample" : routeType === "Emergency Top Up" ? "TopUp" : "Change";
   for (var i = 0; i < items.length; i++) {
     var item = items[i];
     var itemRow = [

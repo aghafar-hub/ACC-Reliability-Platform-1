@@ -251,7 +251,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     const doneItems = items.filter((i) => i.implemented === "Yes");
     if (doneItems.length === 0) return;
     const routeType = approvedRoutine.routeType;
-    if (routeType !== "Oil Change" && routeType !== "Sampling") return;
+    if (routeType !== "Oil Change" && routeType !== "Sampling" && routeType !== "Emergency Top Up") return;
 
     const results = await Promise.allSettled(
       doneItems.map((item) => {
@@ -264,12 +264,28 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
             contractor: approvedRoutine.contractor,
           });
         }
+        if (routeType === "Emergency Top Up") {
+          // Patch 18/17: logs to Oil Top Up LOG, not Oil Change LOG — and
+          // deducts from Oil Inventory the same way a regular change does
+          // (see TopUps.js's own comment). Always exactly one item, per
+          // createRoutine's own single-equipment validation.
+          return api.logOilTopUp(webhookUrl, {
+            lpId: item.lpId,
+            eventDate,
+            quantityUsed: item.actualQuantity,
+            reason: approvedRoutine.reason,
+            requestedBy: approvedRoutine.createdBy,
+            doneBy: approvedRoutine.assignedTo,
+            routineId: approvedRoutine.routineId,
+            contractor: approvedRoutine.contractor,
+          });
+        }
         return api.updateSampleTracker(webhookUrl, { equipmentCode: item.lpId, sampleDate: eventDate, status: "Pending" });
       })
     );
     const failed = results.filter((r) => r.status === "rejected");
     if (failed.length > 0) {
-      const target = routeType === "Oil Change" ? "Oil Change Log" : "Sample Tracker";
+      const target = routeType === "Oil Change" ? "Oil Change Log" : routeType === "Emergency Top Up" ? "Oil Top Up Log" : "Sample Tracker";
       pushToast(
         `Routine approved, but ${failed.length} of ${doneItems.length} point${doneItems.length !== 1 ? "s" : ""} didn't record to the ${target}: ${failed[0].reason?.message || "unknown error"}`,
         "error"

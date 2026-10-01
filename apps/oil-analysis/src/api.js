@@ -658,7 +658,7 @@ export async function getRoutineItems(webhookUrl, routineId) {
 // send CORS headers on a POST response) means write-verification always
 // has to be a follow-up read; a client-supplied id makes that an exact
 // lookup instead of guessing "the newest matching routine".
-export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, assignedTo, contractor, createdBy, items }) {
+export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, assignedTo, contractor, createdBy, items, reason }) {
   await postBlind(webhookUrl, {
     action: "createRoutine",
     routineId,
@@ -669,6 +669,7 @@ export async function createRoutine(webhookUrl, { routineId, routeName, routeTyp
     contractor: contractor || "",
     createdBy: createdBy || "",
     items,
+    reason: reason || "", // Patch 18 — required server-side for routeType "Emergency Top Up" only
   });
 
   const routines = await getRoutines(webhookUrl);
