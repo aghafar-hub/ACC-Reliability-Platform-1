@@ -1513,6 +1513,52 @@ pass post-change. The live GitHub Pages deployment has normal internet
 access and will render these correctly for real users; there's nothing
 to fix here, just nothing this sandbox can visually confirm.
 
+## 4af. Equipment Viewer — new per-LP profile page (Patch 25)
+
+New page, identified by LP_ID (the user's own "Lubrication_Point (column F)" —
+one profile per lubrication point, not the broader Equipment_ID grouping
+several LPs can share). Deliberately simpler than the reference mockup,
+per explicit user decisions from design review: dropped Running Hours,
+the Vibration/Temp/Load card, Photo/Attachments (so only 6 tabs —
+Overview/Oil Samples/Oil Changes/Top Ups/Actions/Equipment Info, no
+Attachments), the Line tag, and Installed year. Kept: Top Ups as their
+own tracked history, Type relabeled from an existing field (no dedicated
+"Type" column exists in the registry — used Position), a single
+consolidated health card, and the Lubrication Timeline.
+
+**No new backend** — everything needed is already client-side. Samples
+and actions come from the existing `samples`/`actions` props (same
+full-sync data every other page already uses); Oil Changes and Top Ups
+are fetched on demand per selected LP via the existing
+`getOilChangesForLp`/`getTopUpsForLp` backend actions. One real gap
+found and fixed along the way: `api.js` had never exposed a standalone
+`getOilChangesForLp` client function — only an inlined copy inside
+`logOilChangeEvent`'s own write-verification step — so this page's build
+failed with "not exported" until a proper standalone export was added
+(mirroring the existing `getTopUpsForLp`).
+
+**Computed fields** (not stored, confirmed directly by the user):
+Criticality — High if the latest oil sample is in Alert or the oil
+change is overdue, Medium for Caution/Warning, Normal otherwise. Overall
+health (Good/Fair/Poor) — the worse of oil-analysis status, oil-change
+overdue-ness, and open-action count.
+
+**Navigation**: added as "Equipment Viewer" to both
+`apps/oil-analysis/src/components/Sidebar.jsx` (the embedded app's own
+nav, only rendered in the retired standalone-deployment path) and —
+the one that actually matters, since the standalone deployment is
+retired — `frontend/src/navigation.ts`'s `OIL_SUB_TABS`, which is what
+the shell's unified sidebar actually renders. New `page === "equipmentviewer"`
+branch in `apps/oil-analysis/src/App.jsx`, wired exactly like the
+existing `equipment` page (sticky selected-code state restored after
+Back, same pattern as `equipmentSelectedCode`).
+
+**Verify**: open Equipment Viewer from the sidebar, search for a known
+LP code, confirm the Overview tab's 4 cards (health, last sample/change/
+top-up), the Lubrication Timeline (merged chronological events), and the
+4 "Recent" quick tables all populate; check Oil Changes/Top Ups/Actions/
+Equipment Info tabs individually.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

@@ -571,6 +571,15 @@ export async function getTopUpsForLp(webhookUrl, lpId) {
   return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToTopUpEvent);
 }
 
+// Full Oil Change LOG history for one LP, newest first — mirrors
+// getTopUpsForLp above. Used by logOilChangeEvent's own write-verification
+// (inlined there before this existed as a standalone export) and now also
+// by EquipmentViewer.jsx's Oil Changes tab (Patch 25).
+export async function getOilChangesForLp(webhookUrl, lpId) {
+  const json = await getJSON(webhookUrl, { action: "getOilChangesForLp", lpId });
+  return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent);
+}
+
 // Patch 6 (plant-readiness pass): every new sample gets a real, unique
 // client-generated id here — the one place every save path (manual add,
 // bulk import) funnels through — so it can be matched exactly on every

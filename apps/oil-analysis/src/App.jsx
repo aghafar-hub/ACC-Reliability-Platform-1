@@ -6,6 +6,7 @@ import TopBar from "./components/TopBar";
 import Toast from "./components/Toast";
 import Dashboard from "./pages/Dashboard";
 import Equipment from "./pages/Equipment";
+import EquipmentViewer from "./pages/EquipmentViewer";
 import OilAnalysisReport from "./pages/OilAnalysisReport";
 import OilReportSearch from "./pages/OilReportSearch";
 import ActionTracker from "./pages/ActionTracker";
@@ -125,6 +126,7 @@ function AppShell({ config, setConfig, navBridge }) {
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [reportOrigin, setReportOrigin] = useState("dashboard"); // where "Back" on the Oil Analysis Report returns to
   const [equipmentSelectedCode, setEquipmentSelectedCode] = useState(""); // sticky so Equipment restores the same equipment after Back
+  const [equipmentViewerSelectedCode, setEquipmentViewerSelectedCode] = useState(""); // same pattern, for the Equipment Viewer page (Patch 25)
   const [oilReportCode, setOilReportCode] = useState("");
   // Patch 15: set when the shell's notification bell navigates here with a
   // specific record (e.g. navBridge.navigate("routines", "RT-123")) — read
@@ -1054,6 +1056,18 @@ function AppShell({ config, setConfig, navBridge }) {
               onSaveOilChange={onSaveOilChange}
               initialCode={equipmentSelectedCode}
               onCodeChange={setEquipmentSelectedCode}
+            />
+          )}
+          {page === "equipmentviewer" && (
+            <EquipmentViewer
+              equipmentRegistry={equipmentRegistry}
+              samples={samples}
+              oilChanges={oilChanges}
+              actions={actions}
+              webhookUrl={config.webhookUrl}
+              pushToast={pushToast}
+              initialCode={equipmentViewerSelectedCode}
+              onCodeChange={setEquipmentViewerSelectedCode}
             />
           )}
           {page === "report" && selectedEquipment && (

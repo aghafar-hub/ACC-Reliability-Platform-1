@@ -46,6 +46,7 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
 export const OIL_SUB_TABS: SubTab[] = [
   { id: 'dashboard', label: 'Oil Dashboard', icon: 'ti-layout-dashboard' },
   { id: 'equipment', label: 'Equipment', icon: 'ti-engine' },
+  { id: 'equipmentviewer', label: 'Equipment Viewer', icon: 'ti-list-details' },
   { id: 'routines', label: 'Routines', icon: 'ti-route' },
   { id: 'oilreport', label: 'Oil Analysis Report', icon: 'ti-file-analytics' },
   { id: 'upload', label: 'Add Report', icon: 'ti-plus' },
