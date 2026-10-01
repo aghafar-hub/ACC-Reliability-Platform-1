@@ -28,6 +28,31 @@ const ROLE_OPTIONS = [
   { id: ROLE.TECHNICIAN, label: 'Technician' },
 ];
 
+// Shows a password/value with a one-click copy button — used below for the
+// system-generated temp passwords, which are shown exactly once (see the
+// "won't be shown again" copy) so a typo while hand-transcribing one means
+// a lockout the admin has to come back and reset again.
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API can be unavailable (e.g. insecure context) — the
+      // value is still shown in the <code> next to this button either way.
+    }
+  }
+
+  return (
+    <button type="button" className="accounts-copy-btn" onClick={handleCopy}>
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
+
 function orgLabel(orgId: string): string {
   return ORGS.find((o) => o.id === orgId)?.label ?? orgId;
 }
@@ -188,7 +213,8 @@ export default function AccountsPanel() {
       {createError && <p className="auth-error">{createError}</p>}
       {newAccount && (
         <div className="accounts-temp-password">
-          <strong>{newAccount.email}</strong> — temporary password: <code>{newAccount.tempPassword}</code>
+          <strong>{newAccount.email}</strong> — temporary password: <code>{newAccount.tempPassword}</code>{' '}
+          <CopyButton value={newAccount.tempPassword} />
           <br />
           Share this with them directly — it won't be shown again.
         </div>
@@ -250,7 +276,8 @@ export default function AccountsPanel() {
       {resetError && <p className="auth-error">{resetError}</p>}
       {resetResult && (
         <div className="accounts-temp-password">
-          <strong>{resetResult.email}</strong> — new temporary password: <code>{resetResult.tempPassword}</code>
+          <strong>{resetResult.email}</strong> — new temporary password: <code>{resetResult.tempPassword}</code>{' '}
+          <CopyButton value={resetResult.tempPassword} />
           <br />
           Share this with them directly — it won't be shown again.
         </div>

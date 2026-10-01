@@ -87,6 +87,21 @@
   border-radius: 4px;
 }
 
+.accounts-copy-btn {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid #6ee7b7;
+  border-radius: 6px;
+  background: transparent;
+  color: #065f46;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.accounts-copy-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 .accounts-table {
   width: 100%;
   border-collapse: collapse;

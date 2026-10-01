@@ -1,4 +1,4 @@
-/* Pushes the main content over as it expands (rather than overlaying on
+﻿/* Pushes the main content over as it expands (rather than overlaying on
    top of it) — real content must never end up hidden behind the sidebar,
    even during the hover-expand transition. Colors read from --shell-*
    custom properties (set in App.tsx from the chosen theme — see
@@ -10,16 +10,32 @@
   overflow: hidden;
   white-space: nowrap;
   background: var(--shell-sidebar-bg, #0f172a);
-  color: var(--shell-text, #e2e8f0);
+  color: var(--shell-sidebar-text, #e2e8f0);
   display: flex;
   flex-direction: column;
   transition: width 0.16s ease, background 0.15s ease, color 0.15s ease;
   z-index: 100;
 }
 
-.sidebar-rail:hover {
+/* :focus-within expands the rail the same way :hover does, so a keyboard
+   user tabbing onto a nav link can actually see its label (and reach its
+   sub-tabs, see .sidebar-subnav below) instead of landing on an invisible
+   icon-only target. */
+.sidebar-rail:hover,
+.sidebar-rail:focus-within {
   width: 248px;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Touch devices have no :hover state at all, so the hover-expand trigger
+   above never fires there — leaving every label and every sub-tab
+   permanently unreachable on a phone/tablet. This is a mobile PWA, so on
+   any device that can't hover, keep the rail permanently expanded instead
+   of relying on a gesture that doesn't exist on that device. */
+@media (hover: none) {
+  .sidebar-rail {
+    width: 248px;
+  }
 }
 
 .sidebar-nav-root {
@@ -59,12 +75,23 @@
   left: 14px;
 }
 
-.sidebar-rail:hover .sidebar-logo-mark {
+.sidebar-rail:hover .sidebar-logo-mark,
+.sidebar-rail:focus-within .sidebar-logo-mark {
   display: none;
 }
 
-.sidebar-rail:hover .sidebar-logo-full {
+.sidebar-rail:hover .sidebar-logo-full,
+.sidebar-rail:focus-within .sidebar-logo-full {
   display: block;
+}
+
+@media (hover: none) {
+  .sidebar-logo-mark {
+    display: none;
+  }
+  .sidebar-logo-full {
+    display: block;
+  }
 }
 
 .sidebar-nav {
@@ -86,8 +113,10 @@
   align-items: center;
   gap: 0;
   width: 100%;
+  min-height: 44px; /* touch target minimum — the 18px icon + old padding fell short of this */
   padding: 0.65rem 1.25rem;
-  color: var(--shell-text, #cbd5e1);
+  box-sizing: border-box;
+  color: var(--shell-sidebar-text, #cbd5e1);
   text-decoration: none;
   font-size: 0.87rem;
   background: transparent;
@@ -120,13 +149,20 @@
   50% { opacity: 1; transform: scale(1.2); }
 }
 
-.sidebar-rail:hover .sidebar-link {
+.sidebar-rail:hover .sidebar-link,
+.sidebar-rail:focus-within .sidebar-link {
   gap: 12px;
+}
+
+@media (hover: none) {
+  .sidebar-link {
+    gap: 12px;
+  }
 }
 
 .sidebar-link:hover {
   background: var(--shell-border, #1e293b);
-  color: var(--shell-text, #fff);
+  color: var(--shell-sidebar-text, #fff);
 }
 
 .sidebar-link--active {
@@ -154,9 +190,17 @@
   transition: opacity 0.1s ease, max-width 0.16s ease;
 }
 
-.sidebar-rail:hover .sidebar-link-label {
+.sidebar-rail:hover .sidebar-link-label,
+.sidebar-rail:focus-within .sidebar-link-label {
   opacity: 1;
   max-width: 200px;
+}
+
+@media (hover: none) {
+  .sidebar-link-label {
+    opacity: 1;
+    max-width: 200px;
+  }
 }
 
 .sidebar-subnav {
@@ -166,8 +210,15 @@
   display: none;
 }
 
-.sidebar-rail:hover .sidebar-subnav {
+.sidebar-rail:hover .sidebar-subnav,
+.sidebar-rail:focus-within .sidebar-subnav {
   display: block;
+}
+
+@media (hover: none) {
+  .sidebar-subnav {
+    display: block;
+  }
 }
 
 /* Shared by both kinds of sub-tab (see Sidebar.tsx's SubTabItem) — a
@@ -179,8 +230,10 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+  min-height: 44px; /* touch target minimum, see .sidebar-link above */
   padding: 0.4rem 1.25rem 0.4rem 2.5rem;
-  color: var(--shell-text-secondary, #94a3b8);
+  box-sizing: border-box;
+  color: var(--shell-sidebar-text-secondary, #94a3b8);
   background: transparent;
   border: none;
   text-align: left;
@@ -192,7 +245,7 @@
 
 .sidebar-sublink:hover {
   background: var(--shell-border, #1e293b);
-  color: var(--shell-text, #fff);
+  color: var(--shell-sidebar-text, #fff);
 }
 
 .sidebar-sublink--active {

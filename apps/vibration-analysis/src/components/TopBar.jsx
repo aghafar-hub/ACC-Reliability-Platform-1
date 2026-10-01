@@ -39,7 +39,11 @@ export default function TopBar({ title, sheetUrl, onSync, syncState, setMobileOp
           style={{
             fontSize: 17,
             fontWeight: 800,
-            color: T.textHighlight,
+            // T.textHighlight is tuned for the light cardBg -- for "ACC
+            // Corporate" it's literally identical to topbarBg (#0B2340 both),
+            // making this title 100% invisible. sidebarText is this app's
+            // counterpart tuned for the dark topbarBg/sidebarBg surface.
+            color: T.sidebarText,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -49,7 +53,7 @@ export default function TopBar({ title, sheetUrl, onSync, syncState, setMobileOp
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: 12, color: T.textSecondary }}>{today}</span>
+        <span style={{ fontSize: 12, color: T.sidebarTextSecondary }}>{today}</span>
         {sheetUrl && (
           <a
             href={sheetUrl}

@@ -58,14 +58,23 @@ export default function NotificationBell() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  // Close the dropdown on an outside click.
+  // Close the dropdown on an outside click, or on Escape -- the trigger is a
+  // real <button> so keyboard users can open this panel, but had no
+  // keyboard-only way to close it again.
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
     document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
 
   if (!sessionToken || !claims?.email) return null;
@@ -98,6 +107,8 @@ export default function NotificationBell() {
         onClick={() => setOpen((o) => !o)}
         title="Notifications"
         aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         <Icon name="bell" size={20} />
         {unreadCount > 0 && <span className="notif-bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>}

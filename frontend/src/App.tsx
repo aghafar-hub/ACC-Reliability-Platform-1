@@ -37,6 +37,11 @@ function ShellRoot() {
     '--shell-border': palette.border,
     '--shell-text': palette.textPrimary,
     '--shell-text-secondary': palette.textSecondary,
+    // Sidebar.css reads these instead of --shell-text/--shell-text-secondary
+    // for its own nav text -- see theme.ts's ThemePalette comment for why
+    // the sidebar surface needs its own pair.
+    '--shell-sidebar-text': palette.sidebarText,
+    '--shell-sidebar-text-secondary': palette.sidebarTextSecondary,
     '--shell-accent': palette.accent,
     '--shell-accent-text': palette.accentText,
   } as CSSProperties;

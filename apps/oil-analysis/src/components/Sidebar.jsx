@@ -55,9 +55,18 @@ export default function Sidebar({
           return (
             <div
               key={item.id}
+              role="button"
+              tabIndex={0}
+              aria-current={active ? "page" : undefined}
               style={s.navItem(active)}
               onClick={() => {
                 onNavigate(item.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onNavigate(item.id);
+                }
               }}
             >
               <i className={`ti ${item.icon}`} style={{ fontSize: 17 }} aria-hidden="true" />
