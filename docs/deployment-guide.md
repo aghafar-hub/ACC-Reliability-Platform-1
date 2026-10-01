@@ -1039,6 +1039,68 @@ Engineer sample accounts — never the other contractor's. Log in as the
 ACC Admin sample account and confirm Contractor is still a normal RHI/ASEC
 dropdown there.
 
+## 4u. SECURITY FIX — contractor isolation was broken on every first load
+
+**Confirmed directly by the user, testing with the sample RHI/ASEC
+accounts from §2: an RHI account could see ASEC's equipment (and, until
+the next sync, every other contractor's data) across the app.** Root
+cause and fix below; no Apps Script redeploy needed — this was entirely a
+frontend bug.
+
+**Mechanism**: `App.jsx` used to set the shell's session token on the api
+client (`api.setSessionToken`) inside a `useEffect`. `AppShell` — a CHILD
+of that same component — has its own mount effect that immediately fires
+`getStartupBundle`, the one request that loads equipment, samples,
+actions, oil changes and the sample tracker all at once. React always
+runs a child's effects before its parent's on mount (confirmed directly
+with an isolated test, not assumed) — so `AppShell`'s request was
+**guaranteed** to fire before `App`'s effect had set the session token.
+Every single mount, not intermittently.
+
+A `getStartupBundle` request with no `sessionToken` isn't rejected by the
+backend — `checkAuth_` (Auth.js) treats a missing token as an anonymous-
+but-valid request (given a correct shared secret) and returns
+`{ok: true, session: null}`. With `session: null`, `getContractorScope_`
+returns `null` — "no contractor filter, show everything" — so that first
+load came back completely unscoped for every account, RHI or ASEC alike.
+
+Samples/actions/oil changes self-correct on the next sync (manual "Full
+Sync" or the periodic incremental poll both fire long after this race
+window, so they carry the token fine) — but the **Equipment Registry is
+only ever fetched by that one racing call**; nothing else re-fetches it
+automatically. So it stayed permanently unscoped for the whole session,
+and got written into `localStorage` that way too, surviving into the next
+page load — explaining why it looked like it was broken "everywhere,"
+not just on first load.
+
+**Fix**: moved `api.setSessionToken(session?.token || null)` out of the
+`useEffect` and into `App()`'s render body directly. React always
+finishes the entire render pass — parent AND every child — before running
+any effect at all, so this guarantees the token is set before `AppShell`'s
+mount effect can ever fire, regardless of effect ordering. Safe to call
+unconditionally on every render: `session` is only ever set once at mount
+by the embedding shell and never changes afterward (see
+`EmbeddedOilAnalysis.tsx`), so this is idempotent.
+
+**Verified** with a Playwright pass simulating the real backend's
+scoping behavior: before the fix, the very first `getStartupBundle`
+request had no `sessionToken` param; after the fix, every request —
+including the very first — carries it, and a logged-in RHI test account
+sees only RHI equipment (LP-101 in the test fixture), never ASEC's
+(LP-201).
+
+**Nothing to redeploy on Apps Script** — `App.jsx` is a frontend file
+only; rebuild and redeploy the frontend/embedded bundles as usual.
+
+**Worth a follow-up, not done here**: the backend's `checkAuth_` still
+treats a request with no session token (given the shared secret) as
+valid-but-unscoped for every READ. That fallback made sense while a
+standalone, no-login deployment existed; that was retired. Now that every
+real client always logs in, this is a looser-than-necessary backend
+default — worth tightening to fail closed on reads with no session,
+independent of this frontend fix, as defense in depth rather than relying
+solely on the frontend always sending the token correctly.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

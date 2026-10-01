@@ -80,13 +80,35 @@ export default function App({ navBridge, session } = {}) {
     navBridge.setTheme = setThemeOverride;
   }, [navBridge]);
 
-  // Sends the shell's session token on every backend request from here on
-  // (api.js's getJSON/postBlind) — module-level because api.js's functions
-  // are plain exports, not hooks. A standalone build never passes `session`,
-  // so this is a no-op there (requests just keep going out without one).
-  useEffect(() => {
-    api.setSessionToken(session?.token || null);
-  }, [session]);
+  // SECURITY BUGFIX: this used to be inside a useEffect here, keyed on
+  // [session]. React always runs a CHILD's effects before its parent's on
+  // mount (confirmed directly, not assumed) — and AppShell (rendered
+  // below, a child of this component) has its own mount effect that fires
+  // getStartupBundle immediately. That child effect was therefore
+  // guaranteed to run, and its request to go out, BEFORE this effect ever
+  // set the session token — every single mount, not intermittently. A
+  // getStartupBundle request with no sessionToken isn't rejected by the
+  // backend (checkAuth_, Auth.js, treats a missing token as an anonymous-
+  // but-valid request given a correct shared secret) — it's served
+  // completely UNSCOPED, every contractor's equipment/samples/actions/oil
+  // changes at once. Worse, the Equipment Registry portion of that first
+  // response is never re-fetched afterward by anything else (see
+  // equipmentRegistry.js's own comment), so once cached, an RHI or ASEC
+  // account would keep seeing every contractor's equipment in every
+  // equipment-driven screen for the rest of that session, and on reload,
+  // since it's also persisted to localStorage.
+  //
+  // Fixed by setting this synchronously in the render body instead of an
+  // effect: React always finishes the ENTIRE render pass — parent and
+  // every child — before running ANY effect, parent or child, so this is
+  // guaranteed to be set before AppShell's own mount effect can fire,
+  // closing the race regardless of effect ordering. Safe to call
+  // unconditionally on every render: `session` is only ever set once at
+  // mount by the embedding shell (see EmbeddedOilAnalysis.tsx) and never
+  // changes afterward, so this is idempotent — not a side effect that
+  // needs guarding against re-running, which is the usual reason this
+  // kind of call belongs in useEffect.
+  api.setSessionToken(session?.token || null);
 
   return (
     <SessionProvider session={session}>
