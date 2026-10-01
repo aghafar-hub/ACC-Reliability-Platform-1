@@ -44,8 +44,9 @@ never into a Sheet or into code.
    code changes).
 3. Delete the default empty `Code.gs`. For every file in
    `backend/platform-core/src/` (Auth.js, AssetMaster.js, AdminSettings.js,
-   Code.js, Config.js, Rbac.js, Session.js, Utils.js), create a matching
-   script file (**File → New → Script**) and paste in its contents.
+   Code.js, Config.js, Rbac.js, Session.js, Users.js, Utils.js), create a
+   matching script file (**File → New → Script**) and paste in its
+   contents. `SampleTestUsers.js` is optional — see the note below.
 4. **Project Settings (gear icon) → Script Properties → Add script property**:
    - `PLATFORM_CORE_SPREADSHEET_ID` = `1yQHakVTPkPQFOs_QXscEXBwySqZU8OR5kmRGbA48UAg`
    - `SESSION_SIGNING_SECRET` = *(the secret from step 1)*
@@ -60,6 +61,26 @@ You already have a seed App Admin account in the `USERS` sheet
 (`aghafar@arabiancementcompany.com`, `MustChangePassword = TRUE`) with the
 temporary password from when the workbook was generated — use that to log
 in the first time and set a real password via `changePassword`.
+
+**Testing with one account per role**: `SampleTestUsers.js` (optional —
+not wired into any web request, never runs on its own) adds one function,
+`createSampleTestUsers_()`, that creates 7 test accounts in one pass: an
+ACC Admin, Reliability Engineer and Manager, plus a Contractor Engineer
+and a Technician for *each* of RHI and ASEC — exactly the combinations
+needed to see the Oil Lubrication "Assigned To"/"Assign Technician"
+dropdowns (`TechnicianPicker.jsx`) populate as real accounts instead of
+falling back to free text, and to exercise the contractor-scoped
+screens and the Patch 14 admin-only notification settings card from
+every angle. To run it: add this file alongside the others above, then in
+the Apps Script editor pick `createSampleTestUsers_` from the function
+dropdown next to **Run ▶** and run it. Open **View → Executions** (or the
+editor's own execution log right after it finishes) to read each
+account's email and one-time temporary password — they're generated
+fresh and shown only there, same as any account `createUser_` makes, so
+copy them before closing that panel. Every account must change its
+password on first login, same as a real one. Safe to run more than
+once — an account that already exists is reported and skipped rather
+than erroring out the whole batch.
 
 ## 3. Oil Analysis project
 
