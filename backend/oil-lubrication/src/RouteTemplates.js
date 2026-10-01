@@ -424,6 +424,78 @@ function getRoutinesOverview(scope) {
 }
 
 
+// ─── Completion Rate Trend (Patch 20d) ──────────────────────────────────
+//
+// Item-weighted completion rate per month, confirmed directly by the user
+// during design review: for routines due in a given month, rate = (LP
+// items completed ON TIME, summed across those routines) / (total LP
+// items, summed across those routines) — not a binary per-routine
+// approved/not-approved count, so a 5-item routine with 4 done on time
+// contributes 4/5 to its month, not 0 or 1. "On time" means the item's own
+// ActualDate (date-only, ignoring time-of-day) is on or before the
+// routine's own DueDate — an item completed after its routine's due date
+// still counts toward the total but not toward on-time.
+// A month with no routines due at all returns null (not 0%) in
+// rateByMonth, so the frontend can render "no data" instead of a
+// misleading 0% bar.
+function getRoutineCompletionTrend(monthsParam, scope) {
+  var months = Math.max(1, Math.min(24, parseInt(monthsParam, 10) || 6));
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var now = new Date();
+
+  var monthKeys = [];
+  for (var i = months - 1; i >= 0; i--) {
+    monthKeys.push(monthKey_(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  }
+  var monthIndex = {};
+  monthKeys.forEach(function (k, idx) { monthIndex[k] = idx; });
+  var windowStart = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+  function dateOnly_(d) {
+    var r = new Date(d.getTime());
+    r.setHours(0, 0, 0, 0);
+    return r;
+  }
+
+  // Which month-bucket each routine's DueDate falls into — only routines
+  // with a usable due date inside the window count toward the trend.
+  var monthIdxByRoutine = {};
+  var dueDateByRoutine = {};
+  readSheet(ss, "ROUTINES", true).forEach(function (r) {
+    var contractor = String(r[3] || "").trim();
+    if (scope && contractor !== scope) return;
+    var dueDate = r[14] ? new Date(r[14]) : null;
+    if (!dueDate || isNaN(dueDate.getTime())) return;
+    if (dueDate.getTime() < windowStart.getTime()) return;
+    var idx = monthIndex[monthKey_(dueDate)];
+    if (idx === undefined) return;
+    var routineId = String(r[0] || "").trim();
+    monthIdxByRoutine[routineId] = idx;
+    dueDateByRoutine[routineId] = dateOnly_(dueDate);
+  });
+
+  var totalByMonth = monthKeys.map(function () { return 0; });
+  var onTimeByMonth = monthKeys.map(function () { return 0; });
+
+  readSheet(ss, "OA_ROUTINE_ITEMS", true).forEach(function (r) {
+    var routineId = String(r[1] || "").trim();
+    var idx = monthIdxByRoutine[routineId];
+    if (idx === undefined) return;
+    totalByMonth[idx]++;
+    if (String(r[5] || "").trim() !== "Yes") return; // not Implemented
+    var actualDate = r[7] ? new Date(r[7]) : null;
+    if (!actualDate || isNaN(actualDate.getTime())) return;
+    if (dateOnly_(actualDate).getTime() <= dueDateByRoutine[routineId].getTime()) onTimeByMonth[idx]++;
+  });
+
+  var rateByMonth = monthKeys.map(function (_, idx) {
+    return totalByMonth[idx] > 0 ? Math.round((onTimeByMonth[idx] / totalByMonth[idx]) * 1000) / 10 : null;
+  });
+
+  return { months: monthKeys, rateByMonth: rateByMonth, totalByMonth: totalByMonth, onTimeByMonth: onTimeByMonth };
+}
+
+
 function advanceByFrequency_(date, frequency) {
   var origDay = date.getDate();
   var d = new Date(date.getTime());

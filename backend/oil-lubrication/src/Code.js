@@ -36,6 +36,7 @@
 //   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
 //   ?action=getOilInventoryConsumption&months=6 → actual historical monthly usage (Patch 21)
 //   ?action=getAllOilInventoryMovements         → unified ledger across every product (Patch 23)
+//   ?action=getRoutineCompletionTrend&months=6  → item-weighted on-time completion rate per month (Patch 20d)
 //   ?action=getOilInventoryMovements&productId=XXXX → all LOG rows for one product
 //   ?action=getStartupBundle                → readAll + Equipment Registry + Action
 //                                              Registry in one response — used only for
@@ -213,6 +214,9 @@ function doGet(e) {
         break;
       case "getRoutinesOverview":
         result = getRoutinesOverview(scope);
+        break;
+      case "getRoutineCompletionTrend":
+        result = getRoutineCompletionTrend(e.parameter.months, scope);
         break;
       case "getOilInventory":
         result = getOilInventory(scope);

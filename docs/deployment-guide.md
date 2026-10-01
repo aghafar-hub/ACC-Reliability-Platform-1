@@ -1427,6 +1427,69 @@ load their own data on first click (not all fetched eagerly up front);
 a condition-based LP with no logged history should show up in the
 Forecast tab's callout, not just be silently absent from the table.
 
+## 4ad. Routines: route-type tabs + charts + Next 7 Days panel (Patch 20d)
+
+Closes out the Routines redesign against the reference mockup, point by
+point, per the user's explicit review: route-type tabs ("tab for all
+routines, and split in the oil analysis sampling and emergency top up"),
+and the 3 charts + side panel previously flagged as "still missing."
+
+**Route-type tabs**: `ROUTE_TYPE_TABS` = All Routines / Oil Sampling /
+Emergency Top Up, each with a live count badge. Oil Change isn't its own
+tab — it's the bulk of "All Routines" by default, matching the user's own
+framing. Selecting a tab scopes EVERYTHING below it (KPIs, Area dropdown
+options, the table, all 3 charts) to that route type — `routeTypeItems`,
+derived from `overviewItems`. The Area/Status filter row and search box
+were explicitly left untouched ("wait for me to ask you").
+
+**Backend (new)**: `getRoutineCompletionTrend(months, scope)` in
+`RouteTemplates.js` — the one chart that needed real backend support, the
+other two are computed client-side from already-fetched overview data.
+Item-weighted rate per month (the formula agreed during design review):
+for routines due in a given month, rate = (LP items completed ON TIME) /
+(total LP items), summed across those routines — not a binary per-routine
+count. "On time" = an item's own ActualDate, date-only, on or before its
+routine's DueDate. A month with zero routines due returns `null` (not
+0%), so the chart can show "no data" instead of a misleading empty bar.
+New `Code.js` doGet case `getRoutineCompletionTrend`; new `api.js` client
+function of the same name.
+
+**Frontend — all 3 charts + the side panel, `Routines.jsx`**:
+- **Upcoming Routines (Next 3 Months)**: client-side stacked bar, items
+  bucketed by the calendar month of their `nextDueDate`, stacked by
+  Overdue/Due Soon/On Schedule (Completed/Paused excluded — this chart is
+  about near-term workload).
+- **Routines by Area**: client-side donut. Loaded the `dataviz` skill
+  before building this — colors are the skill's validated 8-slot
+  categorical palette (`references/palette.md`), picked light- or
+  dark-surface variant by a luminance check on the active theme's own
+  `cardBg` (this app has 10 themes, not just light/dark). Colors are
+  assigned to area NAMES in a fixed alphabetical order
+  (`areaColorMap`, keyed off the full `overviewItems`, not the
+  route-type-filtered set) so switching tabs never repaints an area a
+  different color — the skill's "color follows the entity, never its
+  rank" rule. A blank area (every standalone one-time routine) folds into
+  a fixed "Unassigned" grey bucket rather than taking a palette slot.
+- **Completion Rate Trend**: bar chart from the new backend endpoint, a
+  dashed `ReferenceLine` at 90%. The target line's label was first tried
+  as an inline SVG label (`position: "insideTopRight"`) and overlapped
+  the last bar in testing — moved to a small caption in the card header
+  instead, caught and fixed before shipping.
+- **Next 7 Days Due** side panel: routine/template level, NOT per-
+  equipment like the reference mockup's individual LP cards —
+  `getRoutinesOverview`'s items are already aggregated per routine, and
+  per-equipment due dates would need a separate item-level fetch for
+  every due-soon routine. Flagged here as a known simplification, not
+  decided silently.
+
+**Verify**: switch between the 3 route-type tabs and confirm the KPIs,
+table, Next 7 Days panel, and all 3 charts scope down correctly each
+time (e.g. the Emergency Top Up tab only ever shows standalone one-time
+routines, since that route type is never recurring — confirmed in
+Patch 18). Confirm an area keeps the same donut color across tab
+switches. Verified with a Playwright test against the assembled
+combined-site covering all of the above.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

@@ -657,6 +657,20 @@ export async function getRoutinesOverview(webhookUrl) {
   return json.items || [];
 }
 
+// Patch 20d: item-weighted on-time completion rate per month — see
+// RouteTemplates.js's getRoutineCompletionTrend. rateByMonth entries are
+// null (not 0) for a month with no routines due, so the chart can show
+// "no data" instead of a misleading 0% bar.
+export async function getRoutineCompletionTrend(webhookUrl, months = 6) {
+  const json = await getJSON(webhookUrl, { action: "getRoutineCompletionTrend", months });
+  return {
+    months: json.months || [],
+    rateByMonth: json.rateByMonth || [],
+    totalByMonth: json.totalByMonth || [],
+    onTimeByMonth: json.onTimeByMonth || [],
+  };
+}
+
 export async function getRoutineItems(webhookUrl, routineId) {
   const json = await getJSON(webhookUrl, { action: "getRoutineItems", routineId });
   return (json.items || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutineItem);

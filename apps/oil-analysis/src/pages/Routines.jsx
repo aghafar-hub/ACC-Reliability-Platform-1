@@ -1,4 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import RoutineDetail from "./RoutineDetail";
@@ -6,6 +20,52 @@ import NewRoutine from "./NewRoutine";
 import ProgressBar from "../components/ProgressBar";
 
 const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitted", "Approved"];
+
+// Route-type tab (confirmed directly by the user): "All Routines" keeps
+// every route type in one unified list; the other two pull out just that
+// type. Oil Change isn't its own tab — it's the bulk of "All Routines" by
+// default, same as the user's own framing ("tab for all routines, and
+// split in the oil analysis sampling and emergency top up").
+const ROUTE_TYPE_TABS = [
+  { key: "All", label: "All Routines" },
+  { key: "Sampling", label: "Oil Sampling" },
+  { key: "Emergency Top Up", label: "Emergency Top Up" },
+];
+
+// dataviz skill's validated 8-slot categorical palette (references/palette.md)
+// — light- and dark-surface steps of the same 8 hues, picked by a crude
+// luminance check on the active theme's own card surface (see
+// pickCategoricalPalette below) since this app has 10 themes spanning both
+// light and dark, not just one. Colors are assigned to AREA NAMES in a
+// fixed alphabetical order (areaColorMap), never by count-rank, so a
+// filtered-down chart never repaints an area that was already shown a
+// different color.
+const CATEGORICAL_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+const CATEGORICAL_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
+
+function pickCategoricalPalette(T) {
+  const hex = (T.cardBg || "#0D1E35").replace("#", "");
+  const r = parseInt(hex.slice(0, 2), 16) || 0;
+  const g = parseInt(hex.slice(2, 4), 16) || 0;
+  const b = parseInt(hex.slice(4, 6), 16) || 0;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? CATEGORICAL_LIGHT : CATEGORICAL_DARK;
+}
+
+function ChartTooltip({ T, active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+      {label && <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>}
+      {payload.map((p) => (
+        <div key={p.dataKey || p.name} style={{ color: T.textPrimary, fontWeight: 700 }}>
+          <span style={{ color: p.color || p.payload?.fill }}>●</span> {p.name}: {p.value}
+          {typeof p.value === "number" && p.unit ? p.unit : ""}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Patch 20: the unified Routines overview's own status vocabulary — distinct
 // from a single instance's workflow status (Unassigned/.../Approved) above.
@@ -107,6 +167,7 @@ export default function Routines({
   const [overviewItems, setOverviewItems] = useState([]);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState(null);
+  const [routeTypeTab, setRouteTypeTab] = useState("All");
   const [areaFilter, setAreaFilter] = useState("All");
   const [dueStatusFilter, setDueStatusFilter] = useState("All");
   const [overviewSearch, setOverviewSearch] = useState("");
@@ -129,30 +190,144 @@ export default function Routines({
     refreshOverview();
   }, [refreshOverview]);
 
+  // Item counts per route-type tab, for the tab row's own badge counts —
+  // always computed off the FULL overviewItems, never the already-filtered
+  // set, so switching tabs doesn't change what the other tabs' own counts read.
+  const routeTypeCounts = useMemo(() => {
+    const counts = { All: overviewItems.length, Sampling: 0, "Emergency Top Up": 0 };
+    overviewItems.forEach((i) => {
+      if (i.routeType === "Sampling") counts.Sampling++;
+      else if (i.routeType === "Emergency Top Up") counts["Emergency Top Up"]++;
+    });
+    return counts;
+  }, [overviewItems]);
+
+  // Items for the active route-type tab — KPIs, the Area dropdown's
+  // options, the table, and all 3 charts below scope to this, not to
+  // overviewItems directly, so switching tabs shows that route type's own
+  // totals (matching the reference mockup's per-tab KPI behavior).
+  const routeTypeItems = useMemo(() => {
+    if (routeTypeTab === "All") return overviewItems;
+    return overviewItems.filter((i) => i.routeType === routeTypeTab);
+  }, [overviewItems, routeTypeTab]);
+
   const areaOptions = useMemo(
-    () => ["All", ...Array.from(new Set(overviewItems.map((i) => i.area).filter(Boolean))).sort()],
-    [overviewItems]
+    () => ["All", ...Array.from(new Set(routeTypeItems.map((i) => i.area).filter(Boolean))).sort()],
+    [routeTypeItems]
   );
 
   const overviewKpis = useMemo(
     () => ({
-      total: overviewItems.length,
-      onSchedule: overviewItems.filter((i) => i.dueStatus === "On Schedule").length,
-      dueSoon: overviewItems.filter((i) => i.dueStatus === "Due Soon").length,
-      overdue: overviewItems.filter((i) => i.dueStatus === "Overdue").length,
+      total: routeTypeItems.length,
+      onSchedule: routeTypeItems.filter((i) => i.dueStatus === "On Schedule").length,
+      dueSoon: routeTypeItems.filter((i) => i.dueStatus === "Due Soon").length,
+      overdue: routeTypeItems.filter((i) => i.dueStatus === "Overdue").length,
     }),
-    [overviewItems]
+    [routeTypeItems]
   );
 
   const visibleOverviewItems = useMemo(() => {
     const q = overviewSearch.trim().toLowerCase();
-    return overviewItems.filter((i) => {
+    return routeTypeItems.filter((i) => {
       if (areaFilter !== "All" && i.area !== areaFilter) return false;
       if (dueStatusFilter !== "All" && i.dueStatus !== dueStatusFilter) return false;
       if (q && !(i.routeName || "").toLowerCase().includes(q) && !(i.id || "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [overviewItems, areaFilter, dueStatusFilter, overviewSearch]);
+  }, [routeTypeItems, areaFilter, dueStatusFilter, overviewSearch]);
+
+  // "Upcoming Routines (Next 3 Months)" — each of the next 3 calendar
+  // months (including the current one), items bucketed by the month their
+  // nextDueDate falls in and stacked by dueStatus. Completed/Paused items
+  // are excluded — this chart is about near-term workload, not history.
+  const upcomingChartData = useMemo(() => {
+    const today = new Date();
+    const buckets = [];
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: d.toLocaleDateString(undefined, { month: "short", year: "2-digit" }), Overdue: 0, "Due Soon": 0, "On Schedule": 0 });
+    }
+    const idxByKey = {};
+    buckets.forEach((b, i) => { idxByKey[b.key] = i; });
+    routeTypeItems.forEach((item) => {
+      if (item.dueStatus !== "Overdue" && item.dueStatus !== "Due Soon" && item.dueStatus !== "On Schedule") return;
+      if (!item.nextDueDate) return;
+      const d = new Date(item.nextDueDate);
+      if (isNaN(d.getTime())) return;
+      const idx = idxByKey[`${d.getFullYear()}-${d.getMonth()}`];
+      if (idx === undefined) return;
+      buckets[idx][item.dueStatus]++;
+    });
+    return buckets;
+  }, [routeTypeItems]);
+
+  // "Routines by Area" — a blank area (every standalone one-time routine,
+  // which carries no area of its own) folds into a fixed "Unassigned"
+  // bucket rather than getting its own palette slot, same as the dataviz
+  // skill's "fold into Other" guidance for a category beyond the palette.
+  const areaColorMap = useMemo(() => {
+    const palette = pickCategoricalPalette(T);
+    const areas = Array.from(new Set(overviewItems.map((i) => i.area).filter(Boolean))).sort();
+    const map = {};
+    areas.forEach((a, i) => { map[a] = palette[i % palette.length]; });
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- T is read for its current cardBg only; re-keying on every theme object identity change is fine but we intentionally don't depend on routeTypeItems so colors stay stable across tab/filter changes
+  }, [overviewItems, T.cardBg]);
+
+  const areaChartData = useMemo(() => {
+    const counts = {};
+    routeTypeItems.forEach((item) => {
+      const key = item.area || "Unassigned";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([area, count]) => ({ area, count, color: area === "Unassigned" ? T.textMuted : areaColorMap[area] || T.textMuted }))
+      .sort((a, b) => b.count - a.count);
+  }, [routeTypeItems, areaColorMap, T.textMuted]);
+
+  // "Next 7 Days Due" — routine/template level (not per-equipment like the
+  // reference mockup's LP-level cards): getRoutinesOverview's items are
+  // already aggregated per routine/template, and breaking that back down to
+  // individual lubrication points would need a separate per-item fetch for
+  // every due-soon routine. Flagged to the user as a simplification, not
+  // decided silently.
+  const next7DaysItems = useMemo(() => {
+    return routeTypeItems
+      .filter((i) => i.dueStatus === "Overdue" || i.dueStatus === "Due Soon")
+      .filter((i) => i.nextDueDate)
+      .sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate))
+      .slice(0, 6);
+  }, [routeTypeItems]);
+
+  // Completion Rate Trend (Patch 20d) — fetched once on mount, independent
+  // of the route-type tab/filters above (the backend aggregation isn't
+  // scoped by route type, matching "Completion Rate Trend" being a
+  // whole-program metric in the reference mockup).
+  const [completionTrend, setCompletionTrend] = useState(null);
+  const [completionTrendLoading, setCompletionTrendLoading] = useState(true);
+
+  useEffect(() => {
+    if (!webhookUrl) return;
+    let cancelled = false;
+    setCompletionTrendLoading(true);
+    api
+      .getRoutineCompletionTrend(webhookUrl, 6)
+      .then((res) => { if (!cancelled) setCompletionTrend(res); })
+      .catch(() => { if (!cancelled) setCompletionTrend(null); })
+      .finally(() => { if (!cancelled) setCompletionTrendLoading(false); });
+    return () => { cancelled = true; };
+  }, [webhookUrl]);
+
+  const completionChartData = useMemo(() => {
+    if (!completionTrend) return [];
+    return completionTrend.months.map((m, i) => {
+      const [y, mo] = m.split("-").map(Number);
+      return {
+        month: new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+        rate: completionTrend.rateByMonth[i],
+      };
+    });
+  }, [completionTrend]);
 
   function openOverviewItem(item) {
     if (item.kind === "template") {
@@ -431,6 +606,23 @@ export default function Routines({
         </button>
       </div>
 
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        {ROUTE_TYPE_TABS.map((t) => (
+          <button
+            key={t.key}
+            style={{
+              ...s.btn,
+              background: routeTypeTab === t.key ? T.accent : "transparent",
+              color: routeTypeTab === t.key ? T.accentText : T.textSecondary,
+              borderColor: routeTypeTab === t.key ? T.accent : T.border,
+            }}
+            onClick={() => setRouteTypeTab(t.key)}
+          >
+            {t.label} ({routeTypeCounts[t.key] ?? 0})
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
         {[
           { key: "All", label: "Total Routines", value: overviewKpis.total, color: "accent" },
@@ -482,47 +674,158 @@ export default function Routines({
         />
       </div>
 
-      {overviewLoading ? (
-        <p style={{ color: T.textSecondary }}>Loading routines…</p>
-      ) : overviewError ? (
-        <p style={{ color: T.danger }}>{overviewError}</p>
-      ) : visibleOverviewItems.length === 0 ? (
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ flex: "3 1 480px", minWidth: 0 }}>
+          {overviewLoading ? (
+            <p style={{ color: T.textSecondary }}>Loading routines…</p>
+          ) : overviewError ? (
+            <p style={{ color: T.danger }}>{overviewError}</p>
+          ) : visibleOverviewItems.length === 0 ? (
+            <div style={s.card}>
+              <p style={{ color: T.textSecondary, margin: 0 }}>No routines match the filter.</p>
+            </div>
+          ) : (
+            <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Routine Name</th>
+                    <th style={s.th}>Equipment Count</th>
+                    <th style={s.th}>Frequency</th>
+                    <th style={s.th}>Next Due Date</th>
+                    <th style={s.th}>Status</th>
+                    <th style={s.th}>Last Completed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleOverviewItems.map((item) => (
+                    <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
+                      <td style={s.td}>
+                        {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
+                        {item.routeName || item.id}
+                      </td>
+                      <td style={s.td}>{item.equipmentCount}</td>
+                      <td style={s.td}>{item.frequency}</td>
+                      <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
+                      <td style={s.td}>
+                        <DueStatusBadge T={T} status={item.dueStatus} />
+                      </td>
+                      <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: "1 1 260px", minWidth: 240 }}>
+          <div style={s.card}>
+            <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Next 7 Days Due</p>
+            {next7DaysItems.length === 0 ? (
+              <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Nothing overdue or due soon.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {next7DaysItems.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{ cursor: "pointer", paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}
+                    onClick={() => openOverviewItem(item)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 700 }}>{item.routeName || item.id}</span>
+                      <DueStatusBadge T={T} status={item.dueStatus} />
+                    </div>
+                    <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
+                      {formatDateShort(item.nextDueDate)}
+                      {item.area ? ` · ${item.area}` : ""} · {item.equipmentCount} equipment
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16, marginTop: 20 }}>
         <div style={s.card}>
-          <p style={{ color: T.textSecondary, margin: 0 }}>No routines match the filter.</p>
+          <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Upcoming Routines (Next 3 Months)</p>
+          {upcomingChartData.every((b) => !b.Overdue && !b["Due Soon"] && !b["On Schedule"]) ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Nothing due in the next 3 months.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={upcomingChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={28} />
+                <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="Overdue" stackId="s" fill={T.danger} />
+                <Bar dataKey="Due Soon" stackId="s" fill={T.warning} />
+                <Bar dataKey="On Schedule" stackId="s" fill={T.success} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
-      ) : (
-        <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={s.table}>
-            <thead>
-              <tr>
-                <th style={s.th}>Routine Name</th>
-                <th style={s.th}>Equipment Count</th>
-                <th style={s.th}>Frequency</th>
-                <th style={s.th}>Next Due Date</th>
-                <th style={s.th}>Status</th>
-                <th style={s.th}>Last Completed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleOverviewItems.map((item) => (
-                <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
-                  <td style={s.td}>
-                    {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
-                    {item.routeName || item.id}
-                  </td>
-                  <td style={s.td}>{item.equipmentCount}</td>
-                  <td style={s.td}>{item.frequency}</td>
-                  <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
-                  <td style={s.td}>
-                    <DueStatusBadge T={T} status={item.dueStatus} />
-                  </td>
-                  <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        <div style={s.card}>
+          <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Routines by Area</p>
+          {areaChartData.length === 0 ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No routines to chart.</p>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <ResponsiveContainer width="55%" height={200}>
+                <PieChart>
+                  <Pie data={areaChartData} dataKey="count" nameKey="area" innerRadius={45} outerRadius={75} paddingAngle={2}>
+                    {areaChartData.map((d) => (
+                      <Cell key={d.area} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltip T={T} />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11.5 }}>
+                {areaChartData.map((d) => (
+                  <div key={d.area} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: d.color, flexShrink: 0 }} />
+                    <span style={{ color: T.textPrimary }}>{d.area}</span>
+                    <span style={{ color: T.textSecondary }}>{d.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+
+        <div style={s.card}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <p style={{ fontWeight: 700, margin: 0 }}>Completion Rate Trend (Last 6 Months)</p>
+            <span style={{ fontSize: 10.5, color: T.danger, display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ display: "inline-block", width: 14, height: 0, borderTop: `2px dashed ${T.danger}` }} /> Target 90%
+            </span>
+          </div>
+          {completionTrendLoading ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
+          ) : completionChartData.every((d) => d.rate == null) ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No completed routines in this window yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={completionChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={32} unit="%" />
+                <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+                <ReferenceLine y={90} stroke={T.danger} strokeDasharray="4 4" />
+                <Bar dataKey="rate" name="Completion Rate" fill={T.accent} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+          <p style={{ fontSize: 10.5, color: T.textMuted, margin: "8px 0 0" }}>
+            Item-weighted: LP items completed on time ÷ total LP items, across routines due that month.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
