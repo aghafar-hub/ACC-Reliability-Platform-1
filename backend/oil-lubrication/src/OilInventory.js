@@ -81,20 +81,34 @@ function getProductContractor_(productId) {
 //     on purpose (a 6-month interval over a 3-month window is 0.5 of a
 //     change), since there's no history to say exactly when in its cycle
 //     the LP currently is.
-//  3. No usable interval at all, but an open ("Assigned"/"InProgress")
-//     Oil Change routine item already targets it: counts once — known,
-//     scheduled demand neither of the above would otherwise see.
-// An LP with none of the three contributes nothing.
+//  3. Condition-based (no fixed interval — Oil_Change_Interval blank/"As
+//     needed"/"If needed", changed by analysis/actions rather than a
+//     schedule, Patch 22): falls back to a historical-average rate —
+//     (events logged in the trailing 12 months / 12) x months — instead of
+//     a registry interval that doesn't exist for this kind of equipment.
+//  4. Condition-based AND zero logged history yet: no rate can be
+//     estimated. If an open ("Assigned"/"InProgress") Oil Change routine
+//     item already targets it, that's still known, real demand — counts
+//     once. Otherwise it contributes nothing AND is reported separately in
+//     `insufficientHistory`, so the forecast's silence is visible rather
+//     than indistinguishable from "this equipment needs nothing."
+// A scheduled (has-interval) LP always contributes via 1 or 2 above; an
+// LP with none of the above contributes nothing.
 function getOilInventoryForecast(monthsParam, scope) {
   var months = Math.max(1, parseInt(monthsParam, 10) || 3);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var windowEnd = new Date();
   windowEnd.setMonth(windowEnd.getMonth() + months);
+  var historyWindowStart = new Date();
+  historyWindowStart.setMonth(historyWindowStart.getMonth() - 12);
 
   var registryRows = readEquipmentRegistry().equipment;
 
   var ocRows = readSheet(ss, "Oil Change LOG", true);
   var lastEventByLp = {};
+  // Patch 22: trailing-12-month event count per LP, the basis for the
+  // condition-based historical-average fallback rate below.
+  var historyCountByLp = {};
   ocRows.forEach(function (r) {
     var lpId = String(r[1] || "").trim();
     if (!lpId) return;
@@ -102,6 +116,9 @@ function getOilInventoryForecast(monthsParam, scope) {
     if (isNaN(d.getTime())) return;
     var prev = lastEventByLp[lpId];
     if (!prev || d.getTime() > prev.getTime()) lastEventByLp[lpId] = d;
+    if (d.getTime() >= historyWindowStart.getTime()) {
+      historyCountByLp[lpId] = (historyCountByLp[lpId] || 0) + 1;
+    }
   });
 
   var routineRows = readSheet(ss, "ROUTINES", true);
@@ -121,6 +138,10 @@ function getOilInventoryForecast(monthsParam, scope) {
   });
 
   var needed = {}; // "contractor|type|brand" -> { contractor, lubricant, lubricantBrand, quantityNeeded, lpCount }
+  // Patch 22: condition-based equipment with zero logged Oil Change history
+  // and no open routine either — no rate can be estimated for these, so
+  // they're reported here instead of silently contributing nothing.
+  var insufficientHistory = [];
   registryRows.forEach(function (reg) {
     if (scope && reg.contractor !== scope) return;
     if (!reg.lubricant || !reg.contractor) return;
@@ -152,10 +173,28 @@ function getOilInventoryForecast(monthsParam, scope) {
       // 3-month window is 0.5 of a change) — this is a demand-rate
       // estimate, not a claim about exactly which month it happens.
       occurrences = months / intervalMonths;
-    } else if (lpsOnOpenRoutine[reg.code]) {
-      // No usable interval at all, but a routine is already scheduled —
-      // known, real demand the rate estimate above has no way to see.
-      occurrences = 1;
+    } else {
+      // Condition-based (no fixed interval at all) — Patch 22.
+      var historyCount = historyCountByLp[reg.code] || 0;
+      if (historyCount > 0) {
+        // Historical-average rate: how often this specific LP has actually
+        // been changed in the last 12 months, projected forward over the
+        // forecast window — the only real signal available for equipment
+        // that's changed by condition/analysis rather than a schedule.
+        occurrences = (historyCount / 12) * months;
+      } else if (lpsOnOpenRoutine[reg.code]) {
+        // No history yet, but a routine is already scheduled — known, real
+        // demand neither of the above would otherwise see.
+        occurrences = 1;
+      } else {
+        insufficientHistory.push({
+          code: reg.code,
+          area: reg.area || "",
+          contractor: reg.contractor,
+          lubricant: reg.lubricant,
+          lubricantBrand: reg.lubricantBrand || "",
+        });
+      }
     }
     if (occurrences === 0) return;
 
@@ -188,7 +227,12 @@ function getOilInventoryForecast(monthsParam, scope) {
     };
   });
 
-  return { forecast: forecast, months: months, windowEnd: windowEnd.toISOString().slice(0, 10) };
+  return {
+    forecast: forecast,
+    months: months,
+    windowEnd: windowEnd.toISOString().slice(0, 10),
+    insufficientHistory: insufficientHistory,
+  };
 }
 
 

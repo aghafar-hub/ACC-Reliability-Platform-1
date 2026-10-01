@@ -1333,6 +1333,44 @@ the month labels run oldest-to-newest ending at the current month, and
 that a product with only Receipt/Adjustment movements (no Issues) is
 correctly excluded from `byProduct`.
 
+## 4ab. Forecast hybrid model — condition-based fallback (Patch 22)
+
+Closes the gap flagged during design review: `getOilInventoryForecast`'s
+"registry intervals x quantity" baseline has nothing to project for
+condition-based equipment (`Oil_Change_Interval` blank/"As needed"/"If
+needed" — changed by oil analysis results and actions, not a fixed
+schedule), so those LPs previously contributed either a single "open
+routine" occurrence or nothing at all, every single time, regardless of
+how often they're actually changed in practice. Scheduled (has-interval)
+equipment's forecast is completely unchanged by this patch.
+
+**Code**: `OilInventory.js`'s `getOilInventoryForecast` now builds a
+second per-LP map, `historyCountByLp` — how many Oil Change LOG events
+each LP had in the trailing 12 months (alongside the pre-existing
+`lastEventByLp`, same single pass over the log). For a condition-based LP
+(`intervalMonthsForOilChange_` returns null): if it has any logged history
+in that window, its contribution uses a historical-average rate —
+`(historyCount / 12) x months` — instead of a registry interval that
+doesn't exist for this equipment type. If it has zero logged history, the
+existing "open Oil Change routine already targets it" check still applies
+(known, real demand); failing that, the LP is NOT silently skipped —
+it's added to a new `insufficientHistory` array in the response (`code`,
+`area`, `contractor`, `lubricant`, `lubricantBrand`), so the forecast's
+silence on that equipment is visible rather than indistinguishable from
+"this equipment needs nothing right now."
+
+**Verify**: for a condition-based LP with several logged Oil Change LOG
+events inside the last 12 months, confirm its forecast contribution scales
+with `?action=getOilInventoryForecast&months=N` for different N (the rate
+is per-month, so doubling N should roughly double its contribution). For
+a condition-based LP with zero logged history and no open routine, confirm
+it appears in `insufficientHistory` instead of just being absent from
+`forecast`.
+
+**Still open**: the frontend Forecast tab (Patch 24) needs to actually
+surface `insufficientHistory` — a flagged equipment list or a small callout
+— rather than leaving it in the response unused.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
