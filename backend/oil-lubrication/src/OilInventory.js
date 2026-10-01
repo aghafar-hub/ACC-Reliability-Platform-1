@@ -241,6 +241,16 @@ function updateOilProduct(ss, data) {
   var rowIdx = findRowIndex(sheet, [0], [productId], dataStartRowFor("Oil Inventory"));
   if (rowIdx === -1) return { error: "Product not found" };
 
+  // Patch 10: same conflict guard as the generic updateRow path (see
+  // hasConflict_'s own comment in Utils.js) — this function also replaces
+  // a set of fields wholesale from whatever the client last loaded, so
+  // it's exposed to the identical silent-clobber risk. No UI calls this
+  // action yet (see the Patch 8 "no Edit Product screen exists" gap), but
+  // the guard costs nothing to have ready for whenever one is built.
+  if (hasConflict_(sheet, "Oil Inventory", rowIdx, data.expectedLastModified)) {
+    return { error: "conflict" };
+  }
+
   // Every editable column EXCEPT Current_Stock (col 7) and Last_Movement_Date
   // (col 13) — those are sheet formulas; writing to them here would replace
   // the formula with a static value and break it.

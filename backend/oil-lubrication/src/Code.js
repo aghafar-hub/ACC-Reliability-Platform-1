@@ -445,6 +445,25 @@ function doPost(e) {
             if (eqRowIdx !== -1) data.row = lockEquipmentRegistryContractor_(auth.session, eqSheet, eqRowIdx, data.row);
           }
         }
+        // Patch 10: refuse the overwrite if someone else's write landed on
+        // this exact row since the caller last loaded it (data.
+        // expectedLastModified, sent by the client's own last read) — see
+        // hasConflict_'s own comment in Utils.js. Deliberately a silent
+        // skip, not a distinct error response: this app's writes are blind
+        // POSTs (mode: "no-cors", see api.js's own header comment) that
+        // can't read a response body at all, so the signal that actually
+        // reaches the client is the SAME verify-read-after-write check
+        // every other write failure already surfaces through — skipping
+        // the write here means that verify read comes back unchanged,
+        // which api.js's updated mismatch handling now recognizes as a
+        // conflict specifically (not just "didn't save") and reports
+        // accordingly.
+        var updateSheetObj = ss.getSheetByName(data.sheet);
+        var updateRowIdx = updateSheetObj ? findRowIndex(updateSheetObj, data.matchCols, data.matchValues, dataStartRowFor(data.sheet)) : -1;
+        if (updateRowIdx !== -1 && hasConflict_(updateSheetObj, data.sheet, updateRowIdx, data.expectedLastModified)) {
+          logError("doPost:updateRow:conflict", "Row changed since client loaded it — write skipped", {sheet: data.sheet, matchValues: data.matchValues, actingUser: actingUser});
+          return jsonOut({status: "conflict"});
+        }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         invalidateDashboardCache();
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});

@@ -561,6 +561,67 @@ top with the right record id, action type, and your own account's
 email. Try the record-id filter against that same LP_ID/routine id and
 confirm only its own entries show.
 
+## 4n. Conflict detection on concurrent edits
+
+Previously, two people editing the same sample or action at the same time
+got silent last-write-wins: the generic update path replaces the whole
+row from whatever the client last loaded, so the second save silently
+erased the first one with no warning to either person.
+
+**How it works**: every sample/action already carries a `lastModified`
+value from whenever it was loaded (the backend stamps this on every write
+already — nothing new there). Editing it now sends that value back as
+`expectedLastModified`. The backend compares it to the row's LIVE Last
+Modified value before applying the overwrite — if the live value is newer
+(someone else's write landed in between), the write is silently skipped
+rather than applied.
+
+**Why "silently skipped" rather than a clear error from the backend**:
+this app's writes are blind POSTs (`mode: "no-cors"` — see api.js's own
+header comment on why), so the browser can't read the POST response body
+at all; nothing short of switching that pattern entirely could change
+that, which is a much bigger and riskier change than this patch. Instead,
+this reuses the EXISTING verify-read-after-write safety net every other
+write failure already goes through: when the write is skipped, the
+verify-read comes back showing the row unchanged, which api.js's updated
+mismatch handling now recognizes specifically as a conflict (comparing
+the live row's Last Modified against what the edit started from) and
+throws a `ConflictError` with a clear, specific message — distinct from
+the generic "wasn't confirmed saved" error — instead of the usual
+message. The existing optimistic-save rollback (Part 3 of the earlier
+performance pass) already un-does the local edit and shows the error
+toast with no changes needed there.
+
+**Scope**: Action Tracker and Data_Entry (sample) edits — the two fully
+wired "edit an existing record" flows in the app's UI today. The same
+backend guard (`hasConflict_`, in Utils.js) was also added to
+`updateOilProduct`, ready for whenever an Edit Product screen gets built
+(see Patch 8's own flagged gap — nothing calls that action today, so
+there's no frontend flow to test against it yet). Equipment Registry
+edits go through the same generic path but aren't actually protected —
+that sheet has no configured Last Modified column at all (its own
+`modifiedDate` field is separate, sheet-native bookkeeping, not something
+this backend stamps), so `hasConflict_` has nothing to compare against
+there. Worth a follow-up if concurrent Equipment Registry edits turn out
+to be a real problem in practice.
+
+**Code**: `Utils.js` gained `hasConflict_` (compares via `compareDates`,
+not string equality — Sheets doesn't always round-trip the stamped ISO
+string back as identical text, see the function's own comment);
+`Code.js`'s `updateRow` branch checks it before applying the write;
+`OilInventory.js`'s `updateOilProduct` got the same guard. Frontend:
+`parsers.js`'s `rowToSample` now exposes `lastModified` (previously
+discarded — `rowToAction` already had it); `api.js` gained `ConflictError`
+and `detectConflict`, and `saveAction`/`updateSample` send
+`expectedLastModified` and throw `ConflictError` specifically on a
+detected conflict.
+
+**Verify**: open the same action (or sample) in two browser tabs, edit and
+save in the first tab, then edit and save in the second — the second save
+should show "Someone else changed this [action/sample] while you were
+editing it," and the record should still show the FIRST tab's edit, not
+the second tab's.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

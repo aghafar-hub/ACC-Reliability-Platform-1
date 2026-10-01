@@ -224,6 +224,43 @@ function stampLastModified(sheet, sheetName, rowIdx) {
 }
 
 
+// Patch 10 (plant-readiness pass): with no server-side locking on WHICH
+// row a write targets beyond the per-request script lock (Code.js's own
+// LockService.getScriptLock — that only serializes writes against each
+// other, it says nothing about whether the row changed since whoever is
+// writing NOW last read it), two people editing the same sample/action/
+// product at the same time got silent last-write-wins — the generic
+// update path replaces the whole row from whatever the client last
+// loaded, so the second save silently erases the first with no warning
+// to either person. This is the check that catches that: if the caller
+// tells us the Last Modified value they loaded (expectedLastModified),
+// and the row's LIVE value is strictly newer than that, someone else's
+// write landed in between — the caller (Code.js) skips the overwrite
+// instead of applying it.
+//
+// Comparison uses compareDates(), not string equality — Google Sheets can
+// silently coerce the ISO string stampLastModified writes into a real
+// Date-typed cell, and that doesn't always round-trip back to
+// byte-identical text (same issue SAMPLE_DATE_COL's own comment
+// describes for sampled dates). An exact string check would false-
+// positive on an unrelated formatting round-trip, not just a real
+// conflict — a pure chronological "is the live value later than what I
+// loaded" comparison is robust to that, and is all a conflict check
+// actually needs.
+//
+// No expectedLastModified at all (an older cached client build, or a
+// sheet with no configured Last Modified column) means nothing to
+// compare against — never blocks the write, same as before this existed.
+function hasConflict_(sheet, sheetName, rowIdx, expectedLastModified) {
+  if (!expectedLastModified) return false;
+  var col = LAST_MODIFIED_COL[sheetName];
+  if (!col) return false;
+  var current = sheet.getRange(rowIdx, col).getValue();
+  if (!current) return false;
+  return compareDates(current, expectedLastModified) > 0;
+}
+
+
 function normalizeMonthHeader(h) {
   var d = null;
   if (h instanceof Date) {

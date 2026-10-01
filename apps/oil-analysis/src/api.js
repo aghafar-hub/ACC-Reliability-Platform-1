@@ -42,6 +42,22 @@ export class SaveVerificationError extends Error {
   }
 }
 
+// Patch 10 (plant-readiness pass): a SPECIFIC kind of verify-read mismatch
+// — the backend recognized that this row changed since the edit started
+// (see Utils.js's hasConflict_) and skipped the write entirely rather than
+// silently overwriting someone else's change. Thrown instead of a plain
+// SaveVerificationError whenever the live row's own Last Modified value is
+// newer than what this edit started from — see detectConflict() below. A
+// distinct class (not just a different message) so a caller that wants to
+// react differently — e.g. trigger a resync instead of just retrying the
+// same save — can tell the two apart with instanceof.
+export class ConflictError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ConflictError";
+  }
+}
+
 // Option B Phase 1 (see docs/oil-lubrication-migration-notes.md): the
 // Platform Core session token for whoever is logged into the shell, set
 // once by App.jsx's top-level effect from its `session` prop. Module-level
@@ -183,6 +199,25 @@ function findRowByMatch(rows, matchCols, matchValues) {
   return (rows || []).find((r) =>
     matchCols.every((col, i) => String(r[col] ?? "").trim() === String(matchValues[i] ?? "").trim())
   );
+}
+
+// Patch 10: distinguishes "the write never applied because the backend
+// detected a conflict and skipped it" (Utils.js's hasConflict_) from every
+// other reason a verify-read might not match what was sent. expectedLast-
+// Modified is what THIS edit started from (the lastModified value already
+// on the object when the user opened it, not anything new); lastModifiedCol
+// is which column of the freshly re-read row to compare it against. No
+// expectedLastModified, or no row came back at all (a different, worse
+// failure — e.g. the row was deleted), means this isn't a conflict check's
+// job to explain — left to the normal SaveVerificationError message.
+function detectConflict(expectedLastModified, savedRow, lastModifiedCol) {
+  if (!expectedLastModified || !savedRow) return false;
+  const live = savedRow[lastModifiedCol];
+  if (!live) return false;
+  const liveTime = new Date(live).getTime();
+  const expectedTime = new Date(expectedLastModified).getTime();
+  if (isNaN(liveTime) || isNaN(expectedTime)) return false;
+  return liveTime > expectedTime;
 }
 
 // Action Tracker's "Last Modified" column (index 18 — after Closing
@@ -421,12 +456,19 @@ export async function saveAction(webhookUrl, action, { isNew }) {
   } else {
     const matchCols = action._matchCols || [0, 1];
     const matchValues = action._matchValues || [action.acNo || "", action.equipmentCode || action.unitId || ""];
-    await postBlind(webhookUrl, { action: "updateRow", sheet: "Action Tracker", matchCols, matchValues, row });
+    // Patch 10: expectedLastModified lets the backend tell "someone else's
+    // edit landed since this one started" apart from a normal write — see
+    // Utils.js's hasConflict_. Only meaningful on an existing row; a new
+    // action has no prior Last Modified to compare against.
+    await postBlind(webhookUrl, { action: "updateRow", sheet: "Action Tracker", matchCols, matchValues, row, expectedLastModified: action.lastModified || "" });
   }
 
   const verify = await getEquipmentRows(webhookUrl, action.equipmentCode || action.unitId || "");
   const savedRow = (verify.actions || []).find((r) => String(r[0]).trim() === String(row[0]).trim());
   if (!savedRow || !rowsEqual(savedRow, row, { skipIndices: [ACTION_LAST_MODIFIED_COL], dateIndices: ACTION_DATE_COLS })) {
+    if (!isNew && detectConflict(action.lastModified, savedRow, ACTION_LAST_MODIFIED_COL)) {
+      throw new ConflictError(`Someone else changed this action while you were editing it. Reload and reapply your changes.`);
+    }
     logVerificationMismatch("saveAction", row, savedRow, ACTION_HEADERS);
     throw new SaveVerificationError(
       `The action wasn't confirmed saved to the sheet. It may not have written — please check the Action Tracker tab and try again.`
@@ -508,7 +550,8 @@ export async function updateSample(webhookUrl, sample) {
   const row = sampleToRow(sample);
   const matchCols = sample._matchCols || [0, 3];
   const matchValues = sample._matchValues || [sample.unitId || "", sample.sampleId || ""];
-  await postBlind(webhookUrl, { action: "updateRow", sheet: "Data_Entry", matchCols, matchValues, row });
+  // Patch 10: same conflict signal as saveAction — see its own comment.
+  await postBlind(webhookUrl, { action: "updateRow", sheet: "Data_Entry", matchCols, matchValues, row, expectedLastModified: sample.lastModified || "" });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
   const savedRow = findRowByMatch(verify.samples, matchCols, matchValues);
@@ -519,6 +562,9 @@ export async function updateSample(webhookUrl, sample) {
   // timestamp can never equal what the client sent (nothing, at that
   // position). See SAMPLE_LAST_MODIFIED_COL's own comment above.
   if (!savedRow || !rowsEqual(savedRow, row, { skipIndices: [SAMPLE_LAST_MODIFIED_COL], dateIndices: [SAMPLE_DATE_COL] })) {
+    if (detectConflict(sample.lastModified, savedRow, SAMPLE_LAST_MODIFIED_COL)) {
+      throw new ConflictError(`Someone else changed this sample while you were editing it. Reload and reapply your changes.`);
+    }
     logVerificationMismatch("updateSample", row, savedRow);
     throw new SaveVerificationError(`The sample wasn't confirmed saved to the sheet. It may not have written — please try again.`);
   }

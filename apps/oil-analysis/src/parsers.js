@@ -639,7 +639,7 @@ export function rowToSample(row) {
     alertType,
     recommendationsRaw,
     flaggedParamsRaw,
-    , // server-stamped Last Modified (col 39, see api.js's SAMPLE_LAST_MODIFIED_COL) — not otherwise used here
+    lastModified, // server-stamped (col 39, see api.js's SAMPLE_LAST_MODIFIED_COL) — Patch 10: now used for conflict detection on edit
     sampleUid, // Patch 6 — see api.js's SAMPLE_UID_COL
   ] = row;
   const num = (v) => (v === "" || v === null || v === undefined ? "" : parseFloat(v));
@@ -668,6 +668,7 @@ export function rowToSample(row) {
     recommendations: recommendationsRaw ? [recommendationsRaw] : [],
     flaggedReadings: parseFlaggedParams(flaggedParamsRaw),
     sampleUid: sampleUid || "",
+    lastModified: lastModified || "", // Patch 10 — see api.js's detectConflict/updateSample
     _id: sampleUid ? `uid_${sampleUid}` : `${unitId}_${sampleId}_${sampledDate}`,
     // Patch 6: a sample created after the Sample_UID column existed gets
     // matched by that alone — always unique, no ambiguity possible. A
