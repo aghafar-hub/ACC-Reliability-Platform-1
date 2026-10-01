@@ -792,3 +792,238 @@ export async function generateCombinedReport({ actions, oilChanges, equipmentReg
   addFooter(doc);
   doc.save(`Combined-Maintenance-Report${fileSuffixFor(contractor)}-${toFileDate()}.pdf`);
 }
+
+// ── Section 5: Monthly Activity Summary (Patch 13, plant-readiness pass) ──
+// Distinct in KIND from the four reports above: those all show CURRENT
+// state (what's open right now, what's overdue as of today) — this one
+// shows THROUGHPUT for a specific period (what actually got done), which
+// is what a monthly management review usually asks for and none of the
+// above answers. "Period" is a calendar month ("YYYY-MM", from a native
+// <input type="month">) rather than an arbitrary date range — matches how
+// this gets asked for in practice ("September's numbers") without a full
+// date-range picker.
+//
+// Every date field already in these objects (sampledDate, eventDate,
+// completedDate, …) is display-formatted by its own row-parser
+// (parsers.js), not raw ISO — re-parsing a formatted string with
+// new Date() is the SAME thing daysSince() above already does throughout
+// this file, not a new risk introduced here.
+function inPeriod(dateStr, year, monthIndex) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return false;
+  return d.getFullYear() === year && d.getMonth() === monthIndex;
+}
+
+function monthLabel(month) {
+  const [y, m] = String(month || "").split("-").map(Number);
+  if (!y || !m) return month || "";
+  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+
+// Shared by both the PDF section builder and the CSV export below, so
+// there's exactly one place that decides what counts as "this period"
+// for each dataset — same reasoning as this file's other section
+// builders being reused by the Combined report.
+function collectMonthlyActivity({ samples, oilChangeEvents, actions, equipmentRegistry, contractor = "All", month }) {
+  const [year, m] = String(month || "").split("-").map(Number);
+  const monthIndex = (m || 1) - 1;
+  const registryByCode = {};
+  (equipmentRegistry || []).forEach((r) => (registryByCode[r.code] = r));
+  const contractorOfSample = (sm) => registryByCode[sm.unitId]?.contractor || "Unassigned";
+  const contractorOfAction = (a) => a.contractor || registryByCode[a.equipmentCode]?.contractor || "Unassigned";
+
+  let periodSamples = (samples || []).filter((sm) => inPeriod(sm.sampledDate, year, monthIndex));
+  if (contractor !== "All") periodSamples = periodSamples.filter((sm) => contractorOfSample(sm) === contractor);
+
+  let periodOilChanges = (oilChangeEvents || []).filter((ev) => inPeriod(ev.eventDate, year, monthIndex));
+  if (contractor !== "All") periodOilChanges = periodOilChanges.filter((ev) => (ev.contractor || "Unassigned") === contractor);
+
+  // "Closed" actions only — matches buildActionSection's own definition
+  // of what an action report cares about, just inverted (that one shows
+  // what's still open; this shows what got resolved in the period).
+  let periodClosedActions = (actions || []).filter((a) => a.status === "Closed" && inPeriod(a.completedDate, year, monthIndex));
+  if (contractor !== "All") periodClosedActions = periodClosedActions.filter((a) => contractorOfAction(a) === contractor);
+
+  // Backlog context, not period-filtered on purpose — "still open" means
+  // right now, regardless of which month it was originally raised in.
+  let stillOpen = (actions || []).filter((a) => a.status !== "Closed");
+  if (contractor !== "All") stillOpen = stillOpen.filter((a) => contractorOfAction(a) === contractor);
+
+  return { periodSamples, periodOilChanges, periodClosedActions, stillOpen };
+}
+
+function buildMonthlyActivitySection(doc, { samples, oilChangeEvents, actions, equipmentRegistry, contractor = "All", month }, y) {
+  const { periodSamples, periodOilChanges, periodClosedActions, stillOpen } = collectMonthlyActivity({
+    samples, oilChangeEvents, actions, equipmentRegistry, contractor, month,
+  });
+
+  const narrative =
+    contractor === "All"
+      ? `This report covers everything recorded across all contractors during ${monthLabel(month)} — samples taken, oil changes performed, and actions closed. It's a period summary, not a current-state snapshot: an action still open today but raised in an earlier month won't appear in the "closed" count below, but IS included in the ongoing backlog figure.`
+      : `This report covers everything recorded for ${contractor} during ${monthLabel(month)} — samples taken, oil changes performed, and actions closed — plus ${contractor}'s ongoing backlog as of today.`;
+  y = summaryParagraph(doc, narrative, y);
+
+  y = statStrip(
+    doc,
+    [
+      { value: periodSamples.length, label: "SAMPLES TAKEN", color: BRAND.accent },
+      { value: periodOilChanges.length, label: "OIL CHANGES DONE", color: BRAND.warning },
+      { value: periodClosedActions.length, label: "ACTIONS CLOSED", color: BRAND.success },
+      { value: stillOpen.length, label: "STILL OPEN (BACKLOG)", color: BRAND.danger },
+    ],
+    y
+  );
+  y += 14;
+
+  if (periodSamples.length > 0) {
+    const statusCounts = { Normal: 0, Caution: 0, Alert: 0 };
+    periodSamples.forEach((sm) => { statusCounts[sm.reportStatus] = (statusCounts[sm.reportStatus] || 0) + 1; });
+    y = needsNewPage(doc, y, 110);
+    y = sectionTitle(doc, "Samples Taken", y);
+    y = donutWithLegend(doc, {
+      x: 36,
+      y,
+      radius: 34,
+      slices: [
+        { value: statusCounts.Normal || 0, label: "Normal", color: BRAND.success },
+        { value: statusCounts.Caution || 0, label: "Caution", color: BRAND.warning },
+        { value: statusCounts.Alert || 0, label: "Alert", color: BRAND.danger },
+      ],
+      legendX: 130,
+    });
+    y += 6;
+    const sampleRows = [...periodSamples]
+      .sort((a, b) => new Date(a.sampledDate) - new Date(b.sampledDate))
+      .map((sm) => [formatDate(sm.sampledDate), sm.unitId || "—", sm.reportStatus || "—"]);
+    y = needsNewPage(doc, y, 80);
+    autoTable(doc, {
+      startY: y,
+      head: [["Date", "Equipment", "Result"]],
+      body: sampleRows,
+      theme: "striped",
+      headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+      margin: { left: 36, right: 36 },
+    });
+    y = doc.lastAutoTable.finalY + 24;
+  }
+
+  y = needsNewPage(doc, y, 90);
+  y = sectionTitle(doc, "Oil Changes Performed", y);
+  const ocRows = [...periodOilChanges]
+    .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
+    .map((ev) => [formatDate(ev.eventDate), ev.lpId || "—", ev.doneBy || "—", ev.contractor || "—"]);
+  autoTable(doc, {
+    startY: y,
+    head: [["Date", "Lubrication Point", "Done By", "Contractor"]],
+    body: ocRows.length ? ocRows : [["No oil changes recorded this period", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+  });
+  y = doc.lastAutoTable.finalY + 24;
+
+  y = needsNewPage(doc, y, 90);
+  y = sectionTitle(doc, "Actions Closed", y);
+  const closedRows = [...periodClosedActions]
+    .sort((a, b) => new Date(a.completedDate) - new Date(b.completedDate))
+    .map((a) => {
+      const closedDays =
+        a.completedDate && a.revisionDate && !isNaN(new Date(a.completedDate)) && !isNaN(new Date(a.revisionDate))
+          ? Math.round((new Date(a.completedDate) - new Date(a.revisionDate)) / 86400000)
+          : null;
+      return [formatDate(a.completedDate), a.equipmentCode || "—", a.agreedAction || a.description || "—", closedDays == null ? "—" : `${closedDays}d`];
+    });
+  autoTable(doc, {
+    startY: y,
+    head: [["Closed", "Equipment", "Action", "Days to Close"]],
+    body: closedRows.length ? closedRows : [["No actions closed this period", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    columnStyles: { 2: { cellWidth: 200 } },
+    margin: { left: 36, right: 36 },
+  });
+  y = doc.lastAutoTable.finalY + 24;
+
+  return y;
+}
+
+export async function generateMonthlyActivitySummary({ samples, oilChangeEvents, actions, equipmentRegistry, contractor = "All", month }) {
+  const doc = await newDoc(`Monthly Activity Summary — ${monthLabel(month)}`, scopeLineFor(contractor));
+  buildMonthlyActivitySection(doc, { samples, oilChangeEvents, actions, equipmentRegistry, contractor, month }, 98);
+  addFooter(doc);
+  doc.save(`Monthly-Activity-Summary${fileSuffixFor(contractor)}-${month}.pdf`);
+}
+
+// Live preview numbers for the Reports page's card, before generating
+// anything — same data collectMonthlyActivity already computes, just
+// exposed directly instead of needing a second, separate pass over the
+// same arrays in Reports.jsx.
+export function monthlyActivityPreview({ samples, oilChangeEvents, actions, equipmentRegistry, contractor = "All", month }) {
+  const { periodSamples, periodOilChanges, periodClosedActions, stillOpen } = collectMonthlyActivity({
+    samples, oilChangeEvents, actions, equipmentRegistry, contractor, month,
+  });
+  return {
+    samplesTaken: periodSamples.length,
+    oilChangesDone: periodOilChanges.length,
+    actionsClosed: periodClosedActions.length,
+    stillOpen: stillOpen.length,
+  };
+}
+
+// ── CSV export (Patch 13) ─────────────────────────────────────────────────
+// The "Excel" half of "monthly PDF/Excel summary": a plain CSV (not a true
+// .xlsx) so this needs no new dependency and no bundle-size cost — CSV
+// opens directly in Excel with no friction, same pragmatic choice already
+// made elsewhere in this codebase (e.g. Patch 8's simple-pairing
+// equivalence instead of full equivalence groups) when a lighter option
+// covers the real need just as well.
+function csvEscape(value) {
+  const s = String(value ?? "");
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function csvRow(cells) {
+  return cells.map(csvEscape).join(",");
+}
+
+export function exportMonthlyActivityCsv({ samples, oilChangeEvents, actions, equipmentRegistry, contractor = "All", month }) {
+  const { periodSamples, periodOilChanges, periodClosedActions } = collectMonthlyActivity({
+    samples, oilChangeEvents, actions, equipmentRegistry, contractor, month,
+  });
+
+  const lines = [];
+  lines.push(csvRow([`Monthly Activity Summary - ${monthLabel(month)} - ${scopeLineFor(contractor)}`]));
+  lines.push("");
+  lines.push(csvRow(["SAMPLES TAKEN"]));
+  lines.push(csvRow(["Date", "Equipment", "Result"]));
+  periodSamples.forEach((sm) => lines.push(csvRow([sm.sampledDate, sm.unitId, sm.reportStatus])));
+  lines.push("");
+  lines.push(csvRow(["OIL CHANGES PERFORMED"]));
+  lines.push(csvRow(["Date", "Lubrication Point", "Done By", "Contractor"]));
+  periodOilChanges.forEach((ev) => lines.push(csvRow([ev.eventDate, ev.lpId, ev.doneBy, ev.contractor])));
+  lines.push("");
+  lines.push(csvRow(["ACTIONS CLOSED"]));
+  lines.push(csvRow(["Closed Date", "Equipment", "Action", "Days to Close"]));
+  periodClosedActions.forEach((a) => {
+    const closedDays =
+      a.completedDate && a.revisionDate && !isNaN(new Date(a.completedDate)) && !isNaN(new Date(a.revisionDate))
+        ? Math.round((new Date(a.completedDate) - new Date(a.revisionDate)) / 86400000)
+        : "";
+    lines.push(csvRow([a.completedDate, a.equipmentCode, a.agreedAction || a.description || "", closedDays]));
+  });
+
+  // Leading BOM so Excel opens the UTF-8 file correctly instead of
+  // mis-rendering any accented characters as garbled text.
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Monthly-Activity-Summary${fileSuffixFor(contractor)}-${month}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

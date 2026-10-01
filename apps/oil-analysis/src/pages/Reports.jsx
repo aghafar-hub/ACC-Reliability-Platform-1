@@ -6,6 +6,9 @@ import {
   generateOilChangeContractorReport,
   generateSampleOverdueReport,
   generateCombinedReport,
+  generateMonthlyActivitySummary,
+  exportMonthlyActivityCsv,
+  monthlyActivityPreview,
 } from "../reportGenerators";
 
 const FOCUS_STATUSES = ["Open", "In Progress", "Waiting Stoppage"];
@@ -25,6 +28,9 @@ function ReportCard({
   stats,
   busy,
   onGenerate,
+  extraControls,
+  secondaryLabel,
+  onSecondaryAction,
 }) {
   return (
     <div style={{ ...s.card, display: "flex", flexDirection: "column", gap: 14, marginBottom: 0 }}>
@@ -49,6 +55,8 @@ function ReportCard({
           <div style={{ fontSize: 11.5, color: T.textSecondary }}>{description}</div>
         </div>
       </div>
+
+      {extraControls}
 
       <div>
         <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>Contractor</div>
@@ -91,24 +99,42 @@ function ReportCard({
         ))}
       </div>
 
-      <button style={{ ...s.btnPrimary, alignSelf: "flex-start" }} onClick={onGenerate} disabled={busy}>
-        <i className={`ti ${busy ? "ti-loader" : "ti-download"}`} aria-hidden="true" /> {busy ? "Generating…" : "Download PDF"}
-      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={s.btnPrimary} onClick={onGenerate} disabled={busy}>
+          <i className={`ti ${busy ? "ti-loader" : "ti-download"}`} aria-hidden="true" /> {busy ? "Generating…" : "Download PDF"}
+        </button>
+        {onSecondaryAction && (
+          <button style={s.btn} onClick={onSecondaryAction} disabled={busy}>
+            <i className="ti ti-table-export" aria-hidden="true" /> {secondaryLabel || "Export"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-// Four well-designed, downloadable PDF reports built straight from the data
-// already loaded in the app — no server round trip. Each card lets you
-// scope the report to one contractor (or all of them) and shows a live
-// preview of what will be in the PDF before it's generated.
-export default function Reports({ actions, oilChanges, equipmentRegistry, trackerByEquip }) {
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Five well-designed, downloadable PDF reports built straight from the data
+// already loaded in the app — no server round trip. The first four show
+// CURRENT state (what's open/overdue right now); Monthly Activity Summary
+// is the odd one out on purpose — a THROUGHPUT report for a specific
+// calendar month (see reportGenerators.js's own comment on why that's a
+// different question none of the others answer). Each card lets you scope
+// to one contractor (or all of them) and shows a live preview before
+// generating.
+export default function Reports({ actions, oilChanges, oilChangeEvents, samples, equipmentRegistry, trackerByEquip }) {
   const { T, s } = useTheme();
-  const [generating, setGenerating] = useState(null); // "action" | "oilchange" | "sample" | "combined" | null
+  const [generating, setGenerating] = useState(null); // "action" | "oilchange" | "sample" | "combined" | "monthly" | null
   const [actionContractor, setActionContractor] = useState(ALL);
   const [oilChangeContractor, setOilChangeContractor] = useState(ALL);
   const [sampleContractor, setSampleContractor] = useState(ALL);
   const [combinedContractor, setCombinedContractor] = useState(ALL);
+  const [monthlyContractor, setMonthlyContractor] = useState(ALL);
+  const [month, setMonth] = useState(() => currentMonth());
 
   const registryByCode = useMemo(() => {
     const map = {};
@@ -166,6 +192,11 @@ export default function Reports({ actions, oilChanges, equipmentRegistry, tracke
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions, oilChanges, trackerByEquip, equipmentRegistry, combinedContractor]);
 
+  const monthlyPreview = useMemo(
+    () => monthlyActivityPreview({ samples, oilChangeEvents, actions, equipmentRegistry, contractor: monthlyContractor, month }),
+    [samples, oilChangeEvents, actions, equipmentRegistry, monthlyContractor, month]
+  );
+
   async function handleGenerate(kind) {
     setGenerating(kind);
     try {
@@ -175,9 +206,15 @@ export default function Reports({ actions, oilChanges, equipmentRegistry, tracke
       else if (kind === "sample") await generateSampleOverdueReport({ trackerByEquip, equipmentRegistry, contractor: sampleContractor });
       else if (kind === "combined")
         await generateCombinedReport({ actions, oilChanges, equipmentRegistry, trackerByEquip, contractor: combinedContractor });
+      else if (kind === "monthly")
+        await generateMonthlyActivitySummary({ samples, oilChangeEvents, actions, equipmentRegistry, contractor: monthlyContractor, month });
     } finally {
       setGenerating(null);
     }
+  }
+
+  function handleExportMonthlyCsv() {
+    exportMonthlyActivityCsv({ samples, oilChangeEvents, actions, equipmentRegistry, contractor: monthlyContractor, month });
   }
 
   return (
@@ -261,6 +298,33 @@ export default function Reports({ actions, oilChanges, equipmentRegistry, tracke
           ]}
           busy={generating === "combined"}
           onGenerate={() => handleGenerate("combined")}
+        />
+
+        <ReportCard
+          T={T}
+          s={s}
+          icon="ti-calendar-stats"
+          iconColor="accent"
+          title="Monthly Activity Summary"
+          description="What actually got done this month — not a snapshot of today"
+          contractor={monthlyContractor}
+          onContractorChange={setMonthlyContractor}
+          contractorList={contractorList}
+          extraControls={
+            <div>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>Month</div>
+              <input type="month" style={{ ...s.input, maxWidth: 180 }} value={month} onChange={(e) => setMonth(e.target.value)} />
+            </div>
+          }
+          stats={[
+            { value: monthlyPreview.samplesTaken, label: "Samples Taken", color: "accent" },
+            { value: monthlyPreview.oilChangesDone, label: "Oil Changes Done", color: "warning" },
+            { value: monthlyPreview.actionsClosed, label: "Actions Closed", color: "success" },
+          ]}
+          busy={generating === "monthly"}
+          onGenerate={() => handleGenerate("monthly")}
+          secondaryLabel="Export CSV"
+          onSecondaryAction={handleExportMonthlyCsv}
         />
       </div>
     </div>

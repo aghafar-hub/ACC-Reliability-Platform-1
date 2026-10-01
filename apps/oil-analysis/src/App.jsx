@@ -1102,7 +1102,14 @@ function AppShell({ config, setConfig, navBridge }) {
             <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
           )}
           {page === "reports" && (
-            <Reports actions={actions} oilChanges={oilChanges} equipmentRegistry={equipmentRegistry} trackerByEquip={trackerByEquip} />
+            <Reports
+              actions={actions}
+              oilChanges={oilChanges}
+              oilChangeEvents={oilChangeEvents}
+              samples={samples}
+              equipmentRegistry={equipmentRegistry}
+              trackerByEquip={trackerByEquip}
+            />
           )}
           {page === "activity" && <Activity webhookUrl={config.webhookUrl} />}
           {page === "tracker" && (

@@ -763,6 +763,51 @@ refuse the edit with its own "you need permission" message. The app
 itself should be completely unaffected, since it never edits these
 sheets as "you," always as the deploying account.
 
+## 4q. Monthly Activity Summary report + CSV export
+
+The Reports page already had four solid, well-designed PDF reports — but
+all four show CURRENT state (what's open right now, what's overdue as of
+today), which isn't the same question a monthly management review
+usually asks: "what actually got done in September." None of the
+existing four answer that, and none of them export anything but a fixed-
+layout PDF. This adds both.
+
+**New report — Monthly Activity Summary**: a fifth card on the Reports
+page, scoped to a calendar month (a native month picker, defaulting to
+the current month) and optionally one contractor. Shows samples taken,
+oil changes performed, and actions closed DURING that month, plus the
+current open-action backlog as of today (not period-filtered — a
+backlog is "right now," not "this month," on purpose). Reuses the exact
+same jsPDF building blocks (branding, tables, charts, footer) the other
+four reports already use, so it looks and feels identical.
+
+**CSV export**: a second button on this card, "Export CSV" — the same
+period/contractor-scoped data as the PDF, as a plain CSV (not a true
+`.xlsx`) so this needed no new dependency and no further bundle-size
+cost. CSV opens directly in Excel with no friction, which covers the
+real need just as well as a true spreadsheet file would — same kind of
+pragmatic call already made elsewhere in this plant-readiness pass (e.g.
+Patch 8's simple pairing instead of full equivalence groups).
+
+**Code**: `reportGenerators.js` gained `collectMonthlyActivity` (the
+shared period/contractor filter both the PDF and CSV paths use — one
+place decides what counts as "this period"), `buildMonthlyActivitySection`
++ `generateMonthlyActivitySummary` (PDF), `monthlyActivityPreview` (the
+card's live stat preview before generating), and `exportMonthlyActivityCsv`.
+`Reports.jsx` gained the fifth card, a month-picker state, and a second
+"secondary action" button slot on the shared `ReportCard` component.
+`App.jsx` now also passes `samples` and `oilChangeEvents` (the raw,
+per-event arrays — not the derived "current state" shapes the other
+reports use) down to `Reports`, since a period report needs each
+individual event's own date, not a collapsed "latest state" view.
+
+**Verify**: pick a month with known activity, generate the PDF, and
+cross-check its counts against the Dashboard/Action Tracker for that
+period. Click Export CSV and open the file in Excel — confirm the three
+section headers (SAMPLES TAKEN / OIL CHANGES PERFORMED / ACTIONS CLOSED)
+and that switching the contractor filter actually changes which rows
+appear.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
