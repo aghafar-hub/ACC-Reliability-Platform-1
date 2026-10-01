@@ -7,7 +7,6 @@ import { isTechnicianOnly } from './auth/session';
 import { EmbeddedNavProvider } from './embeddedNav';
 import ChangePassword from './pages/ChangePassword';
 import ComingSoon from './pages/ComingSoon';
-import Dashboard from './pages/Dashboard';
 import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
 import EmbeddedVibrationAnalysis from './pages/EmbeddedVibrationAnalysis';
 import Login from './pages/Login';
@@ -53,12 +52,13 @@ function ShellRoot() {
         <TopBar />
         <main className="app-content">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
             <Route path="/my-work" element={<MyWork />} />
-            <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
-            {/* /oil-analysis/routines and /oil-analysis/inventory have no <Route>
-                here on purpose — both are native pages inside apps/oil-analysis now
-                (see EmbeddedOilAnalysis below), same as /oil-analysis itself. */}
+            {/* "/" and "/equipment" have no <Route> here on purpose, same as
+                /oil-analysis and /vibration-analysis below — Patch 31
+                removed the separate shell-level stub pages that used to
+                duplicate/shadow Oil Lubrication's own real Dashboard and
+                Equipment pages ("treat it all as one app"); EmbeddedOilAnalysis
+                now shows those real pages directly for these routes too. */}
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />

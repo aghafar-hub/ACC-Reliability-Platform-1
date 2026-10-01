@@ -1804,6 +1804,48 @@ returns to the combined multi-LP group view, which renders exactly as
 before. "Equipment Viewer" no longer appears anywhere in the sidebar.
 Verified with a 10-assertion Playwright test.
 
+## 4al. Removed duplicate top-level Dashboard/Equipment stubs — "treat it all as one app" (Patch 31)
+
+Direct instruction after Patch 30: "we will treat all as one app from now
+on" — scoped to navigation/duplication (not a full codebase merge of the
+embedded modules into the shell). Two of the shell's top-level sidebar
+items were empty placeholder pages shadowing real, already-built content
+one click deeper inside Oil Lubrication:
+
+- **Dashboard** (`/`) was `frontend/src/pages/Dashboard.tsx`, a one-line
+  "Signed in as X..." stub — the real dashboard (KPIs, charts, Patch 26)
+  is `apps/oil-analysis/src/pages/Dashboard.jsx`, only reachable before
+  this patch via Oil Lubrication → Oil Dashboard.
+- **Equipment** (`/equipment`) was a bare `<ComingSoon>` placeholder — the
+  real page is `apps/oil-analysis/src/pages/Equipment.jsx` (just
+  redesigned in Patch 30), only reachable via Oil Lubrication → Equipment.
+
+**Fix**: both shell-level stub routes and `Dashboard.tsx` itself are
+deleted. `EmbeddedOilAnalysis.tsx`'s `visible` check — already extended
+once for Patch 29's Settings consolidation — now also covers `/` and
+`/equipment` directly, reusing the exact same persistent-mount instance
+(`FORCED_PAGE_BY_ROUTE` map). A new effect drives the embedded module to
+its own `dashboard`/`equipment` page via `embeddedNav.navigateTo` whenever
+one of these two routes becomes active, so clicking top-level "Dashboard"
+always shows the dashboard (not whatever sub-tab was last open), and
+likewise for "Equipment" — mirroring the Settings page's own
+`selectTab`/`navigateTo` pattern. On a fresh login landing straight on
+`/`, no forcing is even needed: the embedded app's own `page` state
+already defaults to `"dashboard"` (`apps/oil-analysis/src/App.jsx`).
+
+**`/reliability-measures` and `/compressors` are untouched** — those are
+genuinely unbuilt features with no real page anywhere to point at, not
+duplicates, so they stay as `<ComingSoon>`.
+
+**Verify**: log in and land on `/` — the real Oil Dashboard (KPI cards,
+charts) appears directly, no stub text, no extra click. Navigate to
+Vibration Analysis, then back to "Dashboard" in the sidebar — still the
+real dashboard, not whatever page was last open. Click "Equipment" in the
+sidebar — the real search screen appears directly ("Find any piece of
+equipment"), no "still to come" text. Verified with a 7-assertion
+Playwright test, plus a full rerun of the Patch 28/29/30 regression tests
+(TopBar, Settings tabs, Equipment Viewer merge) to confirm no regression.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
