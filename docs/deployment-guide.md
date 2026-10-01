@@ -691,6 +691,78 @@ Switch back to "Online" — within ~30s (or immediately after a manual
 "Sync") confirm a "synced" toast, the pending badge clears, and the
 record is really in the sheet.
 
+## 4p. Hardening against direct sheet edits
+
+Every write this backend makes goes through doPost — RBAC-checked,
+contractor-scoped, conflict-checked (Patch 10), audit-logged (Patch 9).
+None of that applies to anyone with Editor access to the actual Google
+Sheet just typing into a cell directly; nothing in the app layer could
+see or stop that. Two mitigations, one automatic and one opt-in:
+
+**1. Detection (on by default, nothing to turn on)**: Apps Script's
+`onEdit` simple trigger fires for a real edit made in the Sheets UI, but
+never for a change this backend's own doPost makes via the
+`SpreadsheetApp` service — so if it fires at all for a governed data
+sheet, it's a human editing the raw sheet directly, not the app. Every
+such edit is now logged to the Audit Log (action type `direct-edit`),
+with the real editor's email when Sheets exposes it, and shows up in the
+Activity page flagged in red as "Direct sheet edit" — so even without
+blocking it outright, someone can no longer bypass the app invisibly.
+
+**2. Prevention (opt-in, you run it yourself)**: a new function,
+`protectDataSheetsFromDirectEdits()`, restricts direct editing of every
+governed sheet to this spreadsheet's own owner — everyone else gets
+view-only on those sheets in the Sheets UI itself. This is NOT wired to
+run automatically on deploy, on a schedule, or from any trigger — it
+changes real edit permissions on a spreadsheet people may be actively
+using, and the right call depends on who, if anyone, currently has a
+legitimate reason to edit the raw sheet directly.
+
+**To run it**: open the Apps Script project (Extensions → Apps Script
+from the Sheet), select `protectDataSheetsFromDirectEdits` from the
+function dropdown next to the Run button, and run it. Strongly
+recommended: try it on a COPY of the spreadsheet first (File → Make a
+copy) to confirm it behaves the way you expect before running it against
+the live production sheet — this is the kind of change that's awkward to
+walk back at a distance if it blocks someone who turns out to need direct
+access. Safe to run more than once: an already-protected sheet is left
+alone, not given a second, redundant protection layer.
+
+**Which sheets are covered** (`DIRECT_EDIT_WATCH_SHEETS`, Config.js):
+Data_Entry, Action Tracker, Equipment Registry, Oil Change LOG, ROUTINES,
+OA_ROUTINE_ITEMS, ROUTINE_TEMPLATES, Oil Inventory, Oil Inventory LOG —
+every sheet this app's doPost actually writes real operational data to.
+Deliberately excludes OL_ACTION_PHRASES (a low-stakes reference list) and
+the Debug Log/Audit Log sheets themselves.
+
+**Known gap**: contractor attribution on a logged direct-edit entry is
+only resolved for sheets this backend already knows how to join to a
+contractor (an LP_ID-keyed sheet via the Equipment Registry, or a sheet
+with its own Contractor column) — every watched sheet has one or the
+other, so this covers all of them, but a scoped Contractor Engineer only
+sees a direct-edit entry in their own Activity feed when that
+resolution actually lands on their own contractor; an unscoped ACC/Admin
+account always sees every direct-edit entry regardless.
+
+**Code**: `Config.js` gained `DIRECT_EDIT_WATCH_SHEETS`,
+`DIRECT_EDIT_LP_COL`, `DIRECT_EDIT_CONTRACTOR_COL`. `SheetTriggers.js`
+gained `logDirectEditIfTracked_` (called from the existing `onEdit`,
+ahead of its pre-existing filter-row logic — unchanged) and the opt-in
+`protectDataSheetsFromDirectEdits`. Frontend: `Activity.jsx`'s
+`ACTION_LABEL` and `theme.js`'s badge color map both gained a
+`direct-edit` entry.
+
+**Verify (detection)**: open the raw Google Sheet and edit a cell
+directly in one of the watched sheets' data rows — open the app's
+Activity page and confirm a new "Direct sheet edit" entry appears,
+flagged in red, with your account's email if Sheets exposes it.
+
+**Verify (protection, only if you ran it)**: as a non-owner account, try
+to edit a cell directly in one of the watched sheets — Sheets should
+refuse the edit with its own "you need permission" message. The app
+itself should be completely unaffected, since it never edits these
+sheets as "you," always as the deploying account.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

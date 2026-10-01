@@ -53,6 +53,53 @@ var GENERIC_WRITE_LP_COL = {
 };
 
 
+// Patch 12 (plant-readiness pass): every real, governed data sheet this
+// app's doPost writes to — used by SheetTriggers.js's onEdit to detect
+// and log a DIRECT edit made in the Sheets UI itself, bypassing every
+// app-side rule (RBAC, contractor scoping, conflict detection, Sample_UID
+// assignment, audit trail attribution — none of it applies to someone
+// just typing into a cell). Deliberately excludes OL_ACTION_PHRASES (a
+// low-stakes reference list, not operational data) and the Debug Log/
+// Audit Log sheets themselves (watching those would make every logged
+// event about to be written also trigger onEdit, including THIS app
+// writing to Audit Log on a real detected direct edit — appendRow via
+// the Apps Script API does NOT fire onEdit, only real Sheets-UI edits do,
+// so this isn't actually a risk, but excluding them keeps the intent
+// unambiguous: this list is "sheets a human should never be editing by
+// hand").
+var DIRECT_EDIT_WATCH_SHEETS = [
+  "Data_Entry", "Action Tracker", "Equipment Registry", "Oil Change LOG",
+  "ROUTINES", "OA_ROUTINE_ITEMS", "ROUTINE_TEMPLATES", "Oil Inventory", "Oil Inventory LOG"
+];
+
+// Every watched sheet that keys its rows by an LP_ID — resolved via
+// resolveLpContractor_ (Rbac.js), same join through Equipment Registry
+// every other LP_ID-keyed contractor lookup in this codebase already
+// uses. Deliberately a separate map from GENERIC_WRITE_LP_COL above:
+// that one only covers the three sheets the GENERIC updateRow/deleteRow
+// actions touch, not every sheet a direct edit might land on (Oil Change
+// LOG, OA_ROUTINE_ITEMS).
+var DIRECT_EDIT_LP_COL = {
+  "Data_Entry": 0,
+  "Action Tracker": 1,
+  "Equipment Registry": 0,
+  "Oil Change LOG": 1,
+  "OA_ROUTINE_ITEMS": 2
+};
+
+// The remaining watched sheets carry their OWN Contractor column
+// directly (not joined through an LP_ID) — same columns their own
+// read/write functions already use (see ROUTINES/ROUTINE_TEMPLATES'
+// own column-layout comments in Routines.js/RouteTemplates.js, and
+// rowToOilMovement's in parsers.js for Oil Inventory LOG).
+var DIRECT_EDIT_CONTRACTOR_COL = {
+  "ROUTINES": 3,
+  "ROUTINE_TEMPLATES": 3,
+  "Oil Inventory": 16,
+  "Oil Inventory LOG": 7
+};
+
+
 
 // ─── Oil Sample Tracker update (monthly format) ──────────────────────────
 // Updates "Oil Sample Tracker" sheet. Layout: col A = Equipment, col B =

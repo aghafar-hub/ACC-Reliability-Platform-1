@@ -545,6 +545,10 @@ export function buildStyles(T) {
         create: T.success,
         update: T.accent,
         delete: T.danger,
+        // Patch 12 — flagged the same alarming color as "delete", since
+        // it means the app's own rules (RBAC, conflict detection,
+        // contractor scoping, …) were bypassed entirely for this change.
+        "direct-edit": T.danger,
       };
       const color = map[value] || T.textSecondary;
       return {

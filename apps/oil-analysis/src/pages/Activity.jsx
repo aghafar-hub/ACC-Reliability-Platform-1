@@ -16,7 +16,11 @@ function formatTimestamp(iso) {
   return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-const ACTION_LABEL = { create: "Created", update: "Updated", delete: "Deleted" };
+// Patch 12 — "direct-edit" is logged server-side (SheetTriggers.js's
+// onEdit) whenever someone edits a governed sheet directly in the Sheets
+// UI, bypassing the app entirely — flagged with its own label so it
+// reads as a warning, not just another ordinary change.
+const ACTION_LABEL = { create: "Created", update: "Updated", delete: "Deleted", "direct-edit": "Direct sheet edit" };
 
 export default function Activity({ webhookUrl }) {
   const { T, s } = useTheme();
