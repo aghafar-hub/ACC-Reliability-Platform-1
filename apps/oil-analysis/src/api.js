@@ -888,6 +888,37 @@ export async function getAuditTrail(webhookUrl, { recordId = "", page = 1, limit
   };
 }
 
+// ── Notification settings (Patch 14, plant-readiness pass) ──────────────
+// Admin-only to change (the backend's updateNotificationSettings action
+// requires ROLE-ADMIN — see requireAdmin_ in Rbac.js), but readable by
+// anyone, same as every other GET in this app. No verify-on-write dance:
+// updateNotificationSettings reads straight back from the same Script
+// Properties it just wrote, so a mismatch here would mean the write
+// itself failed, not a sheet-propagation race.
+export async function getNotificationSettings(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getNotificationSettings" });
+  return {
+    enabled: json.enabled !== false,
+    fromEmail: json.fromEmail || "",
+    fromName: json.fromName || "",
+  };
+}
+
+export async function updateNotificationSettings(webhookUrl, settings) {
+  await postBlind(webhookUrl, {
+    action: "updateNotificationSettings",
+    enabled: !!settings.enabled,
+    fromEmail: (settings.fromEmail || "").trim(),
+    fromName: (settings.fromName || "").trim(),
+  });
+
+  const verify = await getNotificationSettings(webhookUrl);
+  if (verify.enabled !== !!settings.enabled || verify.fromEmail !== (settings.fromEmail || "").trim()) {
+    throw new SaveVerificationError(`Notification settings weren't confirmed saved — please try again.`);
+  }
+  return verify;
+}
+
 // ── Platform Core (real account lookups) ────────────────────────────────
 // A different backend from everything above (its own Apps Script Web App,
 // its own URL — see SessionContext.jsx's usePlatformCoreUrl) and its own

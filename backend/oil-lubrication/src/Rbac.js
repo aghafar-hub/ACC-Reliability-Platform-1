@@ -56,6 +56,21 @@ function requirePermission_(session, actionCode) {
   }
 }
 
+// Patch 14 (plant-readiness pass) — some settings are platform-wide, not
+// scoped to a contractor or a normal "Edit" grant: changing where every
+// notification email in this app appears to come FROM affects every
+// contractor's inbox at once, so this is gated to ROLE-ADMIN specifically
+// rather than the generic hasPermission_('Edit') every Contractor Engineer
+// already has. No fail-open case here on purpose — unlike hasPermission_'s
+// now-closed transitional allowance (Patch 7), an admin-only setting was
+// never meant to default open.
+function requireAdmin_(session) {
+  var roles = (session && session.roles) || [];
+  if (roles.indexOf('ROLE-ADMIN') === -1) {
+    throw new Error('Only an Admin can change this.');
+  }
+}
+
 // Same ORG-ACC id Platform Core's own Config.js uses.
 var ORG_ACC = 'ORG-ACC';
 

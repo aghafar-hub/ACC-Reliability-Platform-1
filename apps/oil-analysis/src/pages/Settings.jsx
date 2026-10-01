@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { THEMES, THEME_NAMES } from "../theme";
 import * as api from "../api";
 import { saveEquipmentRegistry } from "../equipmentRegistry";
 import { saveActionRegistry } from "../actionRegistry";
+import { useSession } from "../SessionContext";
 
 const CONFIG_PASSWORD = "17593";
 
@@ -251,6 +252,121 @@ function Field({ T, s, label, value, placeholder, onChange, desc, type = "text" 
   );
 }
 
+// Patch 14 (plant-readiness pass) — admin on/off switch for every email
+// Notifications.js sends (Routine assigned/submitted/approved, the aging
+// actions and low-stock digests), plus which address/name they appear to
+// come FROM. Platform-wide, not per-device: unlike everything else on this
+// page, loading/saving this goes through the backend (Script Properties,
+// see Notifications.js), not localStorage — one setting for the whole
+// deployment, the same for whoever opens Settings next.
+//
+// isAdmin is read from the Platform Core session (ROLE-ADMIN) — the real
+// gate is server-side (requireAdmin_ in Rbac.js rejects a non-admin's
+// save regardless), this just disables the inputs so a non-admin sees why
+// before trying, rather than after a failed save.
+function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
+  const [settings, setSettings] = useState(null); // null while loading
+  const [draft, setDraft] = useState({ enabled: true, fromEmail: "", fromName: "" });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!webhookUrl) return;
+    api.getNotificationSettings(webhookUrl).then((loaded) => {
+      if (cancelled) return;
+      setSettings(loaded);
+      setDraft(loaded);
+    }).catch((err) => {
+      if (!cancelled) setMsg(`❌ Couldn't load notification settings: ${err.message}`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [webhookUrl]);
+
+  async function handleSave() {
+    setSaving(true);
+    setMsg("");
+    try {
+      const saved = await api.updateNotificationSettings(webhookUrl, draft);
+      setSettings(saved);
+      setDraft(saved);
+      setMsg("✓ Notification settings saved");
+    } catch (err) {
+      setMsg(`❌ ${err.message}`);
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMsg(""), 6000);
+    }
+  }
+
+  return (
+    <div style={{ ...s.card, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <i className="ti ti-mail" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+        <div>
+          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Email Notifications</p>
+          <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+            Routine assigned/submitted/approved emails, plus the daily aging-actions and low-stock digests. Admin-only — applies to
+            everyone, not just this device.
+          </p>
+        </div>
+      </div>
+
+      {!webhookUrl ? (
+        <p style={{ fontSize: 12, color: T.textMuted }}>Configure the Webhook URL above first.</p>
+      ) : settings === null ? (
+        <p style={{ fontSize: 12, color: T.textMuted }}>Loading…</p>
+      ) : (
+        <>
+          {!isAdmin && (
+            <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
+              <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can change these — shown here read-only.
+            </p>
+          )}
+          <Toggle
+            T={T}
+            s={s}
+            label="Enable email notifications"
+            desc="Turn every email this app sends on or off, platform-wide. Off means nobody gets any of them, not just you."
+            checked={draft.enabled}
+            onChange={(v) => isAdmin && setDraft((d) => ({ ...d, enabled: v }))}
+          />
+          <fieldset disabled={!isAdmin} style={{ border: "none", padding: 0, margin: 0, opacity: isAdmin ? 1 : 0.6 }}>
+            <Field
+              T={T}
+              s={s}
+              label="Notifications From (email)"
+              value={draft.fromEmail}
+              placeholder="reliability@arabiancement.com"
+              onChange={(v) => setDraft((d) => ({ ...d, fromEmail: v }))}
+              desc="So these emails come from the Reliability Platform, not a personal inbox. IMPORTANT: this address must first be added and verified as a 'Send As' alias in the Gmail account that owns this Apps Script deployment (Gmail → Settings → Accounts and Import → Send mail as) — otherwise Google silently keeps sending from that account's own address no matter what's typed here."
+            />
+            <Field
+              T={T}
+              s={s}
+              label="Display Name"
+              value={draft.fromName}
+              placeholder="Arabian Cement Reliability Platform"
+              onChange={(v) => setDraft((d) => ({ ...d, fromName: v }))}
+              desc="The friendly name shown in the From line — this part works immediately, no alias needed."
+            />
+          </fieldset>
+          {isAdmin && (
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <button style={s.btnPrimary} onClick={handleSave} disabled={saving}>
+                <i className={`ti ${saving ? "ti-loader" : "ti-device-floppy"}`} aria-hidden="true" /> {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
+          )}
+          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 // Ported from the original app's Settings (`Kh`): two tabs — Appearance (no
 // password) and Configuration (password 17593, re-required every time the
 // tab is opened) — App Status summary, export/import/reset/clear-cache
@@ -270,6 +386,8 @@ export default function Settings({
   navBridge,
 }) {
   const { T, s, themeName } = useTheme();
+  const session = useSession();
+  const isAdmin = (session?.claims?.roles || []).includes("ROLE-ADMIN");
   const [draft, setDraft] = useState(() => ({ ...config }));
   const [saved, setSaved] = useState(false);
   const [testMsg, setTestMsg] = useState("");
@@ -732,6 +850,8 @@ export default function Settings({
                   {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
                 </div>
               </div>
+
+              <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
             </div>
           )}
         </div>

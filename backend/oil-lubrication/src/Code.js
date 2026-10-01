@@ -33,6 +33,10 @@
 //                                              feed (see AuditLog.js), optionally
 //                                              narrowed to one equipment/routine/
 //                                              template/product id
+//   ?action=getNotificationSettings          → email on/off + from address/name
+//                                              (see Notifications.js) — admin-only to
+//                                              change (doPost updateNotificationSettings),
+//                                              open to read like every other GET
 //
 // STEP 5 (see docs/oil-lubrication-migration-notes.md): Oil Inventory —
 // same split as Step 2's Oil Change LOG. "Oil Inventory LOG" is the
@@ -198,6 +202,9 @@ function doGet(e) {
         break;
       case "getAuditTrail":
         result = getAuditTrail(e.parameter.recordId || "", scope, e.parameter.page, e.parameter.limit);
+        break;
+      case "getNotificationSettings":
+        result = getNotificationSettings_();
         break;
       case "test":
         result = { status:"ok", time: new Date().toISOString(), version:"4.0" };
@@ -484,6 +491,17 @@ function doPost(e) {
         logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         if (ok2) recordAudit_(ss, data.sheet, deleteLpId || data.matchValues.join(","), "delete", actingUser, scope || resolveLpContractor_(deleteLpId), "Deleted " + data.sheet + " entry");
         return jsonOut({status: ok2 ? "ok" : "row_not_found"});
+      }
+
+      if (data.action === "updateNotificationSettings") {
+        // Patch 14: platform-wide (not contractor-scoped), so this is
+        // gated to ROLE-ADMIN specifically — see requireAdmin_'s own
+        // comment in Rbac.js for why the generic hasPermission_('Edit')
+        // every Contractor Engineer already has isn't the right bar here.
+        requireAdmin_(auth.session);
+        var notifyResult = updateNotificationSettings_(data);
+        logError("doPost:updateNotificationSettings", notifyResult.error || "ok", {actingUser: actingUser});
+        return jsonOut(notifyResult.error ? {status: "error", message: notifyResult.error} : {status: "ok"});
       }
 
       logError("doPost:unknown-action", "no valid action", data);

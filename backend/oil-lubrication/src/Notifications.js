@@ -10,6 +10,67 @@
 // applyOilChangeSideEffect (App.jsx) — a failed email is a missed courtesy,
 // not a reason to fail or roll back the routine action that triggered it.
 
+// Patch 14 (plant-readiness pass) — an admin-controlled on/off switch for
+// every email this file sends, plus which address they appear to come
+// FROM, instead of silently going out under whoever's personal Google
+// account owns this Apps Script deployment. Stored in Script Properties
+// (PropertiesService), not a sheet: this is small, global, rarely-changed
+// config, not operational data anyone needs to browse or filter in the
+// spreadsheet the way OL_NOTIFY_REVIEWERS' actual distribution list is —
+// same reasoning DASHBOARD_CACHE_KEY-style settings already live in code/
+// properties rather than a row somewhere.
+var NOTIFY_ENABLED_PROP = "notify_email_enabled";
+var NOTIFY_FROM_EMAIL_PROP = "notify_from_email";
+var NOTIFY_FROM_NAME_PROP = "notify_from_name";
+
+function getNotificationSettings_() {
+  var props = PropertiesService.getScriptProperties();
+  var enabledRaw = props.getProperty(NOTIFY_ENABLED_PROP);
+  return {
+    // No stored value yet = ON, matching exactly how every notification in
+    // this file already behaved before this setting existed — turning this
+    // feature off is an explicit admin choice, not a surprise default.
+    enabled: enabledRaw === null ? true : enabledRaw === "true",
+    fromEmail: props.getProperty(NOTIFY_FROM_EMAIL_PROP) || "",
+    fromName: props.getProperty(NOTIFY_FROM_NAME_PROP) || "",
+  };
+}
+
+// IMPORTANT — a Google constraint, not a bug in this code: setting
+// fromEmail here only changes the actual FROM address on outgoing mail if
+// that address is already added and verified as a "Send As" alias on the
+// Gmail/Workspace account that owns this Apps Script deployment (Gmail →
+// Settings → Accounts and Import → "Send mail as" → Add another email
+// address → verify it). Without that, MailApp.sendEmail silently falls
+// back to sending as the deploying account's own address even though the
+// DISPLAY NAME (fromName) still changes correctly either way. Documented
+// prominently in the Settings UI and docs/deployment-guide.md section 4r
+// — this isn't something a screen alone can make work.
+function updateNotificationSettings_(data) {
+  var props = PropertiesService.getScriptProperties();
+  if (data.enabled !== undefined) props.setProperty(NOTIFY_ENABLED_PROP, data.enabled ? "true" : "false");
+  if (data.fromEmail !== undefined) {
+    var email = String(data.fromEmail || "").trim();
+    if (email && !looksLikeEmail_(email)) return { error: "That doesn't look like a valid email address." };
+    props.setProperty(NOTIFY_FROM_EMAIL_PROP, email);
+  }
+  if (data.fromName !== undefined) props.setProperty(NOTIFY_FROM_NAME_PROP, String(data.fromName || "").trim());
+  return { status: "ok" };
+}
+
+// Every MailApp.sendEmail call in this file goes through here instead of
+// calling it directly — one place to honor the enabled/disabled switch and
+// apply the configured from/name, rather than repeating that check at each
+// of the five send sites below.
+function sendNotificationEmail_(options) {
+  var settings = getNotificationSettings_();
+  if (!settings.enabled) return;
+  var payload = { to: options.to, subject: options.subject, body: options.body };
+  if (settings.fromEmail) payload.from = settings.fromEmail;
+  if (settings.fromName) payload.name = settings.fromName;
+  MailApp.sendEmail(payload);
+}
+
 // Reviewer distribution list lives in its own sheet
 // ("OL_NOTIFY_REVIEWERS", columns: Contractor, Email) rather than calling
 // Platform Core's account directory live — same reasoning Rbac.js's
@@ -59,7 +120,7 @@ function notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate) {
     "Route: " + label + "\n" +
     (dueDate ? "Due: " + formatDateForEmail_(dueDate) + "\n" : "") +
     "\nOpen My Work in the ACC Reliability Platform to see the checklist.";
-  MailApp.sendEmail(assignedTo, subject, body);
+  sendNotificationEmail_({ to: assignedTo, subject: subject, body: body });
 }
 
 function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) {
@@ -73,7 +134,7 @@ function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) 
     "Contractor: " + (contractor || "") + "\n" +
     (submittedBy ? "Submitted by: " + submittedBy + "\n" : "") +
     "\nOpen Routines in the ACC Reliability Platform to review and approve it.";
-  MailApp.sendEmail({ to: reviewers.join(","), subject: subject, body: body });
+  sendNotificationEmail_({ to: reviewers.join(","), subject: subject, body: body });
 }
 
 function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
@@ -85,7 +146,7 @@ function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
     "Route: " + label + "\n" +
     (approvedBy ? "Approved by: " + approvedBy + "\n" : "") +
     "\nNo action needed.";
-  MailApp.sendEmail(assignedTo, subject, body);
+  sendNotificationEmail_({ to: assignedTo, subject: subject, body: body });
 }
 
 // ─── Aging Actions digest (Patch 3 — owner field + aging escalation) ────
@@ -148,7 +209,7 @@ function sendAgingActionsDigest_() {
         lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (" + e.status + ", assigned to " + e.assignedTo + ", opened " + formatDateForEmail_(e.revisionDate) + ")");
       });
     }
-    MailApp.sendEmail({
+    sendNotificationEmail_({
       to: reviewers.join(","),
       subject: "Oil Lubrication: " + (bucket.noOwner.length + bucket.aging.length) + " aging action(s) — " + contractor,
       body: lines.join("\n"),
@@ -208,7 +269,7 @@ function sendLowStockDigest_() {
         ": " + it.currentStock + " " + it.unit + " left, recorder level " + it.recorderLevel + " " + it.unit
       );
     });
-    MailApp.sendEmail({
+    sendNotificationEmail_({
       to: reviewers.join(","),
       subject: "Oil Lubrication: " + items.length + " product(s) low on stock — " + contractor,
       body: lines.join("\n"),

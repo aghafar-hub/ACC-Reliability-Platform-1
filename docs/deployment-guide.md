@@ -808,6 +808,75 @@ section headers (SAMPLES TAKEN / OIL CHANGES PERFORMED / ACTIONS CLOSED)
 and that switching the contractor filter actually changes which rows
 appear.
 
+## 4r. Admin-controlled email notification settings
+
+Every email Notifications.js sends (Routine assigned/submitted/approved,
+the daily aging-actions and low-stock digests) used to go out under
+whoever's personal Google account owns this Apps Script deployment, with
+no way to turn it off platform-wide. This adds an admin screen for both.
+
+**Where**: Oil Lubrication → Settings → Configuration tab (password
+`17593`, same gate as the rest of that tab) → "Email Notifications"
+card, near the bottom.
+
+**What it controls**:
+- **Enable email notifications** — on/off for every email this app
+  sends, platform-wide (not per-device). Off means nobody gets any of
+  them, not just whoever flips the switch.
+- **Notifications From (email)** — the address these emails should
+  appear to come from, instead of a personal inbox.
+- **Display Name** — the friendly name shown in the From line.
+
+**IMPORTANT — a Google constraint, not a limitation of this app**: typing
+an address into "Notifications From" is not enough on its own. For Google
+to actually send AS that address, it must first be added and verified as
+a "Send As" alias on the Gmail/Workspace account that owns this Apps
+Script deployment:
+
+1. In that Gmail account: Settings (gear icon) → **See all settings** →
+   **Accounts and Import** tab → **Send mail as** → **Add another email
+   address**.
+2. Enter the reliability-app address (e.g. `reliability@arabiancement.com`)
+   and follow Google's verification step (a confirmation email/link).
+3. Once verified, the From field here will actually take effect.
+
+Until that's done, Google silently keeps sending from the deploying
+account's own address no matter what's configured here — the **Display
+Name** still changes immediately with no alias needed (most inboxes show
+it instead of the raw address at a glance), but the underlying address
+won't change until the alias is verified.
+
+**Who can change it**: gated to real Admin accounts (ROLE-ADMIN in the
+Platform Core session) — the server rejects a save from anyone else
+(`requireAdmin_`, Rbac.js) regardless of what the UI shows. A
+non-admin viewing this card sees it read-only with an explanatory note,
+rather than being able to attempt a save that will just fail.
+
+**Code**: `Rbac.js` gained `requireAdmin_`. `Notifications.js` gained
+`getNotificationSettings_`/`updateNotificationSettings_` (stored in
+Script Properties, not a sheet — small, rarely-changed global config, not
+something anyone needs to browse/filter the way the
+OL_NOTIFY_REVIEWERS distribution list is) and `sendNotificationEmail_`,
+which every one of the five existing `MailApp.sendEmail` call sites now
+goes through instead of calling it directly. `Code.js` gained the
+`getNotificationSettings` GET case and the admin-gated
+`updateNotificationSettings` POST action. Frontend: `api.js` gained
+`getNotificationSettings`/`updateNotificationSettings`; `Settings.jsx`
+gained the `NotificationSettingsCard` component, reads the session's
+roles via `useSession()` (SessionContext.jsx) to decide whether to allow
+editing.
+
+**No stored value yet = notifications ON** — matches exactly how every
+notification already behaved before this setting existed, so deploying
+this patch changes nothing until an admin actively turns something off.
+
+**Verify**: as an Admin, open the card, confirm it loads the current
+state, toggle it off, save, and confirm (e.g. by approving a routine)
+that no email goes out. Turn it back on, set a Display Name, save, and
+confirm a real notification shows that name in the From line. As a
+non-admin account, confirm the card shows read-only with the explanatory
+note instead of editable fields.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
