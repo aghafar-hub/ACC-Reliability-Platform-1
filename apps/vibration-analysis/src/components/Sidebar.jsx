@@ -42,9 +42,19 @@ export default function Sidebar({ page, setPage, syncState, onSync, actionCounts
         {NAV_ITEMS.map((item) => (
           <div
             key={item.key}
+            role="button"
+            tabIndex={0}
+            aria-current={page === item.key ? "page" : undefined}
             onClick={() => {
               setPage(item.key);
               setMobileOpen(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setPage(item.key);
+                setMobileOpen(false);
+              }
             }}
             style={{
               display: "flex",
@@ -56,7 +66,9 @@ export default function Sidebar({ page, setPage, syncState, onSync, actionCounts
               marginBottom: 2,
               fontSize: 13,
               fontWeight: 600,
-              color: page === item.key ? T.accent : T.textSecondary,
+              // T.textSecondary is tuned for the light cardBg -- this sits on
+              // T.sidebarBg instead, which for "ACC Corporate" is dark.
+              color: page === item.key ? T.accent : T.sidebarTextSecondary,
               background: page === item.key ? T.navActive : "transparent",
             }}
           >
@@ -81,7 +93,7 @@ export default function Sidebar({ page, setPage, syncState, onSync, actionCounts
               boxShadow: syncState.status === "loading" ? `0 0 0 3px ${dotColor}33` : "none",
             }}
           />
-          <span style={{ fontSize: 11, color: T.textSecondary, lineHeight: 1.3 }}>{syncState.message}</span>
+          <span style={{ fontSize: 11, color: T.sidebarTextSecondary, lineHeight: 1.3 }}>{syncState.message}</span>
         </div>
         <button
           onClick={onSync}
@@ -92,7 +104,7 @@ export default function Sidebar({ page, setPage, syncState, onSync, actionCounts
             justifyContent: "center",
             gap: 6,
             background: "transparent",
-            color: T.textPrimary,
+            color: T.sidebarText,
             border: `1px solid ${T.border}`,
             borderRadius: 8,
             padding: "8px 14px",

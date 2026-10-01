@@ -56,3 +56,16 @@
      without touching either app's own code. */
   zoom: 0.9;
 }
+
+/* zoom only reached full cross-engine support in Firefox 126 (May 2024) —
+   on an older non-evergreen browser it silently no-ops, leaving the
+   embedded apps ~11% larger than this shell's padding budget intends.
+   transform:scale doesn't shrink the layout box the way zoom does, so it
+   has to be paired with a matching width correction to avoid clipping. */
+@supports not (zoom: 1) {
+  .app-content--embedded {
+    transform: scale(0.9);
+    transform-origin: top left;
+    width: calc(100% / 0.9);
+  }
+}

@@ -49,7 +49,7 @@ export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOp
             <i className="ti ti-arrow-left" aria-hidden="true" /> Back
           </button>
         )}
-        <span className="app-topbar-title" style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary }}>
+        <span className="app-topbar-title" style={{ fontSize: 16, fontWeight: 700, color: T.sidebarText }}>
           {title}
         </span>
       </div>
@@ -77,7 +77,7 @@ export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOp
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: online ? T.success : T.danger, flexShrink: 0 }} />
           <span className="topbar-date">{online ? "Online" : "Offline"}</span>
         </span>
-        <span className="topbar-date" style={{ fontSize: 12, color: T.textSecondary }}>
+        <span className="topbar-date" style={{ fontSize: 12, color: T.sidebarTextSecondary }}>
           {new Date().toLocaleDateString("en-GB", { dateStyle: "long" })}
         </span>
         {sheetUrl && (

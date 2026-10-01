@@ -654,6 +654,28 @@ backends, real Sheet schemas) and gave an opinion before any changes:
   be worked through and adjusted afterward**, once both are copied in —
   not resolved as a precondition of copying them in.
 
+## Round 21 — apps/ copies promoted from "do not edit" to actively maintained
+
+A UI/UX review (ui-ux-pro-max skill) found real bugs inside
+`apps/oil-analysis` and `apps/vibration-analysis` themselves — an invisible-
+text contrast bug in the shared "ACC Corporate" theme, a missing mobile
+breakpoint leaving vibration-analysis's standalone sidebar permanently
+stuck open on phones/tablets, and sidebar nav items with no keyboard
+support. Fixing them meant editing files under `apps/` directly.
+
+**Decision:** the Round 20 "their code is never to be touched/edited" rule
+only ever covered the initial copy-in step itself — Round 20 already said
+problems "will be worked through and adjusted afterward." Patches since
+then (native Routines/Inventory pages, TechnicianPicker, etc.) already
+crossed that line in practice. Made explicit now: `apps/vibration-analysis/`
+and `apps/oil-analysis/` are ordinary, actively-maintained parts of this
+repo going forward, same as any other folder. `aghafar-hub/ACC-Vibration-
+Analysis-App` and `acc-oil-analysis-app` remain whatever they are today
+(historical origin, and/or still the live production deployment for now)
+but are no longer this repo's source of truth — no obligation to keep
+these folders in sync with them. README.md's `apps/` section updated to
+match.
+
 ## Open items (not yet discussed / to ask about later)
 
 - Full list of modules planned (beyond the 4 named so far) and their

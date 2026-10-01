@@ -37,8 +37,18 @@ export default function TopBar() {
     function onDocClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     }
+    // Keyboard users can open this menu (it's a real <button>) but had no
+    // way to close it short of a mouse click elsewhere -- Escape matches
+    // the standard disclosure-widget pattern.
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMenuOpen(false);
+    }
     document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [menuOpen]);
 
   const email = claims?.email || '';
@@ -69,7 +79,13 @@ export default function TopBar() {
         </NavLink>
 
         <div className="shell-topbar-user" ref={menuRef}>
-          <button type="button" className="shell-topbar-user-trigger" onClick={() => setMenuOpen((o) => !o)}>
+          <button
+            type="button"
+            className="shell-topbar-user-trigger"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
             <span className="shell-topbar-avatar">{initials}</span>
             <span className="shell-topbar-user-info">
               <span className="shell-topbar-user-name">{email}</span>

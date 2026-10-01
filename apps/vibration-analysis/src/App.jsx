@@ -435,6 +435,36 @@ export default function App({ navBridge } = {}) {
 
   return (
     <div style={{ minHeight: "100%" }}>
+      {/*
+        Sidebar.jsx/TopBar.jsx already wire up mobileOpen state, the
+        app-sidebar "open" class, the sidebar-overlay backdrop, and the
+        hamburger-btn toggle button -- but no @media rule anywhere ever
+        made the hamburger visible or the sidebar collapse, so on a narrow
+        screen the sidebar just sat fixed at 232px forever, eating most of
+        the viewport. Mirrors apps/oil-analysis's own 860px breakpoint for
+        consistency between the two sibling apps.
+      */}
+      <style>{`
+        .hamburger-btn { display: none; }
+        .sidebar-overlay { display: none; }
+
+        @media (max-width: 860px) {
+          .app-sidebar {
+            transform: translateX(-100%);
+            transition: transform 0.25s ease;
+          }
+          .app-sidebar.open { transform: translateX(0); }
+          .hamburger-btn { display: inline-flex !important; }
+          .sidebar-overlay.show {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+          }
+          .app-main { margin-left: 0 !important; }
+        }
+      `}</style>
       {!navBridge && (
         <Sidebar
           page={page}

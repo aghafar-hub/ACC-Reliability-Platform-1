@@ -26,29 +26,34 @@ backend/
                           Apps Script deployment and own Sheets — modules
                           never share sheets with each other or with
                           Platform Core (spec §3, §11).
-apps/                    Existing standalone apps, copied in as-is (see
-                          below) — not built against the Foundation.
+apps/                    Oil Lubrication & Analysis and Vibration Analysis
+                          modules, not yet rebuilt against the Foundation
+                          — actively maintained in this repo (see below).
 scripts/                 One-off setup/deployment helper scripts.
 docs/                    Specs and the requirements decision log.
 ```
 
-## `apps/` — existing standalone apps, copied in as-is
+## `apps/` — Oil Analysis and Vibration Analysis (pre-Foundation)
 
-`apps/vibration-analysis/` and `apps/oil-analysis/` are verbatim copies of
-two already-built, currently-in-use apps
+`apps/vibration-analysis/` and `apps/oil-analysis/` started out as
+byte-for-byte copies of two already-built, currently-in-use apps
 ([`aghafar-hub/ACC-Vibration-Analysis-App`](https://github.com/aghafar-hub/ACC-Vibration-Analysis-App),
-[`aghafar-hub/acc-oil-analysis-app`](https://github.com/aghafar-hub/acc-oil-analysis-app)),
-each with real production data and their own separate Google Sheet +
-Apps Script backend. **They are copied in exactly as they are — do not
-edit any file under `apps/`.** See each one's own `docs/` folder for its
-architecture, Sheet schema, and known gaps.
+[`aghafar-hub/acc-oil-analysis-app`](https://github.com/aghafar-hub/acc-oil-analysis-app))
+— see `docs/requirements-notes.md` (Round 20) for the full reasoning.
+That "do not edit" rule only ever covered the initial copy-in step itself
+("problems...will be worked through and adjusted afterward" — Round 20).
+Both folders are now ordinary, actively-maintained parts of this repo (see
+Round 21): fix bugs and build features directly in them like anywhere
+else in this codebase. The two source repos above are no longer this
+repo's source of truth, and there's no obligation to keep these folders
+in sync with them. See each one's own `docs/` folder for its architecture
+and Sheet schema.
 
 Neither has authentication, RBAC, or contractor-isolation enforcement —
 both predate and conflict with the Foundation spec's security model
-(§6 of `docs/platform-foundation-spec.md`). Per the decision in
-`docs/requirements-notes.md` (round 20), that gap is accepted for now and
-will be worked through once both are copied in — not a precondition of
-bringing them in. Do not treat either as a template for how the real
+(§6 of `docs/platform-foundation-spec.md`). That gap will be worked
+through as part of building each one's real Foundation-compliant module —
+do not treat either app's current code as a template for how the real
 Oil Analysis or Vibration modules should be built against the Foundation.
 
 ## Architecture in one paragraph (Foundation build)
