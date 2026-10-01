@@ -7,6 +7,40 @@ import ProgressBar from "../components/ProgressBar";
 
 const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitted", "Approved"];
 
+// Patch 20: the unified Routines overview's own status vocabulary — distinct
+// from a single instance's workflow status (Unassigned/.../Approved) above.
+// See RouteTemplates.js's getRoutinesOverview for exactly how each is
+// computed (a template's own NextGenerateDate vs. today, or a standalone
+// routine's DueDate vs. today / already Approved).
+const DUE_STATUS_FILTERS = ["All", "Overdue", "Due Soon", "On Schedule", "Paused", "Completed"];
+const DUE_STATUS_COLOR = { Overdue: "danger", "Due Soon": "warning", "On Schedule": "success", Paused: "textMuted", Completed: "success", Unknown: "textMuted" };
+
+function DueStatusBadge({ T, status }) {
+  const color = T[DUE_STATUS_COLOR[status]] || T.textSecondary;
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        fontSize: 10.5,
+        fontWeight: 700,
+        color,
+        background: color + "22",
+        borderRadius: 4,
+        padding: "2px 7px",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {status}
+    </span>
+  );
+}
+
+function formatDateShort(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+}
+
 // How long a routine has sat since it was created without being submitted —
 // surfaced so a stalled routine (assigned to a contractor who hasn't
 // touched it, or an auto-generated one nobody's assigned yet) is visible
@@ -20,123 +54,11 @@ function agingLabel(createdDate, status) {
   return `${days} day${days !== 1 ? "s" : ""} ago`;
 }
 
-function RouteTemplatesPanel({ webhookUrl, pushToast, refreshSignal }) {
-  const { T, s } = useTheme();
-  const [open, setOpen] = useState(false);
-  const [templates, setTemplates] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [working, setWorking] = useState(null); // templateId currently being acted on
-
-  const refresh = useCallback(async () => {
-    if (!webhookUrl) return;
-    setLoading(true);
-    try {
-      const rows = await api.getRouteTemplates(webhookUrl);
-      setTemplates(rows);
-    } catch (err) {
-      pushToast(err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [webhookUrl, pushToast]);
-
-  useEffect(() => {
-    if (open) refresh();
-  }, [open, refresh, refreshSignal]);
-
-  async function toggleStatus(t) {
-    setWorking(t.templateId);
-    try {
-      const next = t.status === "Active" ? "Paused" : "Active";
-      await api.setRouteTemplateStatus(webhookUrl, t.templateId, next);
-      await refresh();
-    } catch (err) {
-      pushToast(err.message, "error");
-    } finally {
-      setWorking(null);
-    }
-  }
-
-  async function remove(t) {
-    setWorking(t.templateId);
-    try {
-      await api.deleteRouteTemplate(webhookUrl, t.templateId);
-      await refresh();
-      pushToast("Recurring route deleted.", "success");
-    } catch (err) {
-      pushToast(err.message, "error");
-    } finally {
-      setWorking(null);
-    }
-  }
-
-  return (
-    <div style={{ ...s.card, marginBottom: 16 }}>
-      <div
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
-        onClick={() => setOpen((v) => !v)}
-      >
-        <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>
-          <i className={`ti ti-chevron-${open ? "down" : "right"}`} aria-hidden="true" style={{ marginRight: 6 }} />
-          Recurring Routes {templates.length > 0 ? `(${templates.length})` : ""}
-        </p>
-      </div>
-      {open &&
-        (loading ? (
-          <p style={{ color: T.textSecondary, fontSize: 13, marginTop: 10 }}>Loading…</p>
-        ) : templates.length === 0 ? (
-          <p style={{ color: T.textSecondary, fontSize: 13, marginTop: 10 }}>No recurring routes yet — set Frequency in Create Route.</p>
-        ) : (
-          <div style={{ marginTop: 12, overflowX: "auto" }}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Route Name</th>
-                  <th style={s.th}>Type</th>
-                  <th style={s.th}>Contractor</th>
-                  <th style={s.th}>Area</th>
-                  <th style={s.th}>Frequency</th>
-                  <th style={s.th}>Next Generate</th>
-                  <th style={s.th}>Status</th>
-                  <th style={s.th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {templates.map((t) => (
-                  <tr key={t.templateId}>
-                    <td style={s.td}>{t.routeName}</td>
-                    <td style={s.td}>{t.routeType}</td>
-                    <td style={s.td}>{t.contractor}</td>
-                    <td style={s.td}>{t.area || "All"}</td>
-                    <td style={s.td}>{t.frequency}</td>
-                    <td style={s.td}>{t.nextGenerateDate || "—"}</td>
-                    <td style={s.td}>
-                      <span style={s.badge(t.status)}>{t.status}</span>
-                    </td>
-                    <td style={s.td}>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11.5 }} disabled={working === t.templateId} onClick={() => toggleStatus(t)}>
-                          {t.status === "Active" ? "Pause" : "Resume"}
-                        </button>
-                        <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11.5 }} disabled={working === t.templateId} onClick={() => remove(t)}>
-                          <i className="ti ti-trash" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
-    </div>
-  );
-}
-
-// A routine's own due-passed check — distinct from its workflow status
-// (Unassigned/Assigned/.../Approved), since a route can be "Assigned" and
-// still be sitting past its due date. Submitted/Approved routines are done
-// with, so they don't count as overdue even past their due date.
+// A routine instance's own due-passed check — distinct from its workflow
+// status (Unassigned/Assigned/.../Approved), since a route can be
+// "Assigned" and still be sitting past its due date. Submitted/Approved
+// routines are done with, so they don't count as overdue even past their
+// due date.
 function isOverdue(r, now) {
   if (!r.dueDate || r.status === "Submitted" || r.status === "Approved") return false;
   const d = new Date(r.dueDate);
@@ -160,93 +82,173 @@ export default function Routines({
   onInitialRoutineConsumed,
 }) {
   const { T, s } = useTheme();
-  const [view, setView] = useState("list"); // "list" | "detail" | "new"
+  // Patch 20: "overview" (the new unified templates + standalone-routines
+  // list) is now the landing view, replacing the old "list" (every
+  // instance, flat). "templateDetail" drills into one recurring template's
+  // own generated instances — see openOverviewItem below.
+  const [view, setView] = useState("overview"); // "overview" | "templateDetail" | "detail" | "new"
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null); // the overview item being drilled into
 
   // Patch 15: the notification bell deep-links straight into a specific
   // routine's detail view (e.g. "you were assigned RT-123") instead of
   // leaving the user to find it in the list themselves — mirrors the
   // initialCode/oilReportCode pattern Equipment/OilReportSearch already
   // use for the same "arrived here from outside wanting one specific
-  // record" case.
+  // record" case. Unaffected by the Patch 20 restructure.
   useEffect(() => {
     if (!initialRoutineId) return;
     setSelectedRoutineId(initialRoutineId);
     setView("detail");
     onInitialRoutineConsumed?.();
   }, [initialRoutineId, onInitialRoutineConsumed]);
-  const [routines, setRoutines] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [contractorFilter, setContractorFilter] = useState("All");
-  const [overdueOnly, setOverdueOnly] = useState(false);
-  const [templatesRefreshKey, setTemplatesRefreshKey] = useState(0);
 
-  const now = Date.now();
-  const overdueList = useMemo(() => routines.filter((r) => isOverdue(r, now)), [routines, now]);
-  const unassignedList = useMemo(() => routines.filter((r) => r.status === "Unassigned"), [routines]);
-  const inProgressCount = routines.filter((r) => r.status === "InProgress").length;
-  const completedThisMonthCount = routines.filter((r) => {
-    if (r.status !== "Approved" || !r.approvedDate) return false;
-    const d = new Date(r.approvedDate);
-    const t = new Date(now);
-    return !isNaN(d) && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear();
-  }).length;
+  // ─── Overview (Patch 20 main view) ───────────────────────────────────
+  const [overviewItems, setOverviewItems] = useState([]);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(null);
+  const [areaFilter, setAreaFilter] = useState("All");
+  const [dueStatusFilter, setDueStatusFilter] = useState("All");
+  const [overviewSearch, setOverviewSearch] = useState("");
 
-  // key -> the STATUS_FILTERS value each card filters to when clicked
-  // (null for "overdue", which is the separate overdueOnly toggle instead).
-  const overviewCards = [
-    { key: "unassigned", label: "Unassigned", value: unassignedList.length, color: "danger", icon: "ti-user-off", filtersToStatus: "Unassigned" },
-    { key: "inprogress", label: "In Progress", value: inProgressCount, color: "warning", icon: "ti-clock", filtersToStatus: "InProgress" },
-    { key: "overdue", label: "Overdue", value: overdueList.length, color: "danger", icon: "ti-alert-triangle", filtersToStatus: null },
-    { key: "completed", label: "Completed This Month", value: completedThisMonthCount, color: "success", icon: "ti-check", filtersToStatus: "Approved" },
-  ];
-
-  // Unassigned + overdue routines, most urgent first (unassigned-and-
-  // overdue worst of all), each opening straight into RoutineDetail —
-  // same "cross-cutting risk list" role Dashboard's Needs Attention plays.
-  const needsAttention = useMemo(() => {
-    const seen = new Set();
-    const list = [];
-    for (const r of unassignedList) {
-      seen.add(r.routineId);
-      list.push({ r, overdue: isOverdue(r, now) });
-    }
-    for (const r of overdueList) {
-      if (seen.has(r.routineId)) continue;
-      list.push({ r, overdue: true });
-    }
-    return list.sort((a, b) => {
-      const score = (x) => (x.r.status === "Unassigned" ? 2 : 0) + (x.overdue ? 1 : 0);
-      return score(b) - score(a);
-    });
-  }, [unassignedList, overdueList, now]);
-
-  // Real contractor values from the registry, not a hardcoded guess — so a
-  // future third contractor shows up here automatically.
-  const contractorFilters = useMemo(() => {
-    const real = Array.from(new Set((equipmentRegistry || []).map((r) => r.contractor).filter(Boolean))).sort();
-    return ["All", ...real];
-  }, [equipmentRegistry]);
-
-  const refresh = useCallback(async () => {
+  const refreshOverview = useCallback(async () => {
     if (!webhookUrl) return;
-    setLoading(true);
-    setError(null);
+    setOverviewLoading(true);
+    setOverviewError(null);
     try {
-      const rows = await api.getRoutines(webhookUrl);
-      setRoutines(rows.sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate)));
+      const items = await api.getRoutinesOverview(webhookUrl);
+      setOverviewItems(items);
     } catch (err) {
-      setError(err.message);
+      setOverviewError(err.message);
     } finally {
-      setLoading(false);
+      setOverviewLoading(false);
     }
   }, [webhookUrl]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    refreshOverview();
+  }, [refreshOverview]);
+
+  const areaOptions = useMemo(
+    () => ["All", ...Array.from(new Set(overviewItems.map((i) => i.area).filter(Boolean))).sort()],
+    [overviewItems]
+  );
+
+  const overviewKpis = useMemo(
+    () => ({
+      total: overviewItems.length,
+      onSchedule: overviewItems.filter((i) => i.dueStatus === "On Schedule").length,
+      dueSoon: overviewItems.filter((i) => i.dueStatus === "Due Soon").length,
+      overdue: overviewItems.filter((i) => i.dueStatus === "Overdue").length,
+    }),
+    [overviewItems]
+  );
+
+  const visibleOverviewItems = useMemo(() => {
+    const q = overviewSearch.trim().toLowerCase();
+    return overviewItems.filter((i) => {
+      if (areaFilter !== "All" && i.area !== areaFilter) return false;
+      if (dueStatusFilter !== "All" && i.dueStatus !== dueStatusFilter) return false;
+      if (q && !(i.routeName || "").toLowerCase().includes(q) && !(i.id || "").toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [overviewItems, areaFilter, dueStatusFilter, overviewSearch]);
+
+  function openOverviewItem(item) {
+    if (item.kind === "template") {
+      setSelectedTemplate(item);
+      setView("templateDetail");
+    } else {
+      setSelectedRoutineId(item.id);
+      setView("detail");
+    }
+  }
+
+  // ─── Template Detail (drill-down into one recurring template's own
+  // generated instances) — reuses the exact instance-list rendering the
+  // old flat "list" view used, just scoped to one template instead of
+  // every routine in the system. ──────────────────────────────────────
+  const [templateInstances, setTemplateInstances] = useState([]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateWorking, setTemplateWorking] = useState(false);
+  const [instanceStatusFilter, setInstanceStatusFilter] = useState("All");
+  const [instanceOverdueOnly, setInstanceOverdueOnly] = useState(false);
+
+  const refreshTemplateInstances = useCallback(async () => {
+    if (!webhookUrl || !selectedTemplate) return;
+    setTemplateLoading(true);
+    try {
+      const rows = await api.getRoutines(webhookUrl);
+      setTemplateInstances(
+        rows
+          .filter((r) => r.sourceTemplateId === selectedTemplate.id)
+          .sort((a, b) => new Date(b.createdDate) - new Date(a.createdDate))
+      );
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setTemplateLoading(false);
+    }
+  }, [webhookUrl, selectedTemplate, pushToast]);
+
+  useEffect(() => {
+    if (view === "templateDetail") refreshTemplateInstances();
+  }, [view, refreshTemplateInstances]);
+
+  async function toggleTemplateStatus() {
+    if (!selectedTemplate) return;
+    setTemplateWorking(true);
+    try {
+      const next = selectedTemplate.templateStatus === "Active" ? "Paused" : "Active";
+      await api.setRouteTemplateStatus(webhookUrl, selectedTemplate.id, next);
+      setSelectedTemplate((t) => ({ ...t, templateStatus: next, dueStatus: next === "Paused" ? "Paused" : t.dueStatus }));
+      pushToast(`Route ${next === "Paused" ? "paused" : "resumed"}.`, "success");
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setTemplateWorking(false);
+    }
+  }
+
+  async function deleteTemplate() {
+    if (!selectedTemplate) return;
+    if (!window.confirm(`Delete the recurring route "${selectedTemplate.routeName}"? This doesn't delete routines it already generated.`)) return;
+    setTemplateWorking(true);
+    try {
+      await api.deleteRouteTemplate(webhookUrl, selectedTemplate.id);
+      pushToast("Recurring route deleted.", "success");
+      setView("overview");
+      setSelectedTemplate(null);
+      refreshOverview();
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setTemplateWorking(false);
+    }
+  }
+
+  const now = Date.now();
+  const visibleTemplateInstances = templateInstances.filter((r) => {
+    if (instanceStatusFilter !== "All" && r.status !== instanceStatusFilter) return false;
+    if (instanceOverdueOnly && !isOverdue(r, now)) return false;
+    return true;
+  });
+
+  function openRoutine(routineId) {
+    setSelectedRoutineId(routineId);
+    setView("detail");
+  }
+
+  function backToOverviewOrTemplate() {
+    setSelectedRoutineId(null);
+    if (selectedTemplate) {
+      setView("templateDetail");
+      refreshTemplateInstances();
+    } else {
+      setView("overview");
+      refreshOverview();
+    }
+  }
 
   if (!webhookUrl) {
     return <p style={{ color: T.textSecondary }}>Add your Apps Script webhook URL in Settings first.</p>;
@@ -263,27 +265,163 @@ export default function Routines({
         oilChanges={oilChanges}
         pushToast={pushToast}
         onDataChanged={onDataChanged}
-        onBack={() => {
-          setView("list");
-          setSelectedRoutineId(null);
-          refresh();
-        }}
+        onBack={backToOverviewOrTemplate}
       />
     );
   }
 
-  const visible = routines.filter((r) => {
-    if (statusFilter !== "All" && r.status !== statusFilter) return false;
-    if (contractorFilter !== "All" && r.contractor !== contractorFilter) return false;
-    if (overdueOnly && !isOverdue(r, now)) return false;
-    return true;
-  });
-
-  function openRoutine(routineId) {
-    setSelectedRoutineId(routineId);
-    setView("detail");
+  if (view === "new") {
+    return (
+      <NewRoutine
+        webhookUrl={webhookUrl}
+        equipmentRegistry={equipmentRegistry}
+        samples={samples}
+        actions={actions}
+        oilChanges={oilChanges}
+        pushToast={pushToast}
+        onCreated={(routineId, templateId) => {
+          setView("overview");
+          refreshOverview();
+          if (routineId) {
+            setSelectedRoutineId(routineId);
+            setView("detail");
+          }
+          void templateId; // overview already re-fetches both templates and standalone routines
+        }}
+        onCancel={() => setView(selectedTemplate ? "templateDetail" : "overview")}
+      />
+    );
   }
 
+  if (view === "templateDetail" && selectedTemplate) {
+    const overdueCount = templateInstances.filter((r) => isOverdue(r, now)).length;
+    const unassignedCount = templateInstances.filter((r) => r.status === "Unassigned").length;
+    return (
+      <div>
+        <button style={{ ...s.btn, marginBottom: 14 }} onClick={() => { setView("overview"); setSelectedTemplate(null); refreshOverview(); }}>
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 6 }}>
+          <div>
+            <p style={{ ...s.sectionTitle, margin: 0 }}>{selectedTemplate.routeName}</p>
+            <p style={{ fontSize: 12, color: T.textSecondary, margin: "4px 0 0" }}>
+              {selectedTemplate.routeType} · {selectedTemplate.contractor} · {selectedTemplate.frequency}
+              {selectedTemplate.area ? ` · ${selectedTemplate.area}` : ""} · {selectedTemplate.equipmentCount} equipment
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <DueStatusBadge T={T} status={selectedTemplate.dueStatus} />
+            <button style={s.btn} disabled={templateWorking} onClick={toggleTemplateStatus}>
+              {selectedTemplate.templateStatus === "Active" ? "Pause" : "Resume"}
+            </button>
+            <button style={{ ...s.btn, color: T.danger, borderColor: T.danger }} disabled={templateWorking} onClick={deleteTemplate}>
+              <i className="ti ti-trash" aria-hidden="true" /> Delete Route
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, margin: "16px 0 20px" }}>
+          {[
+            { label: "Instances Generated", value: templateInstances.length, color: "accent" },
+            { label: "Unassigned", value: unassignedCount, color: "danger" },
+            { label: "Overdue", value: overdueCount, color: "warning" },
+            { label: "Next Due", value: formatDateShort(selectedTemplate.nextDueDate), color: "textPrimary", isText: true },
+          ].map((m) => (
+            <div key={m.label} style={s.metricCard}>
+              <div style={{ fontSize: m.isText ? 14 : 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+              <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+          {STATUS_FILTERS.map((st) => (
+            <button
+              key={st}
+              style={{
+                ...s.btn,
+                fontSize: 12,
+                background: instanceStatusFilter === st ? T.accent : "transparent",
+                color: instanceStatusFilter === st ? T.accentText : T.textSecondary,
+                borderColor: instanceStatusFilter === st ? T.accent : T.border,
+              }}
+              onClick={() => setInstanceStatusFilter(st)}
+            >
+              {st}
+            </button>
+          ))}
+          <div style={{ width: 1, background: T.border, margin: "0 4px" }} />
+          <button
+            style={{
+              ...s.btn,
+              fontSize: 12,
+              background: instanceOverdueOnly ? T.danger : "transparent",
+              color: instanceOverdueOnly ? "#fff" : T.textSecondary,
+              borderColor: instanceOverdueOnly ? T.danger : T.border,
+            }}
+            onClick={() => setInstanceOverdueOnly((v) => !v)}
+          >
+            Overdue only
+          </button>
+        </div>
+
+        {templateLoading ? (
+          <p style={{ color: T.textSecondary }}>Loading instances…</p>
+        ) : visibleTemplateInstances.length === 0 ? (
+          <div style={s.card}>
+            <p style={{ color: T.textSecondary, margin: 0 }}>
+              {templateInstances.length === 0 ? "No instances generated yet." : "No instances match the filter."}
+            </p>
+          </div>
+        ) : (
+          <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  <th style={s.th}>Route Name</th>
+                  <th style={s.th}>Assigned To</th>
+                  <th style={s.th}>Status</th>
+                  <th style={s.th}>Progress</th>
+                  <th style={s.th}>Due</th>
+                  <th style={s.th}>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleTemplateInstances.map((r) => {
+                  const aging = agingLabel(r.createdDate, r.status);
+                  const overdue = isOverdue(r, now);
+                  return (
+                    <tr
+                      key={r.routineId}
+                      style={{ cursor: "pointer", background: overdue ? T.danger + "0d" : "transparent" }}
+                      onClick={() => openRoutine(r.routineId)}
+                    >
+                      <td style={s.td}>{r.routeName || "—"}</td>
+                      <td style={s.td}>{r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}</td>
+                      <td style={s.td}>
+                        <span style={s.badge(r.status)}>{r.status}</span>
+                      </td>
+                      <td style={s.td}>
+                        <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
+                      </td>
+                      <td style={s.td}>{r.dueDate || "—"}</td>
+                      <td style={s.td}>
+                        {r.createdDate || "—"}
+                        {aging && <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Default: Overview ────────────────────────────────────────────────
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
@@ -293,195 +431,62 @@ export default function Routines({
         </button>
       </div>
 
-      {view === "new" && (
-        <NewRoutine
-          webhookUrl={webhookUrl}
-          equipmentRegistry={equipmentRegistry}
-          samples={samples}
-          actions={actions}
-          oilChanges={oilChanges}
-          pushToast={pushToast}
-          onCreated={(routineId, templateId) => {
-            setView("list");
-            refresh();
-            if (routineId) {
-              setSelectedRoutineId(routineId);
-              setView("detail");
-            }
-            if (templateId) setTemplatesRefreshKey((k) => k + 1);
-          }}
-          onCancel={() => setView("list")}
-        />
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 20 }}>
-        {overviewCards.map((m) => {
-          const isActive = m.key === "overdue" ? overdueOnly : statusFilter === m.filtersToStatus;
-          return (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
+        {[
+          { key: "All", label: "Total Routines", value: overviewKpis.total, color: "accent" },
+          { key: "On Schedule", label: "On Schedule", value: overviewKpis.onSchedule, color: "success" },
+          { key: "Due Soon", label: "Due Soon (≤7 days)", value: overviewKpis.dueSoon, color: "warning" },
+          { key: "Overdue", label: "Overdue", value: overviewKpis.overdue, color: "danger" },
+        ].map((m) => (
           <div
             key={m.key}
-            onClick={() => {
-              if (m.key === "overdue") {
-                setOverdueOnly((v) => !v);
-                setStatusFilter("All");
-              } else {
-                setOverdueOnly(false);
-                setStatusFilter((cur) => (cur === m.filtersToStatus ? "All" : m.filtersToStatus));
-              }
-            }}
+            onClick={() => setDueStatusFilter((cur) => (cur === m.key ? "All" : m.key))}
             title={`${m.value} ${m.label} — click to filter the list below`}
-            style={{
-              ...s.metricCard,
-              cursor: "pointer",
-              border: `1px solid ${isActive ? T[m.color] : T.border}`,
-            }}
+            style={{ ...s.metricCard, cursor: "pointer", border: `1px solid ${dueStatusFilter === m.key ? T[m.color] : T.border}` }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 9,
-                  background: T[m.color] + "2A",
-                  color: T[m.color],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <i className={`ti ${m.icon}`} style={{ fontSize: 16 }} aria-hidden="true" />
-              </div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-                <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
-              </div>
-            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+            <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
           </div>
-          );
-        })}
+        ))}
       </div>
 
-      <p
-        style={{
-          fontSize: 12,
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-          color: T.textSecondary,
-          margin: "0 0 12px",
-        }}
-      >
-        Needs Attention
-      </p>
-      <div style={{ marginBottom: 20 }}>
-        {needsAttention.length === 0 ? (
-          <div style={{ ...s.card, textAlign: "center", padding: 24, color: T.textMuted, fontSize: 13 }}>
-            Nothing unassigned or overdue right now.
-          </div>
-        ) : (
-          needsAttention.map(({ r, overdue }) => {
-            const sev = r.status === "Unassigned" ? T.danger : T.warning;
-            return (
-              <div
-                key={r.routineId}
-                onClick={() => openRoutine(r.routineId)}
-                style={{
-                  ...s.card,
-                  marginBottom: 10,
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 14,
-                  borderLeft: `3px solid ${sev}`,
-                  padding: "14px 16px",
-                  cursor: "pointer",
-                }}
-              >
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 9,
-                    background: sev + "2A",
-                    color: sev,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <i className={`ti ${r.status === "Unassigned" ? "ti-user-off" : "ti-alert-triangle"}`} style={{ fontSize: 16 }} aria-hidden="true" />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.textHighlight }}>{r.routeName || r.assignedTo || r.routineId}</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                    {r.status === "Unassigned" && (
-                      <span style={{ ...s.badge("Unassigned"), fontSize: 10 }}>No technician assigned</span>
-                    )}
-                    {overdue && <span style={{ ...s.badge("MISSING"), color: T.warning, background: T.warning + "22", fontSize: 10 }}>Overdue{r.dueDate ? ` — was due ${r.dueDate}` : ""}</span>}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 4 }}>
-                    {r.contractor || "—"} · {r.routeType || "—"}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      <RouteTemplatesPanel webhookUrl={webhookUrl} pushToast={pushToast} refreshSignal={templatesRefreshKey} />
-
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        {STATUS_FILTERS.map((st) => (
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+        <select style={{ ...s.select, width: 160 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
+          {areaOptions.map((a) => (
+            <option key={a} value={a}>
+              {a === "All" ? "All Areas" : a}
+            </option>
+          ))}
+        </select>
+        {DUE_STATUS_FILTERS.map((st) => (
           <button
             key={st}
             style={{
               ...s.btn,
               fontSize: 12,
-              background: statusFilter === st ? T.accent : "transparent",
-              color: statusFilter === st ? T.accentText : T.textSecondary,
-              borderColor: statusFilter === st ? T.accent : T.border,
+              background: dueStatusFilter === st ? T.accent : "transparent",
+              color: dueStatusFilter === st ? T.accentText : T.textSecondary,
+              borderColor: dueStatusFilter === st ? T.accent : T.border,
             }}
-            onClick={() => setStatusFilter(st)}
+            onClick={() => setDueStatusFilter(st)}
           >
             {st}
           </button>
         ))}
-        <div style={{ width: 1, background: T.border, margin: "0 4px" }} />
-        {contractorFilters.map((c) => (
-          <button
-            key={c}
-            style={{
-              ...s.btn,
-              fontSize: 12,
-              background: contractorFilter === c ? T.accent : "transparent",
-              color: contractorFilter === c ? T.accentText : T.textSecondary,
-              borderColor: contractorFilter === c ? T.accent : T.border,
-            }}
-            onClick={() => setContractorFilter(c)}
-          >
-            {c}
-          </button>
-        ))}
-        {overdueOnly && (
-          <>
-            <div style={{ width: 1, background: T.border, margin: "0 4px" }} />
-            <button
-              style={{ ...s.btn, fontSize: 12, background: T.danger, color: "#fff", borderColor: T.danger }}
-              onClick={() => setOverdueOnly(false)}
-            >
-              Overdue only <i className="ti ti-x" aria-hidden="true" style={{ marginLeft: 4 }} />
-            </button>
-          </>
-        )}
+        <input
+          style={{ ...s.input, flex: 1, minWidth: 180 }}
+          type="search"
+          placeholder="Search by route name or id…"
+          value={overviewSearch}
+          onChange={(e) => setOverviewSearch(e.target.value)}
+        />
       </div>
 
-      {loading ? (
+      {overviewLoading ? (
         <p style={{ color: T.textSecondary }}>Loading routines…</p>
-      ) : error ? (
-        <p style={{ color: T.danger }}>{error}</p>
-      ) : visible.length === 0 ? (
+      ) : overviewError ? (
+        <p style={{ color: T.danger }}>{overviewError}</p>
+      ) : visibleOverviewItems.length === 0 ? (
         <div style={s.card}>
           <p style={{ color: T.textSecondary, margin: 0 }}>No routines match the filter.</p>
         </div>
@@ -490,44 +495,30 @@ export default function Routines({
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={s.th}>Route Name</th>
-                <th style={s.th}>Type</th>
-                <th style={s.th}>Assigned To</th>
-                <th style={s.th}>Contractor</th>
+                <th style={s.th}>Routine Name</th>
+                <th style={s.th}>Equipment Count</th>
+                <th style={s.th}>Frequency</th>
+                <th style={s.th}>Next Due Date</th>
                 <th style={s.th}>Status</th>
-                <th style={s.th}>Progress</th>
-                <th style={s.th}>Due</th>
-                <th style={s.th}>Created</th>
+                <th style={s.th}>Last Completed</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((r) => {
-                const aging = agingLabel(r.createdDate, r.status);
-                const overdue = isOverdue(r, now);
-                return (
-                  <tr
-                    key={r.routineId}
-                    style={{ cursor: "pointer", background: overdue ? T.danger + "0d" : "transparent" }}
-                    onClick={() => openRoutine(r.routineId)}
-                  >
-                    <td style={s.td}>{r.routeName || r.assignedTo || "—"}</td>
-                    <td style={s.td}>{r.routeType || "—"}</td>
-                    <td style={s.td}>{r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}</td>
-                    <td style={s.td}>{r.contractor || "—"}</td>
-                    <td style={s.td}>
-                      <span style={s.badge(r.status)}>{r.status}</span>
-                    </td>
-                    <td style={s.td}>
-                      <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
-                    </td>
-                    <td style={s.td}>{r.dueDate || "—"}</td>
-                    <td style={s.td}>
-                      {r.createdDate || "—"}
-                      {aging && <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
-                    </td>
-                  </tr>
-                );
-              })}
+              {visibleOverviewItems.map((item) => (
+                <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
+                  <td style={s.td}>
+                    {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
+                    {item.routeName || item.id}
+                  </td>
+                  <td style={s.td}>{item.equipmentCount}</td>
+                  <td style={s.td}>{item.frequency}</td>
+                  <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
+                  <td style={s.td}>
+                    <DueStatusBadge T={T} status={item.dueStatus} />
+                  </td>
+                  <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

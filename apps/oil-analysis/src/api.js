@@ -647,6 +647,16 @@ export async function getRoutines(webhookUrl) {
   return (json.routines || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutine);
 }
 
+// Patch 20: the unified Routines main-view aggregation — recurring
+// templates and standalone one-time routines as one list, each already
+// computed server-side (equipmentCount/nextDueDate/dueStatus/lastCompleted
+// — see RouteTemplates.js's getRoutinesOverview). Returned as plain JSON
+// objects already, not raw sheet rows, so no parsers.js row-mapping here.
+export async function getRoutinesOverview(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getRoutinesOverview" });
+  return json.items || [];
+}
+
 export async function getRoutineItems(webhookUrl, routineId) {
   const json = await getJSON(webhookUrl, { action: "getRoutineItems", routineId });
   return (json.items || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutineItem);

@@ -1250,6 +1250,61 @@ counts/statuses match what you'd expect for a few real templates and
 routines — a template-generated instance should never appear by its own
 RoutineId in the response.
 
+## 4z. Unified Routines overview — frontend (Patch 20b/20c)
+
+Frontend half of the Routines main-view redesign — consumes
+`getRoutinesOverview` (Patch 20a) to replace the old flat "every routine
+instance" list with the agreed "templates become the main view"
+architecture, confirmed via AskUserQuestion during design review.
+
+**`apps/oil-analysis/src/pages/Routines.jsx`** — fully rewritten:
+
+- **Overview** (new default landing view, `view === "overview"`): one
+  table mixing `kind: "template"` and `kind: "routine"` rows from
+  `getRoutinesOverview`, each showing Routine Name / Equipment Count /
+  Frequency / Next Due Date / Status / Last Completed — "each line on the
+  table view is for a routine," matching the user's own framing, just
+  with recurring templates and standalone one-time routines sharing one
+  list instead of two. Four clickable KPI cards (Total/On Schedule/Due
+  Soon/Overdue) double as quick filters; an Area dropdown (no Line/Equipment
+  Type filter — explicitly dropped during review) and a name/id search box
+  sit alongside the per-status filter buttons.
+- **Template Detail** (`view === "templateDetail"`, new): clicking a
+  `kind: "template"` row drills into that one template's own generated
+  `ROUTINES` instances (fetched via the existing `getRoutines` and filtered
+  client-side by `sourceTemplateId`) — this view reuses the old flat list's
+  KPI-card/status-filter/table rendering, just scoped to one template, and
+  folds in the Pause/Resume/Delete actions that used to live in the
+  removed `RouteTemplatesPanel` collapsible as header-level buttons next to
+  the template's name.
+- **Routine Detail / New Routine**: unchanged components, just rewired —
+  a `kind: "routine"` overview row, or a row inside Template Detail, opens
+  `RoutineDetail` directly; its Back button returns to Template Detail if
+  the user drilled in from one, otherwise to the Overview.
+- `RouteTemplatesPanel` (the old separate collapsible template list) and
+  the old flat "list" view are both removed — fully superseded by the
+  above two views.
+
+**`apps/oil-analysis/src/api.js`**: new `getRoutinesOverview(webhookUrl)` —
+GET `?action=getRoutinesOverview`, returns `json.items` as-is (already
+plain JSON objects from the backend aggregation, not raw sheet rows, so no
+`parsers.js` row-mapping is needed here unlike `getRoutines`).
+
+**Dependency**: `recharts` (`^3.10.1`) added to
+`apps/oil-analysis/package.json` in preparation for the charts/"Next 7
+Days Due" panel (Patch 20d, not yet built) — not used by this patch itself.
+
+**Verify**: open Routines — the overview should load with KPI cards and
+the mixed template/routine table; clicking a recurring template's row
+should open its own instance list with working Pause/Resume/Delete
+buttons and a working Back button; a template-generated instance must
+never show up as its own row on the Overview, only inside its parent
+template's drill-down.
+
+**Still open (Patch 20d, not yet built)**: the 3 charts (Upcoming Oil
+Changes stacked bar, Routines by Area donut, Completion Rate Trend using
+the agreed item-weighted formula) and the "Next 7 Days Due" side panel.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
