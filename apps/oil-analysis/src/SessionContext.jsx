@@ -34,3 +34,22 @@ export function usePlatformCoreUrl() {
   const session = useSession();
   return session?.platformCoreUrl || "";
 }
+
+// Same ORG-RHI/ORG-ASEC scheme TechnicianPicker.jsx's own
+// CONTRACTOR_TO_ORG_ID uses, and the same mapping Rbac.js's
+// ORG_TO_CONTRACTOR enforces server-side — duplicated here rather than
+// imported since the frontend has no shared module with the backend.
+const ORG_TO_CONTRACTOR = { "ORG-RHI": "RHI", "ORG-ASEC": "ASEC" };
+
+// "" for an ACC/admin account (or a standalone build with no session at
+// all) — meaning "not locked to one contractor, let them choose" — and a
+// real contractor code ("RHI"/"ASEC") for an account whose own org maps to
+// one. Lets a screen that currently shows a manual Contractor dropdown
+// (NewRoutine.jsx, EditActionModal.jsx) instead auto-select and lock to
+// the logged-in contractor's own org, same as the data they already only
+// ever see is already scoped server-side — the dropdown was only ever
+// meaningful for an ACC account overseeing both.
+export function useSessionContractor() {
+  const session = useSession();
+  return ORG_TO_CONTRACTOR[session?.claims?.orgId] || "";
+}

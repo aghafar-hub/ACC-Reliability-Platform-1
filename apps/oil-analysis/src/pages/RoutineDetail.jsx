@@ -358,7 +358,9 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             <div style={{ flex: 1, maxWidth: 320 }}>
               <label style={s.label}>Assign Technician</label>
-              <TechnicianPicker contractor={routine.contractor} value={assignee} onChange={setAssignee} />
+              {/* Patch 16: widened to include Contractor Engineers too — see
+                  NewRoutine.jsx's own comment on the same change. */}
+              <TechnicianPicker contractor={routine.contractor} value={assignee} onChange={setAssignee} roleFilter={null} />
             </div>
             <button style={s.btnPrimary} onClick={handleAssign} disabled={working}>
               {working ? "…" : "Assign"}

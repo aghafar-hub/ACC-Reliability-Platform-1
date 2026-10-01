@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { useSessionEmail } from "../SessionContext";
+import { useSessionEmail, useSessionContractor } from "../SessionContext";
 import TechnicianPicker from "../components/TechnicianPicker";
 import * as api from "../api";
 import { newId, suggestedRoutinePoints, SUGGESTION_PRESETS } from "../parsers";
@@ -39,12 +39,20 @@ function ReasonBadge({ T, reason }) {
 export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onCreated, onCancel }) {
   const { T, s } = useTheme();
   const createdBy = useSessionEmail();
+  // Patch 16: a logged-in RHI/ASEC account can only ever create a routine
+  // for its own contractor anyway — every equipment row it sees was
+  // already scoped to that contractor server-side (see Rbac.js's
+  // getContractorScope_). Locking the field here just makes the UI match
+  // that reality instead of offering a choice that would either be a
+  // no-op or get silently overridden. "" for an ACC/admin account, which
+  // still picks between both via the dropdown below.
+  const scopedContractor = useSessionContractor();
 
   const [routeType, setRouteType] = useState("Sampling");
   const [routeName, setRouteName] = useState("");
   const [frequency, setFrequency] = useState("One-time");
   const [dueDate, setDueDate] = useState("");
-  const [contractor, setContractor] = useState(CONTRACTOR_OPTIONS[0]);
+  const [contractor, setContractor] = useState(scopedContractor || CONTRACTOR_OPTIONS[0]);
   const [assignedTo, setAssignedTo] = useState("");
   const [area, setArea] = useState("All");
   const [oilType, setOilType] = useState("All");
@@ -340,13 +348,19 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 16 }}>
             <div>
               <label style={s.label}>Contractor</label>
-              <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
-                {CONTRACTOR_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              {scopedContractor ? (
+                <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+                  {scopedContractor}
+                </div>
+              ) : (
+                <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
+                  {CONTRACTOR_OPTIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
@@ -377,7 +391,12 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
               <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 16 }}>
                 <div style={{ flex: 1 }}>
                   <label style={s.label}>Assign Technician</label>
-                  <TechnicianPicker contractor={contractor} value={assignedTo} onChange={setAssignedTo} />
+                  {/* Patch 16: widened from the default ROLE-TECH-only filter — a
+                      routine can reasonably be assigned to a Contractor Engineer
+                      too, not just a literal Technician account, matching Action
+                      Tracker's "Assigned To" (EditActionModal.jsx) which already
+                      uses roleFilter={null} for the same reason. */}
+                  <TechnicianPicker contractor={contractor} value={assignedTo} onChange={setAssignedTo} roleFilter={null} />
                 </div>
               </div>
 

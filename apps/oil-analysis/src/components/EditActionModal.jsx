@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
+import { useSessionContractor } from "../SessionContext";
 import { nextAcNo, formatDate } from "../parsers";
 import { toISODate, latestOilChangeFor, autofillFromEquipment } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
@@ -22,6 +23,15 @@ export default function EditActionModal({
   onDelete,
 }) {
   const { T, s } = useTheme();
+  // Patch 16: a logged-in RHI/ASEC account's equipmentRegistry only ever
+  // contains that contractor's own equipment (scoped server-side, see
+  // Rbac.js's getContractorScope_) — so the free manual Contractor
+  // dropdown below was never a real choice for them, just a redundant
+  // field that happened to already get overwritten by selectEquipment's
+  // autofill. Locking it here matches that reality; an ACC/admin account
+  // (scopedContractor === "") still gets the manual dropdown, since an
+  // action genuinely can belong to either contractor for them.
+  const scopedContractor = useSessionContractor();
   const deps = { equipmentRegistry, oilChanges, allActions, excludeId: action._id };
   // New actions opened with an equipment code already known (e.g. from
   // inside an Oil Analysis Report) get their dependent fields autofilled
@@ -41,6 +51,7 @@ export default function EditActionModal({
     base.revisionDate = toISODate(base.revisionDate);
     base.lastChange = toISODate(base.lastChange);
     base.completedDate = toISODate(base.completedDate);
+    if (scopedContractor && !base.contractor) base.contractor = scopedContractor;
     if (isNew && (base.equipmentCode || base.unitId)) {
       const filled = autofillFromEquipment(base.equipmentCode || base.unitId, deps);
       return { ...base, ...filled };
@@ -283,16 +294,22 @@ export default function EditActionModal({
           </div>
           <div>
             <label style={{ ...s.label, fontSize: 11 }}>Contractor</label>
-            <select
-              style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
-              value={form.contractor || ""}
-              onChange={(e) => set("contractor", e.target.value)}
-            >
-              <option value="">—</option>
-              {CONTRACTOR_OPTIONS.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+            {scopedContractor ? (
+              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+                {scopedContractor}
+              </div>
+            ) : (
+              <select
+                style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
+                value={form.contractor || ""}
+                onChange={(e) => set("contractor", e.target.value)}
+              >
+                <option value="">—</option>
+                {CONTRACTOR_OPTIONS.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label style={{ ...s.label, fontSize: 11 }}>Assigned To</label>

@@ -993,6 +993,52 @@ routine's detail view and the badge count drops by one; confirm "Mark all
 read" clears the badge entirely; confirm a second account's unread
 notifications are unaffected by the first account's mark-read actions.
 
+## 4t. Contractor auto-lock + wider Assign Technician/Assigned To pickers
+
+Two gaps in how a Routine or Action gets tied to a contractor and a real
+account:
+
+1. **The Contractor field was always a free manual dropdown**
+   (New Route / Edit Action), even for a logged-in RHI or ASEC account —
+   whose `equipmentRegistry` only ever contains their own contractor's
+   equipment anyway (scoped server-side, see Rbac.js's
+   `getContractorScope_`). The dropdown was never a real choice for them,
+   just a field that happened to already get overwritten by equipment
+   autofill. For such an account it's now a locked, read-only label
+   instead — set automatically from their own session, not something they
+   can get wrong. An ACC/Admin account (not tied to one contractor) still
+   gets the manual dropdown, since an action/routine genuinely can belong
+   to either contractor for them.
+2. **"Assign Technician" on Routines only ever listed `ROLE-TECH`
+   accounts** (`TechnicianPicker.jsx`'s own default), unlike Action
+   Tracker's "Assigned To" which already passes `roleFilter={null}` to
+   include Contractor Engineers too. Widened New Route and the
+   "assign technician to an Unassigned routine" picker on Routine Detail
+   to match — a routine can reasonably be assigned to a Contractor
+   Engineer, not only a literal Technician account.
+
+Both only matter once real accounts actually exist for RHI/ASEC to list —
+see `TechnicianPicker.jsx`'s own file comment, and the "Testing with one
+account per role" note under §2 above if you need test accounts to see
+this working end to end.
+
+**Code**: `SessionContext.jsx` gained `useSessionContractor()` (reads the
+logged-in session's `orgId`, maps `ORG-RHI`/`ORG-ASEC` → `RHI`/`ASEC`,
+same scheme `Rbac.js`'s `ORG_TO_CONTRACTOR` uses server-side; `""` for an
+ACC/Admin account or a standalone build with no session). `NewRoutine.jsx`
+and `EditActionModal.jsx` both read it to swap their Contractor `<select>`
+for a locked label when non-empty, and default their contractor state to
+it. `NewRoutine.jsx` and `RoutineDetail.jsx`'s `TechnicianPicker` calls
+both gained `roleFilter={null}`.
+
+**Verify**: log in as one of the RHI/ASEC sample test accounts (§2's
+note), open New Route (or Add Action) and confirm Contractor shows as a
+fixed "RHI"/"ASEC" label, not a dropdown, and that Assign Technician/
+Assigned To lists both that contractor's Technician and Contractor
+Engineer sample accounts — never the other contractor's. Log in as the
+ACC Admin sample account and confirm Contractor is still a normal RHI/ASEC
+dropdown there.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
