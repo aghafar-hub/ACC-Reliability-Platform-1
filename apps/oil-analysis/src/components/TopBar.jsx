@@ -33,7 +33,7 @@ function useOnlineStatus() {
 // layout exactly (title, online/offline indicator, date, Sheet link, Sync
 // button), including the mobile menu button living inside it rather than in
 // a separate mobile-only header.
-export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOpenMobileNav, onBack }) {
+export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOpenMobileNav, onBack, pendingSyncCount }) {
   const { T, s } = useTheme();
   const online = useOnlineStatus();
   const title = page === "report" && sample ? `Report: ${sample.unitId}` : PAGE_TITLES[page] || "";
@@ -54,6 +54,22 @@ export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOp
         </span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {pendingSyncCount > 0 && (
+          // Patch 11 — this is the one place guaranteed to render whether
+          // this app is running standalone or embedded in the platform
+          // shell (the embedded build skips its own Sidebar entirely, see
+          // App.jsx's navBridge comment, so a Sidebar-only badge would
+          // never be seen there at all).
+          <span
+            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: T.warning, fontWeight: 600 }}
+            title="Saved on this device — will upload automatically once there's a connection"
+          >
+            <i className="ti ti-cloud-upload" aria-hidden="true" />
+            <span>
+              {pendingSyncCount} {pendingSyncCount === 1 ? "entry" : "entries"} pending
+            </span>
+          </span>
+        )}
         <span
           style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: online ? T.success : T.danger }}
           title={online ? "Browser is online" : "Browser is offline — changes will sync once reconnected"}

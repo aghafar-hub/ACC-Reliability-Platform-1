@@ -31,6 +31,7 @@ export default function Sidebar({
   cacheAgeMinutes,
   onFullSync,
   onQuickSync,
+  pendingSyncCount,
 }) {
   const { T, s } = useTheme();
   const dotColor = syncState === "loading" ? T.accent : syncState === "error" ? T.danger : T.success;
@@ -95,6 +96,17 @@ export default function Sidebar({
         })}
       </nav>
       <div style={{ padding: "12px 16px", borderTop: "1px solid #1E3A5F" }}>
+        {pendingSyncCount > 0 && (
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}
+            title="Saved on this device — will upload automatically once there's a connection"
+          >
+            <i className="ti ti-cloud-upload" style={{ fontSize: 11, color: T.warning }} aria-hidden="true" />
+            <span style={{ fontSize: 10, color: T.warning, fontWeight: 600 }}>
+              {pendingSyncCount} {pendingSyncCount === 1 ? "entry" : "entries"} waiting to sync
+            </span>
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
           <span
             style={{

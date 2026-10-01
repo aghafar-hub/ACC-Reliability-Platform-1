@@ -622,6 +622,75 @@ should show "Someone else changed this [action/sample] while you were
 editing it," and the record should still show the FIRST tab's edit, not
 the second tab's.
 
+## 4o. Offline queueing for poor plant-floor connectivity
+
+Previously, a save that failed because the device had no connectivity at
+all behaved exactly like any other failure: the optimistic entry was
+rolled back and an error toast shown, so a technician who entered a
+sample or action while walking through a low-signal part of the plant
+just lost it and had to redo it once they were back somewhere with
+reception.
+
+**Scope**: new-record writes only — adding a sample, adding an action,
+logging an oil change. These are the three "something happened in the
+field, write it down" actions a technician does while on the floor.
+Edits/deletes aren't queued (uncommon from the floor, and an edit queued
+for an unknown length of time would likely collide with Patch 10's
+conflict detection by the time it finally syncs — new records don't have
+that problem, there's nothing to conflict with yet). Bulk PDF import is
+also out of scope — a desk/office workflow with its own progress UI, not
+a single in-field entry.
+
+**The key safety property**: this only ever queues a write when
+`postBlind`'s own `fetch()` call rejects — meaning the request never even
+reached the server (api.js's new `NetworkError`, thrown nowhere else). A
+failure anywhere else in a save — the verify-read afterward, a detected
+conflict — is deliberately NOT treated as safe to retry, since the
+original write might already have gone through; blindly resubmitting it
+could create a duplicate row (append has no dedupe key check). Verified
+directly: `network_error_test.mjs` confirms a write whose POST succeeded
+but whose verify-read then failed is never classified as a `NetworkError`.
+
+**How it works**: a failed save (specifically a `NetworkError`) keeps its
+optimistic entry on screen instead of rolling it back, tags it
+`_pendingSync: true`, and persists the write (payload + the display
+record itself) to a `localStorage` queue (`offlineQueue.js`) — so it
+survives a page reload, not just an in-memory retry. The queue is
+flushed: once immediately on load, again on the browser's own `online`
+event, and periodically (every 30s) as a fallback, since `online` isn't
+fully reliable on every device (e.g. "connected to wifi with no real
+internet" often still fires it). A flush processes the queue in order; a
+`NetworkError` on any item stops that pass right there (still offline);
+any other error means that one write was genuinely rejected once it
+reached the server — it's dropped (with its optimistic entry rolled back
+and an explanatory toast) rather than retried forever, and the rest of
+the queue still gets its turn.
+
+**UI**: a small "N entries pending" badge, visible both standalone
+(Sidebar) and embedded in the platform shell (TopBar — the one place
+guaranteed to render in both modes, since the embedded build skips its
+own Sidebar entirely). The existing Online/Offline indicator already in
+TopBar (from before this patch) is a useful companion to this, not
+something built here.
+
+**Code**: `api.js` gained `NetworkError` (thrown by `postBlind` instead of
+a generic `Error`). New `offlineQueue.js`
+(enqueue/get/remove/count/reinject, all `localStorage`-backed). `App.jsx`:
+`onAddAction`/`onSaveOilChange`/`onAddSample` queue instead of rolling
+back on a `NetworkError`; new `flushOfflineQueue` + an effect driving it;
+`reinjectPendingRecords` called after every full-sync replace (`runSync`,
+the startup fetch) so a queued-but-not-yet-flushed entry doesn't
+disappear from the screen in the gap before the next flush runs.
+`Sidebar.jsx`/`TopBar.jsx` render the pending-count badge.
+
+**Verify**: with devtools open, add a sample (or action, or oil change)
+while the Network tab is set to "Offline" — confirm an info toast ("No
+connection — saved on this device and will sync automatically") instead
+of an error, the entry stays visible, and the pending badge appears.
+Switch back to "Online" — within ~30s (or immediately after a manual
+"Sync") confirm a "synced" toast, the pending badge clears, and the
+record is really in the sheet.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

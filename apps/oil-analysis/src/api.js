@@ -58,6 +58,24 @@ export class ConflictError extends Error {
   }
 }
 
+// Patch 11 (plant-readiness pass): thrown specifically when postBlind's own
+// fetch() call rejects — meaning the request never even reached the
+// server (no connectivity at all, not a slow/flaky one). Distinct from
+// every other failure mode on purpose: a caller that sees THIS exact
+// class knows it's safe to queue the write for an automatic retry later
+// (see offlineQueue.js), because there is zero chance the write already
+// landed server-side. A failure anywhere else in a save function — the
+// verify-read afterward, a thrown SaveVerificationError/ConflictError —
+// is NOT safe to blindly retry the same way: the write may well have
+// already gone through, and resubmitting it could create a duplicate row
+// (append has no dedupe). Only ever thrown from postBlind.
+export class NetworkError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
 // Option B Phase 1 (see docs/oil-lubrication-migration-notes.md): the
 // Platform Core session token for whoever is logged into the shell, set
 // once by App.jsx's top-level effect from its `session` prop. Module-level
@@ -147,7 +165,7 @@ async function postBlind(webhookUrl, body) {
       body: JSON.stringify(payload),
     });
   } catch (err) {
-    throw new Error(`Network error while saving: ${err.message}`);
+    throw new NetworkError(`Network error while saving: ${err.message}`);
   }
 }
 

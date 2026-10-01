@@ -24,6 +24,7 @@ import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistr
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
 import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges } from "./parsers";
 import * as api from "./api";
+import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
 let toastId = 0;
 
@@ -118,6 +119,14 @@ function AppShell({ config, setConfig, navBridge }) {
   // captured just before the last successful sync request went out.
   const [lastSyncAt, setLastSyncAt] = useState(() => readCache("lastSyncAt")?.data || null);
   const autoSyncTickRef = useRef(0);
+  // Patch 11 — how many new-record writes are sitting in the offline
+  // queue right now (see offlineQueue.js). Not itself the source of
+  // truth (that's localStorage, so it survives a reload) — just a React
+  // state mirror of it so the Sidebar badge re-renders whenever it
+  // changes, recomputed every time something is queued or a flush pass
+  // finishes.
+  const [pendingSyncCount, setPendingSyncCount] = useState(() => offlineQueueCount());
+  const flushInProgressRef = useRef(false);
 
   // The tracker sheet only reflects samples added through this app (or
   // manually kept in sync by hand); Data_Entry is always current, since
@@ -156,7 +165,14 @@ function AppShell({ config, setConfig, navBridge }) {
     setSyncMsg("Syncing from Google Sheets…");
     const requestStartedAt = new Date().toISOString();
     try {
-      const { samples: sm, actions: ac, oilChangeEvents: oc, trackerRaw: tr } = await api.readAll(config.webhookUrl);
+      const { samples: smRaw, actions: acRaw, oilChangeEvents: ocRaw, trackerRaw: tr } = await api.readAll(config.webhookUrl);
+      // Patch 11: a full replace from the server has no way to know about
+      // a write still sitting in the offline queue (the server doesn't
+      // have it yet) — re-add it so it doesn't disappear from the screen
+      // until the next flush pass picks it up.
+      const sm = reinjectPendingRecords(smRaw, "sample", "_id");
+      const ac = reinjectPendingRecords(acRaw, "action", "_id");
+      const oc = reinjectPendingRecords(ocRaw, "oilChange", "eventId");
       setSamples(sm);
       setActions(ac);
       setOilChangeEvents(oc);
@@ -274,9 +290,13 @@ function AppShell({ config, setConfig, navBridge }) {
       setSyncMsg("Syncing from Google Sheets…");
       const requestStartedAt = new Date().toISOString();
       try {
-        const { samples: sm, actions: ac, oilChangeEvents: oc, trackerRaw: tr, equipment, actionPhrases } =
+        const { samples: smRaw, actions: acRaw, oilChangeEvents: ocRaw, trackerRaw: tr, equipment, actionPhrases } =
           await api.getStartupBundle(config.webhookUrl);
         if (cancelled) return;
+        // Patch 11 — see runSync's identical comment above.
+        const sm = reinjectPendingRecords(smRaw, "sample", "_id");
+        const ac = reinjectPendingRecords(acRaw, "action", "_id");
+        const oc = reinjectPendingRecords(ocRaw, "oilChange", "eventId");
         setSamples(sm);
         setActions(ac);
         setOilChangeEvents(oc);
@@ -419,6 +439,23 @@ function AppShell({ config, setConfig, navBridge }) {
         await applyOilChangeSideEffect(action);
         return saved;
       } catch (err) {
+        // Patch 11: the request never reached the server at all (see
+        // api.js's NetworkError doc comment) — keep the optimistic entry
+        // on screen instead of rolling it back, mark it pending, and let
+        // the offline queue retry it automatically once connectivity is
+        // back, rather than making the technician re-enter it.
+        if (err instanceof api.NetworkError) {
+          const pendingRecord = { ...action, _id: tempId, _pendingSync: true };
+          enqueueOfflineWrite("action", tempId, { action }, pendingRecord);
+          setPendingSyncCount(offlineQueueCount());
+          setActions((prev) => {
+            const next = prev.map((a) => (a._id === tempId ? pendingRecord : a));
+            writeCache("actions", next);
+            return next;
+          });
+          pushToast("No connection — this action is saved on this device and will sync automatically.", "info");
+          return pendingRecord;
+        }
         setActions((prev) => {
           const next = prev.filter((a) => a._id !== tempId);
           writeCache("actions", next);
@@ -522,6 +559,19 @@ function AppShell({ config, setConfig, navBridge }) {
         });
         return saved;
       } catch (err) {
+        // Patch 11 — see onAddAction's identical comment.
+        if (err instanceof api.NetworkError) {
+          const pendingRecord = { ...event, eventId: tempId, _pendingSync: true };
+          enqueueOfflineWrite("oilChange", tempId, { event }, pendingRecord);
+          setPendingSyncCount(offlineQueueCount());
+          setOilChangeEvents((prev) => {
+            const next = prev.map((e) => (e.eventId === tempId ? pendingRecord : e));
+            writeCache("oilChangeEvents", next);
+            return next;
+          });
+          pushToast("No connection — this oil change is saved on this device and will sync automatically.", "info");
+          return pendingRecord;
+        }
         setOilChangeEvents((prev) => {
           const next = prev.filter((e) => e.eventId !== tempId);
           writeCache("oilChangeEvents", next);
@@ -553,6 +603,19 @@ function AppShell({ config, setConfig, navBridge }) {
         await applySampleTrackerSideEffect(saved);
         return saved;
       } catch (err) {
+        // Patch 11 — see onAddAction's identical comment.
+        if (err instanceof api.NetworkError) {
+          const pendingRecord = { ...sample, _id: tempId, _pendingSync: true };
+          enqueueOfflineWrite("sample", tempId, { sample, headers }, pendingRecord);
+          setPendingSyncCount(offlineQueueCount());
+          setSamples((prev) => {
+            const next = prev.map((s2) => (s2._id === tempId ? pendingRecord : s2));
+            writeCache("samples", next);
+            return next;
+          });
+          pushToast("No connection — this sample is saved on this device and will sync automatically.", "info");
+          return pendingRecord;
+        }
         setSamples((prev) => {
           const next = prev.filter((s2) => s2._id !== tempId);
           writeCache("samples", next);
@@ -613,6 +676,112 @@ function AppShell({ config, setConfig, navBridge }) {
     },
     [config.webhookUrl, pushToast, runSync]
   );
+
+  // Patch 11: replays whatever is sitting in the offline queue, one item
+  // at a time and in the order queued (same "writes must be sequential"
+  // reasoning as onBulkAddSamples — the backend's own append/findRowIndex
+  // logic isn't safe for concurrent writes against the same sheet).
+  //
+  // A NetworkError on any item means the device is still offline — stop
+  // this pass right there rather than churning through the rest of the
+  // queue against a connection that clearly isn't back yet; the next
+  // scheduled attempt (the 'online' event, or the periodic fallback
+  // below) picks up again from wherever this left off. Any OTHER error
+  // means the write itself was rejected for a real reason once it
+  // actually reached the server — retrying the exact same payload
+  // forever would never succeed, so that one item is dropped (and its
+  // optimistic entry rolled back) with an explanatory toast, same as if
+  // it had failed immediately back when it was first attempted; the rest
+  // of the queue still gets its turn.
+  const flushOfflineQueue = useCallback(async () => {
+    if (flushInProgressRef.current || !config.webhookUrl) return;
+    flushInProgressRef.current = true;
+    try {
+      for (const item of getOfflineQueue()) {
+        try {
+          let saved;
+          if (item.kind === "sample") {
+            saved = await api.saveSample(config.webhookUrl, item.payload.sample, item.payload.headers);
+          } else if (item.kind === "action") {
+            saved = await api.saveAction(config.webhookUrl, item.payload.action, { isNew: true });
+          } else if (item.kind === "oilChange") {
+            saved = await api.logOilChangeEvent(config.webhookUrl, item.payload.event);
+          } else {
+            removeFromOfflineQueue(item.id);
+            continue;
+          }
+          removeFromOfflineQueue(item.id);
+          setPendingSyncCount(offlineQueueCount());
+          if (item.kind === "sample") {
+            setSamples((prev) => {
+              const next = prev.map((s2) => (s2._id === item.id ? saved : s2));
+              writeCache("samples", next);
+              return next;
+            });
+            applySampleTrackerSideEffect(saved).catch(() => {});
+          } else if (item.kind === "action") {
+            setActions((prev) => {
+              const next = prev.map((a) => (a._id === item.id ? saved : a));
+              writeCache("actions", next);
+              return next;
+            });
+            applyOilChangeSideEffect(item.payload.action).catch(() => {});
+          } else if (item.kind === "oilChange") {
+            setOilChangeEvents((prev) => {
+              const next = prev.map((e) => (e.eventId === item.id ? saved : e));
+              writeCache("oilChangeEvents", next);
+              return next;
+            });
+          }
+          pushToast(`A queued ${item.kind === "oilChange" ? "oil change" : item.kind} synced.`, "success");
+        } catch (err) {
+          if (err instanceof api.NetworkError) break; // still offline — try the rest next time
+          removeFromOfflineQueue(item.id);
+          setPendingSyncCount(offlineQueueCount());
+          if (item.kind === "sample") {
+            setSamples((prev) => {
+              const next = prev.filter((s2) => s2._id !== item.id);
+              writeCache("samples", next);
+              return next;
+            });
+          } else if (item.kind === "action") {
+            setActions((prev) => {
+              const next = prev.filter((a) => a._id !== item.id);
+              writeCache("actions", next);
+              return next;
+            });
+          } else if (item.kind === "oilChange") {
+            setOilChangeEvents((prev) => {
+              const next = prev.filter((e) => e.eventId !== item.id);
+              writeCache("oilChangeEvents", next);
+              return next;
+            });
+          }
+          pushToast(`A queued ${item.kind === "oilChange" ? "oil change" : item.kind} couldn't be saved: ${err.message}`, "error");
+        }
+      }
+    } finally {
+      flushInProgressRef.current = false;
+    }
+  }, [config.webhookUrl, pushToast, applySampleTrackerSideEffect, applyOilChangeSideEffect]);
+
+  // Tries once right away (covers "reopened the app/tab and connectivity
+  // is already back"), again on the browser's own 'online' event, and
+  // falls back to a periodic sweep — navigator.onLine / the 'online'
+  // event aren't fully reliable on every device (e.g. "connected to wifi
+  // with no real internet" often still fires 'online'), so a queued item
+  // from a flaky connection shouldn't be able to get stuck forever with
+  // nothing left to retry it.
+  useEffect(() => {
+    flushOfflineQueue();
+    const onOnline = () => flushOfflineQueue();
+    window.addEventListener("online", onOnline);
+    const interval = setInterval(flushOfflineQueue, 30000);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      clearInterval(interval);
+    };
+  }, [flushOfflineQueue]);
 
   const onEditSample = useCallback(
     async (original, updates) => {
@@ -811,6 +980,7 @@ function AppShell({ config, setConfig, navBridge }) {
             cacheAgeMinutes={cacheInfo?.ageMinutes || 0}
             onFullSync={runSync}
             onQuickSync={runSync}
+            pendingSyncCount={pendingSyncCount}
           />
         </div>
       )}
@@ -826,6 +996,7 @@ function AppShell({ config, setConfig, navBridge }) {
           onSync={runSync}
           onOpenMobileNav={() => setMobileNavOpen(true)}
           onBack={() => navigate(reportOrigin === "equipment" ? "equipment" : "dashboard")}
+          pendingSyncCount={pendingSyncCount}
         />
         <div className="app-content" style={{ flex: 1, overflowY: "auto", padding: 24, background: T.appBg }}>
           {page === "dashboard" && (
