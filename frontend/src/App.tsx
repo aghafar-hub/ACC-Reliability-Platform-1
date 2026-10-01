@@ -47,20 +47,13 @@ function ShellRoot() {
       <div className="app-shell-right">
         <TopBar />
         <main className="app-content">
-          {/* Rendered unconditionally, outside <Routes> — each mounts itself
-              lazily on first visit and then stays mounted (hidden via CSS)
-              for the rest of the session; see their own file comments for
-              why. Neither has a matching <Route> below on purpose: these ARE
-              the content for /oil-analysis and /vibration-analysis. */}
-          <EmbeddedVibrationAnalysis />
-          <EmbeddedOilAnalysis />
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/my-work" element={<MyWork />} />
             <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
             {/* /oil-analysis/routines and /oil-analysis/inventory have no <Route>
                 here on purpose — both are native pages inside apps/oil-analysis now
-                (see EmbeddedOilAnalysis above), same as /oil-analysis itself. */}
+                (see EmbeddedOilAnalysis below), same as /oil-analysis itself. */}
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />
@@ -73,6 +66,18 @@ function ShellRoot() {
               <Route path="routines/:routineId" element={<RoutineDetailPage />} />
             </Route>
           </Routes>
+          {/* Rendered unconditionally, outside <Routes> — each mounts itself
+              lazily on first visit and then stays mounted (hidden via CSS)
+              for the rest of the session; see their own file comments for
+              why. Neither has a matching <Route> above on purpose: these ARE
+              the content for /oil-analysis and /vibration-analysis — and,
+              since Patch 29, also the content that appears below Settings'
+              own tab strip when that module's settings tab is selected
+              there. Rendered AFTER <Routes> in the DOM (not before) so that
+              when both are visible at once (the /settings case), Settings'
+              own tab strip renders above the embedded panel, not below it. */}
+          <EmbeddedVibrationAnalysis />
+          <EmbeddedOilAnalysis />
         </main>
       </div>
     </div>

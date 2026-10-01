@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { PLATFORM_CORE_URL } from '../config';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
@@ -50,8 +50,14 @@ export default function EmbeddedOilAnalysis() {
   const containerRef = useRef<HTMLDivElement>(null);
   const embeddedNav = useEmbeddedNav();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const startedRef = useRef(false);
-  const visible = location.pathname === BASE_ROUTE;
+  // Patch 29: the consolidated Settings page (see Settings.tsx) also makes
+  // this module visible — in place, showing its own internal Settings page
+  // — while its "Oil Lubrication" side tab is selected (?module=oil-analysis
+  // on /settings), reusing this same persistent-mount instance rather than
+  // navigating away to /oil-analysis.
+  const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
   const { sessionToken, claims } = useAuth();
 
   useEffect(() => {

@@ -1,0 +1,40 @@
+.settings-page {
+  max-width: 960px;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.25rem 0 1.5rem;
+  border-bottom: 1px solid var(--shell-border);
+  padding-bottom: 0;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--shell-text-secondary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transform: translateY(1px);
+}
+
+.settings-tab:hover {
+  color: var(--shell-text);
+}
+
+.settings-tab--active {
+  color: var(--shell-accent);
+  border-bottom-color: var(--shell-accent);
+  font-weight: 600;
+}
+
+.settings-panel {
+  max-width: 640px;
+}

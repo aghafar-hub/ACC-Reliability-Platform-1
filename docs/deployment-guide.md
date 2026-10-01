@@ -1682,6 +1682,66 @@ Verified with a Playwright test confirming all of the above, including
 that the breadcrumb updates correctly after navigating into an embedded
 module's own sub-tab.
 
+## 4aj. Consolidated Settings page with per-module tabs (Patch 29)
+
+`frontend/src/pages/Settings.tsx` was a single page (theme picker +
+account admin). It's now the platform's one Settings page with a tab
+strip for "General" plus one tab per embedded module ("Oil Lubrication",
+"Vibration Analysis") — answering the standing request "can we make it 1
+setting and include tabs ... for each module."
+
+**The module tabs are not a second settings screen** — each one reveals
+that module's own already-mounted embedded instance, driven to its own
+internal "settings" page (both apps already had this as a native
+sub-tab — see `navigation.ts`'s `OIL_SUB_TABS`/`VIBRATION_SUB_TABS`, id
+`"settings"`). This reuses the exact persistent-mount instances
+`EmbeddedOilAnalysis.tsx`/`EmbeddedVibrationAnalysis.tsx` already keep
+alive for the whole session (see Patch 20's/the embedding work's own
+notes) — no second mount, no lost state, and the module keeps its synced
+data when you switch back to General or away to another page.
+
+**Mechanism**: `Settings.tsx` tracks the active tab via a `?module=`
+query param on `/settings` (`setSearchParams`/`useSearchParams`, no new
+context needed). Clicking a module tab calls
+`embeddedNav.navigateTo(moduleId, 'settings')` (same call
+`Sidebar.tsx`'s native sub-tab buttons already make) to drive that
+module's internal page, then sets the query param. Both
+`EmbeddedOilAnalysis.tsx` and `EmbeddedVibrationAnalysis.tsx` had their
+`visible` check extended from `location.pathname === BASE_ROUTE` to also
+cover `location.pathname === '/settings' && searchParams.get('module') ===
+MODULE_ID`, so the same hidden-via-CSS persistent `<div>` becomes visible
+in place, directly below Settings' own tab strip.
+
+**DOM order matters here**: `App.tsx`'s `ShellRoot` used to render
+`<EmbeddedVibrationAnalysis />`/`<EmbeddedOilAnalysis />` *before*
+`<Routes>`. That was fine while at most one of {a routed page, an
+embedded module} was ever visible at once. Patch 29 makes both visible
+together on `/settings?module=...`, so they were moved to render *after*
+`<Routes>` instead — Settings' own tab strip now renders first in the DOM
+(on top), the revealed embedded settings panel renders after it (below),
+rather than the reverse. Nothing else depends on the old order (each
+embedded component's mount effect fires on its own, regardless of DOM
+position).
+
+Selecting "General" clears the query param (`setSearchParams({})`),
+hiding both embedded panels again and showing the original
+`ThemePicker` + `AccountsPanel` content, unchanged.
+
+**Verify**: open `/settings` — General is the default tab, shows the
+theme grid + (App Admin only) account admin panel, no embedded module
+visible. Click "Oil Lubrication" — the URL gains `?module=oil-analysis`,
+that module's own embedded Settings page appears directly below the tab
+strip (its own "Configuration"/"System" tabs, etc. — same screen as
+visiting Oil Lubrication → Settings from the sidebar), and the General
+panel is gone. Click "Vibration Analysis" — same, for that module (shows
+its own "Theme is now managed from the platform Settings page" notice,
+confirming the de-duplication from the earlier theme-consolidation
+patch). Click back to "General" — the theme grid returns, both embedded
+panels hide again. Verified with a 12-assertion Playwright test plus a
+rerun of the existing TopBar test (Patch 28) to confirm the `App.tsx`
+reordering caused no regression on the plain `/oil-analysis` and
+`/vibration-analysis` routes.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

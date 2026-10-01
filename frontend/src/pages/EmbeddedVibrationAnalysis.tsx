@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
 
 type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge }) => () => void;
@@ -19,8 +19,12 @@ export default function EmbeddedVibrationAnalysis() {
   const containerRef = useRef<HTMLDivElement>(null);
   const embeddedNav = useEmbeddedNav();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const startedRef = useRef(false);
-  const visible = location.pathname === BASE_ROUTE;
+  // Patch 29: also visible from the consolidated Settings page's
+  // "Vibration Analysis" side tab (?module=vibration-analysis on
+  // /settings) — see EmbeddedOilAnalysis.tsx for the full rationale.
+  const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
 
   useEffect(() => {
     if (startedRef.current) return;

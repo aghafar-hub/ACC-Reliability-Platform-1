@@ -1,25 +1,81 @@
+import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
 import ThemePicker from '../components/ThemePicker';
+import { useEmbeddedNav } from '../embeddedNav';
+import { Icon } from '../icons';
+import './Settings.css';
 
-// Platform-level Settings — the shared theme picker that used to live
-// separately inside each module's own Settings (see each app's own
-// Settings.jsx, which hides its own Theme section and points here instead).
-// Picking a theme here (via ShellThemeContext, see shellTheme.tsx) restyles
-// the Sidebar and every shell page immediately, in addition to whichever
-// embedded module is open, and persists so both modules also start on the
-// right theme next time either is opened.
-//
-// AccountsPanel (App Admin only — renders nothing for anyone else) is the
-// "App Admin can add any account" piece from docs/requirements-notes.md.
+type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
+
+const TABS: { id: SettingsTabId; label: string; icon: string }[] = [
+  { id: 'general', label: 'General', icon: 'settings' },
+  { id: 'oil-analysis', label: 'Oil Lubrication', icon: 'droplet' },
+  { id: 'vibration-analysis', label: 'Vibration Analysis', icon: 'graphs' },
+];
+
+// Platform-level Settings (Patch 29) — one page with tabs for each module
+// instead of a separate Settings screen buried inside each one. "General"
+// is the shared theme picker + account admin that used to be the whole
+// page (ThemePicker/AccountsPanel below, unchanged). The module tabs don't
+// duplicate each module's own settings screen — they ARE it: selecting one
+// drives that module's already-mounted embedded instance (see
+// EmbeddedOilAnalysis.tsx/EmbeddedVibrationAnalysis.tsx, rendered as
+// persistent siblings of this page in App.tsx) to its own internal
+// Settings page and reveals it directly below this tab strip, via the
+// `module` query param both of those components also read. This reuses
+// the exact same instance the rest of the app uses — no second mount, no
+// lost state, and switching back to General (or another module) never
+// unmounts it either.
 export default function Settings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const embeddedNav = useEmbeddedNav();
+  const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
+
+  function selectTab(tabId: SettingsTabId) {
+    if (tabId === 'general') {
+      setSearchParams({});
+      return;
+    }
+    // Drives the embedded app to its own native "settings" page — a no-op
+    // if that module hasn't finished mounting yet, in which case it just
+    // opens there once it has (navBridge.navigate queues against the same
+    // activePage state the module reads on mount).
+    embeddedNav.navigateTo(tabId, 'settings');
+    setSearchParams({ module: tabId });
+  }
+
   return (
-    <div>
+    <div className="settings-page">
       <h1>Settings</h1>
-      <p className="settings-intro">
-        Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
-      </p>
-      <ThemePicker />
-      <AccountsPanel />
+
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={tab.id === activeTab}
+            className={tab.id === activeTab ? 'settings-tab settings-tab--active' : 'settings-tab'}
+            onClick={() => selectTab(tab.id)}
+          >
+            <Icon name={tab.icon} size={16} />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'general' && (
+        <div className="settings-panel">
+          <p className="settings-intro">
+            Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
+          </p>
+          <ThemePicker />
+          <AccountsPanel />
+        </div>
+      )}
+      {/* For a module tab, nothing else renders here on purpose — that
+          module's own Settings page appears directly below, rendered by
+          EmbeddedOilAnalysis/EmbeddedVibrationAnalysis in App.tsx. */}
     </div>
   );
 }
