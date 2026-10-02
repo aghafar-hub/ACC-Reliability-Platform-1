@@ -529,6 +529,16 @@ export async function logOilChangeEvent(webhookUrl, event) {
 
   const verify = await getJSON(webhookUrl, { action: "getOilChangesForLp", lpId });
   const events = (verify.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilChangeEvent);
+  // Bug-hunt pass: re-checked whether this .find() could match an older
+  // pre-existing event instead of the one just written, when the same
+  // person logs two changes for the same LP on the same calendar day —
+  // it can't. getOilChangesForLp (backend/oil-lubrication/src/
+  // OilChanges.js) explicitly reverses its rows before returning
+  // ("newest first" — see its own header comment), and this write's own
+  // LockService-serialized appendRow call (Code.js wraps every doPost in
+  // a script lock) guarantees it physically lands after every row already
+  // in the sheet. So the just-written event is always events[0] among any
+  // date+doneBy matches here, and .find() already returns it correctly.
   const saved = events.find((ev) => sameCalendarDay(ev.eventDate, eventDate) && (ev.doneBy || "") === doneBy);
   if (!saved) {
     throw new SaveVerificationError(`The oil change wasn't confirmed saved to the sheet — please try again.`);
