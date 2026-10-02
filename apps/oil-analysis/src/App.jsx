@@ -920,6 +920,19 @@ function AppShell({ config, setConfig, navBridge }) {
     navBridge.onNavigate?.(page);
   });
 
+  // Patch 35 ("make it one [top bar]"): lets the shell's own TopBar run
+  // this module's sync instead of this module rendering a second,
+  // duplicate bar with its own Sync button just to reach it — see
+  // embeddedNav.tsx's NavBridge.sync/onSyncStateChange.
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.sync = runSync;
+  }, [navBridge, runSync]);
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.onSyncStateChange?.({ syncState, pendingSyncCount });
+  }, [navBridge, syncState, pendingSyncCount]);
+
   const cacheInfo = readCache("samples");
 
   return (
@@ -1020,7 +1033,7 @@ function AppShell({ config, setConfig, navBridge }) {
         <TopBar
           page={page}
           sample={selectedEquipment}
-          sheetUrl={config.sheetUrl}
+          navBridge={navBridge}
           syncState={syncState}
           onSync={runSync}
           onOpenMobileNav={() => setMobileNavOpen(true)}

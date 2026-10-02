@@ -20,7 +20,19 @@ export type NavBridge = {
   // module(s) are currently mounted — mirrors the navigate/onNavigate pair
   // above, but for theme instead of page navigation.
   setTheme?: (themeName: string) => void;
+  // Patch 35 ("make it one [top bar]"): mirrors navigate/onNavigate again,
+  // but for sync — the embedded app sets `.sync` to its own runSync
+  // function and calls `.onSyncStateChange(info)` whenever its syncState/
+  // pendingSyncCount change, so the shell's own TopBar can show that
+  // module's Sync button and pending-upload count instead of the module
+  // rendering a second, duplicate bar for it. Online/offline status isn't
+  // part of this — it's just the browser's own navigator.onLine, read
+  // directly by the shell, no bridge needed.
+  sync?: () => void;
+  onSyncStateChange?: (info: SyncInfo) => void;
 };
+
+export type SyncInfo = { syncState: string; pendingSyncCount: number };
 
 // 'idle': not started yet. 'loading': the embed bundle is downloading/
 // mounting (kicked off right after login now, not on first click — see
@@ -29,7 +41,7 @@ export type NavBridge = {
 // loading signal next to the module's nav item while it's still warming up.
 export type ModuleLoadState = 'idle' | 'loading' | 'ready';
 
-type ModuleEntry = { bridge: NavBridge; activePage: string | null };
+type ModuleEntry = { bridge: NavBridge; activePage: string | null; syncInfo: SyncInfo | null };
 
 // Keyed by moduleId ('oil-analysis' / 'vibration-analysis') rather than
 // tracking a single "current" module — both embedded apps stay mounted for
@@ -45,6 +57,11 @@ type EmbeddedNavContextValue = {
   unregister: (moduleId: string) => void;
   setActivePage: (moduleId: string, pageId: string) => void;
   navigateTo: (moduleId: string, pageId: string, recordId?: string) => void;
+  // Patch 35: the shell TopBar's module-aware Sync button/badge — see
+  // NavBridge.sync/onSyncStateChange above.
+  syncInfoFor: (moduleId: string) => SyncInfo | null;
+  setSyncInfo: (moduleId: string, info: SyncInfo) => void;
+  triggerSync: (moduleId: string) => void;
   // Live-pushes a theme change to every currently-registered module (no-op
   // for one that hasn't wired navBridge.setTheme — either way the choice is
   // still persisted separately, see theme.ts).
@@ -67,7 +84,10 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
       },
       activePageFor: (moduleId) => modules[moduleId]?.activePage ?? null,
       register: (moduleId, bridge) => {
-        setModules((prev) => ({ ...prev, [moduleId]: { bridge, activePage: prev[moduleId]?.activePage ?? null } }));
+        setModules((prev) => ({
+          ...prev,
+          [moduleId]: { bridge, activePage: prev[moduleId]?.activePage ?? null, syncInfo: prev[moduleId]?.syncInfo ?? null },
+        }));
       },
       unregister: (moduleId) => {
         setModules((prev) => {
@@ -86,6 +106,11 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
       pushTheme: (themeName) => {
         Object.values(modules).forEach((m) => m.bridge.setTheme?.(themeName));
       },
+      syncInfoFor: (moduleId) => modules[moduleId]?.syncInfo ?? null,
+      setSyncInfo: (moduleId, info) => {
+        setModules((prev) => (prev[moduleId] ? { ...prev, [moduleId]: { ...prev[moduleId], syncInfo: info } } : prev));
+      },
+      triggerSync: (moduleId) => modules[moduleId]?.bridge.sync?.(),
     }),
     [modules, loadStates],
   );

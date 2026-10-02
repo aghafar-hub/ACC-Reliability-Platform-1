@@ -20,17 +20,41 @@ function useBreadcrumb() {
   const location = useLocation();
   const embeddedNav = useEmbeddedNav();
   const item = NAV_ITEMS.find((i) => (i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)));
-  if (!item) return { module: 'Reliability Platform', page: '' };
+  if (!item) return { module: 'Reliability Platform', page: '', moduleId: null as string | null };
   const activeSubTabId = item.moduleId ? embeddedNav.activePageFor(item.moduleId) : null;
   const subTab = item.subTabs?.find((t) => t.id === activeSubTabId);
-  return { module: item.label, page: subTab?.label || '' };
+  return { module: item.label, page: subTab?.label || '', moduleId: item.moduleId ?? null };
+}
+
+// Patch 35 ("make it one [top bar]"): the browser's own global network
+// status — not module-specific, so no bridge round-trip needed, unlike
+// Sync below.
+function useOnlineStatus() {
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
+  return online;
 }
 
 export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
   const { claims, logout } = useAuth();
-  const { module, page } = useBreadcrumb();
+  const embeddedNav = useEmbeddedNav();
+  const { module, page, moduleId } = useBreadcrumb();
+  const online = useOnlineStatus();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  // Only set once that module has actually reported in at least once (see
+  // EmbeddedOilAnalysis.tsx's onSyncStateChange) — null while still
+  // mounting/never registered, not while merely "not inside a module."
+  const syncInfo = moduleId ? embeddedNav.syncInfoFor(moduleId) : null;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -73,6 +97,45 @@ export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
       </div>
 
       <div className="shell-topbar-actions">
+        {/* Patch 35: this module's own Sync button/pending-upload count,
+            shown here instead of the module rendering a second bar below
+            this one for it — see embeddedNav.tsx's NavBridge.sync/
+            onSyncStateChange and EmbeddedOilAnalysis.tsx. Online/offline is
+            the browser's own global status, not module-specific, but only
+            worth showing alongside Sync (inside a syncable module) rather
+            than cluttering every other page. */}
+        {syncInfo && (
+          <div className="shell-topbar-sync">
+            {syncInfo.pendingSyncCount > 0 && (
+              <span
+                className="shell-topbar-pending"
+                title="Saved on this device — will upload automatically once there's a connection"
+              >
+                <TablerIcon className="ti-cloud-upload" size={13} />
+                <span>
+                  {syncInfo.pendingSyncCount} {syncInfo.pendingSyncCount === 1 ? 'entry' : 'entries'} pending
+                </span>
+              </span>
+            )}
+            <span
+              className={online ? 'shell-topbar-online shell-topbar-online--up' : 'shell-topbar-online shell-topbar-online--down'}
+              title={online ? 'Browser is online' : 'Browser is offline — changes will sync once reconnected'}
+            >
+              <span className="shell-topbar-online-dot" />
+              <span>{online ? 'Online' : 'Offline'}</span>
+            </span>
+            <button
+              type="button"
+              className="shell-topbar-sync-btn"
+              onClick={() => moduleId && embeddedNav.triggerSync(moduleId)}
+              disabled={syncInfo.syncState === 'loading'}
+            >
+              <TablerIcon className={syncInfo.syncState === 'loading' ? 'ti-loader shell-topbar-sync-spin' : 'ti-refresh'} size={14} />
+              <span>{syncInfo.syncState === 'loading' ? '…' : 'Sync'}</span>
+            </button>
+          </div>
+        )}
+
         <button type="button" className="shell-topbar-lang" title="Language — Arabic view not built yet">
           EN <span className="shell-topbar-lang-sep">/</span> عربي
         </button>

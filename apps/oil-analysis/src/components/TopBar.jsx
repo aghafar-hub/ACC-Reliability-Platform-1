@@ -29,14 +29,35 @@ function useOnlineStatus() {
   return online;
 }
 
-// Persistent bar shown at the top of every page — matches the original app's
-// layout exactly (title, online/offline indicator, date, Sheet link, Sync
-// button), including the mobile menu button living inside it rather than in
-// a separate mobile-only header.
-export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOpenMobileNav, onBack, pendingSyncCount }) {
+// Persistent bar shown at the top of every page when this app runs
+// STANDALONE (the retired, login-free deployment — see App.jsx's navBridge
+// comment). When embedded in the platform shell (navBridge present,
+// production's only real path), the shell's own TopBar is the only
+// always-visible bar — Patch 35 ("make it one"): this app used to render
+// its own full title/online/date/sync bar underneath the shell's, which
+// read as two stacked top bars on every single page. Its Online status,
+// pending-sync badge, and Sync button moved to the shell's own TopBar
+// (module-aware — see frontend/src/components/TopBar.tsx and
+// embeddedNav.tsx's NavBridge.sync/onSyncStateChange); the Sheet link was
+// dropped entirely (not moved anywhere), confirmed directly by the user.
+// The one piece kept here even when embedded is the Report page's own
+// "Back" button — contextual, single-page navigation the shell has no
+// way to know about, not a duplicate of anything the shell itself shows.
+export default function TopBar({ page, sample, navBridge, syncState, onSync, onOpenMobileNav, onBack, pendingSyncCount }) {
   const { T, s } = useTheme();
   const online = useOnlineStatus();
   const title = page === "report" && sample ? `Report: ${sample.unitId}` : PAGE_TITLES[page] || "";
+
+  if (navBridge) {
+    if (page !== "report") return null;
+    return (
+      <div style={{ ...s.topbar, justifyContent: "flex-start" }} className="app-topbar">
+        <button style={{ ...s.btn, padding: "6px 12px" }} onClick={onBack}>
+          <i className="ti ti-arrow-left" aria-hidden="true" /> Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={s.topbar} className="app-topbar">
@@ -55,11 +76,6 @@ export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOp
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {pendingSyncCount > 0 && (
-          // Patch 11 — this is the one place guaranteed to render whether
-          // this app is running standalone or embedded in the platform
-          // shell (the embedded build skips its own Sidebar entirely, see
-          // App.jsx's navBridge comment, so a Sidebar-only badge would
-          // never be seen there at all).
           <span
             style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: T.warning, fontWeight: 600 }}
             title="Saved on this device — will upload automatically once there's a connection"
@@ -80,16 +96,6 @@ export default function TopBar({ page, sample, sheetUrl, syncState, onSync, onOp
         <span className="topbar-date" style={{ fontSize: 12, color: T.sidebarTextSecondary }}>
           {new Date().toLocaleDateString("en-GB", { dateStyle: "long" })}
         </span>
-        {sheetUrl && (
-          <a
-            href={sheetUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ ...s.btn, textDecoration: "none", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
-          >
-            <i className="ti ti-table" aria-hidden="true" /> Sheet
-          </a>
-        )}
         <button style={{ ...s.btn, fontSize: 12 }} onClick={onSync} disabled={syncState === "loading"}>
           <i
             className={`ti ${syncState === "loading" ? "ti-loader" : "ti-refresh"}`}

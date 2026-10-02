@@ -72,7 +72,13 @@ export default function EmbeddedOilAnalysis() {
     if (!sessionToken) return;
     startedRef.current = true;
 
-    const navBridge: NavBridge = { onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page) };
+    const navBridge: NavBridge = {
+      onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page),
+      // Patch 35: lets the shell's own TopBar show this module's Sync
+      // button/pending-count instead of this module rendering a second bar
+      // for it — see embeddedNav.tsx's NavBridge.onSyncStateChange.
+      onSyncStateChange: (info) => embeddedNav.setSyncInfo(MODULE_ID, info),
+    };
     embeddedNav.register(MODULE_ID, navBridge);
     embeddedNav.setLoadState(MODULE_ID, 'loading');
 

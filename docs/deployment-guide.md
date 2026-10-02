@@ -2068,6 +2068,94 @@ on a 390px screen during this patch's own testing — a first concrete
 item for that follow-up pass, left alone here since it's inside a
 module's own dense-page territory, not shell chrome.
 
+## 4ap. One top bar, not two — Oil Lubrication consolidation (Patch 35)
+
+Start of the "all screens organized well on mobile screen" follow-up
+flagged at the end of Patch 34: "in all view i see 2 top bar, we need to
+make it one." Confirmed it wasn't mobile-only — every Oil Lubrication page
+on desktop and mobile alike stacked the shell's own `TopBar` (breadcrumb,
+bell, settings, avatar) directly above the module's own internal
+`TopBar.jsx` (page title, Online/offline, date, Sheet link, Sync button).
+Scope, confirmed with the user: fix it everywhere in one pass; move
+Online status + the Sync button into the shell's bar; drop the Sheet link
+entirely rather than relocate it; keep the pending-sync-count badge.
+
+**The module no longer renders its own bar when embedded.**
+`apps/oil-analysis/src/components/TopBar.jsx` now takes a `navBridge` prop
+(replacing the `sheetUrl` prop it used to take) and returns `null`
+whenever `navBridge` is set — i.e. on every page except one. The Report
+page is the one exception: its own "Back" button is contextual,
+single-page navigation the shell has no way to know about, so that case
+still renders a minimal one-button bar (just Back, nothing else). The
+standalone (no-`navBridge`) code path — unused in production, see Patch
+12's retirement of the old no-login deployment, kept only so the app
+still runs if someone opens it directly during development — keeps its
+full original bar, minus the Sheet link, which was removed from both
+paths since the user asked to drop it "at all," not just from the
+embedded one.
+
+**The shell's own bar grew a module-aware Sync row.** A new
+`NavBridge.sync()`/`NavBridge.onSyncStateChange()` pair
+(`frontend/src/embeddedNav.tsx`) mirrors the existing `navigate`/
+`onNavigate` pattern: the module sets `navBridge.sync` to its own
+`runSync` function and calls `onSyncStateChange({ syncState,
+pendingSyncCount })` on every change (`apps/oil-analysis/src/App.jsx`,
+two small `useEffect`s next to the existing navigation-bridge one); the
+shell stores the latest value per module (`EmbeddedNavProvider`'s
+`syncInfoFor`/`setSyncInfo`) and `frontend/src/components/TopBar.tsx`
+reads it via the active route's `moduleId` (added to `useBreadcrumb()`'s
+return value). When `syncInfo` is non-null — i.e. the active page belongs
+to a module that has registered a sync bridge — the shell's `TopBar`
+renders the pending-count badge (only when count > 0), an Online/Offline
+pill (`navigator.onLine`, listening for the `online`/`offline` window
+events — a new `useOnlineStatus()` hook, not module-specific, so no
+bridge round-trip needed for it), and a Sync button that calls
+`embeddedNav.triggerSync(moduleId)` and disables itself mid-sync. On any
+non-module page (Dashboard, Settings, etc.) `syncInfo` is `null` and none
+of this renders — confirmed via `revert_oil_naming_test`'s still-passing
+`topLevelDashboardIsStub` assertion, which exercises exactly that page.
+
+**Mobile**: at ≤860px (the same breakpoint Sidebar/TopBar/BottomNav
+already share), the Sync row's text labels collapse to icon-only
+(`.shell-topbar-pending span`, `.shell-topbar-online
+span:not(.shell-topbar-online-dot)`, `.shell-topbar-sync-btn span` all
+`display:none`) so it doesn't collide with the bell/settings/avatar on an
+already-tight phone width — caught and fixed one bug in my own first pass
+here: those selectors target real `<span>` wrappers around each text
+label, which the JSX didn't originally have (bare text nodes don't match
+a `span` selector) — added the wrapper spans before this ever reached
+testing.
+
+**Verify**: a new Playwright script
+(`topbar_consolidation_test.mjs`, desktop 1400×1000 + mobile 390×844)
+confirms exactly one `.shell-topbar` and zero `.app-topbar` on Oil
+Dashboard at both viewports, the Sync row present with a working Online
+pill and Sync button, no horizontal overflow on mobile. Reaching the
+Report page needed real sample/equipment data (the Sample Tracker's
+cached 158 real LP-IDs don't line up with a minimal mock) — built one via
+Equipment → search → Oil Samples tab → "View report," the same path
+`equipment_merge_test.mjs` already uses — confirming exactly one
+`.shell-topbar` *and* exactly one `.app-topbar` (the single-button Back
+bar, nothing else) on that page, and that clicking Back returns to the
+dashboard with the module's bar gone again. The one incidental match on
+`a:has-text("Sheet")` during testing turned out to be the module's own
+password-gated advanced Settings page ("Open Sheet," `apps/oil-analysis/
+src/pages/Settings.jsx`) — a pre-existing, unrelated admin config link,
+confirmed not visible on page load (`isVisible()` false) and out of this
+patch's scope, not a leftover from the TopBar removal. Full regression
+suite (`topbar_ui_test`, `settings_tabs_test`, `equipment_merge_test`,
+`revert_oil_naming_test`, `mobile_sidebar_fix_test`,
+`mobile_app_feel_test`) rerun clean — no regressions from the
+`TopBar.tsx`/`TopBar.css` changes.
+
+**Still open**: the broader screen-by-screen mobile audit this patch was
+the first item of — Oil Lubrication's own dense pages (Oil Dashboard,
+Routines, Equipment, Oil Inventory) haven't been reviewed for mobile
+layout yet, just this one shell-chrome issue. Vibration Analysis has the
+same double-top-bar problem (its own `TopBar` component follows the same
+old pattern) — untouched here, explicitly deferred until Oil
+Lubrication's audit is further along.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
