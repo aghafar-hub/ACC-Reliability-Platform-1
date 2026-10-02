@@ -62,7 +62,7 @@ function ShellRoot() {
       <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div className="app-shell-right">
         <TopBar onOpenMenu={() => setMobileNavOpen(true)} />
-        <main className="app-content">
+        <main className="shell-page-content">
           <Routes>
             {/* Patch 31 briefly pointed "/" and "/equipment" at Oil
                 Lubrication's own Dashboard/Equipment pages directly — reverted

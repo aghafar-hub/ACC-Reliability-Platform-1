@@ -2156,6 +2156,81 @@ same double-top-bar problem (its own `TopBar` component follows the same
 old pattern) — untouched here, explicitly deferred until Oil
 Lubrication's audit is further along.
 
+## 4aq. Mobile audit, item 1: a hidden CSS class-name collision clipping every page heading (Patch 36)
+
+First item of the "screen-by-screen mobile audit" Patch 35 deferred.
+Captured all 12 Oil Lubrication sub-tabs (plus the Equipment detail view)
+at a real phone viewport (390×844) with populated mock data and reviewed
+each screenshot. The single worst, most widespread finding: almost every
+page's own heading, intro text, and even form labels had their first 1-2
+characters clipped flush against the left edge of the screen —
+"Routines" rendering as "outines," "Oil Change Forecast" as "il Change
+Forecast," "EQUIPMENT" as "UIPMENT," and so on, across Routines, Add
+Report, Oil Actions, Oil Change Forecast, Sample Tracker, Oil Inventory,
+Reports, Activity, Settings, and the Equipment detail page — a pattern
+too consistent to be a per-page bug.
+
+**Root cause, confirmed by measurement** (same approach as Patch 34's
+zoom investigation — direct `getBoundingClientRect()` on the clipped
+element and every ancestor, not guessing from the rendered pixels alone):
+the shell (`frontend/src/App.tsx`) and the Oil Analysis module
+(`apps/oil-analysis/src/App.jsx`) **both independently named a CSS class
+`.app-content`** for their own (unrelated) top-level content wrapper.
+Both apps inject a plain, unscoped `<style>` tag straight into the one
+shared document — there's no CSS scoping between an embedded module and
+the shell that mounts it — so the module's own
+`@media (max-width: 480px) { .app-content { padding: 8px !important } }`
+rule (apps/oil-analysis/src/App.jsx, its own mobile-padding rule from
+long before embedding existed) was *also* matching and overriding the
+shell's `.app-content` (`frontend/src/App.css`, `padding: 2rem`), simply
+because the module's `<style>` tag mounts into `<head>` after the shell's
+own stylesheet and wins the cascade at equal specificity via
+`!important`. That broke the exact assumption
+`.app-content--embedded`'s `margin: -2rem` (added back in the original
+embedding work, see `4`) was built on — it cancels exactly 2rem of the
+shell's own `.app-content` padding, but at ≤480px the shell's actual
+padding had silently become 8px instead, so cancelling -2rem against it
+pushed every embedded page's content ~24px further left than the
+viewport's own left edge. Confirmed directly: the embedded container's
+own `left` (via `getBoundingClientRect()`) measured negative (off-screen)
+at a 390px viewport before the fix, and a small positive number after.
+
+**Fix**: renamed the *shell's* class only — `.app-content` →
+`.shell-page-content` in `frontend/src/App.tsx` (the `<main>` wrapper)
+and `frontend/src/App.css` (`.shell-page-content`,
+`.shell-page-content h1`/`h2`). `.app-content--embedded` (the actual
+mount-point div, a distinctly-named class, not a collision) and the two
+embedded apps' own bundles are untouched — neither app's code needed to
+change, since the fix just gives the shell's wrapper a name that can't
+collide with whatever either embedded app happens to call its own
+internal containers. Vibration Analysis was never touched (its own
+`.app-content`, if it has one, no longer matters either way once the
+shell's own class has a unique name) but is worth a quick check once its
+own mobile audit starts.
+
+**Verify**: the same `getBoundingClientRect()` measurement confirmed the
+heading's own `left` moved from -10px to +10px after the fix (rebuilt
+frontend only — neither embedded module needed rebuilding); re-captured
+all 12 mobile screenshots and visually confirmed every previously-clipped
+heading/label now renders in full on Routines, Activity, Oil Inventory,
+and the rest. Full regression suite rerun (`topbar_ui_test`,
+`settings_tabs_test`, `equipment_merge_test`, `revert_oil_naming_test`,
+`mobile_sidebar_fix_test`, `mobile_app_feel_test`,
+`topbar_consolidation_test`) — the renamed class broke two existing
+tests' own hardcoded `main.app-content` selectors (not a product
+regression, just stale test selectors), updated to
+`main.shell-page-content` and reran clean.
+
+**Still open**: the rest of the Patch 35 punch list — Routines' own data
+table overflowing horizontally with its Status column cut off, Oil Change
+Forecast's timeline/date-axis labels overlapping into illegible text,
+Oil Actions' Kanban board only showing 2 of 4 status columns with no
+scroll affordance (and drag-and-drop between distant scrolled columns
+being impractical on touch), Activity's header row cramming a title +
+search input + Filter button onto one line, and the generally
+chrome-heavy filter-chip toolbars on Routines/Oil Actions/Oil Change
+Forecast eating most of the screen before any real content shows.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

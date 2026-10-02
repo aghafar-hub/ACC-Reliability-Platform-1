@@ -11,7 +11,7 @@
 }
 
 /* Patch 28: the column to the right of Sidebar — TopBar on top (fixed
-   height, see TopBar.css), app-content filling the rest. Sidebar itself
+   height, see TopBar.css), shell-page-content filling the rest. Sidebar itself
    stays a direct child of .app-shell so it still spans the full viewport
    height exactly as before. */
 .app-shell-right {
@@ -36,7 +36,7 @@
 /* BottomNav (<=860px only — see BottomNav.css) is `position: fixed`, so it
    doesn't occupy real layout space on its own; this reserves room for it
    at the bottom of the flex column instead, on the outer .app-shell-right
-   rather than .app-content itself, so it doesn't interact with
+   rather than .shell-page-content itself, so it doesn't interact with
    .app-content--embedded's own negative-margin/zoom system below. */
 @media (max-width: 860px) {
   .app-shell-right {
@@ -44,7 +44,26 @@
   }
 }
 
-.app-content {
+/* Patch 35 mobile audit — this was ".app-content" until a real, measured
+   bug surfaced: apps/oil-analysis's own embed bundle injects a *global*,
+   unscoped `<style>` tag into this same document that also defines a class
+   named ".app-content" (its own internal content wrapper, App.jsx), with a
+   `@media (max-width: 480px) { .app-content { padding: 8px !important } }`
+   rule. Both apps' style tags share one document <head> with no CSS
+   scoping between them, so at <=480px that rule — mounted after this
+   shell's own stylesheet, so it wins the cascade — was overriding THIS
+   element's padding (2rem) down to 8px too, which broke
+   .app-content--embedded's `margin: -2rem` below: it was built to cancel
+   exactly 2rem of this element's padding, so cancelling -2rem against an
+   actual 8px left every embedded page's content shifted ~24px past this
+   element's own left edge — confirmed by measuring the embedded
+   container's own getBoundingClientRect() landing at a negative `left`
+   (off-screen) at a 390px viewport. Visibly: any text flush against a
+   page's own left edge (headings, labels) had its first character or two
+   clipped by the viewport, on nearly every Oil Lubrication page. Renamed
+   to something that can't collide with whatever class names either
+   embedded app happens to pick for its own internal containers. */
+.shell-page-content {
   flex: 1;
   padding: 2rem;
   box-sizing: border-box;
@@ -61,8 +80,8 @@
 /* index.css's own h1/h2 rule (leftover from the starter template) sets a
    fixed dark color that doesn't adapt to the chosen theme — overridden
    here (higher specificity) so headings stay legible on dark palettes too. */
-.app-content h1,
-.app-content h2 {
+.shell-page-content h1,
+.shell-page-content h2 {
   color: var(--shell-text);
 }
 
@@ -78,7 +97,7 @@
   margin: -2rem;
   contain: layout;
   /* Confirmed by direct measurement (not theoretical): with a negative
-     margin cancelling .app-content's own padding AND `zoom: 0.9` below
+     margin cancelling .shell-page-content's own padding AND `zoom: 0.9` below
      both applied to the same element, this box's `width: auto`
      computation came out ~11% too wide on at least one real browser
      engine (measured ~471px pre-zoom against an available ~433px) —
