@@ -30,7 +30,13 @@ export default function EmbeddedVibrationAnalysis() {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    const navBridge: NavBridge = { onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page) };
+    const navBridge: NavBridge = {
+      onNavigate: (page) => embeddedNav.setActivePage(MODULE_ID, page),
+      // Patch 38: lets the shell's own TopBar show this module's Sync
+      // button instead of this module rendering a second bar for it — see
+      // EmbeddedOilAnalysis.tsx for the original version of this pattern.
+      onSyncStateChange: (info) => embeddedNav.setSyncInfo(MODULE_ID, info),
+    };
     embeddedNav.register(MODULE_ID, navBridge);
     embeddedNav.setLoadState(MODULE_ID, 'loading');
 

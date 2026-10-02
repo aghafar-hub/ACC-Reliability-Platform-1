@@ -2346,6 +2346,105 @@ but a second look focused specifically on real (non-mocked) production
 data volumes — e.g. what the Routines card list looks like with hundreds
 of routines rather than 2-3 — hasn't been done.
 
+## 4as. Four more mobile/shell fixes from direct iPhone testing (Patch 38)
+
+Direct feedback after trying the deployed app on a real iPhone, not caught
+by the Patch 36/37 audit's own (desktop-browser, touch-emulated) testing:
+the shell's own TopBar scrolled out of view instead of staying put; the
+mobile sidebar had two separate buttons that both opened the exact same
+overlay; a module's sidebar sub-tab list had no way to close once opened
+short of leaving the module; and Vibration Analysis still had the same
+double-top-bar problem Patch 35 had only fixed for Oil Analysis.
+
+**TopBar wasn't pinned.** Nothing in the shell creates its own scroll
+container — `#root`/`body` is the one real scrolling element (`index.css`)
+— so `.shell-topbar` was a plain in-flow block that scrolled away with
+the page underneath it like any other element, exactly matching "can't
+see the top bar until I scroll up." Added `position: sticky; top: 0;
+z-index: 50` to `.shell-topbar` (`frontend/src/components/TopBar.css`) —
+50 sits below every floating-chrome layer that still needs to cover it
+when open (Sidebar rail 100, NotificationBell's dropdown 200, BottomNav
+300, the mobile Sidebar overlay/backdrop 499/500) but above ordinary
+scrolling page content, which has none.
+
+**Two buttons opened the same sidebar overlay.** TopBar's own hamburger
+button (top-left, ≤860px) and BottomNav's "More" tab (bottom, ≤860px)
+both called the identical `setMobileNavOpen(true)` / opened the identical
+Sidebar overlay — "no need for the top left side button on mobile view,"
+confirmed directly. Removed the `@media (max-width: 860px) {
+.shell-topbar-menu-btn { display: inline-flex; } }` override in
+`TopBar.css` so it now stays at its own default `display: none` on mobile
+too (unchanged on desktop, where it was never the complaint); the button
+stays in `TopBar.tsx`'s markup for a future >860px use, only its
+visibility is CSS-gated, so no JS change was needed there.
+
+**Sidebar sub-tab list had no close.** A module's sub-tab list
+(`showSubTabs` in `Sidebar.tsx`) showed unconditionally for as long as
+the route stayed on that module — with no separate open/closed state at
+all, clicking the top-level "Oil Lubrication" link again while already
+inside one of its own sub-tabs did nothing, since for a "native" sub-tab
+(no `to`, see `SubTabItem`'s own file comment) the browser route never
+actually changes — only the embedded module's own internal page does —
+so `NavLink` saw itself already on the target route and no-opped.
+Added a `collapsedModuleTo` state: clicking an active top-level item with
+sub-tabs now toggles the list instead of attempting (and failing) to
+navigate, and collapsing also sends the module back to its own first
+sub-tab (index 0 — each module's own Dashboard, see `navigation.ts`) so
+"click back to Oil Lubrication" actually lands you back on Oil
+Dashboard, not wherever you happened to be. A `useEffect` keyed on
+`location.pathname` resets this back to `null` on every real route
+change (not on an internal sub-tab switch, which never touches the
+route) — otherwise leaving Oil Lubrication collapsed and later returning
+via BottomNav's own primary tab (which bypasses Sidebar's click handler
+entirely) would show it still collapsed from an unrelated earlier visit
+instead of expanded, as a fresh visit should.
+
+**Vibration Analysis's own double top bar** — the exact Patch 35 problem,
+never done for this module since that patch's own scope was explicitly
+"Oil Lubrication's pages first." Same treatment: `apps/vibration-
+analysis/src/components/TopBar.jsx` now returns `null` when `navBridge`
+is set (no exception needed here — unlike Oil Analysis, this app has no
+Report-style page with its own contextual Back button); two new
+`useEffect`s wire `navBridge.sync`/`onSyncStateChange` exactly like Oil
+Analysis's own Patch 35 wiring, with `pendingSyncCount` hardcoded to `0`
+since this app has no offline-queue concept to report; `frontend/src/
+pages/EmbeddedVibrationAnalysis.tsx` gained the matching
+`onSyncStateChange` bridge call — the shell's own `TopBar.tsx` needed
+*no* changes at all, since its `syncInfoFor(moduleId)` lookup was already
+fully generic across any registered module, not hardcoded to Oil
+Analysis.
+
+One real bug caught and fixed before it ever reached testing: the two
+new Vibration Analysis `useEffect`s were first placed right next to the
+existing `navBridge.navigate` effect near the top of the component,
+*before* `syncNow`'s own `const syncNow = useCallback(...)` declaration
+further down the same function — referencing `syncNow` in a dependency
+array ahead of its own declaration point is a temporal-dead-zone
+violation, and did throw at runtime in testing (`ReferenceError: Cannot
+access 'me' before initialization` in the minified bundle, `embed.js`)
+once actually loaded in a browser rather than just type-checked. Fixed by
+moving both effects to right after `syncNow`'s own declaration instead.
+
+**Verify**: a new Playwright script
+(`patch38_fixes_test.mjs`) confirms all four independently — TopBar's own
+`boundingBox().y` stays at 0 after scrolling a tall page 2000px down
+(sticky working, not just visually eyeballed); the hamburger button is
+invisible on a 390px viewport while BottomNav's "More" is visible and
+still opens the identical overlay; the sidebar sub-menu's visibility
+toggles false→true→false across two clicks of the same active top-level
+item; Vibration Analysis shows exactly one `.shell-topbar` with a working
+Sync button inside it (the TDZ crash would have made this fail outright,
+not just render wrong — caught on the very first run of this exact
+test). Full regression suite (`topbar_ui_test`, `settings_tabs_test`,
+`equipment_merge_test`, `revert_oil_naming_test`, `mobile_sidebar_fix_test`,
+`mobile_app_feel_test`, `topbar_consolidation_test`,
+`routines_overview_ui_test`, `routines_charts_ui_test`) rerun clean.
+
+**Still open**: Vibration Analysis's own screen-by-screen mobile audit
+(the equivalent of Patches 36-37, but for this module) hasn't been done —
+only its double-top-bar issue, which was the one specifically reported,
+is fixed here.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

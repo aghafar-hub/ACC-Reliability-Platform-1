@@ -8,6 +8,17 @@
   background: var(--shell-card-bg, #0d1e35);
   border-bottom: 1px solid var(--shell-border, #1e3a5f);
   color: var(--shell-text, #e2e8f0);
+  /* Nothing in the shell scrolls independently — #root/body is the one
+     real scroll container (index.css) — so without this, TopBar was a
+     plain in-flow element that scrolled away with the page underneath it
+     like any other block, staying out of view until scrolling back up.
+     z-index sits below every floating-chrome layer that must still cover
+     it (Sidebar rail 100, NotificationBell's dropdown 200, BottomNav 300,
+     the mobile Sidebar overlay/backdrop 499/500 — see those files' own
+     z-indexes) but above ordinary page content, which has none. */
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .shell-topbar-crumb {
@@ -18,10 +29,13 @@
   min-width: 0;
 }
 
-/* Hidden by default (desktop); see the <=860px breakpoint below, which
-   matches Sidebar.css's own overlay breakpoint exactly — both must flip at
-   the same width, or the hamburger and the rail's own hover-fallback
-   behavior disagree about which mode the viewport is in. */
+/* Hidden on desktop AND mobile — on mobile, BottomNav's own "More" tab
+   (<=860px, see BottomNav.css) opens this exact same Sidebar overlay via
+   the same mobileNavOpen state (App.tsx), so a second button here for the
+   identical action was two ways to do one thing on a phone screen,
+   reported directly by the user. Left in the DOM/markup (TopBar.tsx) in
+   case a future layout needs it back above 860px without a JS change —
+   only its visibility is CSS-gated. */
 .shell-topbar-menu-btn {
   display: none;
   flex-shrink: 0;
@@ -42,17 +56,12 @@
 }
 
 @media (max-width: 860px) {
-  .shell-topbar-menu-btn {
-    display: inline-flex;
-  }
-
   /* The crumb previously had no shrink room at all (nowrap, no
-     overflow handling) and the hamburger button above only tightens
-     that further — on a ~390px phone the module name ran straight into
-     the language toggle (confirmed in testing). The toggle is UI-only
-     for now anyway (see useBreadcrumb's file comment), so it's the one
-     to drop first; the crumb itself can now also ellipsis instead of
-     overflowing. */
+     overflow handling) — on a ~390px phone the module name ran straight
+     into the language toggle (confirmed in testing). The toggle is
+     UI-only for now anyway (see useBreadcrumb's file comment), so it's
+     the one to drop first; the crumb itself can now also ellipsis instead
+     of overflowing. */
   .shell-topbar {
     padding: 0 12px;
     gap: 8px;

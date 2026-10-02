@@ -7,9 +7,25 @@ import { ICONS } from "./icons";
 // from the original's `wm`. Like the original, this only needs the setter
 // half of the mobile-sidebar toggle (the hamburger button's onClick), not
 // the current open/closed state itself.
-export default function TopBar({ title, sheetUrl, onSync, syncState, setMobileOpen }) {
+//
+// When embedded (navBridge set — production's only real path), the shell's
+// own TopBar is the only persistent bar: this app used to render its own
+// full title/date/Sheet/Sync bar underneath the shell's, on every page,
+// the same duplicate-bar issue apps/oil-analysis had before its own Patch
+// 35 fix, reported directly by the user for this module too. This app has
+// no page with its own Back-button/contextual-nav need the way Oil
+// Analysis's Report page does, so unlike that app's TopBar there's no
+// exception here — embedded means render nothing at all. Online/offline
+// and Sync moved to the shell's own TopBar (module-aware — see
+// frontend/src/components/TopBar.tsx and embeddedNav.tsx's
+// NavBridge.sync/onSyncStateChange, wired in App.jsx); the Sheet link was
+// dropped entirely rather than relocated, matching the same call already
+// made for Oil Analysis.
+export default function TopBar({ title, sheetUrl, onSync, syncState, setMobileOpen, navBridge }) {
   const { T, s } = useTheme();
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+  if (navBridge) return null;
 
   return (
     <div

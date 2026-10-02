@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEmbeddedNav } from '../embeddedNav';
 import { Icon, TablerIcon } from '../icons';
@@ -84,6 +85,21 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: { mobileO
   const embeddedNav = useEmbeddedNav();
   const closeMobile = onCloseMobile ?? (() => {});
 
+  // A module's sub-tab list used to show unconditionally the whole time its
+  // route was active, with no way to close it short of leaving the module
+  // entirely — clicking "Oil Lubrication" again while already inside one of
+  // its own sub-tabs did nothing (NavLink no-ops navigating to the route
+  // it's already on), reported directly by the user. Tracks which active
+  // module's sub-list has been manually collapsed; reset on every real
+  // route change (not on a native sub-tab switch, which never touches the
+  // route at all — see SubTabItem's own comment) so leaving and coming back
+  // to a module always shows its sub-tabs expanded again rather than
+  // staying collapsed from an unrelated earlier visit.
+  const [collapsedModuleTo, setCollapsedModuleTo] = useState<string | null>(null);
+  useEffect(() => {
+    setCollapsedModuleTo(null);
+  }, [location.pathname]);
+
   return (
     <>
       {/* Only ever visible (via CSS) at the narrow breakpoint, and only once
@@ -107,7 +123,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: { mobileO
           <ul className="sidebar-nav">
             {NAV_ITEMS.map((item) => {
               const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
-              const showSubTabs = isActive && !!item.subTabs?.length;
+              const showSubTabs = isActive && !!item.subTabs?.length && collapsedModuleTo !== item.to;
 
               return (
                 <li key={item.to}>
@@ -117,7 +133,25 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: { mobileO
                     }
                     to={item.to}
                     end={item.to === '/'}
-                    onClick={closeMobile}
+                    onClick={(e) => {
+                      // Already on this module's own route and it has
+                      // sub-tabs — a second click can't navigate anywhere
+                      // new (same route), so it toggles the sub-list
+                      // instead; collapsing also sends the module back to
+                      // its own first/default sub-tab (index 0 is each
+                      // module's own Dashboard — see navigation.ts), which
+                      // is what "going back to Oil Lubrication" means when
+                      // you were sitting on some other sub-tab.
+                      if (isActive && item.subTabs?.length && item.moduleId) {
+                        e.preventDefault();
+                        setCollapsedModuleTo((cur) => {
+                          const collapsing = cur !== item.to;
+                          if (collapsing) embeddedNav.navigateTo(item.moduleId!, item.subTabs![0].id);
+                          return collapsing ? item.to : null;
+                        });
+                      }
+                      closeMobile();
+                    }}
                   >
                     <span className="sidebar-link-icon">
                       <Icon name={item.icon} size={18} />

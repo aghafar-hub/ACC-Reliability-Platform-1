@@ -162,6 +162,26 @@ export default function App({ navBridge } = {}) {
     }
   }, []);
 
+  // Mirrors apps/oil-analysis's own Patch 35 wiring — lets the shell's own
+  // TopBar show this module's Sync button instead of this module
+  // rendering a second bar underneath the shell's for it (see
+  // frontend/src/components/TopBar.tsx and embeddedNav.tsx's
+  // NavBridge.sync/onSyncStateChange). No offline queue/pending-count
+  // concept exists in this app (unlike Oil Analysis), so pendingSyncCount
+  // is always 0 — the shell's own pending-count badge simply never shows
+  // for this module, same effect as not having one. Has to sit after
+  // syncNow's own declaration above, not right alongside the other
+  // navBridge effect near the top of this component — referencing it any
+  // earlier is a temporal-dead-zone ReferenceError at runtime.
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.sync = syncNow;
+  }, [navBridge, syncNow]);
+  useEffect(() => {
+    if (!navBridge) return;
+    navBridge.onSyncStateChange?.({ syncState: syncState.status, pendingSyncCount: 0 });
+  }, [navBridge, syncState.status]);
+
   const rmsRegMap = useMemo(() => Object.fromEntries(rmsRegister.map((r) => [r.equipmentId, r])), [rmsRegister]);
   const spmRegMap = useMemo(() => Object.fromEntries(spmRegister.map((r) => [r.equipmentId, r])), [spmRegister]);
   const registryMap = useMemo(() => {
@@ -488,6 +508,7 @@ export default function App({ navBridge } = {}) {
           syncState={syncState}
           mobileOpen={mobileOpen}
           setMobileOpen={setMobileOpen}
+          navBridge={navBridge}
         />
         {content}
       </div>
