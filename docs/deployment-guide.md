@@ -352,7 +352,7 @@ about the sheet's layout changes — every existing column keeps its exact
 position. Until you add this header, the app still works exactly as
 before; the new field just won't have anywhere to land.
 
-**Code**: `Notifications.js` gained `sendAgingActionsDigest_()` this
+**Code**: `Notifications.js` gained `sendAgingActionsDigest()` this
 round — replace its contents with the repo's current version (same file
 from section 4f, just grown). No other backend file changed for this
 patch; the frontend-side "Assigned To" picker and the "No owner
@@ -360,12 +360,24 @@ assigned"/"Xd overdue" badges on the Action Tracker board are all
 frontend-only, already live once you push (see the top-level workflow —
 this branch auto-deploys to GitHub Pages).
 
+> **Bug fix, 10/2026**: this function was originally named
+> `sendAgingActionsDigest_` (trailing underscore). Apps Script treats a
+> trailing underscore as "private" and hides it from the Triggers UI's
+> function picker, so a trigger set up against it silently fails every
+> time with "Script function not found: sendAgingActionsDigest" (the
+> name without the underscore — whatever was actually selected/typed at
+> setup time, since the real name wasn't pickable). Renamed to drop the
+> underscore — redeploy this file and an **already-existing** broken
+> trigger for the no-underscore name will start working immediately, no
+> Triggers UI change needed. If you're setting this up fresh, use the
+> name below (no underscore) and it'll show up in the picker normally.
+
 **New trigger you set up once** — same pattern as section 4e's
 `generateDueRouteInstances`, a separate scheduled check, not tied to any
 button in the app:
 
 **Triggers (clock icon) → Add Trigger**:
-- Function: `sendAgingActionsDigest_`
+- Function: `sendAgingActionsDigest`
 - Event source: Time-driven
 - Type: Day timer (pick any off-peak hour)
 
@@ -375,7 +387,7 @@ with at least one action open 14+ days gets one email to its reviewers,
 split into "no owner assigned" (the most urgent) and "assigned but still
 aging."
 
-**Verify**: open the script editor, pick `sendAgingActionsDigest_` from
+**Verify**: open the script editor, pick `sendAgingActionsDigest` from
 the function dropdown, click **Run** — check `Debug Log` and your inbox.
 Safe to run any time; it never writes anything, only reads and emails.
 
@@ -386,15 +398,20 @@ threshold per product — but nothing ever acted on it. The product list
 already shows a "Low" badge when stock is at or under that threshold, but
 only if someone happens to open the page and look.
 
-**Code**: `Notifications.js` gained `sendLowStockDigest_()` this round —
+**Code**: `Notifications.js` gained `sendLowStockDigest()` this round —
 replace its contents with the repo's current version. No sheet changes,
 no new columns — this only reads the existing Current_Stock (a sheet
 formula, read as-is) and Recorder_Level columns.
 
+> **Bug fix, 10/2026**: same underscore fix as section 4g's
+> `sendAgingActionsDigest` above — this was originally named
+> `sendLowStockDigest_`, which the Triggers UI hides from its function
+> picker. Renamed to drop the underscore.
+
 **New trigger you set up once** — same pattern as sections 4e and 4g:
 
 **Triggers (clock icon) → Add Trigger**:
-- Function: `sendLowStockDigest_`
+- Function: `sendLowStockDigest`
 - Event source: Time-driven
 - Type: Day timer (pick any off-peak hour)
 
@@ -405,7 +422,7 @@ stock and the threshold side by side. A product with no recorder level
 set, an Inactive product, or a brand-new product with no stock movements
 yet (so no computed stock number) are all correctly skipped.
 
-**Verify**: open the script editor, pick `sendLowStockDigest_` from the
+**Verify**: open the script editor, pick `sendLowStockDigest` from the
 function dropdown, click **Run** — check `Debug Log` and your inbox. Safe
 to run any time; it never writes anything, only reads and emails.
 
@@ -961,8 +978,8 @@ where it's about:
   it's addressed to) and `markAllInAppNotificationsRead_`.
 - `Notifications.js` — each of the five existing notify functions
   (`notifyRoutineAssigned_`, `notifyRoutineSubmitted_`,
-  `notifyRoutineApproved_`, `sendAgingActionsDigest_`,
-  `sendLowStockDigest_`) now also calls into InAppNotifications.js,
+  `notifyRoutineApproved_`, `sendAgingActionsDigest`,
+  `sendLowStockDigest`) now also calls into InAppNotifications.js,
   unconditionally (not gated by `notify_email_enabled`). Also where the
   settings default flipped — see 4r's updated note above.
 - `Code.js` — new `getInAppNotifications` GET case (scoped by

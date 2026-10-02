@@ -187,7 +187,17 @@ function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
 // a live Platform Core call).
 var AGING_ACTION_DAYS = 14; // matches ActionTracker.jsx's own ageColor threshold
 
-function sendAgingActionsDigest_() {
+// Bug report, 10/2026: the live time-based trigger for this has been
+// failing every day with "Script function not found: sendAgingActionsDigest"
+// — this function was named with a trailing underscore, which Apps Script
+// treats as "private" and hides from the Triggers UI's function picker, so
+// whoever set the trigger up couldn't select it and it ended up pointing at
+// the name without the underscore instead, which never existed. Renamed to
+// match what the trigger is already configured to call — no Apps Script UI
+// change needed, just redeploy this file. generateDueRouteInstances
+// (RouteTemplates.js), the sibling pattern this function's own header
+// comment points to, was already correctly named without one.
+function sendAgingActionsDigest() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Action Tracker", true);
   var cutoff = new Date();
@@ -245,7 +255,7 @@ function sendAgingActionsDigest_() {
 
 // ─── Low Stock digest (Patch 4) ──────────────────────────────────────────
 // Same "own trigger, not the request path" pattern as
-// sendAgingActionsDigest_ above — read-only, no lock needed. Reuses the
+// sendAgingActionsDigest above — read-only, no lock needed. Reuses the
 // same OL_NOTIFY_REVIEWERS list.
 //
 // Oil Inventory's "Recorder Level" field has always been there, but
@@ -254,7 +264,12 @@ function sendAgingActionsDigest_() {
 // whose Current_Stock (the sheet's own formula column, read as-is — this
 // never recomputes it) has dropped to or below its Recorder Level gets
 // flagged to that contractor's reviewers.
-function sendLowStockDigest_() {
+//
+// Renamed from sendLowStockDigest_ (dropped the trailing underscore) —
+// same fix and same reason as sendAgingActionsDigest above: a trailing
+// underscore hides a function from the Triggers UI's picker, which made
+// this impossible to wire up correctly as documented.
+function sendLowStockDigest() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Oil Inventory", true);
 
