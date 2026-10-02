@@ -2445,6 +2445,131 @@ test). Full regression suite (`topbar_ui_test`, `settings_tabs_test`,
 only its double-top-bar issue, which was the one specifically reported,
 is fixed here.
 
+## 4at. Oil Actions form revision: autofills, combinable Agreed Action, auto-route on Change Oil/Top Up (Patch 39)
+
+A field-by-field revision of the New/Edit Action form
+(`apps/oil-analysis/src/components/EditActionModal.jsx`), requested as a
+15-point spec. Investigated the existing form first rather than guessing —
+most of the spec turned out to already be built (Description/Oil Type/
+Contractor autofill from the Equipment Registry, Previous Agreed Action
+lookup, Contractor Action/ACC Action as a combinable multi-select already
+backed by a real `OL_ACTION_PHRASES` sheet) — so this patch is the
+specific, confirmed gaps, plus one consequential new feature the user was
+asked to clarify first (three questions via AskUserQuestion: who the
+auto-created route is assigned to, when it fires, and which route type
+each phrase maps to).
+
+**Revision Date** now defaults to today for a brand-new action (still
+freely editable) — matching the convention
+`GenerateMonthlyActionsModal.jsx`'s own bulk-create path already used,
+just missing from the single Add/Edit modal.
+
+**Sample Date/Result/Analysis** now auto-select the equipment's own most
+recent sample on equipment pick (`actionAutofill.js`'s new
+`latestSampleFor()`), while the Sample Date dropdown remains fully
+available to pick an older one — picking any date re-derives Sample
+Result (`reportStatus`) *and*, newly, Sample Analysis (the sample's own
+`recommendations` field — the only field in a sample row's own shape that
+reads as a short analysis/diagnosis text — see `selectSampleDate()`).
+
+**Previous Agreed Action** is now a read-only locked display instead of
+an editable textarea — it was already being correctly looked up
+(`lastAgreedActionFor()`), just not locked.
+
+**Agreed Action** converted from a plain textarea to the same
+`MultiSelectTags` component Contractor Action/ACC Action already used —
+same `actionRegistry` options, same comma-separated storage, now
+genuinely combinable ("Change Oil" + "Change filter" in one field) the
+way the other two actions-fields already were.
+
+**Last Change Date → Oil Change Log write, fixed to fire only forward.**
+A real bug, not just a gap: the existing condition
+(`if (form.lastChange && target) { payload._oilChangeTarget = target; }`)
+fired on *any* non-blank Last Change Date regardless of whether it had
+actually changed, so simply resaving an action that already had a Last
+Change Date (now the common case, since it autofills) appended a fresh,
+identical row to the append-only Oil Change Log on every single save.
+Fixed to compare the new date against the existing log row's own
+`changeDate` and only write when it's strictly later.
+
+**Auto-route creation on a newly-agreed Change Oil/Top Up** — the one
+genuinely new feature, scoped by the user's own three answers:
+- **Assignee**: the Contractor Engineer currently saving the action
+  (`session.claims.email`, gated on `session.claims.roles` including
+  `ROLE-CENG` — `EditActionModal.jsx`'s new `isContractorEngineer`), not
+  the action's own Assigned To. A non-Contractor-Engineer session (ACC
+  staff, Technician) never triggers this at all.
+- **Trigger timing**: only when the phrase is newly present — compares
+  the action's own last-saved `agreedAction` chips against the form's
+  current chips (`ROUTE_TRIGGER_PHRASES`/`chipsOf()`), so resaving an
+  action that already agreed to change the oil doesn't create a second
+  route. Verified both directions: present → present (no new route) and
+  absent → present (one new route).
+- **Route type mapping**: "Change Oil" → `"Oil Change"` (no Reason
+  required — `createRoutine`'s own server-side rule in
+  `backend/oil-lubrication/src/Routines.js` only requires one for
+  Emergency Top Up); "Top Up the Oil" → `"Emergency Top Up"` (Reason
+  auto-filled from the Agreed Action text itself, `Auto-created from
+  Action {acNo}: {agreedAction}`).
+
+Follows the exact same "compute a signal in the modal, execute the side
+effect after the action save confirms, in `App.jsx`" pattern
+`_oilChangeTarget` already established — `payload._autoRouteTriggers`
+(array, in case multiple phrases are newly agreed in one save) is picked
+up by a new `applyAutoRouteSideEffect()` in App.jsx, which calls the
+existing `api.createRoutine()` (the same function `NewRoutine.jsx`'s
+Emergency Top Up flow already uses) — single equipment, single assignee,
+due date defaulted to today, `items: [{ routineItemId: newId("RI"),
+lpId: equipmentCode }]`. A failure here doesn't roll back the action
+save itself, same best-effort pattern as the Oil Change Log side effect;
+Routines.jsx fetches its own list independently on mount, so nothing
+needed updating in App.jsx's own state to make a newly-created route show
+up there.
+
+**Verify**: built/typechecked clean; a new Playwright script
+(`action_form_revision_test.mjs`) confirms every autofill field
+(Description, Oil Type, Contractor, Sample Date/Result/Analysis,
+Revision Date = today, Previous Agreed Action locked, Agreed Action now
+a chip field) after picking an equipment; a second script
+(`action_form_sideeffects_test.mjs`) drives the full save flow against a
+mocked backend tracking every network call by action name, confirming:
+resaving an action with an unchanged Last Change Date makes zero
+`logOilChangeEvent` calls, editing it forward makes exactly one with the
+correct date; newly agreeing to "Change Oil" as a Contractor Engineer
+makes exactly one `createRoutine` call with `routeType: "Oil Change"`
+and `assignedTo` set to the saving engineer's own email, resaving
+afterward with the same phrase still present makes zero further calls;
+"Top Up the Oil" makes one call with `routeType: "Emergency Top Up"` and
+a non-empty Reason; the identical flow under a non-Contractor-Engineer
+session (`ROLE-RENG`) makes zero `createRoutine` calls despite the same
+phrase being present. One real bug surfaced and fixed in the test's own
+mock along the way, not the app: the verification GET `saveAction` makes
+after every write is `getEquipment` (confirmed directly in `api.js`),
+not `getEquipmentRows` as initially assumed — the wrong mock action name
+meant every save in that test file was silently failing verification
+(`SaveVerificationError`) before the fix, which would have made every
+one of these assertions pass for the wrong reason (nothing ever reaching
+the side-effect code at all) had it gone unnoticed; caught by checking
+the actual page-console error alongside the call counts, not just the
+counts in isolation. Full regression suite (`topbar_ui_test`,
+`settings_tabs_test`, `equipment_merge_test`, `revert_oil_naming_test`,
+`mobile_sidebar_fix_test`, `mobile_app_feel_test`,
+`topbar_consolidation_test`, `routines_overview_ui_test`,
+`routines_charts_ui_test`) rerun clean; also checked the revised form at
+a 390px mobile viewport (no horizontal overflow, Revision Date still
+correctly defaults to today there too).
+
+**Still open**: `GenerateMonthlyActionsModal.jsx` (the bulk-create path)
+was deliberately left untouched — it builds its own action drafts
+directly from sample data rather than going through
+`autofillFromEquipment()`'s new sample-derived fields, and was out of
+the requested scope (the New/Edit Action *form* specifically). The
+`AssignedTo` field's `TechnicianPicker` still shows every account in the
+contractor's org (Technicians and Contractor Engineers alike), not
+narrowed to Technicians only — unchanged from before, since "dropdown
+from contractor users" was already satisfied and narrowing it further
+wasn't asked for.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

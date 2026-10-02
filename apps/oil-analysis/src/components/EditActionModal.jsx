@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { useSessionContractor } from "../SessionContext";
+import { useSession, useSessionContractor } from "../SessionContext";
 import { nextAcNo, formatDate } from "../parsers";
 import { toISODate, latestOilChangeFor, autofillFromEquipment } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
@@ -9,6 +9,30 @@ import TechnicianPicker from "./TechnicianPicker";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Closed", "Waiting Stoppage"];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
+
+// A newly-agreed phrase from this fixed list auto-creates a route for the
+// equipment (see handleSave's _autoRouteTriggers) — "newly" meaning it
+// wasn't already on the action's own previously-saved Agreed Action, so
+// resaving an action that already agreed to change the oil doesn't create
+// a fresh route every time. Only fires when a Contractor Engineer is the
+// one saving (see isContractorEngineer below) — the route is assigned
+// straight to them, matching "the contractor engineer that reviewed the
+// action." Oil Change needs no Reason (NewRoutine.jsx's own server-side
+// rule only requires one for Emergency Top Up); Top Up is routed as an
+// Emergency Top Up specifically so it carries the urgency that phrase
+// implies, with its required Reason auto-filled from the Agreed Action
+// text itself.
+const ROUTE_TRIGGER_PHRASES = [
+  { phrase: "Change Oil", routeType: "Oil Change" },
+  { phrase: "Top Up the Oil", routeType: "Emergency Top Up" },
+];
+
+function chipsOf(value) {
+  return String(value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function EditActionModal({
   action,
@@ -32,7 +56,9 @@ export default function EditActionModal({
   // (scopedContractor === "") still gets the manual dropdown, since an
   // action genuinely can belong to either contractor for them.
   const scopedContractor = useSessionContractor();
-  const deps = { equipmentRegistry, oilChanges, allActions, excludeId: action._id };
+  const session = useSession();
+  const isContractorEngineer = (session?.claims?.roles || []).includes("ROLE-CENG");
+  const deps = { equipmentRegistry, oilChanges, allActions, samples, excludeId: action._id };
   // New actions opened with an equipment code already known (e.g. from
   // inside an Oil Analysis Report) get their dependent fields autofilled
   // immediately; editing an existing action leaves its saved values alone
@@ -49,6 +75,10 @@ export default function EditActionModal({
   const [form, setForm] = useState(() => {
     const base = { ...action };
     base.revisionDate = toISODate(base.revisionDate);
+    // A brand-new action has no revision of its own yet to default to —
+    // today's date, still freely editable afterward like every other date
+    // field here.
+    if (isNew && !base.revisionDate) base.revisionDate = toISODate(new Date());
     base.lastChange = toISODate(base.lastChange);
     base.completedDate = toISODate(base.completedDate);
     if (scopedContractor && !base.contractor) base.contractor = scopedContractor;
@@ -83,7 +113,12 @@ export default function EditActionModal({
 
   function selectSampleDate(dateStr) {
     const sample = samplesForEquip.find((sm) => sm.sampledDate === dateStr);
-    setForm((f) => ({ ...f, sampleDate: dateStr, sampleResult: sample ? (sample.reportStatus || "").toUpperCase() : f.sampleResult }));
+    setForm((f) => ({
+      ...f,
+      sampleDate: dateStr,
+      sampleResult: sample ? (sample.reportStatus || "").toUpperCase() : f.sampleResult,
+      sampleAnalysis: sample ? (sample.recommendations || []).join("; ") : f.sampleAnalysis,
+    }));
   }
 
   const isClosed = (form.status || "Open") === "Closed";
@@ -100,15 +135,53 @@ export default function EditActionModal({
     };
 
     // Mirrors the original app: recording a Last Change date on an action
-    // also updates that equipment's Oil Change Log row. If Last Change is
+    // also updates that equipment's Oil Change Log row — but only when the
+    // date actually moved FORWARD past what's already logged. The old
+    // condition here fired on any non-blank Last Change regardless of
+    // whether it had changed at all, which meant simply resaving an action
+    // that already had a Last Change date appended a fresh, identical Oil
+    // Change Log row every single time (the log is append-only, never
+    // edited in place — see api.js's logOilChangeEvent). If Last Change is
     // left blank but a linked oil-change record exists, inherit its date
     // instead of writing anything new.
     if (oilChangesForEquip.length > 0) {
       const target = oilChangesForEquip.length === 1 ? oilChangesForEquip[0] : oilChangesForEquip.find((o) => o._id === lubPointId);
       if (form.lastChange && target) {
-        payload._oilChangeTarget = target;
+        const existingDate = target.changeDate ? new Date(target.changeDate) : null;
+        const newDate = new Date(form.lastChange);
+        if (!isNaN(newDate) && (!existingDate || newDate > existingDate)) {
+          payload._oilChangeTarget = target;
+        }
       } else if (!form.lastChange && target) {
         payload.lastChange = formatDate(target.changeDate);
+      }
+    }
+
+    // A newly-agreed "Change Oil"/"Top Up the Oil" (present now, wasn't on
+    // the action's own last-saved Agreed Action) auto-creates a route for
+    // this equipment — see ROUTE_TRIGGER_PHRASES' own comment above for the
+    // full rationale. App.jsx's applyAutoRouteSideEffect is what actually
+    // calls api.createRoutine() with this, the same "compute a signal here,
+    // execute it after save confirms up in App.jsx" pattern _oilChangeTarget
+    // above already uses.
+    if (isContractorEngineer) {
+      const originalChips = chipsOf(action.agreedAction);
+      const newChips = chipsOf(form.agreedAction);
+      const newlyAdded = ROUTE_TRIGGER_PHRASES.filter(
+        ({ phrase }) =>
+          newChips.some((c) => c.toLowerCase() === phrase.toLowerCase()) &&
+          !originalChips.some((c) => c.toLowerCase() === phrase.toLowerCase())
+      );
+      if (newlyAdded.length > 0) {
+        payload._autoRouteTriggers = newlyAdded.map(({ routeType }) => ({
+          routeType,
+          equipmentCode: equipCode,
+          contractor: form.contractor,
+          assignedTo: session.claims.email,
+          createdBy: session.claims.email,
+          routeName: `${routeType} - ${equipCode}`,
+          reason: routeType === "Emergency Top Up" ? `Auto-created from Action ${acNo}: ${form.agreedAction}` : "",
+        }));
       }
     }
 
@@ -130,6 +203,28 @@ export default function EditActionModal({
         value={form[key] || ""}
         onChange={(e) => set(key, e.target.value)}
       />
+    </div>
+  );
+
+  // Prev. Month Agreed Action is a lookup of history, not an editable
+  // field — read-only, same locked-display styling the Contractor field
+  // above already uses for a scoped contractor account.
+  const lockedTextarea = (label, key) => (
+    <div>
+      <label style={{ ...s.label, fontSize: 11 }}>{label}</label>
+      <div
+        style={{
+          ...s.input,
+          fontSize: 13,
+          minHeight: 56,
+          background: T.cardSubBg,
+          color: T.textSecondary,
+          whiteSpace: "pre-wrap",
+          overflowY: "auto",
+        }}
+      >
+        {form[key] || "—"}
+      </div>
     </div>
   );
 
@@ -332,9 +427,9 @@ export default function EditActionModal({
             onChange={(v) => set("contractorAction", v)}
             options={actionRegistry}
           />
-          {textarea("Prev. Month Agreed Action", "prevMonthAgreedAction")}
+          {lockedTextarea("Prev. Month Agreed Action", "prevMonthAgreedAction")}
           <MultiSelectTags label="ACC Action" value={form.accAction} onChange={(v) => set("accAction", v)} options={actionRegistry} />
-          {textarea("Agreed Action", "agreedAction")}
+          <MultiSelectTags label="Agreed Action" value={form.agreedAction} onChange={(v) => set("agreedAction", v)} options={actionRegistry} />
           {isClosed && <div style={{ gridColumn: "1 / -1" }}>{textarea("Closing Comment", "closingComment")}</div>}
         </div>
 

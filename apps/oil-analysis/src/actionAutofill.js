@@ -38,14 +38,26 @@ export function lastAgreedActionFor(allActions, equipmentCode, excludeId) {
   return latest.agreedAction || "";
 }
 
+// Most recent sample for an equipment — Sample Date defaults to it (still
+// changeable via the Sample Date dropdown, which re-derives Sample Result/
+// Sample Analysis for whichever date is actually picked — see
+// EditActionModal.jsx's selectSampleDate).
+export function latestSampleFor(samples, equipmentCode) {
+  const rows = (samples || []).filter((sm) => sm.unitId === equipmentCode && sm.sampledDate);
+  if (rows.length === 0) return null;
+  return rows.reduce((a, b) => (new Date(a.sampledDate) > new Date(b.sampledDate) ? a : b));
+}
+
 // Equipment Registry -> action-field autofill: Description, Oil Type
 // (Lubricant Grade), Contractor, and Report Equipment ID come straight from
 // the registry row; Last Change Date is inherited from that equipment's Oil
 // Change Log entry; Prev. Month Agreed Action is inherited from this
-// equipment's last action.
-export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, allActions, excludeId }) {
+// equipment's last action; Sample Date/Result/Analysis are inherited from
+// this equipment's own most recent sample.
+export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, allActions, samples, excludeId }) {
   const reg = (equipmentRegistry || []).find((r) => r.code === code);
   const latest = latestOilChangeFor(oilChanges, code);
+  const latestSample = latestSampleFor(samples, code);
   return {
     equipmentCode: code,
     reportEquipmentId: reg?.reportEquipmentId || "",
@@ -54,5 +66,8 @@ export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, all
     contractor: reg?.contractor || "",
     lastChange: latest ? toISODate(latest.changeDate) : "",
     prevMonthAgreedAction: lastAgreedActionFor(allActions, code, excludeId),
+    sampleDate: latestSample?.sampledDate || "",
+    sampleResult: (latestSample?.reportStatus || "").toUpperCase(),
+    sampleAnalysis: (latestSample?.recommendations || []).join("; "),
   };
 }
