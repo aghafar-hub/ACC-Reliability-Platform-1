@@ -52,29 +52,3 @@ function updateSampleTrackerMonthly(ss, data) {
   sheet.getRange(newRow, monthCol).setValue(cellValue);
   return true;
 }
-
-
-function updateSampleTracker(ss, data) {
-  var sheet = ss.getSheetByName("Oil Sample Tracker");
-  if (!sheet) return false;
-
-  var vals = sheet.getDataRange().getValues();
-  if (vals.length < 1) return false;
-
-  for (var i = 1; i < vals.length; i++) {
-    if (vals[i][0] && String(vals[i][0]).trim() === String(data.equipmentCode).trim()) {
-      sheet.getRange(i + 1, 2).setValue(data.sampleDate);
-
-      var nextCol = 5;
-      var lastCol = sheet.getLastColumn();
-      while (nextCol <= lastCol && sheet.getRange(1, nextCol).getValue() !== "") {
-        nextCol++;
-      }
-
-      sheet.getRange(1, nextCol).setValue(data.sampleDate);
-      sheet.getRange(i + 1, nextCol).setValue(data.status);
-      return true;
-    }
-  }
-  return false;
-}
