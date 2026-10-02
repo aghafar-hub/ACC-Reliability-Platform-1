@@ -5,6 +5,8 @@ import EquipmentSearch from "../components/EquipmentSearch";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import GenerateOilChangeActionsModal from "../components/GenerateOilChangeActionsModal";
 import DotTimeline from "../components/DotTimeline";
+import MobileFilterToggle from "../components/MobileFilterToggle";
+import useIsMobile from "../hooks/useIsMobile";
 
 const WINDOW_BACK = 30;
 const WINDOW_FWD = 90;
@@ -45,6 +47,11 @@ function urgencyLetter(days) {
 // does, not browsing equipment one card at a time.
 export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, onSave, onAddAction }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
+  // Collapsed by default on mobile only — equipment search + area chips +
+  // contractor chips + group-by toggle stacked several rows above the
+  // timeline on a phone (the Patch 35 mobile audit's own finding).
+  const [filtersOpen, setFiltersOpen] = useState(!isMobile);
   const [equipCode, setEquipCode] = useState("");
   const [areaFilter, setAreaFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
@@ -240,58 +247,73 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         ))}
       </div>
 
+      {/* Same single-row structure as before — isMobile is false on
+          desktop so filtersOpen defaults true there and nothing changes.
+          Only a phone gets the toggle + collapsible filters; Group By
+          stays visible either way, same as it always has. */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <EquipmentSearch
-          options={registry}
-          value={equipCode || "All"}
-          onChange={(v) => setEquipCode(v === "All" ? "" : v)}
-          allowAll
-          width={220}
-          placeholder="All Assets"
-        />
-        {areas.length > 1 &&
-          areas.map((a) => (
-            <button
-              key={a}
-              style={{
-                ...s.btn,
-                fontSize: 12,
-                background: areaFilter === a ? T.accent : "transparent",
-                color: areaFilter === a ? T.accentText : T.textSecondary,
-                borderColor: areaFilter === a ? T.accent : T.border,
-              }}
-              onClick={() => setAreaFilter(a)}
-            >
-              {a}
-            </button>
-          ))}
-        {contractors.length > 1 &&
-          contractors.map((c) => (
-            <button
-              key={c}
-              style={{
-                ...s.btn,
-                fontSize: 12,
-                background: contractorFilter === c ? T.accent : "transparent",
-                color: contractorFilter === c ? T.accentText : T.textSecondary,
-                borderColor: contractorFilter === c ? T.accent : T.border,
-              }}
-              onClick={() => setContractorFilter(c)}
-            >
-              {c}
-            </button>
-          ))}
-        {hasFilters && (
-          <button
-            style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
-            onClick={() => {
-              setEquipCode("");
-              setAreaFilter("All");
-              setContractorFilter("All");
-            }}
-          >
-            <i className="ti ti-x" aria-hidden="true" /> Clear
-          </button>
+        {isMobile && (
+          <MobileFilterToggle
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen((o) => !o)}
+            activeCount={(equipCode ? 1 : 0) + (areaFilter !== "All" ? 1 : 0) + (contractorFilter !== "All" ? 1 : 0)}
+          />
+        )}
+        {filtersOpen && (
+          <>
+            <EquipmentSearch
+              options={registry}
+              value={equipCode || "All"}
+              onChange={(v) => setEquipCode(v === "All" ? "" : v)}
+              allowAll
+              width={220}
+              placeholder="All Assets"
+            />
+            {areas.length > 1 &&
+              areas.map((a) => (
+                <button
+                  key={a}
+                  style={{
+                    ...s.btn,
+                    fontSize: 12,
+                    background: areaFilter === a ? T.accent : "transparent",
+                    color: areaFilter === a ? T.accentText : T.textSecondary,
+                    borderColor: areaFilter === a ? T.accent : T.border,
+                  }}
+                  onClick={() => setAreaFilter(a)}
+                >
+                  {a}
+                </button>
+              ))}
+            {contractors.length > 1 &&
+              contractors.map((c) => (
+                <button
+                  key={c}
+                  style={{
+                    ...s.btn,
+                    fontSize: 12,
+                    background: contractorFilter === c ? T.accent : "transparent",
+                    color: contractorFilter === c ? T.accentText : T.textSecondary,
+                    borderColor: contractorFilter === c ? T.accent : T.border,
+                  }}
+                  onClick={() => setContractorFilter(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            {hasFilters && (
+              <button
+                style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
+                onClick={() => {
+                  setEquipCode("");
+                  setAreaFilter("All");
+                  setContractorFilter("All");
+                }}
+              >
+                <i className="ti ti-x" aria-hidden="true" /> Clear
+              </button>
+            )}
+          </>
         )}
         <div
           style={{
@@ -328,28 +350,40 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         </div>
       </div>
 
+      {/* minWidth below (not on the outer card, which keeps overflowX:auto
+          so this scrolls horizontally on a narrow screen instead of being
+          squeezed) matters because DotTimeline's own track is
+          `flex:1, minWidth:0` — on a ~390px phone, with the 244px label
+          column also in the row, that left under 150px for all 9 date
+          ticks combined, so their text overlapped into illegible overlapping
+          strings (the Patch 35 mobile audit's own finding). Pinning real
+          width here gives both the header's date labels and every row's own
+          dot position room to render as designed; a narrow viewport swipes
+          to see the rest instead of losing the labels entirely. */}
       <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 14 }}>
-        <div style={{ display: "flex", padding: "10px 16px 8px 260px", borderBottom: `1px solid ${T.border}`, background: T.cardSubBg }}>
-          {[-WINDOW_BACK, -15, 0, 15, 30, 45, 60, 75, 90].map((d) => {
-            const dt = new Date();
-            dt.setDate(dt.getDate() + d);
-            return (
-              <span
-                key={d}
-                style={{
-                  flex: 1,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: T.textMuted,
-                  textAlign: d < 0 ? "left" : d === 0 ? "center" : "right",
-                }}
-              >
-                {d === 0 ? "Today" : formatDate(dt)}
-              </span>
-            );
-          })}
+        <div style={{ minWidth: 640 }}>
+          <div style={{ display: "flex", padding: "10px 16px 8px 260px", borderBottom: `1px solid ${T.border}`, background: T.cardSubBg }}>
+            {[-WINDOW_BACK, -15, 0, 15, 30, 45, 60, 75, 90].map((d) => {
+              const dt = new Date();
+              dt.setDate(dt.getDate() + d);
+              return (
+                <span
+                  key={d}
+                  style={{
+                    flex: 1,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: T.textMuted,
+                    textAlign: d < 0 ? "left" : d === 0 ? "center" : "right",
+                  }}
+                >
+                  {d === 0 ? "Today" : formatDate(dt)}
+                </span>
+              );
+            })}
+          </div>
+          {bodyContent}
         </div>
-        {bodyContent}
       </div>
 
       <div

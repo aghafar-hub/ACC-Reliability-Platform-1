@@ -965,8 +965,23 @@ function AppShell({ config, setConfig, navBridge }) {
 
         .mobile-menu-btn { display: none; }
         .sidebar-backdrop { display: none; }
+        .dash-table-mobile { display: none; }
 
         @media (max-width: 860px) {
+          /* Shared by any page header that puts a title on one side and a
+             form/filter row on the other (Activity's own search+Filter
+             button, so far) — on a phone width a fixed-width input plus a
+             title plus a button barely fit on one line with zero breathing
+             room, truncating the input's own placeholder (the Patch 35
+             mobile audit's own finding). Stacking is simpler and more
+             robust than trying to buy back a few more pixels. */
+          .mobile-stack-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .mobile-stack-row > form {
+            width: 100% !important;
+          }
           .app-sidebar {
             position: fixed !important;
             top: 0 !important; left: 0 !important;

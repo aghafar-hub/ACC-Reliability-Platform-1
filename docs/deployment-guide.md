@@ -2231,6 +2231,121 @@ search input + Filter button onto one line, and the generally
 chrome-heavy filter-chip toolbars on Routines/Oil Actions/Oil Change
 Forecast eating most of the screen before any real content shows.
 
+## 4ar. Mobile audit, items 2-5: dense desktop pages rebuilt for a phone screen (Patch 37)
+
+Continuing straight on from Patch 36's root-cause fix, the rest of the
+punch list from the same mobile audit — all five items, worked one page
+at a time, each built/screenshotted/regression-tested before moving to
+the next, per the user's own "start with all tab one after one, don't
+stop" direction.
+
+**Routines table → mobile card list.** Both of Routines.jsx's own tables
+(the overview's 6-column Routine Name/Equipment Count/Frequency/Next Due/
+Status/Last Completed table, and the templateDetail drill-down's 6-column
+instance table) were overflowing horizontally on a phone with the Status
+column cut off the right edge, no mobile-friendly stacking. Reused a CSS
+toggle pattern (`.dash-table-desktop`/`.dash-table-mobile`) that had
+actually been sitting unused in App.jsx's own stylesheet since early
+scaffolding — defined, but never once applied to any element — paired
+with a one-line fix (a missing base `.dash-table-mobile { display: none
+}` rule; only the mobile override existed, so without this the mobile
+card list would have rendered on top of the desktop table on every screen
+size, not just toggled between them). Each table now renders twice: the
+original `<table>` wrapped in `className="dash-table-desktop"`
+(unchanged), plus a new stacked-card list (`className="dash-table-mobile"`)
+reusing the exact same data, showing route name + status badge on top,
+equipment count/frequency, progress bar (template view only), and due/
+created dates — all legible at 390px with no horizontal scroll needed.
+
+**Oil Change Forecast timeline.** The per-point due-date timeline's
+header row (9 date labels across a 120-day window) was overlapping into
+illegible garbled text on a phone — root cause: `DotTimeline.jsx`'s own
+track is `flex: 1, minWidth: 0`, which on a narrow screen let the browser
+genuinely compress it toward zero width rather than just reflowing, so 9
+text spans fighting for under 150px combined bled into each other
+visually. The outer card already had `overflowX: auto`; the actual fix
+was a `minWidth: 640` on a new inner wrapper around both the header row
+and the point rows, so the whole thing scrolls horizontally as one
+correctly-proportioned unit on a narrow viewport instead of being
+squeezed — verified both at first paint (labels legible, card scrollable)
+and scrolled all the way right (every one of the 9 date labels still
+legible, no overlap).
+
+**Oil Actions Kanban board.** The 4-column status board
+(Open/In Progress/Waiting Stoppage/Closed) only ever showed about 1.5
+columns on a phone with nothing hinting the rest were a swipe away, and
+the page's own subtitle ("drag a card to change its status") describes a
+gesture that isn't practical when most columns are off-screen. Rather
+than trying to make 4 columns fit, or teach touch-drag across scrolled-
+away drop zones, mobile gets a status-tab row (Open (n)/In Progress (n)/
+Waiting Stoppage (n)/Closed (n)) showing one column at a time, full
+width — status still changes exactly the way every other field does,
+tapping a card opens the same `EditActionModal` that already has its own
+Status dropdown, so no new interaction had to be invented. The per-card
+markup was extracted into one shared `renderActionCard()` function so the
+desktop grid and the mobile tab view can never drift out of sync with
+each other.
+
+**Activity header row.** Title + search input + Filter button were
+crammed onto one line, truncating the input's own placeholder text. Added
+a small reusable `.mobile-stack-row` CSS class (App.jsx's shared
+stylesheet) that stacks a header's title/form pair vertically at
+≤860px — the input also switched from a fixed `width: 220` to
+`flex: 1, minWidth: 0` so it fills the stacked row's full width instead
+of staying pinned at its old desktop size.
+
+**Heavy filter-chip toolbars** (Routines, Oil Actions, Oil Change
+Forecast) — each stacked an Area dropdown, several rows of status/area/
+contractor pill buttons, and a search box above its own content, pushing
+everything below the fold on first load. Added two small reusable pieces
+(`src/hooks/useIsMobile.js`, a `window.matchMedia('(max-width:860px)')`
+hook; `src/components/MobileFilterToggle.jsx`, a small pill button
+showing an active-filter count) and a `filtersOpen` state per page,
+defaulting to collapsed on mobile only (`useState(!isMobile)`) and always
+open on desktop. Each page's filter row keeps its exact original
+structure/DOM order — the toggle button and conditional rendering were
+added *around* the existing JSX rather than restructuring it, specifically
+so desktop (where `isMobile` is false and `filtersOpen` defaults true)
+renders byte-identical to before this patch; only a phone ever sees the
+toggle or starts collapsed. Oil Actions and Oil Change Forecast each kept
+one thing permanently visible alongside the collapsible filters — the
+Generate/Add action buttons and the Group By toggle respectively — since
+those are primary actions/view controls, not filters, and collapsing them
+away would have hidden functionality rather than just decluttering.
+
+**Verify**: each of the five fixes was built, copied into the
+`combined-site` scratchpad harness, and screenshotted at 390×844 before
+moving to the next — confirmed Routines' table renders as cards with no
+overflow (both the overview and the template-instance drill-down,
+reached via the same path `equipment_merge_test.mjs` already uses to open
+a real routine), the Oil Change Forecast timeline is legible collapsed
+and fully scrolled right, the Oil Actions status tabs correctly filter to
+one column at a time (verified both visually and via a DOM assertion
+scoped to `.dash-table-mobile` specifically, after an initial version of
+the assertion false-positived on the still-present-but-hidden desktop
+grid), Activity's header stacks with the full placeholder text visible,
+and all three filter toolbars collapse to a single "Filters" button by
+default on mobile and expand back to the exact original row when tapped
+(verified via a DOM presence check: the search input doesn't exist at all
+collapsed, appears after tapping). Full regression suite
+(`topbar_ui_test`, `settings_tabs_test`, `equipment_merge_test`,
+`revert_oil_naming_test`, `mobile_sidebar_fix_test`, `mobile_app_feel_test`,
+`topbar_consolidation_test`) plus the desktop-focused
+`routines_overview_ui_test`/`routines_charts_ui_test` (specifically to
+confirm the filter-collapse change didn't touch desktop's own rendering)
+rerun clean after every single one of the five fixes, not just once at
+the end.
+
+**Still open**: Vibration Analysis was never in scope for this audit
+("Start the mobile audit of Oil Lubrication's pages first") and likely
+has its own double-top-bar issue (Patch 35's own scope) plus whatever a
+similar page-by-page mobile pass on it would turn up — neither looked at
+here. Beyond the 12 Oil Lubrication sub-tabs captured and reviewed in
+this audit, no further mobile-specific issues were found in this pass,
+but a second look focused specifically on real (non-mocked) production
+data volumes — e.g. what the Routines card list looks like with hundreds
+of routines rather than 2-3 — hasn't been done.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

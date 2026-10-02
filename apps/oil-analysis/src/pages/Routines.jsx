@@ -18,6 +18,8 @@ import * as api from "../api";
 import RoutineDetail from "./RoutineDetail";
 import NewRoutine from "./NewRoutine";
 import ProgressBar from "../components/ProgressBar";
+import MobileFilterToggle from "../components/MobileFilterToggle";
+import useIsMobile from "../hooks/useIsMobile";
 
 const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitted", "Approved"];
 
@@ -145,6 +147,12 @@ export default function Routines({
   onInitialRoutineConsumed,
 }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
+  // Collapsed by default on mobile only (the Area dropdown + 6 due-status
+  // pills + search box were stacking several rows above the actual list on
+  // a phone — the Patch 35 mobile audit's own finding); always open on
+  // desktop, where there was never a problem to begin with.
+  const [filtersOpen, setFiltersOpen] = useState(!isMobile);
   // Patch 20: "overview" (the new unified templates + standalone-routines
   // list) is now the landing view, replacing the old "list" (every
   // instance, flat). "templateDetail" drills into one recurring template's
@@ -553,47 +561,87 @@ export default function Routines({
             </p>
           </div>
         ) : (
-          <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Route Name</th>
-                  <th style={s.th}>Assigned To</th>
-                  <th style={s.th}>Status</th>
-                  <th style={s.th}>Progress</th>
-                  <th style={s.th}>Due</th>
-                  <th style={s.th}>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleTemplateInstances.map((r) => {
-                  const aging = agingLabel(r.createdDate, r.status);
-                  const overdue = isOverdue(r, now);
-                  return (
-                    <tr
-                      key={r.routineId}
-                      style={{ cursor: "pointer", background: overdue ? T.danger + "0d" : "transparent" }}
-                      onClick={() => openRoutine(r.routineId)}
-                    >
-                      <td style={s.td}>{r.routeName || "—"}</td>
-                      <td style={s.td}>{r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}</td>
-                      <td style={s.td}>
-                        <span style={s.badge(r.status)}>{r.status}</span>
-                      </td>
-                      <td style={s.td}>
-                        <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
-                      </td>
-                      <td style={s.td}>{r.dueDate || "—"}</td>
-                      <td style={s.td}>
-                        {r.createdDate || "—"}
-                        {aging && <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Desktop: the full 6-column table. Mobile (<=860px, see
+                App.jsx's own .dash-table-desktop/.dash-table-mobile toggle):
+                a stacked card list instead — a 6-column table only scrolled
+                horizontally with no visible affordance, leaving the Status/
+                Progress/Due/Created columns cut off the right edge of a
+                phone screen (the Patch 35 mobile audit's own finding). */}
+            <div className="dash-table-desktop" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Route Name</th>
+                    <th style={s.th}>Assigned To</th>
+                    <th style={s.th}>Status</th>
+                    <th style={s.th}>Progress</th>
+                    <th style={s.th}>Due</th>
+                    <th style={s.th}>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleTemplateInstances.map((r) => {
+                    const aging = agingLabel(r.createdDate, r.status);
+                    const overdue = isOverdue(r, now);
+                    return (
+                      <tr
+                        key={r.routineId}
+                        style={{ cursor: "pointer", background: overdue ? T.danger + "0d" : "transparent" }}
+                        onClick={() => openRoutine(r.routineId)}
+                      >
+                        <td style={s.td}>{r.routeName || "—"}</td>
+                        <td style={s.td}>{r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}</td>
+                        <td style={s.td}>
+                          <span style={s.badge(r.status)}>{r.status}</span>
+                        </td>
+                        <td style={s.td}>
+                          <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
+                        </td>
+                        <td style={s.td}>{r.dueDate || "—"}</td>
+                        <td style={s.td}>
+                          {r.createdDate || "—"}
+                          {aging && <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="dash-table-mobile" style={{ flexDirection: "column", gap: 10 }}>
+              {visibleTemplateInstances.map((r) => {
+                const aging = agingLabel(r.createdDate, r.status);
+                const overdue = isOverdue(r, now);
+                return (
+                  <div
+                    key={r.routineId}
+                    style={{ ...s.card, cursor: "pointer", background: overdue ? T.danger + "0d" : T.cardBg }}
+                    onClick={() => openRoutine(r.routineId)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13.5 }}>{r.routeName || "—"}</span>
+                      <span style={s.badge(r.status)}>{r.status}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
+                      {r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}
+                    </div>
+                    <div style={{ margin: "8px 0" }}>
+                      <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted }}>
+                      <span>Due {r.dueDate || "—"}</span>
+                      <span>
+                        Created {r.createdDate || "—"}
+                        {aging ? ` · ${aging}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
     );
@@ -663,37 +711,46 @@ export default function Routines({
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <select style={{ ...s.select, width: 160 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
-          {areaOptions.map((a) => (
-            <option key={a} value={a}>
-              {a === "All" ? "All Areas" : a}
-            </option>
-          ))}
-        </select>
-        {DUE_STATUS_FILTERS.map((st) => (
-          <button
-            key={st}
-            style={{
-              ...s.btn,
-              fontSize: 12,
-              background: dueStatusFilter === st ? T.accent : "transparent",
-              color: dueStatusFilter === st ? T.accentText : T.textSecondary,
-              borderColor: dueStatusFilter === st ? T.accent : T.border,
-            }}
-            onClick={() => setDueStatusFilter(st)}
-          >
-            {st}
-          </button>
-        ))}
-        <input
-          style={{ ...s.input, flex: 1, minWidth: 180 }}
-          type="search"
-          placeholder="Search by route name or id…"
-          value={overviewSearch}
-          onChange={(e) => setOverviewSearch(e.target.value)}
+      {isMobile && (
+        <MobileFilterToggle
+          open={filtersOpen}
+          onToggle={() => setFiltersOpen((o) => !o)}
+          activeCount={(areaFilter !== "All" ? 1 : 0) + (dueStatusFilter !== "All" ? 1 : 0) + (overviewSearch.trim() ? 1 : 0)}
         />
-      </div>
+      )}
+      {filtersOpen && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <select style={{ ...s.select, width: 160 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
+            {areaOptions.map((a) => (
+              <option key={a} value={a}>
+                {a === "All" ? "All Areas" : a}
+              </option>
+            ))}
+          </select>
+          {DUE_STATUS_FILTERS.map((st) => (
+            <button
+              key={st}
+              style={{
+                ...s.btn,
+                fontSize: 12,
+                background: dueStatusFilter === st ? T.accent : "transparent",
+                color: dueStatusFilter === st ? T.accentText : T.textSecondary,
+                borderColor: dueStatusFilter === st ? T.accent : T.border,
+              }}
+              onClick={() => setDueStatusFilter(st)}
+            >
+              {st}
+            </button>
+          ))}
+          <input
+            style={{ ...s.input, flex: 1, minWidth: 180 }}
+            type="search"
+            placeholder="Search by route name or id…"
+            value={overviewSearch}
+            onChange={(e) => setOverviewSearch(e.target.value)}
+          />
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: "3 1 480px", minWidth: 0 }}>
@@ -706,37 +763,62 @@ export default function Routines({
               <p style={{ color: T.textSecondary, margin: 0 }}>No routines match the filter.</p>
             </div>
           ) : (
-            <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    <th style={s.th}>Routine Name</th>
-                    <th style={s.th}>Equipment Count</th>
-                    <th style={s.th}>Frequency</th>
-                    <th style={s.th}>Next Due Date</th>
-                    <th style={s.th}>Status</th>
-                    <th style={s.th}>Last Completed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleOverviewItems.map((item) => (
-                    <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
-                      <td style={s.td}>
+            <>
+              {/* Desktop: full 6-column table. Mobile (<=860px): a stacked
+                  card list — see the templateDetail table above for why. */}
+              <div className="dash-table-desktop" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+                <table style={s.table}>
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Routine Name</th>
+                      <th style={s.th}>Equipment Count</th>
+                      <th style={s.th}>Frequency</th>
+                      <th style={s.th}>Next Due Date</th>
+                      <th style={s.th}>Status</th>
+                      <th style={s.th}>Last Completed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleOverviewItems.map((item) => (
+                      <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
+                        <td style={s.td}>
+                          {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
+                          {item.routeName || item.id}
+                        </td>
+                        <td style={s.td}>{item.equipmentCount}</td>
+                        <td style={s.td}>{item.frequency}</td>
+                        <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
+                        <td style={s.td}>
+                          <DueStatusBadge T={T} status={item.dueStatus} />
+                        </td>
+                        <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="dash-table-mobile" style={{ flexDirection: "column", gap: 10 }}>
+                {visibleOverviewItems.map((item) => (
+                  <div key={item.id} style={{ ...s.card, cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13.5 }}>
                         {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
                         {item.routeName || item.id}
-                      </td>
-                      <td style={s.td}>{item.equipmentCount}</td>
-                      <td style={s.td}>{item.frequency}</td>
-                      <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
-                      <td style={s.td}>
-                        <DueStatusBadge T={T} status={item.dueStatus} />
-                      </td>
-                      <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </span>
+                      <DueStatusBadge T={T} status={item.dueStatus} />
+                    </div>
+                    <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
+                      {item.equipmentCount} equipment{item.frequency ? ` · ${item.frequency}` : ""}
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted, marginTop: 8 }}>
+                      <span>Due {formatDateShort(item.nextDueDate)}</span>
+                      <span>Last done {formatDateShort(item.lastCompleted)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

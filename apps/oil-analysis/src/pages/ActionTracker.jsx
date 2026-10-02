@@ -4,6 +4,8 @@ import { formatDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditActionModal from "../components/EditActionModal";
 import GenerateMonthlyActionsModal from "../components/GenerateMonthlyActionsModal";
+import MobileFilterToggle from "../components/MobileFilterToggle";
+import useIsMobile from "../hooks/useIsMobile";
 
 const STATUS_COLOR_KEY = { Open: "danger", "In Progress": "warning", "Waiting Stoppage": "accent", Closed: "success" };
 const COLUMNS = ["Open", "In Progress", "Waiting Stoppage", "Closed"];
@@ -55,6 +57,11 @@ export default function ActionTracker({
   onDeleteAction,
 }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
+  // Collapsed by default on mobile only — equipment search + month/year
+  // dropdowns + area chips + contractor chips stacked several rows above
+  // the kanban on a phone (the Patch 35 mobile audit's own finding).
+  const [filtersOpen, setFiltersOpen] = useState(!isMobile);
   const [equipCode, setEquipCode] = useState("");
   const [month, setMonth] = useState("All");
   const [year, setYear] = useState("All");
@@ -64,6 +71,15 @@ export default function ActionTracker({
   const [generating, setGenerating] = useState(false);
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
+  // Mobile only (<=860px, see the .dash-table-desktop/.dash-table-mobile
+  // toggle below) — the 4-column kanban grid only ever showed ~1.5 columns
+  // on a phone screen with no hint the rest could be reached by swiping
+  // (the Patch 35 mobile audit's own finding), and drag-and-drop between
+  // columns that are mostly off-screen isn't practical on touch anyway. A
+  // status is still changed on mobile the same way editing any other field
+  // is — tap the card, change Status in the modal, Save — so this tab just
+  // picks which one column's cards to list, full width, one at a time.
+  const [mobileStatusTab, setMobileStatusTab] = useState("Open");
 
   const registry = equipmentRegistry || [];
   const registryByCode = useMemo(() => {
@@ -111,6 +127,88 @@ export default function ActionTracker({
       return list.sort((x, y) => new Date(y.completedDate || y.revisionDate || 0) - new Date(x.completedDate || x.revisionDate || 0));
     }
     return list.sort((x, y) => (ageDays(y.revisionDate) ?? -1) - (ageDays(x.revisionDate) ?? -1));
+  }
+
+  // Shared by the desktop 4-column grid and the mobile single-column list
+  // below, so both stay in sync by construction instead of two near-copies
+  // of the same card markup drifting apart over time.
+  function renderActionCard(a, status) {
+    const code = a.equipmentCode || a.unitId || "";
+    const reg = registryByCode[code];
+    const days = ageDays(a.revisionDate);
+    return (
+      <div
+        key={a._id}
+        draggable
+        onDragStart={() => setDraggedId(a._id)}
+        onDragEnd={() => setDraggedId(null)}
+        onClick={() => setEditing({ action: a, isNew: false })}
+        style={{
+          ...s.card,
+          marginBottom: 10,
+          padding: "12px 13px",
+          borderLeft: `3px solid ${T[STATUS_COLOR_KEY[status]]}`,
+          cursor: "grab",
+          opacity: draggedId === a._id ? 0.4 : 1,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+          <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12.5, color: T.accent }}>{code}</span>
+          {reg?.area && (
+            <span style={{ fontSize: 9.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 0.3 }}>
+              {reg.area}
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{a.description || "—"}</div>
+        <div
+          style={{
+            fontSize: 12,
+            color: T.textPrimary,
+            marginTop: 8,
+            lineHeight: 1.45,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {a.agreedAction || "—"}
+        </div>
+        {status !== "Closed" && (
+          <div style={{ marginTop: 6 }}>
+            {a.assignedTo ? (
+              <span style={{ fontSize: 10.5, color: T.textSecondary }}>
+                <i className="ti ti-user" aria-hidden="true" style={{ marginRight: 3 }} /> {a.assignedTo}
+              </span>
+            ) : (
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger }}>
+                <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 3 }} /> No owner assigned
+              </span>
+            )}
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+          {status === "Closed" ? (
+            <span style={{ fontSize: 10.5, color: T.textMuted }}>Completed {formatDate(a.completedDate) || "—"}</span>
+          ) : (
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                padding: "2px 8px",
+                borderRadius: 20,
+                background: ageColor(T, days) + "22",
+                color: ageColor(T, days),
+              }}
+            >
+              {days != null && days > 14 ? `⚠ ${days}d overdue` : days == null ? "—" : `${days}d open`}
+            </span>
+          )}
+          <span style={{ fontSize: 10.5, fontFamily: "monospace", color: T.textMuted }}>{a.acNo}</span>
+        </div>
+      </div>
+    );
   }
 
   // PERFORMANCE: onAddAction/onUpdateAction/onDeleteAction (App.jsx) already
@@ -191,73 +289,92 @@ export default function ActionTracker({
         </div>
       </div>
 
+      {/* Single row, unchanged in structure/order from before this patch —
+          isMobile is false on desktop so filtersOpen defaults true there
+          and this renders exactly as it always has. Only on a phone does
+          the toggle appear and the filter controls become collapsible;
+          the two action buttons stay in their original position/order
+          either way, just with the filters between them collapsed away. */}
       <div style={{ display: "flex", gap: 10, margin: "16px 0", flexWrap: "wrap", alignItems: "center" }}>
-        <EquipmentSearch
-          options={registry}
-          value={equipCode || "All"}
-          onChange={(v) => setEquipCode(v === "All" ? "" : v)}
-          allowAll
-          width={220}
-          placeholder="All Equipment"
-        />
-        <select style={{ ...s.select, minWidth: 110, fontSize: 12 }} value={month} onChange={(e) => setMonth(e.target.value)}>
-          <option value="All">All Months</option>
-          {MONTHS.map((m, i) => (
-            <option key={m} value={i}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select style={{ ...s.select, minWidth: 90, fontSize: 12 }} value={year} onChange={(e) => setYear(e.target.value)}>
-          {years.map((y) => (
-            <option key={y}>{y}</option>
-          ))}
-        </select>
-        {areas.length > 1 &&
-          areas.map((a) => (
-            <button
-              key={a}
-              style={{
-                ...s.btn,
-                fontSize: 12,
-                background: areaFilter === a ? T.accent : "transparent",
-                color: areaFilter === a ? T.accentText : T.textSecondary,
-                borderColor: areaFilter === a ? T.accent : T.border,
-              }}
-              onClick={() => setAreaFilter(a)}
-            >
-              {a}
-            </button>
-          ))}
-        {contractors.length > 1 &&
-          contractors.map((c) => (
-            <button
-              key={c}
-              style={{
-                ...s.btn,
-                fontSize: 12,
-                background: contractorFilter === c ? T.accent : "transparent",
-                color: contractorFilter === c ? T.accentText : T.textSecondary,
-                borderColor: contractorFilter === c ? T.accent : T.border,
-              }}
-              onClick={() => setContractorFilter(c)}
-            >
-              {c}
-            </button>
-          ))}
-        {hasFilters && (
-          <button
-            style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
-            onClick={() => {
-              setEquipCode("");
-              setMonth("All");
-              setYear("All");
-              setAreaFilter("All");
-              setContractorFilter("All");
-            }}
-          >
-            <i className="ti ti-x" aria-hidden="true" /> Clear
-          </button>
+        {isMobile && (
+          <MobileFilterToggle
+            open={filtersOpen}
+            onToggle={() => setFiltersOpen((o) => !o)}
+            activeCount={
+              (equipCode ? 1 : 0) + (month !== "All" ? 1 : 0) + (year !== "All" ? 1 : 0) + (areaFilter !== "All" ? 1 : 0) + (contractorFilter !== "All" ? 1 : 0)
+            }
+          />
+        )}
+        {filtersOpen && (
+          <>
+            <EquipmentSearch
+              options={registry}
+              value={equipCode || "All"}
+              onChange={(v) => setEquipCode(v === "All" ? "" : v)}
+              allowAll
+              width={220}
+              placeholder="All Equipment"
+            />
+            <select style={{ ...s.select, minWidth: 110, fontSize: 12 }} value={month} onChange={(e) => setMonth(e.target.value)}>
+              <option value="All">All Months</option>
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <select style={{ ...s.select, minWidth: 90, fontSize: 12 }} value={year} onChange={(e) => setYear(e.target.value)}>
+              {years.map((y) => (
+                <option key={y}>{y}</option>
+              ))}
+            </select>
+            {areas.length > 1 &&
+              areas.map((a) => (
+                <button
+                  key={a}
+                  style={{
+                    ...s.btn,
+                    fontSize: 12,
+                    background: areaFilter === a ? T.accent : "transparent",
+                    color: areaFilter === a ? T.accentText : T.textSecondary,
+                    borderColor: areaFilter === a ? T.accent : T.border,
+                  }}
+                  onClick={() => setAreaFilter(a)}
+                >
+                  {a}
+                </button>
+              ))}
+            {contractors.length > 1 &&
+              contractors.map((c) => (
+                <button
+                  key={c}
+                  style={{
+                    ...s.btn,
+                    fontSize: 12,
+                    background: contractorFilter === c ? T.accent : "transparent",
+                    color: contractorFilter === c ? T.accentText : T.textSecondary,
+                    borderColor: contractorFilter === c ? T.accent : T.border,
+                  }}
+                  onClick={() => setContractorFilter(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            {hasFilters && (
+              <button
+                style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
+                onClick={() => {
+                  setEquipCode("");
+                  setMonth("All");
+                  setYear("All");
+                  setAreaFilter("All");
+                  setContractorFilter("All");
+                }}
+              >
+                <i className="ti ti-x" aria-hidden="true" /> Clear
+              </button>
+            )}
+          </>
         )}
         <button style={{ ...s.btn, marginLeft: "auto" }} onClick={() => setGenerating(true)}>
           <i className="ti ti-calendar-plus" aria-hidden="true" /> Generate Monthly Actions
@@ -273,7 +390,15 @@ export default function ActionTracker({
           : `${actions.length} actions · drag a card to change its status`}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(230px,1fr))", gap: 14, overflowX: "auto" }}>
+      {/* Desktop: the 4-column drag-and-drop kanban, unchanged. Mobile
+          (<=860px, see App.jsx's .dash-table-desktop/.dash-table-mobile
+          toggle): only ~1.5 columns ever fit a phone screen with nothing
+          hinting the rest were a swipe away, and cross-column drag isn't
+          practical when most columns are off-screen (the Patch 35 mobile
+          audit's own finding) — a status tab row plus one full-width
+          column at a time instead; status still changes the same way any
+          other field does, by tapping a card into the edit modal. */}
+      <div className="dash-table-desktop" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(230px,1fr))", gap: 14, overflowX: "auto" }}>
         {COLUMNS.map((status) => {
           const items = columnItems(status);
           const isDragOver = dragOverCol === status;
@@ -335,89 +460,46 @@ export default function ActionTracker({
                 </div>
               )}
 
-              {items.map((a) => {
-                const code = a.equipmentCode || a.unitId || "";
-                const reg = registryByCode[code];
-                const days = ageDays(a.revisionDate);
-                return (
-                  <div
-                    key={a._id}
-                    draggable
-                    onDragStart={() => setDraggedId(a._id)}
-                    onDragEnd={() => setDraggedId(null)}
-                    onClick={() => setEditing({ action: a, isNew: false })}
-                    style={{
-                      ...s.card,
-                      marginBottom: 10,
-                      padding: "12px 13px",
-                      borderLeft: `3px solid ${T[STATUS_COLOR_KEY[status]]}`,
-                      cursor: "grab",
-                      opacity: draggedId === a._id ? 0.4 : 1,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                      <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12.5, color: T.accent }}>{code}</span>
-                      {reg?.area && (
-                        <span
-                          style={{ fontSize: 9.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 0.3 }}
-                        >
-                          {reg.area}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{a.description || "—"}</div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: T.textPrimary,
-                        marginTop: 8,
-                        lineHeight: 1.45,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {a.agreedAction || "—"}
-                    </div>
-                    {status !== "Closed" && (
-                      <div style={{ marginTop: 6 }}>
-                        {a.assignedTo ? (
-                          <span style={{ fontSize: 10.5, color: T.textSecondary }}>
-                            <i className="ti ti-user" aria-hidden="true" style={{ marginRight: 3 }} /> {a.assignedTo}
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger }}>
-                            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 3 }} /> No owner assigned
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
-                      {status === "Closed" ? (
-                        <span style={{ fontSize: 10.5, color: T.textMuted }}>Completed {formatDate(a.completedDate) || "—"}</span>
-                      ) : (
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: 20,
-                            background: ageColor(T, days) + "22",
-                            color: ageColor(T, days),
-                          }}
-                        >
-                          {days != null && days > 14 ? `⚠ ${days}d overdue` : days == null ? "—" : `${days}d open`}
-                        </span>
-                      )}
-                      <span style={{ fontSize: 10.5, fontFamily: "monospace", color: T.textMuted }}>{a.acNo}</span>
-                    </div>
-                  </div>
-                );
-              })}
+              {items.map((a) => renderActionCard(a, status))}
             </div>
           );
         })}
+      </div>
+
+      <div className="dash-table-mobile" style={{ flexDirection: "column" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          {COLUMNS.map((status) => (
+            <button
+              key={status}
+              style={{
+                ...s.btn,
+                fontSize: 12,
+                background: mobileStatusTab === status ? T[STATUS_COLOR_KEY[status]] : "transparent",
+                color: mobileStatusTab === status ? "#fff" : T.textSecondary,
+                borderColor: mobileStatusTab === status ? T[STATUS_COLOR_KEY[status]] : T.border,
+              }}
+              onClick={() => setMobileStatusTab(status)}
+            >
+              {status} ({columnItems(status).length})
+            </button>
+          ))}
+        </div>
+        {columnItems(mobileStatusTab).length === 0 ? (
+          <div
+            style={{
+              fontSize: 11.5,
+              color: T.textMuted,
+              textAlign: "center",
+              padding: "16px 6px",
+              border: `1px dashed ${T.border}`,
+              borderRadius: 8,
+            }}
+          >
+            No actions here
+          </div>
+        ) : (
+          columnItems(mobileStatusTab).map((a) => renderActionCard(a, mobileStatusTab))
+        )}
       </div>
 
       {editing && (

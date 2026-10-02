@@ -67,11 +67,11 @@ export default function Activity({ webhookUrl }) {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+      <div className="mobile-stack-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Activity</p>
         <form onSubmit={applyFilter} style={{ display: "flex", gap: 8 }}>
           <input
-            style={{ ...s.input, width: 220 }}
+            style={{ ...s.input, width: 220, flex: 1, minWidth: 0 }}
             placeholder="Filter by LP_ID, routine, product id…"
             value={recordId}
             onChange={(e) => setRecordId(e.target.value)}
