@@ -4,11 +4,26 @@ import { useTheme } from "../ThemeContext";
 // Splits a stored "Change Oil, Separate Water" string into chips. Existing
 // historical values that don't match anything in the registry still show
 // up as their own chip — the registry is a pick list, not a strict enum.
-function parseChips(value) {
-  return String(value || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+//
+// Bug-hunt pass: a legacy free-text phrase written before this chip UI
+// existed can itself contain a literal comma (e.g. "Replace oil, filter
+// and gaskets") — naively splitting on every comma turned it into two
+// unrelated chips, and removing either one and saving corrupted it for
+// good (join(", ") on save can never reconstruct the original). Every
+// chip this component itself ever creates is a known registry phrase (or
+// a deliberate single free-text addition — never multiple free-text
+// pieces joined together), so a split is only trusted when EVERY
+// resulting piece matches a known option; otherwise the whole value is
+// kept as one chip, same treatment any other free-text entry already
+// gets. Skipped entirely when `options` hasn't loaded yet, so this never
+// collapses a value before there's anything to validate it against.
+function parseChips(value, options) {
+  const raw = String(value || "");
+  const segments = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (segments.length <= 1 || !options || options.length === 0) return segments;
+  const known = new Set(options.map((o) => o.toLowerCase()));
+  const allKnown = segments.every((seg) => known.has(seg.toLowerCase()));
+  return allKnown ? segments : [raw.trim()].filter(Boolean);
 }
 
 // Multi-select "add chip" field for Contractor Action / ACC Action, backed
@@ -22,7 +37,7 @@ export default function MultiSelectTags({ label, value, onChange, options }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
-  const chips = parseChips(value);
+  const chips = parseChips(value, options);
   const available = (options || []).filter((o) => !chips.some((c) => c.toLowerCase() === o.toLowerCase()));
   const filtered = query ? available.filter((o) => o.toLowerCase().includes(query.toLowerCase())) : available;
 

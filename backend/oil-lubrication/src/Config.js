@@ -8,7 +8,14 @@ var LAST_MODIFIED_COL = {
   "OA_ROUTINE_ITEMS": 12,
   "Oil Inventory LOG": 12,
   "Oil Inventory": 16,
-  "ROUTINE_TEMPLATES": 13
+  "ROUTINE_TEMPLATES": 13,
+  // Bug-hunt pass: this was missing entirely — stampLastModified (Utils.js)
+  // no-ops when a sheet has no entry here, so every top-up ever logged left
+  // column 12 (Created_Date) permanently blank, contradicting TopUps.js's
+  // own inline comment claiming it's "filled by appendRow's own
+  // stampLastModified." Column 12 = index 11 (0-indexed) in
+  // TOP_UP_LOG_HEADERS, same convention as every other sheet above.
+  "Oil Top Up LOG": 12
 };
 
 

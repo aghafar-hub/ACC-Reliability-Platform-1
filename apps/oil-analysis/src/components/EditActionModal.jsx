@@ -27,11 +27,19 @@ const ROUTE_TRIGGER_PHRASES = [
   { phrase: "Top Up the Oil", routeType: "Emergency Top Up" },
 ];
 
-function chipsOf(value) {
-  return String(value || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+// Bug-hunt pass: mirrors MultiSelectTags.jsx's own parseChips fix exactly
+// (same file, not imported, to avoid pulling a display component into this
+// comparison-only helper) — a legacy free-text Agreed Action containing a
+// literal comma must parse the SAME way here as it's shown in the form
+// itself, or this trigger-detection comparison could disagree with what
+// the user actually sees as chips.
+function chipsOf(value, options) {
+  const raw = String(value || "");
+  const segments = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  if (segments.length <= 1 || !options || options.length === 0) return segments;
+  const known = new Set(options.map((o) => o.toLowerCase()));
+  const allKnown = segments.every((seg) => known.has(seg.toLowerCase()));
+  return allKnown ? segments : [raw.trim()].filter(Boolean);
 }
 
 export default function EditActionModal({
@@ -175,8 +183,8 @@ export default function EditActionModal({
     // execute it after save confirms up in App.jsx" pattern _oilChangeTarget
     // above already uses.
     if (isContractorEngineer) {
-      const originalChips = chipsOf(action.agreedAction);
-      const newChips = chipsOf(form.agreedAction);
+      const originalChips = chipsOf(action.agreedAction, actionRegistry);
+      const newChips = chipsOf(form.agreedAction, actionRegistry);
       const newlyAdded = ROUTE_TRIGGER_PHRASES.filter(
         ({ phrase }) =>
           newChips.some((c) => c.toLowerCase() === phrase.toLowerCase()) &&
