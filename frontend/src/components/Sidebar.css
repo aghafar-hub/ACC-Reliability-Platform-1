@@ -293,7 +293,7 @@
     top: 0;
     left: 0;
     width: 248px;
-    height: 100vh;
+    height: 100svh;
     transform: translateX(-100%);
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: none;

@@ -1952,6 +1952,122 @@ Verified with a 10-assertion Playwright test at a touch-emulated mobile
 viewport, plus a full rerun of the Patch 28/29/30/32 regression suite at
 desktop width to confirm no regression.
 
+## 4ao. Make it feel like a real app on mobile — PWA + bottom tab bar (Patch 34)
+
+Direct request after Patch 33's sidebar fix: "the mobile view must be
+like normal app any ... for now i think the mobile view must design
+separate from web view." Agreed approach (confirmed with the user):
+option 1+2 from a menu of options — a installable PWA (manifest +
+service worker, full-screen, app icon, no browser chrome) plus app-like
+navigation (bottom tab bar instead of a hamburger-only sidebar) — within
+the same codebase, not a separate app/build. A native wrapper (Capacitor,
+real App Store/Play Store listing) was offered as a third option and
+explicitly deferred unless app-store distribution itself becomes a
+requirement.
+
+**PWA (installable, full-screen)**: `vite-plugin-pwa` was already a
+`frontend/package.json` devDependency from the very first scaffolding
+commit ("PWA skeleton") but never wired up — configured for real now in
+`frontend/vite.config.ts`. `generateSW` mode, `registerType: 'autoUpdate'`.
+Real app icons generated from `brand/acc-leaf-mark.png` (the actual ACC
+mark) composited onto the default theme's navy background — 192/512/
+512-maskable PWA icons, a 180px apple-touch-icon, and 16/32px favicons —
+replacing `favicon.svg`, which turned out to be an unrelated leftover
+placeholder from the original Vite/React starter template, never
+ACC-branded. `index.html` gained the iOS-specific
+`apple-mobile-web-app-capable`/`apple-mobile-web-app-status-bar-style`
+meta tags (iOS doesn't read the manifest's `display:"standalone"` the
+way Android/Chrome do) and `viewport-fit=cover` (safe-area support).
+
+Because the deploy workflow (`.github/workflows/deploy.yml`) builds
+`frontend` on its own and only copies the two modules' embed bundles into
+the *final* `site/` output afterward, `generateSW`'s precache manifest —
+scoped to whatever exists in `frontend/dist` at its own build time —
+naturally only ever covers the shell's own small assets (13 entries,
+~310KB), never either module's much larger (1-5MB) embed bundle. Those
+are covered by a separate `runtimeCaching` rule instead
+(StaleWhileRevalidate, keyed on any `/apps/` path) — fetched and cached
+on first visit to each module, refreshed in the background on return
+visits, never blocking the app's own install/precache on a multi-MB
+download.
+
+**Bottom tab bar** (`frontend/src/components/BottomNav.tsx`/`.css`,
+≤860px only — same breakpoint as Sidebar's overlay mode and TopBar's
+hamburger from Patch 33, all three must agree): 4 primary slots —
+Dashboard, Oil Lubrication, Vibration Analysis, My Work — confirmed
+directly by the user as the ones actually built/used today, plus a
+"More" tab. Only 4-5 items fit a phone without feeling cramped (confirmed
+with the user), so Equipment/Reliability Measures/Compressors (all still
+`<ComingSoon>` placeholders) don't get primary slots — "More" reuses the
+exact same slide-in Sidebar overlay the hamburger button already opens
+(both drive `App.tsx`'s one `mobileNavOpen` state), rather than a second
+navigation UI — also the user's own explicit choice over two new
+alternatives (a horizontal tab strip, a bottom sheet) offered up front.
+"More" itself highlights whenever the active route isn't one of the 4
+primary tabs, so the bar always shows where you are even on a page that
+only lives behind it.
+
+**Three real, confirmed-by-measurement layout bugs found and fixed along
+the way** (not theoretical — each one only showed up once BottomNav's
+own `position: fixed; left:0; right:0` made the shell newly sensitive to
+them):
+- `.app-shell-right`'s new `padding-bottom` (reserving room for the fixed
+  bar) was being added on top of its `min-height: 100svh` floor instead
+  of carved out of it, since nothing in this project resets
+  `box-sizing` — fixed by setting `box-sizing: border-box` on it
+  explicitly.
+- `.app-shell`/`.app-shell-right`/the mobile Sidebar overlay used `100vh`
+  — the browser's tallest possible viewport, as if any collapsible
+  mobile address-bar chrome were gone — switched to `100svh` (small
+  viewport height, sized for that chrome actually being there), matching
+  the convention `#root` in `index.css` already used.
+- `.app-content--embedded` (the container each module's embed bundle
+  mounts into — see `App.css`'s own long-standing comment on why it
+  exists: cancelling the shared page padding via a negative margin, plus
+  `zoom: 0.9` to fit each module's own fixed-px sizing) computed to ~11%
+  *wider* than its own parent on a real browser engine once zoom and that
+  negative margin combined — confirmed by direct measurement (~471px
+  pre-zoom against an ~433px available width), not just theory. That
+  oversized box pushed the whole page wider than the viewport, which
+  then corrupted BottomNav's own measured width (a position:fixed
+  element's `left/right:0` resolves against the layout viewport, which
+  grows when something else forces horizontal overflow). Fixed by pinning
+  `.app-content--embedded` to `width: 100%; max-width: 100%` instead of
+  leaving it to `auto`, plus `overflow: hidden` as a second line of
+  defense. A global `overflow-x: hidden` was also added to `body` in
+  `index.css` as a general safety net against the same class of bug
+  anywhere else on the page.
+
+**Verify**: at a real mobile viewport (390×844, touch-emulated), the
+page's manifest link resolves and its icons load (confirmed via direct
+fetch, not just visual inspection); the bottom bar shows all 4 primary
+tabs + More, Dashboard highlighted by default; tapping a tab navigates
+and updates the active highlight; tapping Oil Lubrication shows the real
+module content filling the screen with no horizontal overflow; tapping
+More opens the same overlay Sidebar showing Equipment/Reliability
+Measures/Compressors, and More highlights instead of any primary tab
+while on a page like Settings. Desktop (≥861px) is unaffected — bottom
+bar and hamburger both hidden, normal hover-expand sidebar. Verified with
+a 16-assertion Playwright test (manifest/icons/service-worker fetched
+directly, full bottom-nav interaction flow at a touch-emulated mobile
+viewport, desktop-width checks), plus a full rerun of the Patch 28/29/
+30/32/33 regression suite to confirm none of the CSS changes above
+(`box-sizing`, `svh`, `overflow-x`, `width`/`overflow` on the embedded
+container) broke anything elsewhere.
+
+**Still open** (explicitly the next phase, not attempted in this patch —
+"all screens organized well on mobile screen" goes well beyond the shell
+chrome covered here): a screen-by-screen audit of both modules' own
+dense pages (data tables, multi-column forms, KPI grids) for genuinely
+mobile-appropriate layouts, starting with the highest-traffic ones (Oil
+Dashboard, Routines, Equipment, Oil Inventory; Vibration Dashboard,
+Equipment Reading) rather than relying on CSS reflow alone to make them
+usable on a phone. The embedded modules' own internal TopBar.jsx
+("Sheet"/"Sync" buttons) was observed overflowing at the very right edge
+on a 390px screen during this patch's own testing — a first concrete
+item for that follow-up pass, left alone here since it's inside a
+module's own dense-page territory, not shell chrome.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

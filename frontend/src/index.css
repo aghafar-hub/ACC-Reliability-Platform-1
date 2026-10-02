@@ -52,6 +52,16 @@
 
 body {
   margin: 0;
+  /* Safety net (Patch 34): any page's content overflowing horizontally —
+     confirmed happening on a module's own dense rows at narrow widths —
+     widens the whole document instead of just scrolling that one element,
+     which then throws off anything sized/positioned relative to the
+     viewport (BottomNav's `position: fixed; left:0; right:0` was
+     measuring wider than the visible screen because of this). Individual
+     overflowing content still needs its own fix where it happens (tracked
+     separately, screen-by-screen); this just stops it from breaking
+     unrelated layout in the meantime. */
+  overflow-x: hidden;
 }
 
 h1,

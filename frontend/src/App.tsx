@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import BottomNav from './components/BottomNav';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
@@ -100,6 +101,9 @@ function ShellRoot() {
           <EmbeddedVibrationAnalysis />
           <EmbeddedOilAnalysis />
         </main>
+        {/* <=860px only (BottomNav.css) — fixed to the viewport bottom, so
+            it's a sibling of <main>, not nested inside it. */}
+        <BottomNav onOpenMore={() => setMobileNavOpen(true)} />
       </div>
     </div>
   );

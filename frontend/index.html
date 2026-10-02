@@ -2,8 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- favicon.svg is a leftover from the original Vite/React starter
+         template (an unrelated purple mark) — real ACC-branded icons live
+         under /icons/, generated from brand/acc-leaf-mark.png (see Patch
+         34). vite-plugin-pwa injects the manifest link and the 192/512 PWA
+         icons itself at build time; these two are the ones it doesn't
+         cover (the actual <link rel="icon">/apple-touch-icon tags). -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0A1628" />
+    <!-- iOS doesn't read the web manifest's display:"standalone" the way
+         Android/Chrome do — these are the separate iOS-specific tags
+         needed for "Add to Home Screen" to actually open full-screen
+         there instead of inside Safari's own chrome. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ACC Reliability" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ACC Reliability</title>
     <!-- Tabler icons: the embedded as-is Oil Analysis app depends on this (its own index.html loads it the same way) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />

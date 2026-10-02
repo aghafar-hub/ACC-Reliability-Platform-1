@@ -1,0 +1,57 @@
+/* Hidden by default (desktop) — only shown <=860px, matching Sidebar.css's
+   overlay breakpoint and TopBar.css's hamburger breakpoint exactly. All
+   three must agree on where "mobile" starts, or the hamburger/bottom bar/
+   sidebar-overlay modes disagree about which one should be active. */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 58px;
+    /* iPhone home-indicator safe area — without this the bar's own
+       content sits flush against (or under) the gesture bar. Falls back
+       to 0 on a device with no notch/home-indicator inset. */
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    background: var(--shell-sidebar-bg, #0f172a);
+    border-top: 1px solid var(--shell-border, #1e293b);
+    z-index: 300;
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    height: 58px;
+    border: none;
+    background: transparent;
+    color: var(--shell-sidebar-text-secondary, #8ea0bb);
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .bottom-nav-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    padding: 0 4px;
+  }
+
+  .bottom-nav-item--active {
+    color: var(--shell-accent, #38bdf8);
+  }
+}

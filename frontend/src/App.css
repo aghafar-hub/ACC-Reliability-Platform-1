@@ -1,6 +1,12 @@
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  /* svh (small viewport height), not vh — matches #root's own convention
+     in index.css. vh is the browser's tallest possible viewport (as if
+     any collapsible address-bar chrome were gone); svh is sized for the
+     chrome actually being there, which is what a real mobile browser
+     shows most of the time. Using vh here was inflating this element
+     taller than the visible screen on a real phone. */
+  min-height: 100svh;
   background: var(--shell-bg);
 }
 
@@ -13,7 +19,29 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100svh;
+  /* No box-sizing reset exists anywhere in this project (checked), so this
+     defaults to content-box — meaning the <=860px padding-bottom below
+     would otherwise ADD to the 100svh floor instead of being carved out of
+     it, pushing the whole column (and so the document) taller than the
+     viewport. That triggered an unwanted vertical scrollbar, which in turn
+     widened what `position: fixed; left:0; right:0` resolves against for
+     BottomNav below (confirmed empirically: a ~17px/scrollbar-width
+     mismatch between BottomNav's measured width and the actual viewport,
+     breaking its own click hit-testing). border-box keeps the padding
+     inside the 100svh instead. */
+  box-sizing: border-box;
+}
+
+/* BottomNav (<=860px only — see BottomNav.css) is `position: fixed`, so it
+   doesn't occupy real layout space on its own; this reserves room for it
+   at the bottom of the flex column instead, on the outer .app-shell-right
+   rather than .app-content itself, so it doesn't interact with
+   .app-content--embedded's own negative-margin/zoom system below. */
+@media (max-width: 860px) {
+  .app-shell-right {
+    padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 .app-content {
@@ -49,6 +77,25 @@
 .app-content--embedded {
   margin: -2rem;
   contain: layout;
+  /* Confirmed by direct measurement (not theoretical): with a negative
+     margin cancelling .app-content's own padding AND `zoom: 0.9` below
+     both applied to the same element, this box's `width: auto`
+     computation came out ~11% too wide on at least one real browser
+     engine (measured ~471px pre-zoom against an available ~433px) —
+     zoom's interaction with margin/box-sizing across a zoom boundary is
+     a known rough edge, and the exact mechanism wasn't worth fully
+     reverse-engineering once the fix for the visible symptom (this one
+     box pushing the whole page wider than the screen, which then
+     corrupted anything measured relative to the viewport — specifically
+     BottomNav's own width) is two lines regardless of the exact cause.
+     Pins the box to its parent's own content width explicitly instead of
+     leaving it to `auto`, with `overflow: hidden` as a second line of
+     defense for whatever's left. Harmless when the box already fit
+     correctly (the normal/majority case) — this just stops it from ever
+     exceeding that same size. */
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   /* Both embedded apps set their own font sizes in fixed px throughout —
      not something this project's source can reach (they're pre-built
      bundles, see each app's own vite.embed.config.js). zoom scales the
