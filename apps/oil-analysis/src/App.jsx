@@ -758,10 +758,35 @@ function AppShell({ config, setConfig, navBridge }) {
   // optimistic entry rolled back) with an explanatory toast, same as if
   // it had failed immediately back when it was first attempted; the rest
   // of the queue still gets its turn.
+  // Bug-hunt pass: flushInProgressRef above only guards re-entrancy WITHIN
+  // this one tab/instance — nothing stopped a second browser tab (same
+  // origin, same localStorage-backed queue) from independently reading the
+  // same queued item via getOfflineQueue() before either tab removed it.
+  // Two tabs reconnecting at once could each save the same queued sample/
+  // action, minting its own fresh id (saveSample/saveAction only mint one
+  // when the payload doesn't already have one — exactly true for anything
+  // that queued offline), producing permanent duplicate rows. The Web
+  // Locks API is the browser-native primitive for exactly this — a named
+  // lock shared across every same-origin tab — so wrapping the whole flush
+  // in one serializes it across tabs: by the time a second tab's callback
+  // runs, the first tab has already removed everything it synced, so the
+  // second tab's own getOfflineQueue() comes back empty and it correctly
+  // no-ops. Falls back to the unguarded (single-tab-safe) behavior on a
+  // browser without navigator.locks (Safari <15.4).
   const flushOfflineQueue = useCallback(async () => {
     if (flushInProgressRef.current || !config.webhookUrl) return;
     flushInProgressRef.current = true;
     try {
+      if (typeof navigator !== "undefined" && navigator.locks?.request) {
+        await navigator.locks.request("acc-oil-offline-queue-flush", () => flushQueueOnce());
+      } else {
+        await flushQueueOnce();
+      }
+    } finally {
+      flushInProgressRef.current = false;
+    }
+
+    async function flushQueueOnce() {
       for (const item of getOfflineQueue()) {
         try {
           let saved;
@@ -831,8 +856,6 @@ function AppShell({ config, setConfig, navBridge }) {
           pushToast(`A queued ${item.kind === "oilChange" ? "oil change" : item.kind} couldn't be saved: ${err.message}`, "error");
         }
       }
-    } finally {
-      flushInProgressRef.current = false;
     }
   }, [config.webhookUrl, pushToast, applySampleTrackerSideEffect, applyOilChangeSideEffect, applyAutoRouteSideEffect]);
 
