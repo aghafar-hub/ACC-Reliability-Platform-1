@@ -355,8 +355,23 @@ export async function parsePdfReport(file) {
       if (!text) return;
       let value = text;
       if (field.type === "num") {
-        const n = parseFloat(text.replace(/[^0-9.-]/g, ""));
-        value = isNaN(n) ? "" : n;
+        // Bug-hunt pass: a lab report below-detection-limit reading like
+        // "<1" used to have its "<" silently stripped along with every
+        // other non-numeric character, storing a literal 1 — fabricating
+        // an exact reading that was never actually measured. Below the
+        // detection limit is treated as 0 (the common lab/trending
+        // convention: no number was ever actually detected, so recording
+        // the threshold itself would overstate real wear) — confirmed
+        // with the user. An above-range marker (">X") has no equivalent
+        // ambiguity (it IS at least that many) and keeps its existing
+        // stripped-numeric behavior.
+        const trimmed = text.trim();
+        if (trimmed.startsWith("<")) {
+          value = 0;
+        } else {
+          const n = parseFloat(trimmed.replace(/[^0-9.-]/g, ""));
+          value = isNaN(n) ? "" : n;
+        }
       }
       setPath(samples[i], field.key, value);
 
