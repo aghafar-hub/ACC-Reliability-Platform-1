@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
-import { formatDate, sampleTrackerStatus, intervalMonths } from "./parsers";
+import { formatDate, sampleTrackerStatus, intervalMonths, todayISO } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
 
 // Four printable-to-PDF reports, generated entirely client-side from the
@@ -32,7 +32,7 @@ const ACTION_STATUS_COLOR = {
 const LOGO_ASPECT = 602 / 316;
 
 function toFileDate() {
-  return new Date().toISOString().slice(0, 10);
+  return todayISO();
 }
 
 function daysSince(dateStr) {

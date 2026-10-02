@@ -113,9 +113,21 @@ function intervalMonthsForOilChange_(freqText) {
 }
 
 
+// Bug-hunt pass: this used to drift forward whenever `date` fell on the
+// 29th-31st and the target month was shorter (e.g. Jan 31 + 1mo -> Mar 3,
+// not Feb 28/29) — JS's setMonth rolls day-of-month overflow into the next
+// month instead of clamping. RouteTemplates.js's own advanceByFrequency_
+// already has this exact fix with this exact comment; it was just never
+// applied here too, even though both compute next-due-dates the same way
+// (and this one is the one on the oil-change-log write path itself, used
+// by logOilChangeEvent's NextDueDate, computeDueLpIds_, and the Oil
+// Inventory forecast loop — so the drift compounded across every
+// projected cycle for any LP changed on those days).
 function addMonths_(date, months) {
+  var origDay = date.getDate();
   var d = new Date(date.getTime());
   d.setMonth(d.getMonth() + months);
+  if (d.getDate() !== origDay) d.setDate(0);
   return d;
 }
 

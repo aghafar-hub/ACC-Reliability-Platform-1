@@ -2,6 +2,20 @@
 // layout the Apps Script backend (doPost/doGet) reads and writes, so this app
 // stays compatible with the existing Google Sheet without changing its schema.
 
+// Bug-hunt pass: several call sites used `new Date().toISOString().slice(0,
+// 10)` to get "today" as YYYY-MM-DD — toISOString() converts to UTC first,
+// so for any timezone ahead of UTC (ACC's own plant is UTC+2) this returns
+// YESTERDAY's date for every local time between midnight and the UTC
+// offset (e.g. any save made 00:00-02:00 Cairo time). Builds the string
+// from the Date's own LOCAL fields instead.
+export function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function formatDate(v) {
   if (!v) return "";
   const d = v instanceof Date ? v : new Date(v);
@@ -180,8 +194,24 @@ export function computeOilChangeNextDue(changeDate, frequency) {
   if (!months || !changeDate) return "";
   const d = new Date(changeDate);
   if (isNaN(d)) return "";
+  // Bug-hunt pass, two fixes:
+  // 1. setMonth() doesn't clamp day-of-month overflow — a change logged on
+  //    the 29th-31st rolled into the next month for any shorter target
+  //    month (e.g. Jan 31 + 1mo -> Mar 3, not Feb 28/29). Same bug, same
+  //    fix as the backend's addMonths_ (OilChanges.js) — clamp back to the
+  //    target month's real last day when the day-of-month didn't survive.
+  const origDay = d.getDate();
   d.setMonth(d.getMonth() + months);
-  return d.toISOString().slice(0, 10);
+  if (d.getDate() !== origDay) d.setDate(0);
+  // 2. toISOString() converts to UTC before slicing the date — for any
+  //    timezone ahead of UTC (e.g. ACC's own UTC+2), a local midnight date
+  //    shifts back to the previous calendar day. Format from the Date's
+  //    own local fields instead (same approach as actionAutofill.js's
+  //    toISODate, inlined here to avoid a circular import).
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 export function computeOilChangeStatus(nextDueDate) {
   if (!nextDueDate) return "Current";

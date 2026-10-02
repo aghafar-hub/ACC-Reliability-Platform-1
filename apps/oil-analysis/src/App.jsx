@@ -22,7 +22,7 @@ import { SessionProvider } from "./SessionContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
-import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, newId } from "./parsers";
+import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, newId, todayISO } from "./parsers";
 import * as api from "./api";
 import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
@@ -445,7 +445,7 @@ function AppShell({ config, setConfig, navBridge }) {
             routineId: newId("RT"),
             routeName: t.routeName,
             routeType: t.routeType,
-            dueDate: new Date().toISOString().slice(0, 10),
+            dueDate: todayISO(),
             assignedTo: t.assignedTo,
             contractor: t.contractor,
             createdBy: t.createdBy,
@@ -791,6 +791,12 @@ function AppShell({ config, setConfig, navBridge }) {
               return next;
             });
             applyOilChangeSideEffect(item.payload.action).catch(() => {});
+            // Bug-hunt pass: this was missing — onAddAction/onUpdateAction
+            // both run this alongside applyOilChangeSideEffect (see above),
+            // but a queued Action replayed here never got it, so an
+            // auto-route agreed while offline silently never got created
+            // once the action itself synced back up.
+            applyAutoRouteSideEffect(item.payload.action).catch(() => {});
           } else if (item.kind === "oilChange") {
             setOilChangeEvents((prev) => {
               const next = prev.map((e) => (e.eventId === item.id ? saved : e));
@@ -828,7 +834,7 @@ function AppShell({ config, setConfig, navBridge }) {
     } finally {
       flushInProgressRef.current = false;
     }
-  }, [config.webhookUrl, pushToast, applySampleTrackerSideEffect, applyOilChangeSideEffect]);
+  }, [config.webhookUrl, pushToast, applySampleTrackerSideEffect, applyOilChangeSideEffect, applyAutoRouteSideEffect]);
 
   // Tries once right away (covers "reopened the app/tab and connectivity
   // is already back"), again on the browser's own 'online' event, and

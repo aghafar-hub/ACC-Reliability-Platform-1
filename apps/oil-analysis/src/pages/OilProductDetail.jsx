@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
+import { todayISO } from "../parsers";
 
 const MOVEMENT_TYPES = ["Receipt", "Issue", "Adjustment"];
 const CONTRACTOR_OPTIONS = ["", "RHI", "ASEC"];
@@ -10,7 +11,7 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
   const { T, s } = useTheme();
   const [movementType, setMovementType] = useState("Receipt");
   const [quantity, setQuantity] = useState("");
-  const [movementDate, setMovementDate] = useState(new Date().toISOString().slice(0, 10));
+  const [movementDate, setMovementDate] = useState(todayISO());
   const [linkedLpId, setLinkedLpId] = useState("");
   const [contractor, setContractor] = useState("");
   const [doneBy, setDoneBy] = useState("");

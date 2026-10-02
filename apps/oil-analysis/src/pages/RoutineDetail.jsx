@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail } from "../SessionContext";
 import * as api from "../api";
-import { routineSuggestionReason } from "../parsers";
+import { routineSuggestionReason, todayISO } from "../parsers";
 import ProgressBar from "../components/ProgressBar";
 import TechnicianPicker from "../components/TechnicianPicker";
 
@@ -59,7 +59,7 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
         routineItemId: item.routineItemId,
         implemented,
         notImplementedReason: implemented ? "" : reason,
-        actualDate: implemented ? new Date().toISOString().slice(0, 10) : "",
+        actualDate: implemented ? todayISO() : "",
         actualQuantity: quantity,
         sampleTaken,
       });
@@ -255,7 +255,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
 
     const results = await Promise.allSettled(
       doneItems.map((item) => {
-        const eventDate = item.actualDate || new Date().toISOString().slice(0, 10);
+        const eventDate = item.actualDate || todayISO();
         if (routeType === "Oil Change") {
           return api.logOilChangeEvent(webhookUrl, {
             lpId: item.lpId,

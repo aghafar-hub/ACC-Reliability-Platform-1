@@ -140,9 +140,29 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   // pick, and that pick must never get silently wiped out by a preset
   // re-applying right after it.
   useEffect(() => {
+    // Bug-hunt pass: this used to fire unconditionally, including for
+    // Emergency Top Up — whose Suggestion dropdown is hidden entirely
+    // (see the "Filters & Suggestion" card's own comment above: presets
+    // "help build a multi-LP batch route, which doesn't apply here").
+    // routineSuggestionReason has no Emergency-Top-Up-specific branch, so
+    // it silently fell through to the Sampling rule, which can match many
+    // LPs — applyPreset then called setSelected with all of them,
+    // bypassing toggleRow's single-select guard entirely. The backend
+    // rejects a multi-equipment Emergency Top Up outright, so this
+    // surfaced as a confusing, unconnected error on save.
+    if (isEmergencyTopUp) return;
     applyPreset(presetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a route type swap should reset the pick; re-running on presetId here would fight the dropdown's own onChange
   }, [routeType, equipmentRegistry, samples, actions, oilChanges]);
+
+  // Companion to the guard above: switching INTO Emergency Top Up from a
+  // route type that just built a multi-LP selection (Sampling/Oil Change)
+  // must clamp it down to at most one — toggleRow's own single-select
+  // logic only governs new clicks, not a selection that already existed
+  // the moment this type became active.
+  useEffect(() => {
+    if (isEmergencyTopUp) setSelected((prev) => (prev.length > 1 ? prev.slice(0, 1) : prev));
+  }, [isEmergencyTopUp]);
 
   // Patch 19: an ACC/unscoped account has no manual Contractor dropdown —
   // contractor is derived from whichever equipment they pick first (see
