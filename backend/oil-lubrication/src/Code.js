@@ -285,6 +285,17 @@ function doPost(e) {
     // above). Folded into every write's own Debug Log entry below so writes
     // are attributable to a real identity, not just a timestamp.
     var actingUser = auth.session ? auth.session.email : "";
+    // Bug-hunt pass: this was missing entirely — every recordAudit_ call
+    // below reads bare `scope`, but it was only ever declared inside
+    // doGet, never here. Referencing an undeclared identifier throws
+    // ReferenceError, which happened right before every recordAudit_ call
+    // in append/updateSampleTracker/logOilChangeEvent/logOilTopUp/
+    // updateRow/deleteRow — caught by the outer catch below, so the sheet
+    // write itself (already done by that point) still succeeded and the
+    // client never saw it (these are blind no-cors POSTs), but the Audit
+    // Log entry for nearly every write in this app was silently never
+    // recorded. Same helper doGet already uses for the same purpose.
+    var scope = getContractorScope_(auth.session);
 
     // OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md):
     // every write below reads a sheet snapshot, computes a row to touch,
@@ -500,14 +511,24 @@ function doPost(e) {
           logError("doPost:updateRow:blocked", "Sheet not allowed via generic updateRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
-        var updateLpId = genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
+        // Bug-hunt pass: resolve the real row FIRST, then derive the LP_ID
+        // straight off that sheet row (resolveRowLpId_) rather than from
+        // client-supplied matchCols/matchValues (genericWriteLpId_) — the
+        // latter returns null, skipping the contractor check entirely,
+        // whenever the caller matches on something other than the LP_ID
+        // column itself (e.g. every sample since Patch 6, matched by its
+        // own unique id — see Rbac.js's resolveRowLpId_ comment). Falls
+        // back to genericWriteLpId_ only when no row was found at all, so
+        // a bad/missing id still gets updateRow's own "not found" result
+        // instead of a misleading permission error.
+        var updateSheetObj = ss.getSheetByName(data.sheet);
+        var updateRowIdx = updateSheetObj ? findRowIndex(updateSheetObj, data.matchCols, data.matchValues, dataStartRowFor(data.sheet)) : -1;
+        var updateLpId = updateRowIdx !== -1
+          ? resolveRowLpId_(updateSheetObj, data.sheet, updateRowIdx)
+          : genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
         if (updateLpId !== null) requireLpContractorMatch_(auth.session, updateLpId);
-        if (data.sheet === "Equipment Registry") {
-          var eqSheet = ss.getSheetByName("Equipment Registry");
-          if (eqSheet) {
-            var eqRowIdx = findRowIndex(eqSheet, data.matchCols, data.matchValues, dataStartRowFor("Equipment Registry"));
-            if (eqRowIdx !== -1) data.row = lockEquipmentRegistryContractor_(auth.session, eqSheet, eqRowIdx, data.row);
-          }
+        if (data.sheet === "Equipment Registry" && updateRowIdx !== -1) {
+          data.row = lockEquipmentRegistryContractor_(auth.session, updateSheetObj, updateRowIdx, data.row);
         }
         // Patch 10: refuse the overwrite if someone else's write landed on
         // this exact row since the caller last loaded it (data.
@@ -522,8 +543,6 @@ function doPost(e) {
         // which api.js's updated mismatch handling now recognizes as a
         // conflict specifically (not just "didn't save") and reports
         // accordingly.
-        var updateSheetObj = ss.getSheetByName(data.sheet);
-        var updateRowIdx = updateSheetObj ? findRowIndex(updateSheetObj, data.matchCols, data.matchValues, dataStartRowFor(data.sheet)) : -1;
         if (updateRowIdx !== -1 && hasConflict_(updateSheetObj, data.sheet, updateRowIdx, data.expectedLastModified)) {
           logError("doPost:updateRow:conflict", "Row changed since client loaded it — write skipped", {sheet: data.sheet, matchValues: data.matchValues, actingUser: actingUser});
           return jsonOut({status: "conflict"});
@@ -541,7 +560,14 @@ function doPost(e) {
           logError("doPost:deleteRow:blocked", "Sheet not allowed via generic deleteRow", {sheet: data.sheet, actingUser: actingUser});
           return jsonOut({status: "error", message: "Not allowed to write to this sheet."});
         }
-        var deleteLpId = genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
+        // Same fix as updateRow above: resolve the real row first so the
+        // LP_ID check works even when the caller matches by a unique id
+        // column (e.g. sampleUid) rather than the LP_ID column itself.
+        var deleteSheetObj = ss.getSheetByName(data.sheet);
+        var deleteRowIdx = deleteSheetObj ? findRowIndex(deleteSheetObj, data.matchCols, data.matchValues, dataStartRowFor(data.sheet)) : -1;
+        var deleteLpId = deleteRowIdx !== -1
+          ? resolveRowLpId_(deleteSheetObj, data.sheet, deleteRowIdx)
+          : genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
         if (deleteLpId !== null) requireLpContractorMatch_(auth.session, deleteLpId);
         var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
         invalidateDashboardCache();

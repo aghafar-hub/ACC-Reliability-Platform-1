@@ -212,6 +212,28 @@ function genericWriteLpId_(sheetName, matchCols, matchValues) {
   return (matchValues || [])[idx];
 }
 
+// Bug-hunt pass: genericWriteLpId_ above only works when the LP_ID column
+// itself is one of the caller's matchCols — true for the OLDER
+// (equipmentCode, sampleId) match pair, but NOT for the match pair every
+// sample has used since Patch 6 (matchCols:[SAMPLE_UID_COL] only — see
+// parsers.js's sampleToRow _matchCols). For that newer shape,
+// genericWriteLpId_ silently returned null ("nothing to check here"),
+// which skipped requireLpContractorMatch_ entirely: a Contractor Engineer
+// from one org could update or delete another org's sample row outright.
+// This reads the LP_ID straight off the ACTUAL sheet row once it's been
+// located (by whatever matchCols the caller used) — strictly more
+// trustworthy than deriving it from client-supplied matchValues anyway,
+// since it can't be spoofed by a client that simply omits the LP column
+// from its match criteria. Callers should prefer this once they already
+// have a resolved rowIdx, falling back to genericWriteLpId_ only when no
+// row was found (so a bad/missing id still gets the write's own "not
+// found" error instead of a confusing permission one).
+function resolveRowLpId_(sheet, sheetName, rowIdx) {
+  var col = GENERIC_WRITE_LP_COL[sheetName];
+  if (col === undefined || rowIdx === -1 || !sheet) return null;
+  return sheet.getRange(rowIdx, col + 1).getValue();
+}
+
 // Equipment Registry's Contractor column (index 17) is meant to change
 // hands only as its own deliberate action (see OilInventory.js's own
 // comment on this) — nothing in this app exposes an in-UI "reassign

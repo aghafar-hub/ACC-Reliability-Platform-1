@@ -88,12 +88,22 @@ export default function EditActionModal({
     }
     return base;
   });
+  // Bug-hunt pass: this used to return null unconditionally for an
+  // EXISTING action (isNew false), with nothing ever re-syncing it
+  // afterward unless the user touched "Update Lubrication Point" — which
+  // only even appears once a Last Change date is present and isn't marked
+  // required. For equipment with more than one lubrication point,
+  // handleSave's own oilChangesForEquip.find(o => o._id === lubPointId)
+  // then matched nothing, so target stayed undefined and the Oil Change
+  // Log entry was silently never created, with no error shown. Defaulting
+  // to the latest oil-change point here (same rule isNew/selectEquipment
+  // already use) means the selector pre-fills sensibly and a save still
+  // targets a real, sane row even if the user never opens the dropdown.
   const [lubPointId, setLubPointId] = useState(() => {
-    if (isNew && (action.equipmentCode || action.unitId)) {
-      const latest = latestOilChangeFor(oilChanges, action.equipmentCode || action.unitId);
-      return latest ? latest._id : null;
-    }
-    return null;
+    const code = action.equipmentCode || action.unitId;
+    if (!code) return null;
+    const latest = latestOilChangeFor(oilChanges, code);
+    return latest ? latest._id : null;
   });
 
   function set(field, value) {
