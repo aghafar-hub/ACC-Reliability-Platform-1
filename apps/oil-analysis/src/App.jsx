@@ -28,6 +28,31 @@ import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQu
 
 let toastId = 0;
 
+// Bug-hunt pass: the cross-tab lock added to flushOfflineQueue (see its own
+// comment) only closed HALF the race — a write can land server-side (the
+// sheet already has the real row) well before flushOfflineQueue reaches its
+// own removeFromOfflineQueue call, since api.saveSample/saveAction await a
+// verify-read round trip in between. Any runSync (or the startup load)
+// that fetches fresh data from the server DURING that window sees the real
+// row already present, while the local offline queue still has the old
+// pending entry — reinjectPendingRecords then re-adds the stale pending
+// record on top of the real one, showing a visible duplicate until the
+// NEXT sync (once the queue is actually empty) quietly fixes it. Routing
+// every one of flushOfflineQueue/runSync/the startup load through this
+// SAME named lock serializes them against each other (not just across
+// tabs): whichever runs second always sees the queue in the state the
+// first one left it in, so reinject never has anything stale left to
+// re-add. Falls back to running the callback directly on a browser
+// without the Web Locks API (Safari <15.4) — same single-tab-safe
+// behavior as before this fix existed.
+const OFFLINE_SYNC_LOCK_NAME = "acc-oil-offline-sync";
+async function withOfflineSyncLock(fn) {
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request(OFFLINE_SYNC_LOCK_NAME, fn);
+  }
+  return fn();
+}
+
 // Upserts `incoming` items into `prev` by key, preserving prev's order for
 // items that were already there and appending genuinely new ones. Used to
 // merge getChanges()'s "rows modified since <checkpoint>" results into the
@@ -193,14 +218,29 @@ function AppShell({ config, setConfig, navBridge }) {
     setSyncMsg("Syncing from Google Sheets…");
     const requestStartedAt = new Date().toISOString();
     try {
-      const { samples: smRaw, actions: acRaw, oilChangeEvents: ocRaw, trackerRaw: tr } = await api.readAll(config.webhookUrl);
-      // Patch 11: a full replace from the server has no way to know about
-      // a write still sitting in the offline queue (the server doesn't
-      // have it yet) — re-add it so it doesn't disappear from the screen
-      // until the next flush pass picks it up.
-      const sm = reinjectPendingRecords(smRaw, "sample", "_id");
-      const ac = reinjectPendingRecords(acRaw, "action", "_id");
-      const oc = reinjectPendingRecords(ocRaw, "oilChange", "eventId");
+      // Bug-hunt pass: the fetch AND the reinject-against-the-local-queue
+      // step both have to be inside the lock together (see
+      // withOfflineSyncLock's own comment) — locking only the fetch would
+      // still leave a gap right after it resolves, before
+      // reinjectPendingRecords runs below, for a flush to slip in. Without
+      // this, a sync landing while a flush is mid-write-but-not-yet-
+      // dequeued sees the real row already on the server AND the stale
+      // pending record still in the local queue, so reinject re-adds the
+      // stale one on top of the real one: a visible duplicate until the
+      // next sync quietly fixes it.
+      const { sm, ac, oc, tr } = await withOfflineSyncLock(async () => {
+        const { samples: smRaw, actions: acRaw, oilChangeEvents: ocRaw, trackerRaw: tr } = await api.readAll(config.webhookUrl);
+        // Patch 11: a full replace from the server has no way to know
+        // about a write still sitting in the offline queue (the server
+        // doesn't have it yet) — re-add it so it doesn't disappear from
+        // the screen until the next flush pass picks it up.
+        return {
+          sm: reinjectPendingRecords(smRaw, "sample", "_id"),
+          ac: reinjectPendingRecords(acRaw, "action", "_id"),
+          oc: reinjectPendingRecords(ocRaw, "oilChange", "eventId"),
+          tr,
+        };
+      });
       setSamples(sm);
       setActions(ac);
       setOilChangeEvents(oc);
@@ -318,13 +358,24 @@ function AppShell({ config, setConfig, navBridge }) {
       setSyncMsg("Syncing from Google Sheets…");
       const requestStartedAt = new Date().toISOString();
       try {
-        const { samples: smRaw, actions: acRaw, oilChangeEvents: ocRaw, trackerRaw: tr, equipment, actionPhrases } =
-          await api.getStartupBundle(config.webhookUrl);
+        // Bug-hunt pass — see runSync's identical comment above: the fetch
+        // and the reinject-against-the-local-queue step have to be inside
+        // the lock together, or a flush can slip in between them and
+        // leave a stale pending record re-added on top of the real row.
+        const { sm, ac, oc, tr, equipment, actionPhrases } = await withOfflineSyncLock(async () => {
+          const { samples: smRaw, actions: acRaw, oilChangeEvents: ocRaw, trackerRaw: tr, equipment, actionPhrases } =
+            await api.getStartupBundle(config.webhookUrl);
+          // Patch 11 — see runSync's identical comment above.
+          return {
+            sm: reinjectPendingRecords(smRaw, "sample", "_id"),
+            ac: reinjectPendingRecords(acRaw, "action", "_id"),
+            oc: reinjectPendingRecords(ocRaw, "oilChange", "eventId"),
+            tr,
+            equipment,
+            actionPhrases,
+          };
+        });
         if (cancelled) return;
-        // Patch 11 — see runSync's identical comment above.
-        const sm = reinjectPendingRecords(smRaw, "sample", "_id");
-        const ac = reinjectPendingRecords(acRaw, "action", "_id");
-        const oc = reinjectPendingRecords(ocRaw, "oilChange", "eventId");
         setSamples(sm);
         setActions(ac);
         setOilChangeEvents(oc);
@@ -761,27 +812,16 @@ function AppShell({ config, setConfig, navBridge }) {
   // Bug-hunt pass: flushInProgressRef above only guards re-entrancy WITHIN
   // this one tab/instance — nothing stopped a second browser tab (same
   // origin, same localStorage-backed queue) from independently reading the
-  // same queued item via getOfflineQueue() before either tab removed it.
-  // Two tabs reconnecting at once could each save the same queued sample/
-  // action, minting its own fresh id (saveSample/saveAction only mint one
-  // when the payload doesn't already have one — exactly true for anything
-  // that queued offline), producing permanent duplicate rows. The Web
-  // Locks API is the browser-native primitive for exactly this — a named
-  // lock shared across every same-origin tab — so wrapping the whole flush
-  // in one serializes it across tabs: by the time a second tab's callback
-  // runs, the first tab has already removed everything it synced, so the
-  // second tab's own getOfflineQueue() comes back empty and it correctly
-  // no-ops. Falls back to the unguarded (single-tab-safe) behavior on a
-  // browser without navigator.locks (Safari <15.4).
+  // same queued item via getOfflineQueue() before either tab removed it,
+  // OR this same tab's own runSync from reading stale server state mid-
+  // flush (see withOfflineSyncLock's own comment above — a visible,
+  // self-healing duplicate, not a permanent one, but from the same root
+  // cause). Routed through the shared named lock for both reasons at once.
   const flushOfflineQueue = useCallback(async () => {
     if (flushInProgressRef.current || !config.webhookUrl) return;
     flushInProgressRef.current = true;
     try {
-      if (typeof navigator !== "undefined" && navigator.locks?.request) {
-        await navigator.locks.request("acc-oil-offline-queue-flush", () => flushQueueOnce());
-      } else {
-        await flushQueueOnce();
-      }
+      await withOfflineSyncLock(() => flushQueueOnce());
     } finally {
       flushInProgressRef.current = false;
     }
