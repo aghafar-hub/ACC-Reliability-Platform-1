@@ -29,10 +29,16 @@
 
 /* Touch devices have no :hover state at all, so the hover-expand trigger
    above never fires there — leaving every label and every sub-tab
-   permanently unreachable on a phone/tablet. This is a mobile PWA, so on
-   any device that can't hover, keep the rail permanently expanded instead
-   of relying on a gesture that doesn't exist on that device. */
-@media (hover: none) {
+   permanently unreachable. Below 861px (phones, and portrait tablets —
+   see the overlay breakpoint further down) that's handled by a proper
+   slide-in overlay instead, toggled from TopBar's hamburger button,
+   because forcing 248px permanently open there ate ~65% of a real phone's
+   screen width with no way to dismiss it. Above that width (e.g. a
+   touchscreen laptop or a landscape tablet, where 248px is a reasonable
+   fraction of the screen) keep the simpler "permanently expanded" fallback,
+   since there's no hamburger button rendered up there to open an overlay
+   with (see TopBar.css's own breakpoint). */
+@media (hover: none) and (min-width: 861px) {
   .sidebar-rail {
     width: 248px;
   }
@@ -85,7 +91,7 @@
   display: block;
 }
 
-@media (hover: none) {
+@media (hover: none) and (min-width: 861px) {
   .sidebar-logo-mark {
     display: none;
   }
@@ -154,7 +160,7 @@
   gap: 12px;
 }
 
-@media (hover: none) {
+@media (hover: none) and (min-width: 861px) {
   .sidebar-link {
     gap: 12px;
   }
@@ -196,7 +202,7 @@
   max-width: 200px;
 }
 
-@media (hover: none) {
+@media (hover: none) and (min-width: 861px) {
   .sidebar-link-label {
     opacity: 1;
     max-width: 200px;
@@ -215,7 +221,7 @@
   display: block;
 }
 
-@media (hover: none) {
+@media (hover: none) and (min-width: 861px) {
   .sidebar-subnav {
     display: block;
   }
@@ -259,3 +265,73 @@
    lives in the shell-level TopBar's settings icon + user-profile dropdown
    (see TopBar.tsx) — "replace sidebar, no duplicate," confirmed directly
    by the user. */
+
+/* Hidden everywhere except the <=860px overlay mode below (and only then
+   while mobileOpen — see Sidebar.tsx). A plain `display: none` default
+   keeps it inert (and non-interactive/non-tabbable) at every wider width. */
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
+/* Below 861px: the rail becomes a fixed slide-in overlay panel instead of
+   pushing page content over, triggered by TopBar's hamburger button
+   (TopBar.tsx's onOpenMenu / TopBar.css's own <=860px breakpoint) rather
+   than hover/focus — "sidebar disappear[ed]/unusable on mobile view":
+   the old `@media (hover: none)` fallback above forced the rail permanently
+   open at 248px with no way to dismiss it, which on a real ~390px-wide
+   phone ate roughly two-thirds of the screen and left real page content
+   squeezed into a sliver (confirmed in testing: KPI cards and the TopBar's
+   own title were visibly cut off). This is the same slide-in-panel +
+   backdrop pattern already used (but only reachable in the retired
+   standalone deployment, not production) by apps/oil-analysis's and
+   apps/vibration-analysis's own internal sidebars — see each app's App.jsx
+   for the equivalent `.app-sidebar`/`.sidebar-backdrop`/860px convention
+   this mirrors. */
+@media (max-width: 860px) {
+  .sidebar-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 248px;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+    z-index: 500;
+  }
+
+  .sidebar-rail--mobile-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Always shown in the fully-expanded state once open — there's no
+     collapsed/hover-intermediate state in overlay mode, so these skip
+     straight to the same values the desktop :hover/:focus-within rules
+     above apply, and the un-opened state is covered by the rail being
+     off-screen entirely (transform above), not by hiding these. */
+  .sidebar-logo-mark {
+    display: none;
+  }
+  .sidebar-logo-full {
+    display: block;
+  }
+  .sidebar-link {
+    gap: 12px;
+  }
+  .sidebar-link-label {
+    opacity: 1;
+    max-width: 200px;
+  }
+  .sidebar-subnav {
+    display: block;
+  }
+
+  .sidebar-mobile-backdrop--open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 499;
+  }
+}

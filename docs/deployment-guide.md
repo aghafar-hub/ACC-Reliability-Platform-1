@@ -1891,6 +1891,67 @@ matching in-app page headers. Verified with an 8-assertion Playwright
 test, plus a full rerun of the Patch 28/29/30 regression suite (TopBar,
 Settings tabs, Equipment merge) to confirm no regression.
 
+## 4an. Mobile sidebar fix — hamburger/overlay instead of forced-permanently-open (Patch 33)
+
+"Sidebar disappear on mobile view." Testing on a real phone-width,
+touch-emulated viewport (390×844, matching a typical phone) confirmed a
+severe mobile usability bug in the shell's own `Sidebar.tsx`/`Sidebar.css`:
+the `@media (hover: none)` rule added earlier (999eb39, "Fix contrast,
+mobile-nav, and keyboard-accessibility bugs") forced the rail permanently
+open at 248px on any touch device, with no way to dismiss it. On a real
+phone that's ~65% of the screen width, permanently, leaving actual page
+content squeezed into a ~140px sliver — KPI cards and chart titles
+visibly cut off, the TopBar's own page title overlapping the language
+toggle. Likely what read as the sidebar "disappearing" — functionally,
+everything ELSE did, crowded out by a sidebar that could never close.
+
+**Root cause context**: both embedded apps (`apps/oil-analysis`,
+`apps/vibration-analysis`) already have a proper hamburger-toggle
+slide-in-overlay pattern for their own internal sidebars — but that code
+is wrapped in `{!navBridge && (...)}` and never renders in production,
+since both apps always mount with a `navBridge` when embedded under the
+shell (only the retired standalone deployment hits that branch). The
+shell's own `Sidebar.tsx` — the only sidebar that actually renders in
+production — never got the equivalent treatment, just the "stay forced
+open" fallback.
+
+**Fix**: replaced the forced-open fallback below 861px with the same
+hamburger + slide-in-overlay + backdrop pattern already proven in the
+embedded apps' own (dead) code, now live for real:
+- `Sidebar.tsx` takes `mobileOpen`/`onCloseMobile` props; its rail renders
+  a `.sidebar-mobile-backdrop` sibling, closes on backdrop click, and
+  closes on every nav-link/sub-tab click (`onNavigate`/`onClick`).
+- `Sidebar.css`: below 861px, `.sidebar-rail` is `position: fixed`,
+  off-screen by default (`translateX(-100%)`), sliding in
+  (`.sidebar-rail--mobile-open`) with always-expanded labels/sub-nav (no
+  intermediate collapsed state needed — it's an overlay, not a push
+  layout). The old `@media (hover: none)` "stay at 248px" rules are now
+  scoped `and (min-width: 861px)` — kept for a touchscreen laptop or
+  landscape tablet, where 248px is a reasonable fraction of the screen
+  and there's no hamburger button to open an overlay with.
+- `TopBar.tsx`/`TopBar.css`: new `.shell-topbar-menu-btn` (hamburger,
+  `Icon name="menu"`), visible only ≤860px, calling `onOpenMenu`.
+- `App.tsx`'s `ShellRoot` owns `mobileNavOpen` state, passed to both;
+  also resets it on every route change (`useLocation` + `useEffect`) as
+  a backstop for browser back/forward, on top of the explicit close-on-
+  click handling in Sidebar itself.
+- Along the way, fixed the TopBar title/language-toggle collision visible
+  in the same screenshots: `.shell-topbar-module` now truncates with
+  ellipsis instead of overflowing, and `.shell-topbar-lang` (a UI-only
+  placeholder anyway — "Arabic view not built yet") hides below 861px to
+  give the crumb room.
+- Added `menu`/`close` paths to `icons.tsx`'s small inline icon set.
+
+**Verify**: at a real mobile viewport (390×844, touch-emulated), the
+sidebar starts off-screen with a visible hamburger button and the
+TopBar's title fully legible; tapping the hamburger slides the rail in
+with a dimming backdrop; tapping a nav link, a native sub-tab, or the
+backdrop itself all close it again; content fills the full screen width
+throughout. Desktop hover/focus-expand behavior (≥861px) is unchanged.
+Verified with a 10-assertion Playwright test at a touch-emulated mobile
+viewport, plus a full rerun of the Patch 28/29/30/32 regression suite at
+desktop width to confirm no regression.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own

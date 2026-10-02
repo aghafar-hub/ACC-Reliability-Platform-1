@@ -26,7 +26,7 @@ function useBreadcrumb() {
   return { module: item.label, page: subTab?.label || '' };
 }
 
-export default function TopBar() {
+export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
   const { claims, logout } = useAuth();
   const { module, page } = useBreadcrumb();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,6 +58,11 @@ export default function TopBar() {
   return (
     <header className="shell-topbar">
       <div className="shell-topbar-crumb">
+        {/* Only visible via CSS at the <=860px breakpoint (TopBar.css) —
+            opens Sidebar's mobile overlay, see App.tsx's mobileNavOpen. */}
+        <button type="button" className="shell-topbar-menu-btn" onClick={onOpenMenu} aria-label="Open navigation menu">
+          <Icon name="menu" size={20} />
+        </button>
         <span className="shell-topbar-module">{module}</span>
         {page && (
           <>

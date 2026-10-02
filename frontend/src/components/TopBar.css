@@ -18,10 +18,60 @@
   min-width: 0;
 }
 
+/* Hidden by default (desktop); see the <=860px breakpoint below, which
+   matches Sidebar.css's own overlay breakpoint exactly — both must flip at
+   the same width, or the hamburger and the rail's own hover-fallback
+   behavior disagree about which mode the viewport is in. */
+.shell-topbar-menu-btn {
+  display: none;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--shell-border, #1e3a5f);
+  border-radius: 8px;
+  background: var(--shell-card-bg, #0d1e35);
+  color: var(--shell-text, #e2e8f0);
+  cursor: pointer;
+  padding: 0;
+}
+
+.shell-topbar-menu-btn:hover {
+  border-color: var(--shell-accent, #38bdf8);
+}
+
+@media (max-width: 860px) {
+  .shell-topbar-menu-btn {
+    display: inline-flex;
+  }
+
+  /* The crumb previously had no shrink room at all (nowrap, no
+     overflow handling) and the hamburger button above only tightens
+     that further — on a ~390px phone the module name ran straight into
+     the language toggle (confirmed in testing). The toggle is UI-only
+     for now anyway (see useBreadcrumb's file comment), so it's the one
+     to drop first; the crumb itself can now also ellipsis instead of
+     overflowing. */
+  .shell-topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .shell-topbar-crumb {
+    min-width: 0;
+    flex: 1;
+  }
+  .shell-topbar-lang {
+    display: none;
+  }
+}
+
 .shell-topbar-module {
   font-weight: 700;
   color: var(--shell-text, #e2e8f0);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shell-topbar-sep {

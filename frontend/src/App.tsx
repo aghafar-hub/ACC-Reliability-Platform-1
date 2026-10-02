@@ -1,5 +1,5 @@
-import type { CSSProperties } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
@@ -29,6 +29,17 @@ import './App.css';
 // picked, not just the two embedded modules.
 function ShellRoot() {
   const { palette } = useShellTheme();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
+
+  // Belt-and-suspenders: every link inside Sidebar already closes the
+  // overlay on click (see Sidebar.tsx), but this also catches the browser
+  // back/forward buttons and any other route change that doesn't go
+  // through one of those click handlers.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
   const themeVars = {
     '--shell-bg': palette.appBg,
     '--shell-sidebar-bg': palette.sidebarBg,
@@ -47,9 +58,9 @@ function ShellRoot() {
 
   return (
     <div className="app-shell" style={themeVars}>
-      <Sidebar />
+      <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div className="app-shell-right">
-        <TopBar />
+        <TopBar onOpenMenu={() => setMobileNavOpen(true)} />
         <main className="app-content">
           <Routes>
             {/* Patch 31 briefly pointed "/" and "/equipment" at Oil
