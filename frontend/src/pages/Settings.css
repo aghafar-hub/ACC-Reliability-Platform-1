@@ -14,15 +14,21 @@
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  min-height: 44px;
   padding: 0.55rem 1rem;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--shell-text-secondary);
   font-size: 0.9rem;
-  font-family: inherit;
+  font-family: var(--sans);
   cursor: pointer;
   transform: translateY(1px);
+  transition: color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+
+.settings-tab:active {
+  transform: translateY(1px) scale(0.96);
 }
 
 .settings-tab:hover {

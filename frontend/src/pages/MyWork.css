@@ -18,12 +18,13 @@
 .mywork-card {
   text-align: left;
   border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.1));
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1rem;
   background: var(--shell-card-bg, rgba(255, 255, 255, 0.03));
   color: var(--shell-text, #e7ecf5);
   cursor: pointer;
   font: inherit;
+  box-shadow: var(--elevation-1);
 }
 
 .mywork-card--static {
@@ -39,14 +40,15 @@
 }
 
 .mywork-card-title {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 0.95rem;
 }
 
 .mywork-badge {
   font-size: 0.72rem;
   padding: 0.15rem 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.1);
   white-space: nowrap;
 }
@@ -64,7 +66,7 @@
 
 .mywork-progress-track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
   margin-bottom: 0.4rem;
@@ -76,8 +78,38 @@
 }
 
 .mywork-card-count {
-  font-size: 0.78rem;
+  font-family: var(--mono);
+  font-size: 0.76rem;
   color: var(--shell-text-secondary, #a9b3c6);
+}
+
+/* Loading placeholder (MyWork.tsx's SkeletonCards) — same card shell as the
+   real content, with a few pulsing bars standing in for title/meta/progress
+   instead of a plain "Loading…" string. */
+.mywork-skeleton-card {
+  cursor: default;
+}
+
+.mywork-skeleton-bar {
+  border-radius: 4px;
+  background: var(--shell-border, rgba(255, 255, 255, 0.12));
+  animation: mywork-skeleton-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes mywork-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mywork-skeleton-bar {
+    animation: none;
+  }
 }
 
 .mywork-empty {
@@ -97,11 +129,12 @@
   color: var(--shell-text-secondary, #a9b3c6);
   font-size: 0.85rem;
   cursor: pointer;
-  padding: 0;
+  padding: 0.3rem 0;
   margin-bottom: 1rem;
 }
 
 .mywork-detail-title {
+  font-family: var(--font-display);
   margin: 0 0 0.25rem;
   font-size: 1.15rem;
 }
@@ -133,8 +166,8 @@
 }
 
 .mywork-td-lp {
-  font-family: monospace;
-  font-weight: 700;
+  font-family: var(--mono);
+  font-weight: 600;
 }
 
 .mywork-td-center {
@@ -151,23 +184,33 @@
 
 .mywork-select,
 .mywork-input {
-  padding: 0.35rem 0.5rem;
+  padding: 0.5rem;
   border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  font-family: var(--sans);
   width: 100%;
+  min-height: 40px;
   box-sizing: border-box;
 }
 
+.mywork-select:focus,
+.mywork-input:focus {
+  outline: none;
+  border-color: var(--shell-accent, #2563eb);
+}
+
 .mywork-btn {
-  padding: 0.35rem 0.7rem;
+  min-height: 40px;
+  padding: 0.4rem 0.8rem;
   border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -180,6 +223,85 @@
   background: var(--shell-accent, #2563eb);
   color: var(--shell-accent-text, #fff);
   border-color: transparent;
-  padding: 0.55rem 1.1rem;
-  font-size: 0.9rem;
+  padding: 0.7rem 1.2rem;
+  font-size: 0.92rem;
+  width: 100%;
+}
+
+/* <700px: a 6-column table (LP / Type / Status / Qty·Reason / Sample /
+   Save) has no honest way to fit a phone screen — rather than letting it
+   scroll horizontally (easy to miss, easy to mis-tap the wrong row), each
+   <tr> becomes its own card and each <td> becomes a labeled field stacked
+   inside it. The table's real DOM/semantics/logic (ItemRow in MyWork.tsx)
+   are untouched — this is a pure CSS reflow, driven by each <td>'s own
+   data-label attribute. */
+@media (max-width: 700px) {
+  /* No bare `td`/`th` type selector here on purpose — every real <td> in
+     this table already carries the .mywork-td class (see MyWork.tsx), and
+     a type selector would out-specificity-rank the class selectors below
+     that need to win (.mywork-td's own `display: flex`, in particular —
+     confirmed by direct testing: a `.mywork-table td { display: block }`
+     rule here silently beat `.mywork-td { display: flex }` regardless of
+     source order, since class+type (0,1,1) outranks class-only (0,1,0)). */
+  .mywork-table,
+  .mywork-table tbody {
+    display: block;
+  }
+
+  .mywork-table thead {
+    display: none;
+  }
+
+  .mywork-table tr {
+    display: block;
+    border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.1));
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--shell-card-bg, rgba(255, 255, 255, 0.03));
+    box-shadow: var(--elevation-1);
+  }
+
+  .mywork-td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--shell-border, rgba(255, 255, 255, 0.08));
+  }
+
+  .mywork-td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: none;
+    color: var(--shell-text-secondary, #a9b3c6);
+  }
+
+  .mywork-td-lp {
+    font-size: 0.95rem;
+  }
+
+  .mywork-select,
+  .mywork-input {
+    width: auto;
+    min-width: 140px;
+    text-align: right;
+  }
+
+  .mywork-td-save {
+    border-bottom: none;
+    justify-content: center;
+    padding-top: 0.75rem;
+  }
+
+  .mywork-td-save .mywork-btn {
+    width: 100%;
+  }
+
+  .mywork-td-save:empty {
+    display: none;
+  }
 }

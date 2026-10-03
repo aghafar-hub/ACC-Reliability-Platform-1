@@ -69,7 +69,18 @@
   box-sizing: border-box;
   background: var(--shell-bg);
   color: var(--shell-text);
+  font-family: var(--sans);
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+@media (max-width: 860px) {
+  /* Desktop's 2rem page padding is generous for a pointer; on a phone it
+     eats a meaningful slice of an already-narrow content area. 16px still
+     clears the safe-area gutter guidance (frontend-design brief) without
+     cramping. */
+  .shell-page-content {
+    padding: 16px;
+  }
 }
 
 .settings-intro {
@@ -121,6 +132,16 @@
      whole rendered subtree (text, icons, padding) proportionally instead,
      without touching either app's own code. */
   zoom: 0.9;
+}
+
+/* Must track .shell-page-content's own <=860px padding override above
+   exactly (16px here, 16px there) — this negative margin only works by
+   cancelling that padding precisely; see Patch 35's own comment above for
+   what happens when the two drift apart (text clipped off the left edge). */
+@media (max-width: 860px) {
+  .app-content--embedded {
+    margin: -16px;
+  }
 }
 
 /* zoom only reached full cross-engine support in Firefox 126 (May 2024) —

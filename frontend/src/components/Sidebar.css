@@ -11,6 +11,7 @@
   white-space: nowrap;
   background: var(--shell-sidebar-bg, #0f172a);
   color: var(--shell-sidebar-text, #e2e8f0);
+  font-family: var(--sans);
   display: flex;
   flex-direction: column;
   transition: width 0.16s ease, background 0.15s ease, color 0.15s ease;
@@ -130,6 +131,12 @@
   font-family: inherit;
   text-align: left;
   cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.sidebar-link:active {
+  transform: scale(0.98);
 }
 
 /* Tiny "still warming up in the background" signal for a module whose
@@ -247,11 +254,17 @@
   font-size: 0.78rem;
   cursor: pointer;
   font-family: inherit;
+  transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 
 .sidebar-sublink:hover {
   background: var(--shell-border, #1e293b);
   color: var(--shell-sidebar-text, #fff);
+}
+
+.sidebar-sublink:active {
+  transform: scale(0.98);
 }
 
 .sidebar-sublink--active {
@@ -298,11 +311,16 @@
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: none;
     z-index: 500;
+    /* Glass panel over the real content it's covering — reinforces that
+       this is a temporary overlay, not a new page. */
+    background: color-mix(in srgb, var(--shell-sidebar-bg, #0f172a) 92%, transparent);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
   }
 
   .sidebar-rail--mobile-open {
     transform: translateX(0);
-    box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--elevation-3);
   }
 
   /* Always shown in the fully-expanded state once open — there's no
@@ -333,5 +351,12 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
     z-index: 499;
+    animation: sidebar-backdrop-in var(--motion-base) var(--motion-ease);
+  }
+
+  @keyframes sidebar-backdrop-in {
+    from {
+      opacity: 0;
+    }
   }
 }

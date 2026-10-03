@@ -1,23 +1,68 @@
+/* Base tokens for anything rendered OUTSIDE the authenticated shell (Login,
+   ChangePassword — see Auth.css) — the shell itself restyles per the user's
+   chosen palette via the separate --shell-* custom properties (set in
+   App.tsx from theme.ts, consumed by App.css/Sidebar.css/etc.), which this
+   file doesn't touch. These --bg/--text/--accent values intentionally match
+   the "Navy Dark" entry in theme.ts (the platform's default theme) so there
+   is no visual flash switching from the pre-login screen into the shell on
+   first paint; --accent is the ACC leaf-mark green instead of Navy Dark's
+   own cyan, since Login isn't inside that theme's chrome and reads better
+   carrying the brand mark's own color. */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --text: #7e93ad;
+  --text-h: #eef4fb;
+  --bg: #0a1628;
+  --surface: #0d1e35;
+  --border: #1e3a5f;
+  --code-bg: #0d1e35;
+  --accent: #1fa35c;
+  --accent-text: #06170e;
+  --accent-bg: rgba(31, 163, 92, 0.14);
+  --accent-border: rgba(31, 163, 92, 0.45);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Structural scale shared by the shell's own component CSS (App.css,
+     Sidebar.css, TopBar.css, BottomNav.css, MyWork.css, etc.) — consistent
+     radius/elevation/spacing/motion instead of each component picking its
+     own ad hoc values. Elevation uses neutral black at low opacity so it
+     reads correctly against every one of theme.ts's 10 palettes, light or
+     dark, without needing a per-theme shadow color. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
 
-  font: 14px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.14), 0 1px 1px rgba(0, 0, 0, 0.08);
+  --elevation-2: 0 6px 20px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.14);
+  --elevation-3: 0 16px 44px rgba(0, 0, 0, 0.34), 0 4px 12px rgba(0, 0, 0, 0.18);
+
+  --glass-blur: 16px;
+
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Space Grotesk carries the platform's identity at display sizes (page
+     titles, the Login lockup); IBM Plex Sans is the workhorse UI/body face
+     — both chosen for a technical/engineering register (an instrument
+     panel, not a SaaS dashboard) rather than system-ui defaults. IBM Plex
+     Mono is for anything that is actually a reading or an identifier
+     (equipment/LP/routine IDs, timestamps, sync counts) — see
+     .mywork-td-lp and similar. All three loaded once in index.html. */
+  --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --sans: 'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif;
+  --heading: var(--font-display);
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+
+  font: 15px/150% var(--sans);
+  letter-spacing: 0.1px;
+  color-scheme: dark;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -26,28 +71,19 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
 #root {
   min-height: 100svh;
+}
+
+html {
+  /* A phone's default blue tap-highlight flash and the browser's own
+     elastic overscroll ("pull to refresh" / rubber-banding past the top or
+     bottom edge) both read as "this is a webpage", not an installed app —
+     the one thing the PWA work in this file and App.css/BottomNav.css is
+     for. Touch feedback instead comes from each control's own :active
+     state (see .tap-scale below). */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -62,24 +98,25 @@ body {
      separately, screen-by-screen); this just stops it from breaking
      unrelated layout in the meantime. */
   overflow-x: hidden;
+  overscroll-behavior-y: none;
 }
 
 h1,
 h2 {
   font-family: var(--heading);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-h);
 }
 
 h1 {
   font-size: 26px;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.3px;
   margin: 0 0 8px;
 }
 h2 {
   font-size: 18px;
   line-height: 128%;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.1px;
   margin: 0 0 6px;
 }
 p {
@@ -99,4 +136,25 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+/* Shared tactile-press feedback — a native app's buttons/cards/nav items
+   compress slightly under a finger instead of just swapping a hover color
+   (which a touch device never shows anyway). Applied explicitly per
+   component (not globally on button/a) so it never fights a control that
+   needs its own transform, e.g. a drag handle. Respects reduced-motion by
+   skipping the transition, not the end state, so the press still registers. */
+.tap-scale {
+  transition: transform var(--motion-fast) var(--motion-ease);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.tap-scale:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-scale {
+    transition: none;
+  }
 }
