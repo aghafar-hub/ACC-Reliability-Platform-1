@@ -21,7 +21,14 @@
   padding: 0;
   text-align: left;
   font-family: var(--sans);
-  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+  box-shadow: var(--elevation-1);
+  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.theme-swatch:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-2);
 }
 
 .theme-swatch:active {

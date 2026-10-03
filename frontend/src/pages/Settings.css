@@ -2,33 +2,40 @@
   max-width: 960px;
 }
 
+/* A bordered segmented control — reads like a bank of physical selector
+   switches on an equipment panel — instead of the thin underline-tabs
+   default. The active segment is a solid accent fill, not just a colored
+   label, so the current section is unmistakable at a glance. */
 .settings-tabs {
-  display: flex;
-  gap: 0.5rem;
+  display: inline-flex;
+  gap: 0;
   margin: 1.25rem 0 1.5rem;
-  border-bottom: 1px solid var(--shell-border);
-  padding-bottom: 0;
+  padding: 3px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-md);
+  background: var(--shell-card-bg);
 }
 
 .settings-tab {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 44px;
-  padding: 0.55rem 1rem;
+  min-height: 40px;
+  padding: 0.5rem 1rem;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm);
   color: var(--shell-text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   font-family: var(--sans);
   cursor: pointer;
-  transform: translateY(1px);
-  transition: color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 
 .settings-tab:active {
-  transform: translateY(1px) scale(0.96);
+  transform: scale(0.96);
 }
 
 .settings-tab:hover {
@@ -36,9 +43,8 @@
 }
 
 .settings-tab--active {
-  color: var(--shell-accent);
-  border-bottom-color: var(--shell-accent);
-  font-weight: 600;
+  background: var(--shell-accent);
+  color: var(--shell-accent-text);
 }
 
 .settings-panel {

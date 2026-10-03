@@ -71,6 +71,17 @@
   color: var(--shell-text);
   font-family: var(--sans);
   transition: background 0.15s ease, color 0.15s ease;
+  /* The same technical-grid language as the pre-login screen (Auth.css),
+     carried into every authenticated page so the whole app reads as one
+     identity instead of Login being the only screen that got real design
+     attention. color-mix keeps the line faint against any of theme.ts's
+     10 palettes without needing a per-theme opacity value; attachment:fixed
+     keeps it locked to the viewport instead of recomputing per page height. */
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--shell-border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--shell-border) 55%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-attachment: fixed;
 }
 
 @media (max-width: 860px) {
@@ -94,6 +105,31 @@
 .shell-page-content h1,
 .shell-page-content h2 {
   color: var(--shell-text);
+}
+
+/* Every shell page's own title gets the same mark: bigger, tighter
+   Space Grotesk, with a short accent-colored baseline underneath — a
+   structural device (echoes a gauge's own baseline/tick), not a cliché
+   eyebrow label above the text. This is the one place carried through
+   from every page, which is what makes the shell read as one designed
+   system rather than Login being the only screen anyone touched. */
+.shell-page-content h1 {
+  font-size: 30px;
+  letter-spacing: -0.4px;
+  padding-bottom: 14px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.shell-page-content h1::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 44px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--shell-accent);
 }
 
 /* An embedded as-is app expects to own the full viewport edge-to-edge

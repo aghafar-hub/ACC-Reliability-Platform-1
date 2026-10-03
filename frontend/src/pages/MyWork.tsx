@@ -15,10 +15,25 @@ import './MyWork.css';
 const OPEN_STATUSES = ['Assigned', 'InProgress'];
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
+// Left-border accent color on each card — the status is already named in
+// the badge text, but a technician scanning a list of 10+ routines reads
+// the colored edge before the label. Mirrors a physical equipment tag's own
+// colored status strip rather than decorating for its own sake.
+function statusAccentClass(status: string, overdue: boolean): string {
+  if (overdue) return 'mywork-card--overdue';
+  if (status === 'InProgress') return 'mywork-card--inprogress';
+  if (status === 'Submitted') return 'mywork-card--submitted';
+  return '';
+}
+
 function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void }) {
   const overdue = !!routine.dueDate && routine.dueDate < TODAY() && OPEN_STATUSES.includes(routine.status);
   return (
-    <button type="button" className="mywork-card tap-scale" onClick={onOpen}>
+    <button
+      type="button"
+      className={`mywork-card tap-scale ${statusAccentClass(routine.status, overdue)}`}
+      onClick={onOpen}
+    >
       <div className="mywork-card-top">
         <span className="mywork-card-title">{routine.routeName || routine.routineId}</span>
         <span className={overdue ? 'mywork-badge mywork-badge--overdue' : 'mywork-badge'}>
@@ -377,7 +392,7 @@ export default function MyWork({ showHeading = true }: { showHeading?: boolean }
           <p className="mywork-section-title">Awaiting approval</p>
           <div className="mywork-grid">
             {awaiting.map((r) => (
-              <div key={r.routineId} className="mywork-card mywork-card--static">
+              <div key={r.routineId} className="mywork-card mywork-card--static mywork-card--submitted">
                 <div className="mywork-card-top">
                   <span className="mywork-card-title">{r.routeName || r.routineId}</span>
                   <span className="mywork-badge">{r.status}</span>

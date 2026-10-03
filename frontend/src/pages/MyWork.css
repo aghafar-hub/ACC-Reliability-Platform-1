@@ -18,6 +18,7 @@
 .mywork-card {
   text-align: left;
   border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.1));
+  border-left: 3px solid var(--shell-border, rgba(255, 255, 255, 0.1));
   border-radius: var(--radius-md);
   padding: 1rem;
   background: var(--shell-card-bg, rgba(255, 255, 255, 0.03));
@@ -25,6 +26,25 @@
   cursor: pointer;
   font: inherit;
   box-shadow: var(--elevation-1);
+  transition: transform var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.mywork-card:not(.mywork-card--static):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-2);
+}
+
+/* Left-edge status strip (MyWork.tsx's statusAccentClass) — the same
+   fact the badge text already states, read at a glance from a list of
+   many cards, like a physical equipment tag's own colored edge. */
+.mywork-card--overdue {
+  border-left-color: #ef4444;
+}
+.mywork-card--inprogress {
+  border-left-color: var(--shell-accent, #2563eb);
+}
+.mywork-card--submitted {
+  border-left-color: #f59e0b;
 }
 
 .mywork-card--static {
@@ -45,16 +65,22 @@
   font-size: 0.95rem;
 }
 
+/* A bordered tag, not a filled SaaS pill — reads as a status plate rather
+   than decoration, and keeps the badge legible against any of the 10
+   palettes without needing its own per-theme fill color. */
 .mywork-badge {
-  font-size: 0.72rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.1);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.2));
+  color: var(--shell-text-secondary, #a9b3c6);
   white-space: nowrap;
 }
 
 .mywork-badge--overdue {
-  background: #ef444422;
+  border-color: #ef4444;
   color: #ef4444;
 }
 
@@ -64,22 +90,28 @@
   margin-bottom: 0.6rem;
 }
 
+/* A gauge-style readout, not a thin SaaS progress sliver — bordered track,
+   square-ish corners, the done/total count set in mono like an instrument
+   display rather than plain body text. */
 .mywork-progress-track {
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.08);
+  height: 10px;
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
+  border-radius: var(--radius-sm);
+  background: transparent;
   overflow: hidden;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.5rem;
 }
 
 .mywork-progress-fill {
   height: 100%;
-  background: #22c55e;
+  background: var(--shell-accent, #22c55e);
 }
 
 .mywork-card-count {
   font-family: var(--mono);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
   color: var(--shell-text-secondary, #a9b3c6);
 }
 
