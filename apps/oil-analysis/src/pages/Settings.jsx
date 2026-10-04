@@ -1,75 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { THEMES, THEME_NAMES } from "../theme";
 import * as api from "../api";
 import { saveEquipmentRegistry } from "../equipmentRegistry";
 import { saveActionRegistry } from "../actionRegistry";
 import { useSession } from "../SessionContext";
 import TechnicianPicker from "../components/TechnicianPicker";
-
-const CONFIG_PASSWORD = "17593";
-
-function ThemeSwatch({ name, palette, active, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        cursor: "pointer",
-        borderRadius: 10,
-        border: `2px solid ${active ? palette.accent : palette.border}`,
-        overflow: "hidden",
-        transition: "border-color 0.2s",
-        boxShadow: active ? `0 0 0 2px ${palette.accent}44` : "none",
-      }}
-    >
-      <div style={{ background: palette.appBg, padding: 8 }}>
-        <div style={{ display: "flex", gap: 4, marginBottom: 5 }}>
-          <div style={{ width: 28, background: palette.sidebarBg, borderRadius: 3, padding: "3px 4px" }}>
-            {[palette.accent, palette.textSecondary, palette.textSecondary].map((c, i) => (
-              <div key={i} style={{ height: 3, background: c, borderRadius: 2, marginBottom: 2, opacity: i === 0 ? 1 : 0.5 }} />
-            ))}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                height: 8,
-                background: palette.cardBg,
-                borderRadius: 3,
-                border: `1px solid ${palette.border}`,
-                marginBottom: 3,
-                padding: 2,
-              }}
-            >
-              <div style={{ height: 4, width: "60%", background: palette.accent, borderRadius: 2 }} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
-              {[palette.cardBg, palette.cardBg].map((c, i) => (
-                <div key={i} style={{ height: 12, background: c, borderRadius: 2, border: `1px solid ${palette.border}` }} />
-              ))}
-            </div>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 3, marginTop: 2 }}>
-          {[palette.accent, "#2DC653", "#E63946", "#F4A261"].map((c, i) => (
-            <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />
-          ))}
-        </div>
-      </div>
-      <div
-        style={{
-          background: palette.sidebarBg,
-          padding: "6px 8px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <span style={{ fontSize: 11, fontWeight: 600, color: palette.textPrimary }}>{name}</span>
-        {active && <i className="ti ti-check" style={{ fontSize: 12, color: palette.accent }} aria-hidden="true" />}
-      </div>
-    </div>
-  );
-}
 
 function Toggle({ T, s, label, desc, checked, onChange }) {
   return (
@@ -116,7 +51,7 @@ function Toggle({ T, s, label, desc, checked, onChange }) {
 // straight to the "Equipment Registry" sheet (column F) via a full-row
 // updateRow — the same generic write every other sheet in this app uses.
 // A search box keeps this usable against the live ~150-row registry.
-function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistryChange }) {
+function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistryChange, isAdmin }) {
   const [query, setQuery] = useState("");
   const [editingCode, setEditingCode] = useState(null);
   const [draftInterval, setDraftInterval] = useState("");
@@ -172,6 +107,11 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
           </p>
         </div>
       </div>
+      {!isAdmin && (
+        <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
+          <i className="ti ti-lock" aria-hidden="true" /> Read-only — only an Admin account can edit sampling intervals.
+        </p>
+      )}
       <input
         style={{ ...s.input, fontSize: 13, marginBottom: 10, maxWidth: 320 }}
         placeholder="Search equipment code or description…"
@@ -220,7 +160,7 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
               ) : (
                 <>
                   <span style={{ fontSize: 12, color: T.textHighlight, width: 100, textAlign: "right" }}>{eq.interval || "—"}</span>
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11 }} onClick={() => startEdit(eq)}>
+                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11 }} onClick={() => startEdit(eq)} disabled={!isAdmin}>
                     <i className="ti ti-pencil" aria-hidden="true" />
                   </button>
                 </>
@@ -482,12 +422,16 @@ function ModuleResponsibilitiesCard({ T, s, webhookUrl, isAdmin }) {
   );
 }
 
-// Ported from the original app's Settings (`Kh`): two tabs — Appearance (no
-// password) and Configuration (password 17593, re-required every time the
-// tab is opened) — App Status summary, export/import/reset/clear-cache
-// actions, and adding new Action Registry entries. Equipment/Action
-// Registry sync is no longer a manual step here — App.jsx fetches both
-// automatically on every app load (see its own comment there).
+// Ported from the original app's Settings (`Kh`), then cut down: the
+// password-protected "Configuration" gate (shared password, independent of
+// role) and the "Appearance" tab/theme picker were both leftovers from
+// before this app had real login/RBAC or a platform shell — theme now
+// lives in the platform Settings page (frontend/src/pages/Settings.tsx),
+// and real ROLE-ADMIN gating (the same `isAdmin` every other card on this
+// page already uses) replaces the password for the handful of actions here
+// that actually write shared data (sampling intervals, Action Registry).
+// Everything else on this page is a per-device preference (cache/sync/
+// debug), harmless for anyone logged in to change, so it's left open.
 export default function Settings({
   config,
   onSave,
@@ -498,9 +442,8 @@ export default function Settings({
   onRegistryChange,
   onActionRegistryChange,
   actionRegistry,
-  navBridge,
 }) {
-  const { T, s, themeName } = useTheme();
+  const { T, s } = useTheme();
   const session = useSession();
   const isAdmin = (session?.claims?.roles || []).includes("ROLE-ADMIN");
   const [draft, setDraft] = useState(() => ({ ...config }));
@@ -508,14 +451,6 @@ export default function Settings({
   const [testMsg, setTestMsg] = useState("");
   const [testing, setTesting] = useState(false);
 
-  // Theme now lives in the platform Settings page when embedded (see
-  // frontend/src/pages/Settings.tsx) — this tab is only shown standalone.
-  const [tab, setTab] = useState(navBridge ? "configuration" : "appearance");
-  const [locked, setLocked] = useState(true);
-  const [pwInput, setPwInput] = useState("");
-  const [pwWrong, setPwWrong] = useState(false);
-
-  const [importMsg, setImportMsg] = useState("");
   const [cacheMsg, setCacheMsg] = useState("");
 
   const [newActionText, setNewActionText] = useState("");
@@ -529,21 +464,6 @@ export default function Settings({
     onSave(draft);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
-  }
-  function openConfiguration() {
-    setTab("configuration");
-    setLocked(true);
-    setPwInput("");
-    setPwWrong(false);
-  }
-  function tryUnlock() {
-    if (pwInput === CONFIG_PASSWORD) {
-      setLocked(false);
-      setPwWrong(false);
-    } else {
-      setPwWrong(true);
-      setPwInput("");
-    }
   }
 
   async function testConnection() {
@@ -582,56 +502,6 @@ export default function Settings({
     }
   }
 
-  function resetConfig() {
-    if (
-      !window.confirm(
-        "Reset all settings to defaults? Your Sheet URL and Webhook URL will be kept; theme, cache, and sync preferences will revert to defaults."
-      )
-    )
-      return;
-    const next = {
-      sheetUrl: draft.sheetUrl,
-      webhookUrl: draft.webhookUrl,
-      themeName: "Navy Dark",
-      autoSyncMinutes: 5,
-      cacheDurationMinutes: 10,
-      enableCache: true,
-      enableAutoSync: true,
-      enableDebugMode: false,
-      logoUrl: "",
-      appName: "Arabian Cement Oil Analysis",
-    };
-    setDraft(next);
-    onSave(next);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  }
-  function exportConfig() {
-    const blob = new Blob([JSON.stringify(draft, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "oil-analysis-config.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-  function importConfig(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = JSON.parse(reader.result);
-        setDraft((d) => ({ ...d, ...parsed }));
-        setImportMsg("✓ Config imported — click Save Settings to apply");
-      } catch {
-        setImportMsg("❌ Invalid config file");
-      }
-      setTimeout(() => setImportMsg(""), 5000);
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  }
   function clearCache() {
     Object.keys(localStorage)
       .filter((k) => k.startsWith("acc_oilapp_cache_"))
@@ -644,334 +514,228 @@ export default function Settings({
     <div style={{ maxWidth: 740 }}>
       <p style={s.sectionTitle}>Settings</p>
 
-      <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 16 }}>
-        {[
-          !navBridge && { id: "appearance", label: "Appearance", icon: "ti-palette" },
-          { id: "configuration", label: "Configuration", icon: "ti-settings-2" },
-        ]
-          .filter(Boolean)
-          .map((t) => (
+      <div style={{ ...s.card, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
+            <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+              Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every device,
+              nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <IntervalRegistryEditor
+        T={T}
+        s={s}
+        webhookUrl={draft.webhookUrl}
+        equipmentRegistry={equipmentRegistry}
+        onRegistryChange={onRegistryChange}
+        isAdmin={isAdmin}
+      />
+
+      <div style={{ ...s.card, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <i className="ti ti-list-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
+            <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+              The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the app
+              opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+          {(actionRegistry || []).length === 0 && <span style={{ fontSize: 12, color: T.textMuted }}>No actions yet.</span>}
+          {(actionRegistry || []).map((a) => (
+            <span
+              key={a}
+              style={{
+                background: T.navActive,
+                color: T.accent,
+                borderRadius: 4,
+                padding: "3px 8px",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              {a}
+            </span>
+          ))}
+        </div>
+
+        {!isAdmin && (
+          <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
+            <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can add new actions.
+          </p>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            style={{ ...s.input, fontSize: 13, width: 220 }}
+            value={newActionText}
+            placeholder="New action, e.g. Change Belt"
+            onChange={(e) => setNewActionText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addNewAction()}
+            disabled={!isAdmin}
+          />
           <button
-            key={t.id}
-            onClick={() => (t.id === "configuration" ? openConfiguration() : setTab(t.id))}
+            style={{ ...s.btn, fontSize: 12 }}
+            onClick={addNewAction}
+            disabled={!isAdmin || actionSyncing || !draft.webhookUrl || !newActionText.trim()}
+          >
+            <i className={`ti ${actionSyncing ? "ti-loader" : "ti-plus"}`} style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }} aria-hidden="true" /> Add
+          </button>
+          {actionMsg && <span style={{ fontSize: 12, color: actionMsg.startsWith("✓") ? T.success : T.danger }}>{actionMsg}</span>}
+        </div>
+      </div>
+
+      <div style={{ ...s.card, marginBottom: 20 }}>
+        <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>App Status</p>
+        {[
+          ["Version", "4.0"],
+          ["Sheet URL", draft.sheetUrl ? "Configured" : "Not configured"],
+          ["Webhook URL", draft.webhookUrl ? "Configured" : "Not configured"],
+          ["Cache", draft.enableCache ? "Enabled" : "Disabled"],
+          ["Auto-Sync", draft.enableAutoSync ? `Every ${draft.autoSyncMinutes || 5} min` : "Disabled"],
+          ["Debug Mode", draft.enableDebugMode ? "On" : "Off"],
+          ["Last sync", syncMsg || "Not synced yet"],
+        ].map(([k, v]) => (
+          <div
+            key={k}
             style={{
-              padding: "10px 16px",
-              cursor: "pointer",
-              background: "transparent",
-              border: "none",
-              borderBottom: tab === t.id ? `2px solid ${T.accent}` : "2px solid transparent",
-              color: tab === t.id ? T.accent : T.textSecondary,
               display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 13,
-              fontWeight: 600,
+              justifyContent: "space-between",
+              padding: "5px 0",
+              borderBottom: `1px solid ${T.border}`,
+              fontSize: 12,
             }}
           >
-            <i className={`ti ${t.icon}`} aria-hidden="true" />
-            {t.label}
-            {t.id === "configuration" && <i className="ti ti-lock" style={{ fontSize: 11 }} aria-hidden="true" />}
-          </button>
+            <span style={{ color: T.textSecondary }}>{k}</span>
+            <span style={{ color: T.textHighlight, textAlign: "right" }}>{v}</span>
+          </div>
         ))}
       </div>
 
-      {tab === "appearance" && !navBridge && (
-        <div>
-          <div style={{ ...s.card }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <i className="ti ti-palette" style={{ color: T.accent, fontSize: 20 }} aria-hidden="true" />
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Appearance</p>
-                <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>Choose a colour theme. Changes apply instantly.</p>
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>
-              {THEME_NAMES.map((name) => (
-                <ThemeSwatch
-                  key={name}
-                  name={name}
-                  palette={THEMES[name]}
-                  active={themeName === name}
-                  onClick={() => onSave({ ...config, themeName: name })}
-                />
-              ))}
-            </div>
-          </div>
+      <div style={{ ...s.card, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <i className="ti ti-settings" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Connection &amp; Preferences</p>
         </div>
-      )}
 
-      {tab === "configuration" && (
-        <div>
-          {locked ? (
-            <div style={{ ...s.card, textAlign: "center", padding: 40 }}>
-              <i className="ti ti-lock" style={{ fontSize: 40, color: T.accent, display: "block", marginBottom: 16 }} aria-hidden="true" />
-              <p style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: T.textPrimary }}>Configuration is password protected</p>
-              <p style={{ margin: "0 0 20px", fontSize: 12, color: T.textSecondary }}>
-                Enter the password to access configuration settings
-              </p>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
-                <input
-                  style={{ ...s.input, width: 160, textAlign: "center" }}
-                  type="password"
-                  value={pwInput}
-                  onChange={(e) => setPwInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && tryUnlock()}
-                  autoFocus
-                />
-                <button style={s.btnPrimary} onClick={tryUnlock}>
-                  <i className="ti ti-arrow-right" aria-hidden="true" />
-                </button>
-              </div>
-              {pwWrong && <p style={{ marginTop: 12, fontSize: 12, color: T.danger }}>Incorrect password</p>}
-            </div>
-          ) : (
-            <div>
-              <div style={{ ...s.card, marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
-                    <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-                      Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every device,
-                      nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <Field
+          T={T}
+          s={s}
+          label="Google Sheet URL"
+          value={draft.sheetUrl}
+          placeholder="https://docs.google.com/spreadsheets/d/XXXXXXX/edit"
+          onChange={(v) => set("sheetUrl", v)}
+          desc="Paste your sheet URL here. Used for the 'Open Sheet' button."
+        />
 
-              <IntervalRegistryEditor
-                T={T}
-                s={s}
-                webhookUrl={draft.webhookUrl}
-                equipmentRegistry={equipmentRegistry}
-                onRegistryChange={onRegistryChange}
-              />
+        {/* Read-only, not an input: the real value is baked into the build
+            (see config.js's DEFAULT_WEBHOOK_URL — "Bake correct webhook URL
+            into the build"). Letting it be hand-edited per device used to
+            mean a mistyped URL could silently desync just that one device
+            from the real backend with no obvious cause; Test Connection is
+            the safe way to check it still answers. */}
+        <div style={{ marginBottom: 18 }}>
+          <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>
+            Apps Script Webhook URL
+          </label>
+          <p
+            style={{
+              margin: "4px 0 0",
+              fontSize: 12,
+              color: T.textSecondary,
+              fontFamily: "monospace",
+              wordBreak: "break-all",
+              background: T.cardSubBg,
+              border: `1px solid ${T.border}`,
+              borderRadius: 6,
+              padding: "6px 10px",
+            }}
+          >
+            {draft.webhookUrl || "Not configured"}
+          </p>
+          <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+            Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
+          </p>
+        </div>
 
-              <div style={{ ...s.card, marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <i className="ti ti-list-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
-                    <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-                      The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the app
-                      opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                  {(actionRegistry || []).length === 0 && <span style={{ fontSize: 12, color: T.textMuted }}>No actions yet.</span>}
-                  {(actionRegistry || []).map((a) => (
-                    <span
-                      key={a}
-                      style={{
-                        background: T.navActive,
-                        color: T.accent,
-                        borderRadius: 4,
-                        padding: "3px 8px",
-                        fontSize: 12,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <input
-                    style={{ ...s.input, fontSize: 13, width: 220 }}
-                    value={newActionText}
-                    placeholder="New action, e.g. Change Belt"
-                    onChange={(e) => setNewActionText(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addNewAction()}
-                  />
-                  <button
-                    style={{ ...s.btn, fontSize: 12 }}
-                    onClick={addNewAction}
-                    disabled={actionSyncing || !draft.webhookUrl || !newActionText.trim()}
-                  >
-                    <i className={`ti ${actionSyncing ? "ti-loader" : "ti-plus"}`} style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }} aria-hidden="true" /> Add
-                  </button>
-                  {!draft.webhookUrl && <span style={{ fontSize: 11, color: T.danger }}>Configure Webhook URL first</span>}
-                  {actionMsg && <span style={{ fontSize: 12, color: actionMsg.startsWith("✓") ? T.success : T.danger }}>{actionMsg}</span>}
-                </div>
-              </div>
-
-              <div style={{ ...s.card, marginBottom: 20 }}>
-                <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>App Status</p>
-                {[
-                  ["App Name", draft.appName || "Arabian Cement Oil Analysis"],
-                  ["Version", "4.0"],
-                  ["Sheet URL", draft.sheetUrl ? "Configured" : "Not configured"],
-                  ["Webhook URL", draft.webhookUrl ? "Configured" : "Not configured"],
-                  ["Cache", draft.enableCache ? "Enabled" : "Disabled"],
-                  ["Auto-Sync", draft.enableAutoSync ? `Every ${draft.autoSyncMinutes || 5} min` : "Disabled"],
-                  ["Debug Mode", draft.enableDebugMode ? "On" : "Off"],
-                  ["Last sync", syncMsg || "Not synced yet"],
-                ].map(([k, v]) => (
-                  <div
-                    key={k}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "5px 0",
-                      borderBottom: `1px solid ${T.border}`,
-                      fontSize: 12,
-                    }}
-                  >
-                    <span style={{ color: T.textSecondary }}>{k}</span>
-                    <span style={{ color: T.textHighlight, textAlign: "right" }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ ...s.card, marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                  <i className="ti ti-settings" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-                  <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Application Configuration</p>
-                </div>
-
-                <Field
-                  T={T}
-                  s={s}
-                  label="Application Name"
-                  value={draft.appName}
-                  onChange={(v) => set("appName", v)}
-                  desc="Shown in the sidebar / browser title."
-                />
-                <Field
-                  T={T}
-                  s={s}
-                  label="Google Sheet URL"
-                  value={draft.sheetUrl}
-                  placeholder="https://docs.google.com/spreadsheets/d/XXXXXXX/edit"
-                  onChange={(v) => set("sheetUrl", v)}
-                  desc="Paste your sheet URL here. Used for the 'Open Sheet' button."
-                />
-                <Field
-                  T={T}
-                  s={s}
-                  label="Apps Script Webhook URL"
-                  value={draft.webhookUrl}
-                  placeholder="https://script.google.com/macros/s/XXXXXXX/exec"
-                  onChange={(v) => set("webhookUrl", v)}
-                  desc="Deployed Web App URL from your Apps Script. Handles all reads and writes."
-                />
-
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={testConnection} disabled={testing}>
-                    <i className="ti ti-plug" aria-hidden="true" /> Test Connection
-                  </button>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={onSync} disabled={syncState === "loading"}>
-                    <i
-                      className={`ti ${syncState === "loading" ? "ti-loader" : "ti-refresh"}`}
-                      style={{ animation: syncState === "loading" ? "spin 1s linear infinite" : "none" }}
-                      aria-hidden="true"
-                    />{" "}
-                    {syncState === "loading" ? "Syncing…" : "Sync Now"}
-                  </button>
-                  {draft.sheetUrl && (
-                    <a
-                      href={draft.sheetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ ...s.btn, textDecoration: "none", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
-                    >
-                      <i className="ti ti-external-link" aria-hidden="true" /> Open Sheet
-                    </a>
-                  )}
-                  {testMsg && <span style={{ fontSize: 12, color: testMsg.startsWith("✓") ? T.success : T.danger }}>{testMsg}</span>}
-                </div>
-
-                <Toggle
-                  T={T}
-                  s={s}
-                  label="Enable Auto-Sync"
-                  desc="Automatically re-sync from Google Sheets in the background at the interval below."
-                  checked={draft.enableAutoSync}
-                  onChange={(v) => set("enableAutoSync", v)}
-                />
-                <Field
-                  T={T}
-                  s={s}
-                  label="Auto-Sync Interval (minutes)"
-                  type="number"
-                  value={draft.autoSyncMinutes}
-                  onChange={(v) => set("autoSyncMinutes", Number(v) || 5)}
-                  desc="How often to automatically re-sync when Auto-Sync is enabled."
-                />
-                <Toggle T={T} s={s} label="Enable Cache" checked={draft.enableCache} onChange={(v) => set("enableCache", v)} />
-                <Field
-                  T={T}
-                  s={s}
-                  label="Cache Duration (minutes)"
-                  type="number"
-                  value={draft.cacheDurationMinutes}
-                  onChange={(v) => set("cacheDurationMinutes", Number(v) || 10)}
-                  desc="How long cached data is considered fresh before a background refresh."
-                />
-
-                <div style={{ marginBottom: 18 }}>
-                  <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>
-                    Logo Image URL
-                  </label>
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <input
-                      style={{ ...s.input, fontSize: 13 }}
-                      value={draft.logoUrl || ""}
-                      placeholder="https://example.com/logo.png"
-                      onChange={(e) => set("logoUrl", e.target.value)}
-                    />
-                    {draft.logoUrl && (
-                      <img
-                        src={draft.logoUrl}
-                        alt="Logo preview"
-                        style={{ height: 40, objectFit: "contain" }}
-                        onError={(e) => (e.currentTarget.style.display = "none")}
-                      />
-                    )}
-                  </div>
-                  <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
-                    If hosting on Google Drive, share as <strong>Anyone with the link</strong>. Blank preview? Check URL or Drive sharing.
-                  </p>
-                </div>
-
-                <Toggle T={T} s={s} label="Enable Debug Mode" checked={draft.enableDebugMode} onChange={(v) => set("enableDebugMode", v)} />
-
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={resetConfig}>
-                    <i className="ti ti-rotate" aria-hidden="true" /> Reset
-                  </button>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={exportConfig}>
-                    <i className="ti ti-download" aria-hidden="true" /> Export
-                  </button>
-                  <label style={{ ...s.btn, fontSize: 12, cursor: "pointer" }}>
-                    <i className="ti ti-upload" aria-hidden="true" /> Import
-                    <input type="file" accept="application/json" onChange={importConfig} style={{ display: "none" }} />
-                  </label>
-                  <button style={{ ...s.btn, fontSize: 12 }} onClick={clearCache}>
-                    <i className="ti ti-trash-x" aria-hidden="true" /> Clear Cache
-                  </button>
-                  {(importMsg || cacheMsg) && (
-                    <span style={{ fontSize: 12, color: T.success, alignSelf: "center" }}>{importMsg || cacheMsg}</span>
-                  )}
-                </div>
-
-                <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-                  <button style={s.btnPrimary} onClick={save}>
-                    <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
-                  </button>
-                  {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
-                </div>
-              </div>
-
-              <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
-              <ModuleResponsibilitiesCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
-            </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
+          <button style={{ ...s.btn, fontSize: 12 }} onClick={testConnection} disabled={testing}>
+            <i className="ti ti-plug" aria-hidden="true" /> Test Connection
+          </button>
+          <button style={{ ...s.btn, fontSize: 12 }} onClick={onSync} disabled={syncState === "loading"}>
+            <i
+              className={`ti ${syncState === "loading" ? "ti-loader" : "ti-refresh"}`}
+              style={{ animation: syncState === "loading" ? "spin 1s linear infinite" : "none" }}
+              aria-hidden="true"
+            />{" "}
+            {syncState === "loading" ? "Syncing…" : "Sync Now"}
+          </button>
+          {draft.sheetUrl && (
+            <a
+              href={draft.sheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...s.btn, textDecoration: "none", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
+            >
+              <i className="ti ti-external-link" aria-hidden="true" /> Open Sheet
+            </a>
           )}
+          {testMsg && <span style={{ fontSize: 12, color: testMsg.startsWith("✓") ? T.success : T.danger }}>{testMsg}</span>}
         </div>
-      )}
+
+        <Toggle
+          T={T}
+          s={s}
+          label="Enable Auto-Sync"
+          desc="Automatically re-sync from Google Sheets in the background at the interval below."
+          checked={draft.enableAutoSync}
+          onChange={(v) => set("enableAutoSync", v)}
+        />
+        <Field
+          T={T}
+          s={s}
+          label="Auto-Sync Interval (minutes)"
+          type="number"
+          value={draft.autoSyncMinutes}
+          onChange={(v) => set("autoSyncMinutes", Number(v) || 5)}
+          desc="How often to automatically re-sync when Auto-Sync is enabled."
+        />
+        <Toggle T={T} s={s} label="Enable Cache" checked={draft.enableCache} onChange={(v) => set("enableCache", v)} />
+        <Field
+          T={T}
+          s={s}
+          label="Cache Duration (minutes)"
+          type="number"
+          value={draft.cacheDurationMinutes}
+          onChange={(v) => set("cacheDurationMinutes", Number(v) || 10)}
+          desc="How long cached data is considered fresh before a background refresh."
+        />
+        <Toggle T={T} s={s} label="Enable Debug Mode" checked={draft.enableDebugMode} onChange={(v) => set("enableDebugMode", v)} />
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+          <button style={{ ...s.btn, fontSize: 12 }} onClick={clearCache}>
+            <i className="ti ti-trash-x" aria-hidden="true" /> Clear Cache
+          </button>
+          {cacheMsg && <span style={{ fontSize: 12, color: T.success, alignSelf: "center" }}>{cacheMsg}</span>}
+        </div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+          <button style={s.btnPrimary} onClick={save}>
+            <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
+          </button>
+          {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
+        </div>
+      </div>
+
+      <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
+      <ModuleResponsibilitiesCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
     </div>
   );
 }

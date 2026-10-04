@@ -36,7 +36,11 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'compliance', label: 'Compliance Tracker', icon: 'compliance' },
   { id: 'equipreg', label: 'Equipment Register', icon: 'registry' },
   { id: 'limits', label: 'Limits setting', icon: 'limits' },
-  { id: 'settings', label: 'Settings', icon: 'settings' },
+  // No "Settings" entry here on purpose — it's the exact same embedded
+  // page as the platform-level Settings page's own "Vibration Analysis"
+  // tab (both call embeddedNav.navigateTo('vibration-analysis', 'settings')
+  // — see Settings.tsx), so having it in both places was just two paths
+  // to one screen.
 ];
 
 // Ids match apps/oil-analysis/src/App.jsx's own `page` states exactly for
@@ -55,7 +59,10 @@ export const OIL_SUB_TABS: SubTab[] = [
   { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Reports', icon: 'ti-report' },
   { id: 'activity', label: 'Activity', icon: 'ti-history' },
-  { id: 'settings', label: 'Settings', icon: 'ti-settings' },
+  // No "Settings" entry here on purpose — same reasoning as
+  // VIBRATION_SUB_TABS above: it's the identical embedded page the
+  // platform-level Settings page's own "Oil Lubrication" tab already
+  // opens.
 ];
 
 export const NAV_ITEMS: NavItem[] = [

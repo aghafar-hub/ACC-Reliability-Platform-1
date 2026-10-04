@@ -1295,7 +1295,6 @@ function AppShell({ config, setConfig, navBridge }) {
               onRegistryChange={setEquipmentRegistry}
               actionRegistry={actionRegistry}
               onActionRegistryChange={setActionRegistry}
-              navBridge={navBridge}
             />
           )}
         </div>
