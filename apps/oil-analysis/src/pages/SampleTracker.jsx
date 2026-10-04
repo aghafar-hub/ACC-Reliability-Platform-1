@@ -1,27 +1,178 @@
 import { useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { sampleTrackerStatus, computeOilChangeNextDue } from "../parsers";
-import { trackerStatusChip as statusChip } from "../theme";
 import EquipmentSearch from "../components/EquipmentSearch";
-import DotTimeline from "../components/DotTimeline";
+import SampleHistoryModal from "../components/SampleHistoryModal";
 
-// The real "Oil Sample Tracker" monthly grid — parsed from the sheet tab of
-// the same name, with live Data_Entry samples overlaid on top (see
+const WEEKS_AHEAD = 8;
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return Math.round((d - today) / 86400000);
+}
+
+function shortLabel(d) {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+// OK -> "On Track", OVERDUE -> "Overdue", MISSING -> "Missing" — same
+// three states sampleTrackerStatus already returns, just the board's own
+// column names. Colors mirror the original tiles exactly: MISSING is the
+// more severe of the two (it's past OVERDUE's own grace period too), so
+// it keeps the danger color while OVERDUE keeps warning, matching every
+// other MISSING/OVERDUE chip already in this app (SampleOverdue.js's
+// digest included).
+const BUCKET_LABEL = { OK: "On Track", OVERDUE: "Overdue", MISSING: "Missing" };
+const BUCKETS = ["Overdue", "Missing", "On Track"];
+const BUCKET_COLOR_KEY = { Overdue: "warning", Missing: "danger", "On Track": "success" };
+
+// Classifies a tracker/sample cell's status text into one of three real
+// lab-result grades for the Condition Trend chart — "Missing"/"Pending"
+// aren't lab results (nothing was analyzed yet), so they're excluded
+// here rather than forced into Normal or Alert; the Overdue/Missing
+// board already covers that distinction. Same prefix matching as
+// theme.js's trackerStatusChip, collapsed to 3 buckets.
+function conditionBucket(status) {
+  const d = String(status || "").trim().toUpperCase();
+  if (d.startsWith("NORM") || d === "N" || d.startsWith("SATIS") || d === "S") return "Normal";
+  if (d.startsWith("CAUTI") || d.startsWith("WARN") || d === "C" || d === "W") return "Caution";
+  if (d.startsWith("ALERT") || d === "A" || d.startsWith("UNSAT") || d === "U") return "Alert";
+  return null;
+}
+
+function monthlyConditionTrend(entries) {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: d.toLocaleDateString("en-GB", { month: "short" }), Normal: 0, Caution: 0, Alert: 0 });
+  }
+  const byKey = {};
+  months.forEach((m) => (byKey[m.key] = m));
+  entries.forEach((e) => {
+    const bucket = conditionBucket(e.status);
+    if (!bucket) return;
+    const d = new Date(e.sortDate);
+    if (isNaN(d)) return;
+    const month = byKey[`${d.getFullYear()}-${d.getMonth()}`];
+    if (!month) return;
+    month[bucket]++;
+  });
+  return months;
+}
+
+function ChartTooltip({ T, active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+      {label && <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>}
+      {payload.map((p) => (
+        <div key={p.dataKey || p.name} style={{ color: T.textPrimary, fontWeight: 700 }}>
+          <span style={{ color: p.color || p.payload?.fill }}>●</span> {p.name}: {p.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChipCard({ r, color, onClick }) {
+  const { T } = useTheme();
+  const { eq, status } = r;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        background: T.cardBg,
+        border: `1px solid ${T.border2}`,
+        borderLeft: `3px solid ${color}`,
+        borderRadius: 8,
+        padding: "10px 12px",
+        marginBottom: 8,
+        cursor: "pointer",
+        fontFamily: "inherit",
+      }}
+    >
+      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
+      <div
+        style={{
+          fontSize: 11,
+          color: T.textSecondary,
+          margin: "1px 0 5px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {eq.description}
+      </div>
+      <div style={{ display: "flex", gap: 4, marginBottom: 5, flexWrap: "wrap" }}>
+        {eq.area && (
+          <span
+            style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              padding: "1px 6px",
+              borderRadius: 999,
+              background: T.cardSubBg,
+              color: T.textMuted,
+              border: `1px solid ${T.border2}`,
+            }}
+          >
+            {eq.area}
+          </span>
+        )}
+        {eq.contractor && (
+          <span
+            style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              padding: "1px 6px",
+              borderRadius: 999,
+              background: T.cardSubBg,
+              color: T.textMuted,
+              border: `1px solid ${T.border2}`,
+            }}
+          >
+            {eq.contractor}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color }}>{status.daysInfo || "—"}</div>
+    </button>
+  );
+}
+
+// The real "Oil Sampling Log" board — parsed from the "Oil Sample Tracker"
+// sheet tab, with live Data_Entry samples overlaid on top (see
 // overlaySamplesOnTracker in parsers.js) so it reflects the current state
-// even when a sample was added straight to the sheet. Each equipment gets a
-// card showing its recent months as colored chips (N/C/A/M letter codes)
-// plus a droplet badge for months an oil change happened.
+// even when a sample was added straight to the sheet. Grouped into
+// Overdue/Missing/On Track columns instead of one row per equipment (the
+// old layout, like Oil Change Log's own, didn't scale past the fleet's
+// own size) — clicking a chip opens its real monthly history
+// (SampleHistoryModal), where DotTimeline is still a good fit since it
+// already plots one real dot per month, not a single forecast.
 export default function SampleTracker({ trackerByEquip, oilChanges, equipmentRegistry }) {
   const { T, s } = useTheme();
   const [equipCode, setEquipCode] = useState("");
   const [areaFilter, setAreaFilter] = useState("All");
   const [classFilter, setClassFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [expanded, setExpanded] = useState(null);
+  const [contractorFilter, setContractorFilter] = useState("All");
+  const [groupBy, setGroupBy] = useState("equipment");
+  const [viewingHistory, setViewingHistory] = useState(null);
   const [dueWindowMonths, setDueWindowMonths] = useState(1);
   const [showDueModal, setShowDueModal] = useState(false);
 
-  const registry = equipmentRegistry || [];
+  const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
 
   const oilChangedMonthsByEquip = useMemo(() => {
     const map = {};
@@ -47,21 +198,42 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     [registry, trackerByEquip, oilChangedMonthsByEquip]
   );
 
-  const counts = {
-    OK: rows.filter((r) => r.status.label === "OK").length,
-    OVERDUE: rows.filter((r) => r.status.label === "OVERDUE").length,
-    MISSING: rows.filter((r) => r.status.label === "MISSING").length,
-  };
+  const areas = ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean)))];
+  const classes = ["All", ...Array.from(new Set(registry.map((r) => r.assetClass).filter(Boolean)))];
+  const contractors = ["All", ...Array.from(new Set(registry.map((r) => r.contractor).filter(Boolean)))];
 
-  // "Due in the next N months" — only ever drawn from equipment that's
-  // currently OK (overdue/missing ones are already surfaced by their own
-  // tile above, not re-counted here). Reuses computeOilChangeNextDue for
-  // the due-date math — same day-of-month-overflow-clamped addMonths as
-  // the Oil Change Log, just applied to the sampling interval instead of
-  // the change interval; intervalMonths() itself handles both fields
-  // identically, so this is the exact same calculation, not a new one.
+  const hasFilters = equipCode || areaFilter !== "All" || classFilter !== "All" || contractorFilter !== "All";
+  // Every chart below, and the three columns, all read off this ONE
+  // filtered set — Equipment/Area/Asset Class/Contractor all narrow the
+  // graphs exactly the way they narrow the board, never just one filter
+  // or just the other.
+  const filtered = useMemo(
+    () =>
+      rows.filter(
+        ({ eq }) =>
+          !(
+            (equipCode && equipCode !== "All" && eq.code !== equipCode) ||
+            (classFilter !== "All" && eq.assetClass !== classFilter) ||
+            (areaFilter !== "All" && eq.area !== areaFilter) ||
+            (contractorFilter !== "All" && eq.contractor !== contractorFilter)
+          )
+      ),
+    [rows, equipCode, classFilter, areaFilter, contractorFilter]
+  );
+
+  const byBucket = useMemo(() => {
+    const map = { Overdue: [], Missing: [], "On Track": [] };
+    filtered.forEach((r) => map[BUCKET_LABEL[r.status.label] || "On Track"].push(r));
+    BUCKETS.forEach((b) => map[b].sort((a, b2) => a.eq.code.localeCompare(b2.eq.code)));
+    return map;
+  }, [filtered]);
+
+  // "Due in the next N months" — reuses computeOilChangeNextDue for the
+  // due-date math (see its own comment: same day-of-month-overflow-
+  // clamped addMonths as the Oil Change Log, applied to the sampling
+  // interval instead of the change interval).
   const dueSoon = useMemo(() => {
-    return rows
+    return filtered
       .map(({ eq, history, status }) => {
         if (status.label !== "OK") return null;
         const lastDate = history[0]?.date || "";
@@ -72,7 +244,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
       })
       .filter(Boolean)
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  }, [rows]);
+  }, [filtered]);
 
   const dueWindowCutoff = useMemo(() => {
     const d = new Date();
@@ -85,140 +257,101 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
 
   const dueInWindow = dueSoon.filter((d) => d.dueDate <= dueWindowCutoff);
 
-  const areas = ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean)))];
-  const classes = ["All", ...Array.from(new Set(registry.map((r) => r.assetClass).filter(Boolean)))];
+  // ── Chart 1: Samples Due by Week ────────────────────────────────────
+  const weeklyData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weeks = Array.from({ length: WEEKS_AHEAD }, (_, i) => {
+      const start = new Date(today);
+      start.setDate(start.getDate() + i * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      return { label: `${shortLabel(start)}–${shortLabel(end)}`, Due: 0 };
+    });
+    dueSoon.forEach(({ dueDate }) => {
+      const days = daysUntil(dueDate);
+      if (days == null || days < 0) return;
+      const idx = Math.min(WEEKS_AHEAD - 1, Math.floor(days / 7));
+      weeks[idx].Due++;
+    });
+    return weeks;
+  }, [dueSoon]);
 
-  const filtered = rows.filter(
-    ({ eq, status }) =>
-      !(
-        (equipCode && equipCode !== "All" && eq.code !== equipCode) ||
-        (classFilter !== "All" && eq.assetClass !== classFilter) ||
-        (areaFilter !== "All" && eq.area !== areaFilter) ||
-        (statusFilter !== "All" && status.label !== statusFilter)
-      )
-  );
+  // ── Chart 2: Status by Contractor ───────────────────────────────────
+  const contractorData = useMemo(() => {
+    const byContractor = {};
+    filtered.forEach((r) => {
+      const c = r.eq.contractor || "Unassigned";
+      (byContractor[c] ||= { contractor: c, Overdue: 0, Missing: 0, "On Track": 0 });
+      byContractor[c][BUCKET_LABEL[r.status.label] || "On Track"]++;
+    });
+    return Object.values(byContractor);
+  }, [filtered]);
 
-  const statusColors = { OK: T.success, OVERDUE: T.warning, MISSING: T.danger };
+  // ── Chart 3: Oil condition trend, from real lab-result history ─────
+  const trendData = useMemo(() => {
+    const entries = [];
+    filtered.forEach((r) => entries.push(...(trackerByEquip[r.eq.code] || [])));
+    return monthlyConditionTrend(entries);
+  }, [filtered, trackerByEquip]);
 
   return (
     <div>
-      <p style={{ ...s.sectionTitle, margin: "0 0 8px" }}>Oil Sample Tracker</p>
+      <p style={{ ...s.sectionTitle, margin: "0 0 8px" }}>Oil Sampling Log</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 20 }}>
-        {[
-          { label: "OK", count: counts.OK, color: T.success },
-          { label: "OVERDUE", count: counts.OVERDUE, color: T.warning },
-          { label: "MISSING", count: counts.MISSING, color: T.danger },
-        ].map((c) => (
-          <div
-            key={c.label}
-            style={{
-              ...s.card,
-              textAlign: "center",
-              padding: "10px 8px",
-              cursor: "pointer",
-              border: `2px solid ${statusFilter === c.label ? c.color : "transparent"}`,
-              marginBottom: 0,
-            }}
-            onClick={() => setStatusFilter((f) => (f === c.label ? "All" : c.label))}
-          >
-            <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.count}</div>
-            <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{c.label}</div>
-          </div>
-        ))}
-        <div style={{ ...s.card, textAlign: "center", padding: "10px 8px", marginBottom: 0 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.textSecondary }}>{registry.length}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>Total</div>
+      {/* ====== GRAPHS ====== */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, marginBottom: 18 }}>
+        <div style={{ ...s.card, marginBottom: 0 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>
+            Samples Due — Next {WEEKS_AHEAD} Weeks
+          </p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>LPs due per week — see clustering before it happens.</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={weeklyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9.5, fill: T.textMuted }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+              <Bar dataKey="Due" fill={T.accent} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div
-          style={{
-            ...s.card,
-            textAlign: "center",
-            padding: "10px 8px",
-            marginBottom: 0,
-            cursor: "pointer",
-            border: `2px solid transparent`,
-          }}
-          onClick={() => setShowDueModal(true)}
-        >
-          <div style={{ fontSize: 28, fontWeight: 800, color: T.accent }}>{dueInWindow.length}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>Due Soon</div>
-          <select
-            style={{ ...s.select, fontSize: 10, padding: "2px 4px", marginTop: 4, width: "100%" }}
-            value={dueWindowMonths}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => setDueWindowMonths(Number(e.target.value))}
-          >
-            <option value={1}>Next 1 month</option>
-            <option value={2}>Next 2 months</option>
-            <option value={3}>Next 3 months</option>
-          </select>
+
+        <div style={{ ...s.card, marginBottom: 0 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Status by Contractor</p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Where each contractor stands right now.</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={contractorData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis dataKey="contractor" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+              <Bar dataKey="Overdue" fill={T.warning} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Missing" fill={T.danger} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="On Track" fill={T.success} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div style={{ ...s.card, marginBottom: 0 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Oil Condition Trend</p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Last 6 months of real lab results — Normal / Caution / Alert.</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+              <Bar dataKey="Normal" stackId="s" fill={T.success} />
+              <Bar dataKey="Caution" stackId="s" fill={T.warning} />
+              <Bar dataKey="Alert" stackId="s" fill={T.danger} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          alignItems: "center",
-          marginBottom: 12,
-          background: T.cardSubBg,
-          border: `1px solid ${T.border}`,
-          borderRadius: 8,
-          padding: "8px 14px",
-        }}
-      >
-        <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, marginRight: 4 }}>Legend:</span>
-        {[
-          { label: "N", color: "#2DC653", desc: "Normal" },
-          { label: "C", color: "#F4A261", desc: "Caution" },
-          { label: "A", color: "#E63946", desc: "Alert" },
-          { label: "M", color: "#6B8CAE", desc: "Missing sample" },
-        ].map(({ label, color, desc }) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                background: color,
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 800,
-                fontSize: 10,
-                boxShadow: `0 0 0 1px ${color}55`,
-              }}
-            >
-              {label}
-            </div>
-            <span style={{ fontSize: 11, color: T.textSecondary }}>{desc}</span>
-          </div>
-        ))}
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              background: "#7C3AED",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-            }}
-          >
-            <i className="ti ti-droplet-filled-2" aria-hidden="true" />
-          </div>
-          <span style={{ fontSize: 11, color: T.textSecondary }}>Oil Changed</span>
-        </div>
-        <span style={{ fontSize: 11, color: T.textMuted, marginLeft: "auto" }}>Hover a dot for its exact date.</span>
-      </div>
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+      {/* ====== FILTERS (Area/Asset Class/Contractor now real dropdowns) ====== */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
             Equipment
@@ -250,142 +383,176 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
             ))}
           </select>
         </div>
-        {(equipCode || classFilter !== "All" || areaFilter !== "All" || statusFilter !== "All") && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+            Contractor
+          </span>
+          <select
+            style={{ ...s.select, fontSize: 12, minWidth: 130 }}
+            value={contractorFilter}
+            onChange={(e) => setContractorFilter(e.target.value)}
+          >
+            {contractors.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        {hasFilters && (
           <button
-            style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
+            style={{ ...s.btn, fontSize: 12 }}
             onClick={() => {
               setEquipCode("");
               setClassFilter("All");
               setAreaFilter("All");
-              setStatusFilter("All");
+              setContractorFilter("All");
             }}
           >
             <i className="ti ti-x" aria-hidden="true" /> Clear
           </button>
         )}
-        <span style={{ fontSize: 12, color: T.textMuted, marginLeft: "auto" }}>
-          {filtered.length} of {registry.length}
-        </span>
+
+        <div
+          style={{
+            display: "inline-flex",
+            background: T.cardBg,
+            border: `1px solid ${T.border}`,
+            borderRadius: 999,
+            padding: 3,
+            marginLeft: "auto",
+          }}
+        >
+          {[
+            ["equipment", "Group by Equipment"],
+            ["contractor", "Group by Contractor"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              style={{
+                fontFamily: "inherit",
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "7px 14px",
+                borderRadius: 999,
+                border: "none",
+                background: groupBy === key ? T.accent : "transparent",
+                color: groupBy === key ? T.accentText : T.textSecondary,
+                cursor: "pointer",
+              }}
+              onClick={() => setGroupBy(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {filtered.map(({ eq, history, status, oilChangedMonths }) => {
-          const color = statusColors[status.label] || T.textSecondary;
-          const isMissing = status.label === "MISSING";
-          const isOpen = expanded === eq.code;
-          const months = Array.from(new Set([...history.map((h) => h.monthLabel), ...oilChangedMonths]));
-          const shown = isOpen ? months : months.slice(0, 6);
-          return (
-            <div
-              key={eq.code}
-              style={{
-                background: T.cardBg,
-                border: `2px solid ${isMissing ? T.danger + "88" : isOpen ? color + "66" : T.border}`,
-                borderRadius: 12,
-                overflow: "hidden",
-              }}
-            >
-              <div style={{ padding: "12px 16px", cursor: "pointer" }} onClick={() => setExpanded(isOpen ? null : eq.code)}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  {isMissing && (
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        flexShrink: 0,
-                        background: T.danger,
-                        animation: "pulse 1.2s ease-in-out infinite",
-                      }}
-                    />
-                  )}
-                  <div style={{ minWidth: 140, flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{eq.code}</span>
-                      {eq.area && (
-                        <span style={{ fontSize: 10, background: T.infoBarBg, color: T.accent, borderRadius: 4, padding: "1px 6px" }}>
-                          {eq.area}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        color: T.textSecondary,
-                        marginTop: 1,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: 260,
-                      }}
-                    >
-                      {eq.description}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span
-                      style={{
-                        background: color + "22",
-                        color,
-                        borderRadius: 6,
-                        padding: "3px 10px",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {status.label}
-                    </span>
-                    <span style={{ fontSize: 10, color, whiteSpace: "nowrap" }}>{status.daysInfo}</span>
-                    <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: "nowrap" }}>Every {eq.interval || "—"}</span>
-                  </div>
-                </div>
+      {/* ====== DUE SOON (small standalone card) ====== */}
+      <div
+        style={{
+          ...s.card,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          marginBottom: 16,
+          cursor: "pointer",
+        }}
+        onClick={() => setShowDueModal(true)}
+      >
+        <div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: T.accent }}>{dueInWindow.length}</div>
+          <div style={{ fontSize: 11, color: T.textSecondary }}>Due Soon</div>
+        </div>
+        <select
+          style={{ ...s.select, fontSize: 12 }}
+          value={dueWindowMonths}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => setDueWindowMonths(Number(e.target.value))}
+        >
+          <option value={1}>Next 1 month</option>
+          <option value={2}>Next 2 months</option>
+          <option value={3}>Next 3 months</option>
+        </select>
+        <span style={{ fontSize: 11, color: T.textMuted, marginLeft: "auto" }}>Click to see the list</span>
+      </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-                  <DotTimeline
-                    dots={[...shown].reverse().map((label, i, arr) => {
-                      const entry = history.find((h) => h.monthLabel === label);
-                      const oc = oilChangedMonths.has(label);
-                      const chip = entry ? statusChip(entry.status) : null;
-                      return {
-                        key: label,
-                        pct: arr.length > 1 ? (i / (arr.length - 1)) * 100 : 50,
-                        letter: chip ? chip.label : "—",
-                        color: chip ? chip.color : T.textMuted,
-                        tooltip: `${label}: ${entry ? entry.status : "No entry"}${
-                          entry?.date && entry.date !== label ? " (" + entry.date + ")" : ""
-                        }${oc ? " · Oil changed" : ""}`,
-                        accent: oc,
-                        accentTooltip: oc ? `Oil changed — ${label}` : undefined,
-                      };
-                    })}
-                  />
-                  {!isOpen && months.length > 6 && (
-                    <span
-                      style={{
-                        flexShrink: 0,
-                        background: T.cardSubBg,
-                        color: T.textMuted,
-                        borderRadius: 999,
-                        padding: "2px 8px",
-                        fontSize: 10,
-                        fontWeight: 700,
-                      }}
-                    >
-                      +{months.length - 6}
-                    </span>
-                  )}
-                </div>
+      {/* ====== THREE-COLUMN BOARD ====== */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14, marginBottom: 16 }}>
+        {BUCKETS.map((bucket) => {
+          const colorKey = BUCKET_COLOR_KEY[bucket];
+          const color = T[colorKey];
+          const bg = T[`${colorKey}Bg`] || T.infoBarBg;
+          const list = byBucket[bucket];
+          const groups =
+            groupBy === "contractor"
+              ? Object.entries(
+                  list.reduce((acc, r) => {
+                    (acc[r.eq.contractor || "Unassigned"] ||= []).push(r);
+                    return acc;
+                  }, {})
+                )
+              : [[null, list]];
+          return (
+            <div key={bucket}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "9px 12px",
+                  background: bg,
+                  borderRadius: "8px 8px 0 0",
+                  border: `1px solid ${T.border}`,
+                  borderBottom: "none",
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 800, color, textTransform: "uppercase" }}>{bucket}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color }}>{list.length}</span>
+              </div>
+              <div
+                style={{
+                  border: `1px solid ${T.border}`,
+                  borderTop: "none",
+                  borderRadius: "0 0 8px 8px",
+                  padding: 10,
+                  maxHeight: 460,
+                  overflowY: "auto",
+                  background: T.cardSubBg,
+                }}
+              >
+                {list.length === 0 && <div style={{ textAlign: "center", color: T.textMuted, fontSize: 12, padding: "16px 0" }}>None</div>}
+                {groups.map(([groupName, groupList]) => (
+                  <div key={groupName || "all"}>
+                    {groupName && (
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "4px 0 6px" }}>
+                        {groupName} · {groupList.length}
+                      </div>
+                    )}
+                    {groupList.map((r) => (
+                      <ChipCard key={r.eq.code} r={r} color={color} onClick={() => setViewingHistory(r)} />
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
           );
         })}
-        {filtered.length === 0 && (
-          <div style={{ ...s.card, textAlign: "center", padding: 30, color: T.textMuted, fontSize: 13 }}>
-            No equipment match the current filters.
-          </div>
-        )}
       </div>
+
+      {filtered.length === 0 && (
+        <div style={{ ...s.card, textAlign: "center", padding: 30, color: T.textMuted, fontSize: 13 }}>
+          No equipment match the current filters.
+        </div>
+      )}
+
+      {viewingHistory && (
+        <SampleHistoryModal
+          eq={viewingHistory.eq}
+          status={viewingHistory.status}
+          history={viewingHistory.history}
+          oilChangedMonths={viewingHistory.oilChangedMonths}
+          onClose={() => setViewingHistory(null)}
+        />
+      )}
 
       {showDueModal && (
         <div
@@ -419,23 +586,15 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
                 <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>
                   Due in the next {dueWindowMonths} month{dueWindowMonths > 1 ? "s" : ""}
                 </p>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>
-                  {dueInWindow.length} LP(s) — sorted soonest first.
-                </p>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>{dueInWindow.length} LP(s) — sorted soonest first.</p>
               </div>
-              <button
-                style={{ ...s.btn, padding: "6px 10px" }}
-                onClick={() => setShowDueModal(false)}
-                aria-label="Close"
-              >
+              <button style={{ ...s.btn, padding: "6px 10px" }} onClick={() => setShowDueModal(false)} aria-label="Close">
                 <i className="ti ti-x" aria-hidden="true" />
               </button>
             </div>
 
             {dueInWindow.length === 0 ? (
-              <p style={{ fontSize: 13, color: T.textMuted, textAlign: "center", padding: "20px 0" }}>
-                Nothing due in this window.
-              </p>
+              <p style={{ fontSize: 13, color: T.textMuted, textAlign: "center", padding: "20px 0" }}>Nothing due in this window.</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {dueInWindow.map(({ eq, dueDate }) => (
@@ -454,15 +613,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
                   >
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: T.textSecondary,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                      <div style={{ fontSize: 11, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {eq.description}
                       </div>
                     </div>

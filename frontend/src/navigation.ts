@@ -59,7 +59,7 @@ export const OIL_SUB_TABS: SubTab[] = [
   // filled" stays oil-themed but reads as distinct from the plain outline
   // "ti-droplet" used for the Oil Lubrication section above it.
   { id: 'oilchange', label: 'Oil Change Log', icon: 'ti-droplet-filled' },
-  { id: 'tracker', label: 'Sample Tracking', icon: 'ti-timeline' },
+  { id: 'tracker', label: 'Oil Sampling Log', icon: 'ti-timeline' },
   { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Reports', icon: 'ti-report' },
   { id: 'activity', label: 'Activity', icon: 'ti-history' },
