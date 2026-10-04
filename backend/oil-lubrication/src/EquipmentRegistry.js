@@ -45,7 +45,7 @@ function getLpContractorMap_() {
   for (var i = 2; i < vals.length; i++) {
     var lpId = String(vals[i][0] || "").trim();
     if (!lpId) continue;
-    map[lpId] = String(vals[i][17] || "").trim();
+    map[lpId] = canonicalContractor_(vals[i][17]);
   }
   return map;
 }
@@ -91,7 +91,7 @@ function readEquipmentRegistry() {
       oilAnalysisRequired: String(row[14] || "").trim(),
       interval:            String(row[15] || "").trim(),
       oilChangeInterval:   String(row[16] || "").trim(),
-      contractor:          String(row[17] || "").trim(),
+      contractor:          canonicalContractor_(row[17]),
       status:              String(row[18] || "").trim(),
       createdDate:         row[19] || "",
       modifiedDate:        row[20] || "",

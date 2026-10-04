@@ -86,6 +86,27 @@ function readSheet(ss, name, skipHeader) {
 // new contractor is ever added.
 var KNOWN_CONTRACTORS = ["RHI", "ASEC"];
 
+// Bug-hunt: EquipmentRegistry.js's own `contractor` field only ever
+// trimmed the raw sheet cell, never normalized its case — a cell that's
+// really RHI/ASEC but typed as "Rhi"/"asec " passed through unnoticed.
+// That value then feeds every contractor-scoped read's exact-string
+// filter (Rbac.js's getContractorScope_ always returns a clean "RHI"/
+// "ASEC") AND gets written straight into a new routine/template's own
+// Contractor column by an ACC/unscoped creator's equipment-first pick
+// (NewRoutine.jsx) — so a routine built from one of those equipment rows
+// would carry the dirty value forever, invisible to the exact contractor
+// it actually belongs to (their own scoped getRoutines call never
+// matches it again), with no error anywhere. Case-insensitive match
+// against the one known list; anything that isn't actually RHI/ASEC at
+// all just comes back trimmed, not invented.
+function canonicalContractor_(value) {
+  var v = String(value || "").trim();
+  for (var i = 0; i < KNOWN_CONTRACTORS.length; i++) {
+    if (v.toUpperCase() === KNOWN_CONTRACTORS[i].toUpperCase()) return KNOWN_CONTRACTORS[i];
+  }
+  return v;
+}
+
 function invalidateDashboardCache() {
   var keys = [DASHBOARD_CACHE_KEY];
   KNOWN_CONTRACTORS.forEach(function (c) { keys.push(DASHBOARD_CACHE_KEY + ":" + c); });

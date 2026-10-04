@@ -91,7 +91,7 @@ function findRegistryEntryForOilChange_(ss, lpId) {
         lubricantBrand:     String(vals[i][12] || "").trim(),
         lubricantQuantityL: String(vals[i][13] || "").trim(),
         oilChangeInterval:  String(vals[i][16] || "").trim(),
-        contractor:         String(vals[i][17] || "").trim(),
+        contractor:         canonicalContractor_(vals[i][17]),
       };
     }
   }
