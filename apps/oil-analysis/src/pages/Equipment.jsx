@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { formatDate } from "../parsers";
+import { formatDate, conditionBucket } from "../parsers";
 import { statusColor } from "../theme";
 import * as api from "../api";
 import EditSampleModal from "../components/EditSampleModal";
@@ -8,6 +9,12 @@ import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 
 const STATUS_ACTION_COLOR = { Open: "danger", "In Progress": "warning", "Waiting Stoppage": "accent", Closed: "success" };
+// Shared by the single-LP "Oil Condition Trend" chart and the equipment-/
+// point-level Criticality badges — Normal < Caution < Alert, same severity
+// order criticalityFor below already uses.
+const CONDITION_COLOR_KEY = { Normal: "success", Caution: "warning", Alert: "danger" };
+const CONDITION_VALUE = { Normal: 1, Caution: 2, Alert: 3 };
+const CRITICALITY_RANK = { Normal: 0, Medium: 1, High: 2 };
 
 // Severity ranking for picking the "worst" status across several
 // lubrication points' latest samples — higher wins.
@@ -42,6 +49,34 @@ function criticalityFor(latestSample, oilChangeOverdue) {
   if (latestSample?.reportStatus === "Alert" || oilChangeOverdue) return "High";
   if (latestSample?.reportStatus === "Caution" || latestSample?.reportStatus === "Warning") return "Medium";
   return "Normal";
+}
+
+// Overview-tab summary cards (Last Oil Sample/Change/Top Up, and each row
+// inside Equipment Health Status) jump to the tab that actually has the
+// detail — a real <button> when clickable (not a div+onClick) for
+// keyboard/focus accessibility, matching Dashboard.jsx's own KpiCard.
+function ClickableCard({ s, onClick, style, children }) {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      style={{ ...s.card, textAlign: "left", width: "100%", font: "inherit", cursor: onClick ? "pointer" : "default", ...style }}
+    >
+      {children}
+    </Tag>
+  );
+}
+
+function ChartTooltip({ T, active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  return (
+    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+      <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>
+      <div style={{ color: T[CONDITION_COLOR_KEY[p.payload.bucket]] || T.textPrimary, fontWeight: 700 }}>{p.payload.bucket}</div>
+    </div>
+  );
 }
 
 function SmallBadge({ T, color, children }) {
@@ -251,9 +286,10 @@ export default function Equipment({
 
   // ── single lubrication point (unchanged from before the redesign) ──────
   const reg = isLpView ? registry.find((r) => r.code === selection.id) : null;
-  const samplesForEquip = isLpView
-    ? (samples || []).filter((sm) => sm.unitId === selection.id).sort((a, b) => new Date(b.sampledDate) - new Date(a.sampledDate))
-    : [];
+  const samplesForEquip = useMemo(
+    () => (isLpView ? (samples || []).filter((sm) => sm.unitId === selection.id).sort((a, b) => new Date(b.sampledDate) - new Date(a.sampledDate)) : []),
+    [isLpView, samples, selection?.id]
+  );
   const latest = samplesForEquip[0] || null;
   const oilChangesForEquip = isLpView ? (oilChanges || []).filter((o) => o.equipmentCode === selection.id) : [];
   const actionsForEquip = isLpView
@@ -261,7 +297,6 @@ export default function Equipment({
         .filter((a) => (a.equipmentCode || a.unitId) === selection.id)
         .sort((a, b) => new Date(b.revisionDate || b.sampleDate || 0) - new Date(a.revisionDate || a.sampleDate || 0))
     : [];
-  const openActionsCount = actionsForEquip.filter((a) => a.status !== "Closed").length;
   const nextDue = [...oilChangesForEquip].filter((o) => o.nextDueDate).sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate))[0];
 
   // health/criticality/timeline — the "Equipment Viewer" profile design,
@@ -288,8 +323,23 @@ export default function Equipment({
     samplesForEquip.forEach((sm) => events.push({ type: "Sample", date: sm.sampledDate, label: sm.reportStatus || "—", detail: sm.sampleId }));
     topUps.forEach((t) => events.push({ type: "TopUp", date: t.eventDate, label: `${t.quantity || "—"} L`, detail: t.reason }));
     return events.filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLpView, changeHistory, samplesForEquip, topUps]);
+
+  // Per-LP Oil Condition Trend — same Normal/Caution/Alert classification
+  // (conditionBucket) Sample Tracker's own Condition Trend chart and
+  // Dashboard's Fleet/Oil Health KPI already share, just scoped to this one
+  // lubrication point instead of fleet-wide, which no other page shows.
+  const conditionTrendData = useMemo(() => {
+    if (!isLpView) return [];
+    return [...samplesForEquip]
+      .filter((sm) => sm.sampledDate)
+      .sort((a, b) => new Date(a.sampledDate) - new Date(b.sampledDate))
+      .map((sm) => {
+        const bucket = conditionBucket(sm.reportStatus);
+        return bucket ? { date: formatDate(sm.sampledDate), bucket, value: CONDITION_VALUE[bucket] } : null;
+      })
+      .filter(Boolean);
+  }, [isLpView, samplesForEquip]);
 
   // ── combined equipment view (new) ───────────────────────────────────────
   const pointSummaries = useMemo(() => {
@@ -302,13 +352,15 @@ export default function Equipment({
       const pointActions = (actions || [])
         .filter((a) => (a.equipmentCode || a.unitId) === r.code)
         .sort((a, b) => new Date(b.revisionDate || b.sampleDate || 0) - new Date(a.revisionDate || a.sampleDate || 0));
+      const latest = pointSamples[0] || null;
       return {
         reg: r,
         samples: pointSamples,
-        latest: pointSamples[0] || null,
+        latest,
         oilChange: pointOilChange,
         actions: pointActions,
         openActions: pointActions.filter((a) => a.status !== "Closed").length,
+        criticality: criticalityFor(latest, pointOilChange?.status === "Overdue"),
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,6 +373,15 @@ export default function Equipment({
     const sev = STATUS_SEVERITY[p.latest.reportStatus] || 1;
     return !acc || sev > acc.sev ? { status: p.latest.reportStatus, sev } : acc;
   }, null);
+  // Worst criticality across every point on this equipment — distinct from
+  // `worst` above, which only looks at sample severity: criticalityFor also
+  // folds in an overdue oil change, so a point can be High here even with a
+  // Normal latest sample.
+  const equipmentCriticality = pointSummaries.reduce(
+    (acc, p) => (CRITICALITY_RANK[p.criticality] > CRITICALITY_RANK[acc] ? p.criticality : acc),
+    "Normal"
+  );
+  const equipmentCriticalityColor = equipmentCriticality === "High" ? "danger" : equipmentCriticality === "Medium" ? "warning" : "success";
   const soonestNextDue = pointSummaries
     .map((p) => p.oilChange)
     .filter((o) => o?.nextDueDate)
@@ -701,6 +762,7 @@ export default function Equipment({
               {[
                 ["Total Samples", totalSamples, null],
                 ["Worst Result", worst ? worst.status : "—", worst ? statusColor(T, worst.status) : null],
+                ["Equipment Criticality", equipmentCriticality, T[equipmentCriticalityColor]],
                 ["Open Actions", totalOpenActions, totalOpenActions > 0 ? T.danger : T.success],
                 [
                   "Next Oil Change",
@@ -748,6 +810,9 @@ export default function Equipment({
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{p.reg.code}</span>
                           <span style={{ fontSize: 12.5, fontWeight: 600 }}>{p.reg.lubricationPoint || p.reg.description}</span>
+                          <SmallBadge T={T} color={p.criticality === "High" ? "danger" : p.criticality === "Medium" ? "warning" : "success"}>
+                            {p.criticality}
+                          </SmallBadge>
                         </div>
                         <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 3 }}>
                           {p.reg.lubricant || "—"}
@@ -864,19 +929,36 @@ export default function Equipment({
                 <div style={s.card}>
                   <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Equipment Health Status</p>
                   {[
-                    { label: "Oil Analysis", value: latest?.reportStatus || "No data", color: latest ? statusColorKey(latest.reportStatus) : "textMuted" },
-                    { label: "Oil Change", value: lpOilChangeState?.status || "No data", color: oilChangeOverdue ? "danger" : "success" },
-                    { label: "Top Up", value: latestTopUp ? "Logged" : "None", color: "textSecondary" },
-                    { label: "Open Actions", value: String(openActions.length), color: openActions.length ? "warning" : "success" },
+                    { label: "Oil Analysis", value: latest?.reportStatus || "No data", color: latest ? statusColorKey(latest.reportStatus) : "textMuted", tab: "samples" },
+                    { label: "Oil Change", value: lpOilChangeState?.status || "No data", color: oilChangeOverdue ? "danger" : "success", tab: "changes" },
+                    { label: "Top Up", value: latestTopUp ? "Logged" : "None", color: "textSecondary", tab: "topups" },
+                    { label: "Open Actions", value: String(openActions.length), color: openActions.length ? "warning" : "success", tab: "actions" },
                   ].map((row) => (
-                    <div key={row.label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <button
+                      key={row.label}
+                      type="button"
+                      onClick={() => setLpTab(row.tab)}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        width: "100%",
+                        fontSize: 12.5,
+                        padding: "6px 0",
+                        background: "none",
+                        border: "none",
+                        borderBottom: `1px solid ${T.border}`,
+                        font: "inherit",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
                       <span style={{ color: T.textSecondary }}>{row.label}</span>
                       <span style={{ color: T[row.color], fontWeight: 700 }}>{row.value}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
 
-                <div style={s.card}>
+                <ClickableCard s={s} onClick={() => setLpTab("samples")}>
                   <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-flask" aria-hidden="true" /> Last Oil Sample</p>
                   {latest ? (
                     <>
@@ -887,9 +969,9 @@ export default function Equipment({
                   ) : (
                     <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No samples logged.</p>
                   )}
-                </div>
+                </ClickableCard>
 
-                <div style={s.card}>
+                <ClickableCard s={s} onClick={() => setLpTab("changes")}>
                   <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-droplet" aria-hidden="true" /> Last Oil Change</p>
                   {latestChange ? (
                     <>
@@ -902,9 +984,9 @@ export default function Equipment({
                   ) : (
                     <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No oil changes logged.</p>
                   )}
-                </div>
+                </ClickableCard>
 
-                <div style={s.card}>
+                <ClickableCard s={s} onClick={() => setLpTab("topups")}>
                   <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-droplet-plus" aria-hidden="true" /> Last Top Up</p>
                   {latestTopUp ? (
                     <>
@@ -916,32 +998,91 @@ export default function Equipment({
                   ) : (
                     <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No top-ups logged.</p>
                   )}
-                </div>
+                </ClickableCard>
               </div>
+
+              {reg?.oilAnalysisRequired === "Yes" && (
+                <div style={{ ...s.card, marginBottom: 20 }}>
+                  <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Oil Condition Trend</p>
+                  {conditionTrendData.length === 0 ? (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No classifiable lab results yet.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={160}>
+                      <LineChart data={conditionTrendData} margin={{ left: -10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={T.border2} vertical={false} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                        <YAxis
+                          domain={[0.5, 3.5]}
+                          ticks={[1, 2, 3]}
+                          tickFormatter={(v) => ({ 1: "Normal", 2: "Caution", 3: "Alert" }[v])}
+                          tick={{ fontSize: 10.5, fill: T.textSecondary }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={62}
+                        />
+                        <Tooltip content={<ChartTooltip T={T} />} />
+                        <Line
+                          type="stepAfter"
+                          dataKey="value"
+                          stroke={T.border}
+                          strokeWidth={2}
+                          isAnimationActive={false}
+                          dot={({ cx, cy, payload, key }) => (
+                            <circle key={key} cx={cx} cy={cy} r={5} fill={T[CONDITION_COLOR_KEY[payload.bucket]] || T.textMuted} stroke={T.cardBg} strokeWidth={1.5} />
+                          )}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              )}
 
               <div style={{ ...s.card, marginBottom: 20 }}>
                 <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Lubrication Timeline</p>
                 {lpTimeline.length === 0 ? (
                   <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No lubrication activity logged yet.</p>
                 ) : (
-                  <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }}>
-                    {lpTimeline.map((e, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          flex: "0 0 auto",
-                          minWidth: 110,
-                          border: `1px solid ${T[TIMELINE_COLOR[e.type]]}`,
-                          borderRadius: 8,
-                          padding: "8px 10px",
-                          textAlign: "center",
-                        }}
-                      >
-                        <div style={{ fontSize: 10, fontWeight: 700, color: T[TIMELINE_COLOR[e.type]] }}>{e.type}</div>
-                        <div style={{ fontSize: 11.5, fontWeight: 700, margin: "4px 0" }}>{formatDate(e.date)}</div>
-                        <div style={{ fontSize: 10.5, color: T.textSecondary }}>{e.label}</div>
-                      </div>
-                    ))}
+                  <div style={{ overflowX: "auto", paddingBottom: 6 }}>
+                    <div style={{ position: "relative", display: "flex", gap: 18, paddingTop: 4, width: "fit-content" }}>
+                      <div style={{ position: "absolute", left: 0, right: 0, top: 97, height: 2, background: T.border2, zIndex: 0 }} />
+                      {lpTimeline.map((e, i) => (
+                        <div
+                          key={i}
+                          style={{ flex: "0 0 auto", width: 118, display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1 }}
+                        >
+                          <div
+                            style={{
+                              border: `1px solid ${T[TIMELINE_COLOR[e.type]]}`,
+                              borderRadius: 8,
+                              padding: "8px 10px",
+                              textAlign: "center",
+                              background: T.cardBg,
+                              width: "100%",
+                              height: 70,
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "center",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <div style={{ fontSize: 10, fontWeight: 700, color: T[TIMELINE_COLOR[e.type]] }}>{e.type}</div>
+                            <div style={{ fontSize: 11.5, fontWeight: 700, margin: "4px 0" }}>{formatDate(e.date)}</div>
+                            <div style={{ fontSize: 10.5, color: T.textSecondary }}>{e.label}</div>
+                          </div>
+                          <div style={{ width: 2, height: 16, background: T.border2 }} />
+                          <div
+                            style={{
+                              width: 13,
+                              height: 13,
+                              borderRadius: "50%",
+                              background: T[TIMELINE_COLOR[e.type]],
+                              border: `2px solid ${T.cardBg}`,
+                              boxShadow: `0 0 0 1px ${T[TIMELINE_COLOR[e.type]]}66`,
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
