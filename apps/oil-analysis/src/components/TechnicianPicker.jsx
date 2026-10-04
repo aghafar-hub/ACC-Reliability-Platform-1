@@ -31,6 +31,16 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
   const session = useSession();
   const [users, setUsers] = useState(null); // null = still loading, [] = loaded (maybe empty) or unreachable
   const [loadFailed, setLoadFailed] = useState(false);
+  // Bug-hunt: the embedded Oil Lubrication module mounts once at login and
+  // stays mounted for the whole browser session (see
+  // frontend/src/pages/EmbeddedOilAnalysis.tsx) — this effect's deps
+  // (platformCoreUrl/token) never change after that, so a transient
+  // directory-load failure (Platform Core briefly unreachable, a dropped
+  // request) used to get stuck showing the free-text fallback for the
+  // REST of that session with no way to recover short of a full
+  // reload/re-login. retryNonce gives "Retry" below a way to re-run this
+  // effect on demand instead.
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     const platformCoreUrl = session?.platformCoreUrl;
@@ -40,6 +50,7 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
       return;
     }
     let cancelled = false;
+    setLoadFailed(false);
     api
       .listOrgUsers(platformCoreUrl, sessionToken)
       .then((rows) => {
@@ -54,7 +65,7 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
     return () => {
       cancelled = true;
     };
-  }, [session?.platformCoreUrl, session?.token]);
+  }, [session?.platformCoreUrl, session?.token, retryNonce]);
 
   const orgId = CONTRACTOR_TO_ORG_ID[contractor];
   const matches = (users || []).filter((u) => u.orgId === orgId && (!roleFilter || u.roles.includes(roleFilter)));
@@ -67,9 +78,23 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
         <input style={s.input} type="text" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
         {users !== null && matches.length === 0 && (
           <p style={{ fontSize: 11, color: T.textMuted, margin: "4px 0 0" }}>
-            {loadFailed
-              ? "Couldn't load the account directory — typing a name still works, just double-check the spelling."
-              : `No accounts set up yet for ${contractor || "this contractor"} — typing a name still works, but it won't be linked to a real account.`}
+            {loadFailed ? (
+              <>
+                Couldn't load the account directory — typing a name still works, just double-check the spelling.{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUsers(null);
+                    setRetryNonce((n) => n + 1);
+                  }}
+                  style={{ ...s.btn, padding: "1px 7px", fontSize: 11 }}
+                >
+                  Retry
+                </button>
+              </>
+            ) : (
+              `No accounts set up yet for ${contractor || "this contractor"} — typing a name still works, but it won't be linked to a real account.`
+            )}
           </p>
         )}
       </>
