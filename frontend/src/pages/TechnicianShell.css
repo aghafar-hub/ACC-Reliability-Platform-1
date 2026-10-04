@@ -1,12 +1,14 @@
-/* Deliberately its own fixed palette, not the multi-theme system Sidebar.css
-   reads (--shell-*) — a Technician's screen is meant to be minimal and
-   focused, not something they'd customize. */
+/* Reads the same --shell-* custom properties Sidebar.css/App.tsx's
+   ShellRoot set, now that TechnicianShell.tsx wires in ShellThemeProvider
+   too — the fallback values below are the original fixed dark palette,
+   so nothing changes visually until an account actually picks a theme
+   from AppearanceMenu. */
 .tech-shell {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  background: #0f1420;
-  color: #e7ecf5;
+  background: var(--shell-bg, #0f1420);
+  color: var(--shell-text, #e7ecf5);
   font-family: var(--sans);
 }
 
@@ -19,7 +21,7 @@
      above it, see App.tsx's TechnicianShell branch) — needs its own
      safe-area inset so it isn't drawn under a phone's notch/status bar. */
   padding-top: calc(1rem + env(safe-area-inset-top, 0px));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--shell-border, rgba(255, 255, 255, 0.08));
 }
 
 .tech-shell-brand {
@@ -47,7 +49,63 @@
 
 .tech-shell-email {
   font-size: 0.85rem;
-  color: #a9b3c6;
+  color: var(--shell-text-secondary, #a9b3c6);
+}
+
+.tech-shell-icon-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
+  background: transparent;
+  color: var(--shell-text, #e7ecf5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+
+.tech-shell-icon-btn:hover {
+  border-color: var(--shell-accent, #38bdf8);
+}
+
+.tech-shell-icon-btn:active {
+  transform: scale(0.93);
+}
+
+.tech-shell-appearance {
+  position: relative;
+}
+
+.tech-shell-appearance-panel {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 300px;
+  padding: 14px;
+  background: color-mix(in srgb, var(--shell-card-bg, #16213a) 92%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-3);
+  z-index: 200;
+  animation: shell-menu-in var(--motion-base) var(--motion-ease);
+}
+
+.tech-shell-appearance-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--shell-text, #e7ecf5);
+}
+
+@media (max-width: 480px) {
+  .tech-shell-appearance-panel {
+    width: calc(100vw - 32px);
+  }
 }
 
 .tech-shell-logout {
@@ -56,10 +114,10 @@
   gap: 0.4rem;
   min-height: 40px;
   padding: 0.45rem 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.15));
   border-radius: var(--radius-sm);
   background: transparent;
-  color: #e7ecf5;
+  color: var(--shell-text, #e7ecf5);
   font-size: 0.85rem;
   cursor: pointer;
   transition: background var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
