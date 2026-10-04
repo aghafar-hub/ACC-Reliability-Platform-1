@@ -121,15 +121,22 @@ function DueStatusBadge({ T, status }) {
 // Completion % only exists on standalone one-time routines (see
 // RouteTemplates.js's getRoutinesOverview — a recurring template's own
 // "equipment" are a spec, not a checklist with done/not-done items), so a
-// template row always gets null here and shows no tint/column value.
-// Same red->amber->green bucketing as a dueStatus badge, not a continuous
-// gradient — easier to scan a column of them at a glance.
+// template row always gets null here and shows no indicator. 0% is left
+// neutral (textMuted) rather than danger — a brand-new routine that
+// hasn't started yet isn't "bad," just not started; urgency is already
+// the Status column's own job (Overdue/Due Soon badge). First cut of this
+// painted the ENTIRE row background by this color, which on real data —
+// where most routines sit at 0% until worked — turned nearly the whole
+// table pink/red and visually swallowed the card's own white background
+// (confirmed directly by the user via screenshot). Now just a left-edge
+// stripe, same "colored indicator without painting the row" pattern as
+// DueStatusBadge already uses for the Status column.
 function completionColor(pct, T) {
   if (pct === null || pct === undefined) return null;
   if (pct >= 100) return T.success;
   if (pct >= 50) return T.accent;
   if (pct > 0) return T.warning;
-  return T.danger;
+  return T.textMuted;
 }
 
 function formatDateShort(iso) {
@@ -874,12 +881,8 @@ export default function Routines({
                     {visibleOverviewItems.map((item) => {
                       const compColor = completionColor(item.completionPct, T);
                       return (
-                        <tr
-                          key={item.id}
-                          style={{ cursor: "pointer", background: compColor ? compColor + "14" : undefined }}
-                          onClick={() => openOverviewItem(item)}
-                        >
-                          <td style={s.td}>
+                        <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
+                          <td style={{ ...s.td, borderLeft: `4px solid ${compColor || "transparent"}` }}>
                             {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
                             {item.routeName || item.id}
                           </td>
@@ -913,7 +916,7 @@ export default function Routines({
                   return (
                   <div
                     key={item.id}
-                    style={{ ...s.card, cursor: "pointer", background: compColor ? compColor + "14" : s.card.background }}
+                    style={{ ...s.card, cursor: "pointer", borderLeft: `4px solid ${compColor || "transparent"}` }}
                     onClick={() => openOverviewItem(item)}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>

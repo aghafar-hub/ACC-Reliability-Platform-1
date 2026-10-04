@@ -478,14 +478,18 @@ export const THEMES = {
     danger: "#DC2626",
     warning: "#D97706",
     success: "#16A34A",
-    info: "#2563EB",
+    // Was the exact same hex as accent above — see the matching comment
+    // on apps/oil-analysis/src/theme.js's own ACC Corporate entry (user
+    // confirmed via screenshot that two chart series were rendering in
+    // the identical color). Now its own distinct cyan, kept in sync.
+    info: "#0891B2",
     dangerBg: "#FDEAEA",
     warningBg: "#FDF3E3",
     successBg: "#E8F8EE",
     pillDanger: "#DC2626",
     pillWarning: "#D97706",
     pillSuccess: "#16A34A",
-    pillInfo: "#2563EB",
+    pillInfo: "#0891B2",
     purple: "#7C3AED",
     purpleBg: "#EDE9FE",
     pillPurple: "#7C3AED",

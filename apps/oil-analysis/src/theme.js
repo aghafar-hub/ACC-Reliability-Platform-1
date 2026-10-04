@@ -439,14 +439,20 @@ export const THEMES = {
     danger: "#DC2626",
     warning: "#D97706",
     success: "#16A34A",
-    info: "#2563EB",
+    // Was the exact same hex as accent above — confirmed directly by the
+    // user via screenshot: the Dashboard's Activities Trend chart draws
+    // "Oil Change" with T.accent and "Oil Sample" with T.info, so the two
+    // bars (and the "Total LP Points"/"Total Equipment"/"Oil Samples" KPI
+    // icons, which split across accent vs info too) were rendering
+    // identically. Now its own distinct cyan.
+    info: "#0891B2",
     dangerBg: "#FDEAEA",
     warningBg: "#FDF3E3",
     successBg: "#E8F8EE",
     pillDanger: "rgba(220,38,38,0.12)",
     pillWarning: "rgba(217,119,6,0.12)",
     pillSuccess: "rgba(22,163,74,0.12)",
-    pillInfo: "rgba(37,99,235,0.12)",
+    pillInfo: "rgba(8,145,178,0.12)",
   },
   // New theme (user request: "powerfull theme, all tabs, all chips/graphs
   // colourful") — same dark-indigo-card structure as the original 10
