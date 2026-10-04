@@ -328,38 +328,28 @@ export default function ActionTracker({
                 <option key={y}>{y}</option>
               ))}
             </select>
-            {areas.length > 1 &&
-              areas.map((a) => (
-                <button
-                  key={a}
-                  style={{
-                    ...s.btn,
-                    fontSize: 12,
-                    background: areaFilter === a ? T.accent : "transparent",
-                    color: areaFilter === a ? T.accentText : T.textSecondary,
-                    borderColor: areaFilter === a ? T.accent : T.border,
-                  }}
-                  onClick={() => setAreaFilter(a)}
-                >
-                  {a}
-                </button>
-              ))}
-            {contractors.length > 1 &&
-              contractors.map((c) => (
-                <button
-                  key={c}
-                  style={{
-                    ...s.btn,
-                    fontSize: 12,
-                    background: contractorFilter === c ? T.accent : "transparent",
-                    color: contractorFilter === c ? T.accentText : T.textSecondary,
-                    borderColor: contractorFilter === c ? T.accent : T.border,
-                  }}
-                  onClick={() => setContractorFilter(c)}
-                >
-                  {c}
-                </button>
-              ))}
+            {areas.length > 1 && (
+              <select style={{ ...s.select, minWidth: 110, fontSize: 12 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
+                {areas.map((a) => (
+                  <option key={a} value={a}>
+                    {a === "All" ? "All Areas" : a}
+                  </option>
+                ))}
+              </select>
+            )}
+            {contractors.length > 1 && (
+              <select
+                style={{ ...s.select, minWidth: 110, fontSize: 12 }}
+                value={contractorFilter}
+                onChange={(e) => setContractorFilter(e.target.value)}
+              >
+                {contractors.map((c) => (
+                  <option key={c} value={c}>
+                    {c === "All" ? "All Contractors" : c}
+                  </option>
+                ))}
+              </select>
+            )}
             {hasFilters && (
               <button
                 style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
