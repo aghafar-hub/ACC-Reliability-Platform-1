@@ -1247,6 +1247,7 @@ function AppShell({ config, setConfig, navBridge }) {
           {page === "oilchange" && (
             <OilChangeLog
               oilChanges={oilChanges}
+              oilChangeEvents={oilChangeEvents}
               actions={actions}
               equipmentRegistry={equipmentRegistry}
               onSave={onSaveOilChange}

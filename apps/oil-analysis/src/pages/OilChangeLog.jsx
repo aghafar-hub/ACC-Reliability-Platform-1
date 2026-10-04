@@ -1,16 +1,14 @@
 import { useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { formatDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import GenerateOilChangeActionsModal from "../components/GenerateOilChangeActionsModal";
-import DotTimeline from "../components/DotTimeline";
+import LpHistoryModal from "../components/LpHistoryModal";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 
-const WINDOW_BACK = 30;
-const WINDOW_FWD = 90;
-const WINDOW_TOTAL = WINDOW_BACK + WINDOW_FWD;
+const WEEKS_AHEAD = 8;
 
 function daysUntil(dateStr) {
   if (!dateStr) return null;
@@ -21,42 +19,167 @@ function daysUntil(dateStr) {
   d.setHours(0, 0, 0, 0);
   return Math.round((d - today) / 86400000);
 }
-function urgencyColor(T, days) {
-  if (days == null) return T.textMuted;
-  if (days < 0) return T.danger;
-  if (days <= 7) return T.warning;
-  if (days <= 30) return T.accent;
-  return T.success;
+
+// Same four buckets everywhere on this page — the column headers, the
+// Status by Contractor chart, and each chip's own urgency text all read
+// off this one function so they can never disagree with each other.
+function statusBucket(days) {
+  if (days == null) return "On track"; // no fixed interval ("If Needed") — never urgent, matches sampleTrackerStatus's own convention
+  if (days < 0) return "Overdue";
+  if (days <= 7) return "Due this week";
+  if (days <= 30) return "Due this month";
+  return "On track";
+}
+const BUCKET_COLOR_KEY = { Overdue: "danger", "Due this week": "warning", "Due this month": "accent", "On track": "success" };
+const BUCKETS = ["Overdue", "Due this week", "Due this month", "On track"];
+
+function dueText(days) {
+  if (days == null) return "no fixed interval";
+  if (days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 0) return "due today";
+  return `due in ${days}d`;
 }
 
-// Single-letter code for a due-date dot, mirroring the same four buckets
-// as the page's own summary cards (Overdue / Due this week / Due this
-// month / On track) so the dot's letter and the counts above it always
-// agree.
-function urgencyLetter(days) {
-  if (days == null) return "?";
-  if (days < 0) return "O";
-  if (days <= 7) return "W";
-  if (days <= 30) return "M";
-  return "T";
+function shortLabel(d) {
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-// Every lubrication point plotted by its own next due date instead of an
-// equipment-grouped accordion of status badges — the point of a due-date
-// forecast is seeing what's overdue and what's about to cluster before it
-// does, not browsing equipment one card at a time.
-export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, onSave, onAddAction }) {
+// "Change" events only — a Top Up is reactive, not a scheduled interval,
+// so it has no due date of its own to be late against. Sorted per LP,
+// each change after the first is "late" if it landed after the PREVIOUS
+// change's own nextDueDate (the due date that event was actually
+// supposed to meet) — the first change for an LP has no prior due date
+// to compare against, so it's left unclassified rather than guessed.
+function classifyChangeHistory(events) {
+  const byLp = {};
+  (events || []).forEach((ev) => {
+    if (ev.eventType !== "Change") return;
+    (byLp[ev.lpId] ||= []).push(ev);
+  });
+  const classified = [];
+  Object.values(byLp).forEach((list) => {
+    const sorted = [...list].sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate));
+    for (let i = 1; i < sorted.length; i++) {
+      const prevDue = new Date(sorted[i - 1].nextDueDate);
+      const thisDate = new Date(sorted[i].eventDate);
+      if (isNaN(prevDue) || isNaN(thisDate)) continue;
+      classified.push({ eventDate: sorted[i].eventDate, late: thisDate > prevDue });
+    }
+  });
+  return classified;
+}
+
+function monthlyOnTimeTrend(classified) {
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: d.toLocaleDateString("en-GB", { month: "short" }), "On time": 0, Late: 0 });
+  }
+  const byKey = {};
+  months.forEach((m) => (byKey[m.key] = m));
+  classified.forEach((c) => {
+    const d = new Date(c.eventDate);
+    if (isNaN(d)) return;
+    const bucket = byKey[`${d.getFullYear()}-${d.getMonth()}`];
+    if (!bucket) return;
+    bucket[c.late ? "Late" : "On time"]++;
+  });
+  return months;
+}
+
+function ChartTooltip({ T, active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+      {label && <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>}
+      {payload.map((p) => (
+        <div key={p.dataKey || p.name} style={{ color: T.textPrimary, fontWeight: 700 }}>
+          <span style={{ color: p.color || p.payload?.fill }}>●</span> {p.name}: {p.value}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ChipCard({ p, color, onClick }) {
+  const { T } = useTheme();
+  const o = p.oilChange;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        background: T.cardBg,
+        border: `1px solid ${T.border2}`,
+        borderLeft: `3px solid ${color}`,
+        borderRadius: 8,
+        padding: "10px 12px",
+        marginBottom: 8,
+        cursor: "pointer",
+        fontFamily: "inherit",
+      }}
+    >
+      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{o.equipmentCode}</div>
+      <div style={{ fontSize: 11, color: T.textSecondary, margin: "1px 0 5px" }}>
+        {o.lubricationPoint} · {o.oilType}
+      </div>
+      <div style={{ display: "flex", gap: 4, marginBottom: 5, flexWrap: "wrap" }}>
+        {p.area && (
+          <span
+            style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              padding: "1px 6px",
+              borderRadius: 999,
+              background: T.cardSubBg,
+              color: T.textMuted,
+              border: `1px solid ${T.border2}`,
+            }}
+          >
+            {p.area}
+          </span>
+        )}
+        {p.contractor && (
+          <span
+            style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              padding: "1px 6px",
+              borderRadius: 999,
+              background: T.cardSubBg,
+              color: T.textMuted,
+              border: `1px solid ${T.border2}`,
+            }}
+          >
+            {p.contractor}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color }}>{dueText(p.days)}</div>
+    </button>
+  );
+}
+
+// Every lubrication point grouped into one of four status columns instead
+// of a one-dot-per-row timeline — the old layout only ever plotted a
+// single forecasted dot per row, which doesn't scale past ~20-30 points
+// and gives up exactly the clustering view it was meant to show. That's
+// now the job of the "Upcoming Changes by Week" chart above; clicking any
+// chip opens its REAL event history instead (LpHistoryModal).
+export default function OilChangeLog({ oilChanges, oilChangeEvents, actions, equipmentRegistry, onSave, onAddAction }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
-  // Collapsed by default on mobile only — equipment search + area chips +
-  // contractor chips + group-by toggle stacked several rows above the
-  // timeline on a phone (the Patch 35 mobile audit's own finding).
   const [filtersOpen, setFiltersOpen] = useState(!isMobile);
   const [equipCode, setEquipCode] = useState("");
   const [areaFilter, setAreaFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
   const [groupBy, setGroupBy] = useState("equipment");
   const [editing, setEditing] = useState(null);
+  const [viewingHistory, setViewingHistory] = useState(null);
   const [generating, setGenerating] = useState(false);
 
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
@@ -77,24 +200,69 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
     [oilChanges, registryByCode]
   );
 
-  function matchesFilters(p) {
-    const q = equipCode;
-    if (q && p.oilChange.equipmentCode !== q) return false;
-    if (areaFilter !== "All" && p.area !== areaFilter) return false;
-    if (contractorFilter !== "All" && p.contractor !== contractorFilter) return false;
-    return true;
-  }
-
   const hasFilters = equipCode || areaFilter !== "All" || contractorFilter !== "All";
-  const visible = points.filter(matchesFilters).sort((a, b) => (a.days ?? 9e9) - (b.days ?? 9e9));
+  // Every chart on this page, and the four columns below, all read off
+  // this ONE filtered set — selecting a contractor (or area, or a single
+  // asset) narrows the graphs exactly the same way it narrows the board,
+  // never just one or the other.
+  const visible = useMemo(
+    () =>
+      points.filter((p) => {
+        if (equipCode && p.oilChange.equipmentCode !== equipCode) return false;
+        if (areaFilter !== "All" && p.area !== areaFilter) return false;
+        if (contractorFilter !== "All" && p.contractor !== contractorFilter) return false;
+        return true;
+      }),
+    [points, equipCode, areaFilter, contractorFilter]
+  );
 
-  const counts = {
-    Overdue: points.filter((p) => p.days != null && p.days < 0).length,
-    "Due this week": points.filter((p) => p.days != null && p.days >= 0 && p.days <= 7).length,
-    "Due this month": points.filter((p) => p.days != null && p.days > 7 && p.days <= 30).length,
-    "On track": points.filter((p) => p.days != null && p.days > 30).length,
-  };
-  const countColorKey = { Overdue: "danger", "Due this week": "warning", "Due this month": "accent", "On track": "success" };
+  const byBucket = useMemo(() => {
+    const map = { Overdue: [], "Due this week": [], "Due this month": [], "On track": [] };
+    visible.forEach((p) => map[statusBucket(p.days)].push(p));
+    BUCKETS.forEach((b) => map[b].sort((a, b2) => (a.days ?? 9e9) - (b2.days ?? 9e9)));
+    return map;
+  }, [visible]);
+
+  // ── Chart 1: Upcoming Changes by Week ───────────────────────────────
+  const weeklyData = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weeks = Array.from({ length: WEEKS_AHEAD }, (_, i) => {
+      const start = new Date(today);
+      start.setDate(start.getDate() + i * 7);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      return { label: `${shortLabel(start)}–${shortLabel(end)}`, Due: 0 };
+    });
+    visible.forEach((p) => {
+      if (p.days == null || p.days < 0) return;
+      const idx = Math.min(WEEKS_AHEAD - 1, Math.floor(p.days / 7));
+      weeks[idx].Due++;
+    });
+    return weeks;
+  }, [visible]);
+
+  // ── Chart 2: Status by Contractor ───────────────────────────────────
+  const contractorData = useMemo(() => {
+    const byContractor = {};
+    visible.forEach((p) => {
+      const c = p.contractor || "Unassigned";
+      (byContractor[c] ||= { contractor: c, Overdue: 0, "Due this week": 0, "Due this month": 0, "On track": 0 });
+      byContractor[c][statusBucket(p.days)]++;
+    });
+    return Object.values(byContractor);
+  }, [visible]);
+
+  // ── Chart 3: Changes done on time vs late, from real history ───────
+  const trendData = useMemo(() => {
+    const visibleCodes = new Set(visible.map((p) => p.oilChange.equipmentCode));
+    const relevant = (oilChangeEvents || []).filter((ev) => visibleCodes.has(ev.lpId));
+    return monthlyOnTimeTrend(classifyChangeHistory(relevant));
+  }, [visible, oilChangeEvents]);
+
+  function historyForLp(lpId) {
+    return (oilChangeEvents || []).filter((ev) => ev.lpId === lpId);
+  }
 
   // PERFORMANCE: onSave (App.jsx's onSaveOilChange) already applies this
   // event to local state immediately and only verifies/rolls back in the
@@ -106,128 +274,13 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
     setEditing(null);
   }
 
-  function rowLabel(p) {
-    const o = p.oilChange;
-    return (
-      <div style={{ width: 244, flexShrink: 0 }}>
-        <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12.5, color: T.accent }}>{o.equipmentCode}</div>
-        <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 1 }}>
-          {o.lubricationPoint} · {o.oilType}
-        </div>
-        <div style={{ display: "flex", gap: 5, marginTop: 4 }}>
-          {p.area && (
-            <span
-              style={{
-                fontSize: 9.5,
-                fontWeight: 700,
-                padding: "1px 6px",
-                borderRadius: 999,
-                background: T.cardSubBg,
-                color: T.textMuted,
-                border: `1px solid ${T.border2}`,
-              }}
-            >
-              {p.area}
-            </span>
-          )}
-          {p.contractor && (
-            <span
-              style={{
-                fontSize: 9.5,
-                fontWeight: 700,
-                padding: "1px 6px",
-                borderRadius: 999,
-                background: T.cardSubBg,
-                color: T.textMuted,
-                border: `1px solid ${T.border2}`,
-              }}
-            >
-              {p.contractor}
-            </span>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  function rowTrack(p) {
-    const days = p.days;
-    const clamped = days == null ? WINDOW_FWD : Math.max(-WINDOW_BACK, Math.min(WINDOW_FWD, days));
-    const pct = ((clamped + WINDOW_BACK) / WINDOW_TOTAL) * 100;
-    const todayPct = (WINDOW_BACK / WINDOW_TOTAL) * 100;
-    const label = days == null ? "no due date" : days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "due today" : `in ${days}d`;
-    return (
-      <DotTimeline
-        todayPct={todayPct}
-        ticks={[0, 25, 50, 75, 100]}
-        dots={[
-          {
-            key: p.oilChange._id,
-            pct,
-            letter: urgencyLetter(days),
-            color: urgencyColor(T, days),
-            tooltip: days == null ? "No due date scheduled" : `${formatDate(p.oilChange.nextDueDate)} — ${label}`,
-          },
-        ]}
-      />
-    );
-  }
-
-  function row(p) {
-    return (
-      <div
-        key={p.oilChange._id}
-        style={{ display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${T.border2}`, padding: "11px 16px" }}
-      >
-        {rowLabel(p)}
-        {rowTrack(p)}
-        <button style={{ ...s.btn, padding: "5px 9px", flexShrink: 0 }} onClick={() => setEditing(p.oilChange)}>
-          <i className="ti ti-edit" aria-hidden="true" />
-        </button>
-      </div>
-    );
-  }
-
-  let bodyContent;
-  if (visible.length === 0) {
-    bodyContent = (
-      <div style={{ padding: "30px 16px", textAlign: "center", color: T.textMuted, fontSize: 13 }}>
-        No oil change records match the filter.
-      </div>
-    );
-  } else if (groupBy === "equipment") {
-    bodyContent = visible.map(row);
-  } else {
-    const byContractor = {};
-    visible.forEach((p) => (byContractor[p.contractor || "Unassigned"] ||= []).push(p));
-    bodyContent = Object.entries(byContractor).map(([c, list]) => (
-      <div key={c}>
-        <div
-          style={{
-            padding: "10px 16px",
-            background: T.cardSubBg,
-            fontSize: 11.5,
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: 0.5,
-            color: T.textSecondary,
-            borderBottom: `1px solid ${T.border}`,
-          }}
-        >
-          {c} · {list.length} point{list.length !== 1 ? "s" : ""}
-        </div>
-        {list.map(row)}
-      </div>
-    ));
-  }
-
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
         <div>
           <p style={{ ...s.sectionTitle, margin: "0 0 4px" }}>Oil Change Forecast</p>
           <p style={{ fontSize: 13, color: T.textSecondary, margin: 0 }}>
-            Every lubrication point plotted by its next due date — see what's overdue and what's clustering before it happens.
+            Every lubrication point tracked by its next due date — see what's overdue and what's clustering before it happens.
           </p>
         </div>
         <button style={{ ...s.btn, color: T.danger, borderColor: T.danger }} onClick={() => setGenerating(true)}>
@@ -235,23 +288,59 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         </button>
       </div>
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-        {Object.entries(counts).map(([label, count]) => (
-          <div
-            key={label}
-            style={{ ...s.card, marginBottom: 0, padding: "9px 16px", borderLeft: `3px solid ${T[countColorKey[label]]}`, minWidth: 110 }}
-          >
-            <div style={{ fontSize: 20, fontWeight: 800, color: T[countColorKey[label]] }}>{count}</div>
-            <div style={{ fontSize: 10.5, color: T.textSecondary, marginTop: 1 }}>{label}</div>
-          </div>
-        ))}
+      {/* ====== GRAPHS ====== */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, marginBottom: 18 }}>
+        <div style={{ ...s.card, marginBottom: 0 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>
+            Upcoming Changes — Next {WEEKS_AHEAD} Weeks
+          </p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>LPs due per week — see clustering before it happens.</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={weeklyData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 9.5, fill: T.textMuted }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+              <Bar dataKey="Due" fill={T.accent} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div style={{ ...s.card, marginBottom: 0 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Status by Contractor</p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Where each contractor stands right now.</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={contractorData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis dataKey="contractor" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+              <Bar dataKey="Overdue" fill={T.danger} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Due this week" fill={T.warning} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Due this month" fill={T.accent} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="On track" fill={T.success} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div style={{ ...s.card, marginBottom: 0 }}>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Changes Done: On Time vs Late</p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Last 6 months, from real change history.</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
+              <Bar dataKey="On time" stackId="s" fill={T.success} />
+              <Bar dataKey="Late" stackId="s" fill={T.danger} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      {/* Same single-row structure as before — isMobile is false on
-          desktop so filtersOpen defaults true there and nothing changes.
-          Only a phone gets the toggle + collapsible filters; Group By
-          stays visible either way, same as it always has. */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+      {/* ====== FILTERS (Area/Contractor now real dropdowns) ====== */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         {isMobile && (
           <MobileFilterToggle
             open={filtersOpen}
@@ -261,49 +350,50 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         )}
         {filtersOpen && (
           <>
-            <EquipmentSearch
-              options={registry}
-              value={equipCode || "All"}
-              onChange={(v) => setEquipCode(v === "All" ? "" : v)}
-              allowAll
-              width={220}
-              placeholder="All Assets"
-            />
-            {areas.length > 1 &&
-              areas.map((a) => (
-                <button
-                  key={a}
-                  style={{
-                    ...s.btn,
-                    fontSize: 12,
-                    background: areaFilter === a ? T.accent : "transparent",
-                    color: areaFilter === a ? T.accentText : T.textSecondary,
-                    borderColor: areaFilter === a ? T.accent : T.border,
-                  }}
-                  onClick={() => setAreaFilter(a)}
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                Equipment
+              </span>
+              <EquipmentSearch
+                options={registry}
+                value={equipCode || "All"}
+                onChange={(v) => setEquipCode(v === "All" ? "" : v)}
+                allowAll
+                width={220}
+                placeholder="All Assets"
+              />
+            </div>
+            {areas.length > 1 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                  Area
+                </span>
+                <select style={{ ...s.select, fontSize: 12, minWidth: 140 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
+                  {areas.map((a) => (
+                    <option key={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {contractors.length > 1 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                  Contractor
+                </span>
+                <select
+                  style={{ ...s.select, fontSize: 12, minWidth: 140 }}
+                  value={contractorFilter}
+                  onChange={(e) => setContractorFilter(e.target.value)}
                 >
-                  {a}
-                </button>
-              ))}
-            {contractors.length > 1 &&
-              contractors.map((c) => (
-                <button
-                  key={c}
-                  style={{
-                    ...s.btn,
-                    fontSize: 12,
-                    background: contractorFilter === c ? T.accent : "transparent",
-                    color: contractorFilter === c ? T.accentText : T.textSecondary,
-                    borderColor: contractorFilter === c ? T.accent : T.border,
-                  }}
-                  onClick={() => setContractorFilter(c)}
-                >
-                  {c}
-                </button>
-              ))}
+                  {contractors.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {hasFilters && (
               <button
-                style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
+                style={{ ...s.btn, fontSize: 12 }}
                 onClick={() => {
                   setEquipCode("");
                   setAreaFilter("All");
@@ -350,86 +440,86 @@ export default function OilChangeLog({ oilChanges, actions, equipmentRegistry, o
         </div>
       </div>
 
-      {/* minWidth below (not on the outer card, which keeps overflowX:auto
-          so this scrolls horizontally on a narrow screen instead of being
-          squeezed) matters because DotTimeline's own track is
-          `flex:1, minWidth:0` — on a ~390px phone, with the 244px label
-          column also in the row, that left under 150px for all 9 date
-          ticks combined, so their text overlapped into illegible overlapping
-          strings (the Patch 35 mobile audit's own finding). Pinning real
-          width here gives both the header's date labels and every row's own
-          dot position room to render as designed; a narrow viewport swipes
-          to see the rest instead of losing the labels entirely. */}
-      <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 14 }}>
-        <div style={{ minWidth: 640 }}>
-          <div style={{ display: "flex", padding: "10px 16px 8px 260px", borderBottom: `1px solid ${T.border}`, background: T.cardSubBg }}>
-            {[-WINDOW_BACK, -15, 0, 15, 30, 45, 60, 75, 90].map((d) => {
-              const dt = new Date();
-              dt.setDate(dt.getDate() + d);
-              return (
-                <span
-                  key={d}
-                  style={{
-                    flex: 1,
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: T.textMuted,
-                    textAlign: d < 0 ? "left" : d === 0 ? "center" : "right",
-                  }}
-                >
-                  {d === 0 ? "Today" : formatDate(dt)}
-                </span>
-              );
-            })}
-          </div>
-          {bodyContent}
-        </div>
+      {/* ====== FOUR-COLUMN BOARD ====== */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14, marginBottom: 16 }}>
+        {BUCKETS.map((bucket) => {
+          const colorKey = BUCKET_COLOR_KEY[bucket];
+          const color = T[colorKey];
+          const bg = T[`${colorKey}Bg`] || T.infoBarBg;
+          const list = byBucket[bucket];
+          const groups =
+            groupBy === "contractor"
+              ? Object.entries(
+                  list.reduce((acc, p) => {
+                    (acc[p.contractor || "Unassigned"] ||= []).push(p);
+                    return acc;
+                  }, {})
+                )
+              : [[null, list]];
+          return (
+            <div key={bucket}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "9px 12px",
+                  background: bg,
+                  borderRadius: "8px 8px 0 0",
+                  border: `1px solid ${T.border}`,
+                  borderBottom: "none",
+                }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 800, color, textTransform: "uppercase" }}>{bucket}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color }}>{list.length}</span>
+              </div>
+              <div
+                style={{
+                  border: `1px solid ${T.border}`,
+                  borderTop: "none",
+                  borderRadius: "0 0 8px 8px",
+                  padding: 10,
+                  maxHeight: 460,
+                  overflowY: "auto",
+                  background: T.cardSubBg,
+                }}
+              >
+                {list.length === 0 && <div style={{ textAlign: "center", color: T.textMuted, fontSize: 12, padding: "16px 0" }}>None</div>}
+                {groups.map(([groupName, groupList]) => (
+                  <div key={groupName || "all"}>
+                    {groupName && (
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "4px 0 6px" }}>
+                        {groupName} · {groupList.length}
+                      </div>
+                    )}
+                    {groupList.map((p) => (
+                      <ChipCard key={p.oilChange._id} p={p} color={color} onClick={() => setViewingHistory(p.oilChange)} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          flexWrap: "wrap",
-          background: T.cardSubBg,
-          border: `1px solid ${T.border}`,
-          borderRadius: 8,
-          padding: "8px 14px",
-        }}
-      >
-        <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 700, marginRight: 2 }}>Legend:</span>
-        {[
-          ["O", T.danger, "Overdue"],
-          ["W", T.warning, "Due within 7 days"],
-          ["M", T.accent, "Due within 30 days"],
-          ["T", T.success, "On track"],
-        ].map(([letter, color, desc]) => (
-          <div key={letter} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: "50%",
-                background: color,
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 800,
-                fontSize: 9,
-                boxShadow: `0 0 0 1px ${color}55`,
-              }}
-            >
-              {letter}
-            </div>
-            <span style={{ fontSize: 11, color: T.textSecondary }}>{desc}</span>
-          </div>
-        ))}
-        <span style={{ fontSize: 11, color: T.textMuted, marginLeft: "auto" }}>Hover a dot for its exact due date.</span>
-      </div>
+      {visible.length === 0 && (
+        <div style={{ ...s.card, textAlign: "center", padding: 30, color: T.textMuted, fontSize: 13 }}>No oil change records match the filter.</div>
+      )}
 
       {editing && <EditOilChangeModal oilChange={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
+
+      {viewingHistory && (
+        <LpHistoryModal
+          oilChange={viewingHistory}
+          events={historyForLp(viewingHistory.equipmentCode)}
+          onClose={() => setViewingHistory(null)}
+          onLogChange={(oc) => {
+            setViewingHistory(null);
+            setEditing(oc);
+          }}
+        />
+      )}
 
       {generating && (
         <GenerateOilChangeActionsModal
