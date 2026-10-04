@@ -303,17 +303,39 @@ function RoutineDetail({
 // a small slice of what it does (mark items done, submit for review — not
 // create/approve, which stay Contractor/ACC Engineer actions elsewhere).
 //
-// KNOWN LIMITATION: a routine's AssignedTo is still a free-text field in
-// apps/oil-analysis' own Assign Technician form (not yet wired to real
-// accounts — that's a later increment). This page matches routines by
-// comparing AssignedTo to the logged-in user's email, case-insensitively —
-// so today, whoever assigns a routine must type the technician's exact
-// login email for it to show up here.
-export default function MyWork({ showHeading = true }: { showHeading?: boolean }) {
+// Matches routines by comparing AssignedTo to the logged-in user's email,
+// case-insensitively — Patch 1 wired apps/oil-analysis' own Assign
+// Technician form to a real account picker (TechnicianPicker.jsx), so
+// AssignedTo is normally that account's real login email already, not
+// free text. It can still fall back to a manually-typed value (the
+// picker's own "couldn't load the directory" case), which is the one way
+// a routine can silently fail to show up here today: any mismatch —
+// a typo, extra whitespace, a different address than the one this account
+// actually logs in with — and this filter just finds nothing, with no
+// error surfaced anywhere.
+export default function MyWork({
+  showHeading = true,
+  initialRoutineId,
+  onInitialRoutineConsumed,
+}: {
+  showHeading?: boolean;
+  initialRoutineId?: string | null;
+  onInitialRoutineConsumed?: () => void;
+}) {
   const { sessionToken, claims } = useAuth();
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Opened from NotificationBell's onOpenRoutine (TechnicianShell) — same
+  // "arrived here wanting one specific record" pattern
+  // apps/oil-analysis/src/pages/Routines.jsx's own initialRoutineId prop
+  // already uses for the exact same notification.
+  useEffect(() => {
+    if (!initialRoutineId) return;
+    setSelectedId(initialRoutineId);
+    onInitialRoutineConsumed?.();
+  }, [initialRoutineId, onInitialRoutineConsumed]);
 
   const load = useCallback(async () => {
     if (!sessionToken) return;

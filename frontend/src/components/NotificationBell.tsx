@@ -31,7 +31,15 @@ const POLL_INTERVAL_MS = 60000;
 // embeddedNav.tsx's navigate(pageId, recordId) and Routines.jsx's
 // initialRoutineId); a digest (aging actions / low stock) lands on the
 // relevant list page itself, since a digest has no single record to open.
-export default function NotificationBell() {
+// onOpenRoutine is for TechnicianShell: that shell never mounts the
+// embedded apps/oil-analysis bundle at all (no Sidebar, nothing to
+// navigate into — see TechnicianShell.tsx's own comment), so a
+// routine-assigned notification there can't deep-link through
+// embeddedNav.navigateTo like the normal shell's bell does below. When
+// this prop is given, clicking a "routines" notification calls it with
+// the routine id instead of the embeddedNav path, so TechnicianShell can
+// open that routine straight in its own My Work list.
+export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (routineId: string) => void } = {}) {
   const { sessionToken, claims } = useAuth();
   const navigate = useNavigate();
   const embeddedNav = useEmbeddedNav();
@@ -87,7 +95,9 @@ export default function NotificationBell() {
     setOpen(false);
     if (!n.read) markNotificationRead(sessionToken as string, n.notificationId).catch(() => {});
 
-    if (n.linkPage) {
+    if (n.linkPage === 'routines' && n.linkRecordId && onOpenRoutine) {
+      onOpenRoutine(n.linkRecordId);
+    } else if (n.linkPage) {
       navigate('/oil-analysis');
       embeddedNav.navigateTo('oil-analysis', n.linkPage, n.linkRecordId || undefined);
     }
