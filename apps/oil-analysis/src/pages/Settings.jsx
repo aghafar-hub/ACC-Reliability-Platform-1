@@ -6,6 +6,13 @@ import { saveActionRegistry } from "../actionRegistry";
 import { useSession } from "../SessionContext";
 import TechnicianPicker from "../components/TechnicianPicker";
 
+const SETTINGS_SUB_TABS = [
+  { id: "connection", label: "Connection", icon: "ti-plug" },
+  { id: "registries", label: "Registries", icon: "ti-list-check" },
+  { id: "notifications", label: "Notifications", icon: "ti-bell" },
+  { id: "system", label: "System", icon: "ti-adjustments" },
+];
+
 function Toggle({ T, s, label, desc, checked, onChange }) {
   return (
     <div style={{ marginBottom: 18, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
@@ -446,6 +453,7 @@ export default function Settings({
   const { T, s } = useTheme();
   const session = useSession();
   const isAdmin = (session?.claims?.roles || []).includes("ROLE-ADMIN");
+  const [subTab, setSubTab] = useState("connection");
   const [draft, setDraft] = useState(() => ({ ...config }));
   const [saved, setSaved] = useState(false);
   const [testMsg, setTestMsg] = useState("");
@@ -514,228 +522,287 @@ export default function Settings({
     <div style={{ maxWidth: 740 }}>
       <p style={s.sectionTitle}>Settings</p>
 
-      <div style={{ ...s.card, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
-            <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-              Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every device,
-              nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <IntervalRegistryEditor
-        T={T}
-        s={s}
-        webhookUrl={draft.webhookUrl}
-        equipmentRegistry={equipmentRegistry}
-        onRegistryChange={onRegistryChange}
-        isAdmin={isAdmin}
-      />
-
-      <div style={{ ...s.card, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <i className="ti ti-list-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-          <div>
-            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
-            <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-              The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the app
-              opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-          {(actionRegistry || []).length === 0 && <span style={{ fontSize: 12, color: T.textMuted }}>No actions yet.</span>}
-          {(actionRegistry || []).map((a) => (
-            <span
-              key={a}
-              style={{
-                background: T.navActive,
-                color: T.accent,
-                borderRadius: 4,
-                padding: "3px 8px",
-                fontSize: 12,
-                fontWeight: 600,
-              }}
-            >
-              {a}
-            </span>
-          ))}
-        </div>
-
-        {!isAdmin && (
-          <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
-            <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can add new actions.
-          </p>
-        )}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            style={{ ...s.input, fontSize: 13, width: 220 }}
-            value={newActionText}
-            placeholder="New action, e.g. Change Belt"
-            onChange={(e) => setNewActionText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addNewAction()}
-            disabled={!isAdmin}
-          />
+      <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 20, flexWrap: "wrap" }}>
+        {SETTINGS_SUB_TABS.map((t) => (
           <button
-            style={{ ...s.btn, fontSize: 12 }}
-            onClick={addNewAction}
-            disabled={!isAdmin || actionSyncing || !draft.webhookUrl || !newActionText.trim()}
-          >
-            <i className={`ti ${actionSyncing ? "ti-loader" : "ti-plus"}`} style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }} aria-hidden="true" /> Add
-          </button>
-          {actionMsg && <span style={{ fontSize: 12, color: actionMsg.startsWith("✓") ? T.success : T.danger }}>{actionMsg}</span>}
-        </div>
-      </div>
-
-      <div style={{ ...s.card, marginBottom: 20 }}>
-        <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>App Status</p>
-        {[
-          ["Version", "4.0"],
-          ["Sheet URL", draft.sheetUrl ? "Configured" : "Not configured"],
-          ["Webhook URL", draft.webhookUrl ? "Configured" : "Not configured"],
-          ["Cache", draft.enableCache ? "Enabled" : "Disabled"],
-          ["Auto-Sync", draft.enableAutoSync ? `Every ${draft.autoSyncMinutes || 5} min` : "Disabled"],
-          ["Debug Mode", draft.enableDebugMode ? "On" : "Off"],
-          ["Last sync", syncMsg || "Not synced yet"],
-        ].map(([k, v]) => (
-          <div
-            key={k}
+            key={t.id}
+            onClick={() => setSubTab(t.id)}
             style={{
+              padding: "10px 16px",
+              cursor: "pointer",
+              background: "transparent",
+              border: "none",
+              borderBottom: subTab === t.id ? `2px solid ${T.accent}` : "2px solid transparent",
+              color: subTab === t.id ? T.accent : T.textSecondary,
               display: "flex",
-              justifyContent: "space-between",
-              padding: "5px 0",
-              borderBottom: `1px solid ${T.border}`,
-              fontSize: 12,
+              alignItems: "center",
+              gap: 6,
+              fontSize: 13,
+              fontWeight: 600,
             }}
           >
-            <span style={{ color: T.textSecondary }}>{k}</span>
-            <span style={{ color: T.textHighlight, textAlign: "right" }}>{v}</span>
-          </div>
+            <i className={`ti ${t.icon}`} aria-hidden="true" />
+            {t.label}
+          </button>
         ))}
       </div>
 
-      <div style={{ ...s.card, marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <i className="ti ti-settings" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Connection &amp; Preferences</p>
-        </div>
+      {subTab === "connection" && (
+        <div style={{ ...s.card, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <i className="ti ti-plug" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Connection</p>
+          </div>
 
-        <Field
-          T={T}
-          s={s}
-          label="Google Sheet URL"
-          value={draft.sheetUrl}
-          placeholder="https://docs.google.com/spreadsheets/d/XXXXXXX/edit"
-          onChange={(v) => set("sheetUrl", v)}
-          desc="Paste your sheet URL here. Used for the 'Open Sheet' button."
-        />
+          <Field
+            T={T}
+            s={s}
+            label="Google Sheet URL"
+            value={draft.sheetUrl}
+            placeholder="https://docs.google.com/spreadsheets/d/XXXXXXX/edit"
+            onChange={(v) => set("sheetUrl", v)}
+            desc="Paste your sheet URL here. Used for the 'Open Sheet' button."
+          />
 
-        {/* Read-only, not an input: the real value is baked into the build
-            (see config.js's DEFAULT_WEBHOOK_URL — "Bake correct webhook URL
-            into the build"). Letting it be hand-edited per device used to
-            mean a mistyped URL could silently desync just that one device
-            from the real backend with no obvious cause; Test Connection is
-            the safe way to check it still answers. */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>
-            Apps Script Webhook URL
-          </label>
-          <p
-            style={{
-              margin: "4px 0 0",
-              fontSize: 12,
-              color: T.textSecondary,
-              fontFamily: "monospace",
-              wordBreak: "break-all",
-              background: T.cardSubBg,
-              border: `1px solid ${T.border}`,
-              borderRadius: 6,
-              padding: "6px 10px",
-            }}
-          >
-            {draft.webhookUrl || "Not configured"}
-          </p>
-          <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
-            Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
-          </p>
-        </div>
-
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
-          <button style={{ ...s.btn, fontSize: 12 }} onClick={testConnection} disabled={testing}>
-            <i className="ti ti-plug" aria-hidden="true" /> Test Connection
-          </button>
-          <button style={{ ...s.btn, fontSize: 12 }} onClick={onSync} disabled={syncState === "loading"}>
-            <i
-              className={`ti ${syncState === "loading" ? "ti-loader" : "ti-refresh"}`}
-              style={{ animation: syncState === "loading" ? "spin 1s linear infinite" : "none" }}
-              aria-hidden="true"
-            />{" "}
-            {syncState === "loading" ? "Syncing…" : "Sync Now"}
-          </button>
-          {draft.sheetUrl && (
-            <a
-              href={draft.sheetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ ...s.btn, textDecoration: "none", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
+          {/* Read-only, not an input: the real value is baked into the
+              build (see config.js's DEFAULT_WEBHOOK_URL — "Bake correct
+              webhook URL into the build"). Letting it be hand-edited per
+              device used to mean a mistyped URL could silently desync
+              just that one device from the real backend with no obvious
+              cause; Test Connection is the safe way to check it still
+              answers. */}
+          <div style={{ marginBottom: 18 }}>
+            <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>
+              Apps Script Webhook URL
+            </label>
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: 12,
+                color: T.textSecondary,
+                fontFamily: "monospace",
+                wordBreak: "break-all",
+                background: T.cardSubBg,
+                border: `1px solid ${T.border}`,
+                borderRadius: 6,
+                padding: "6px 10px",
+              }}
             >
-              <i className="ti ti-external-link" aria-hidden="true" /> Open Sheet
-            </a>
-          )}
-          {testMsg && <span style={{ fontSize: 12, color: testMsg.startsWith("✓") ? T.success : T.danger }}>{testMsg}</span>}
+              {draft.webhookUrl || "Not configured"}
+            </p>
+            <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+              Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
+            <button style={{ ...s.btn, fontSize: 12 }} onClick={testConnection} disabled={testing}>
+              <i className="ti ti-plug" aria-hidden="true" /> Test Connection
+            </button>
+            <button style={{ ...s.btn, fontSize: 12 }} onClick={onSync} disabled={syncState === "loading"}>
+              <i
+                className={`ti ${syncState === "loading" ? "ti-loader" : "ti-refresh"}`}
+                style={{ animation: syncState === "loading" ? "spin 1s linear infinite" : "none" }}
+                aria-hidden="true"
+              />{" "}
+              {syncState === "loading" ? "Syncing…" : "Sync Now"}
+            </button>
+            {draft.sheetUrl && (
+              <a
+                href={draft.sheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...s.btn, textDecoration: "none", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
+              >
+                <i className="ti ti-external-link" aria-hidden="true" /> Open Sheet
+              </a>
+            )}
+            {testMsg && <span style={{ fontSize: 12, color: testMsg.startsWith("✓") ? T.success : T.danger }}>{testMsg}</span>}
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+            <button style={s.btnPrimary} onClick={save}>
+              <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
+            </button>
+            {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
+          </div>
         </div>
+      )}
 
-        <Toggle
-          T={T}
-          s={s}
-          label="Enable Auto-Sync"
-          desc="Automatically re-sync from Google Sheets in the background at the interval below."
-          checked={draft.enableAutoSync}
-          onChange={(v) => set("enableAutoSync", v)}
-        />
-        <Field
-          T={T}
-          s={s}
-          label="Auto-Sync Interval (minutes)"
-          type="number"
-          value={draft.autoSyncMinutes}
-          onChange={(v) => set("autoSyncMinutes", Number(v) || 5)}
-          desc="How often to automatically re-sync when Auto-Sync is enabled."
-        />
-        <Toggle T={T} s={s} label="Enable Cache" checked={draft.enableCache} onChange={(v) => set("enableCache", v)} />
-        <Field
-          T={T}
-          s={s}
-          label="Cache Duration (minutes)"
-          type="number"
-          value={draft.cacheDurationMinutes}
-          onChange={(v) => set("cacheDurationMinutes", Number(v) || 10)}
-          desc="How long cached data is considered fresh before a background refresh."
-        />
-        <Toggle T={T} s={s} label="Enable Debug Mode" checked={draft.enableDebugMode} onChange={(v) => set("enableDebugMode", v)} />
+      {subTab === "registries" && (
+        <>
+          <div style={{ ...s.card, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
+                <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+                  Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every
+                  device, nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
+                </p>
+              </div>
+            </div>
+          </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-          <button style={{ ...s.btn, fontSize: 12 }} onClick={clearCache}>
-            <i className="ti ti-trash-x" aria-hidden="true" /> Clear Cache
-          </button>
-          {cacheMsg && <span style={{ fontSize: 12, color: T.success, alignSelf: "center" }}>{cacheMsg}</span>}
-        </div>
+          <IntervalRegistryEditor
+            T={T}
+            s={s}
+            webhookUrl={draft.webhookUrl}
+            equipmentRegistry={equipmentRegistry}
+            onRegistryChange={onRegistryChange}
+            isAdmin={isAdmin}
+          />
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-          <button style={s.btnPrimary} onClick={save}>
-            <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
-          </button>
-          {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
-        </div>
-      </div>
+          <div style={{ ...s.card, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <i className="ti ti-list-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
+                <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+                  The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the
+                  app opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
+                </p>
+              </div>
+            </div>
 
-      <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
-      <ModuleResponsibilitiesCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+              {(actionRegistry || []).length === 0 && <span style={{ fontSize: 12, color: T.textMuted }}>No actions yet.</span>}
+              {(actionRegistry || []).map((a) => (
+                <span
+                  key={a}
+                  style={{
+                    background: T.navActive,
+                    color: T.accent,
+                    borderRadius: 4,
+                    padding: "3px 8px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  {a}
+                </span>
+              ))}
+            </div>
+
+            {!isAdmin && (
+              <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
+                <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can add new actions.
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input
+                style={{ ...s.input, fontSize: 13, width: 220 }}
+                value={newActionText}
+                placeholder="New action, e.g. Change Belt"
+                onChange={(e) => setNewActionText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addNewAction()}
+                disabled={!isAdmin}
+              />
+              <button
+                style={{ ...s.btn, fontSize: 12 }}
+                onClick={addNewAction}
+                disabled={!isAdmin || actionSyncing || !draft.webhookUrl || !newActionText.trim()}
+              >
+                <i
+                  className={`ti ${actionSyncing ? "ti-loader" : "ti-plus"}`}
+                  style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }}
+                  aria-hidden="true"
+                />{" "}
+                Add
+              </button>
+              {actionMsg && <span style={{ fontSize: 12, color: actionMsg.startsWith("✓") ? T.success : T.danger }}>{actionMsg}</span>}
+            </div>
+          </div>
+        </>
+      )}
+
+      {subTab === "notifications" && (
+        <>
+          <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
+          <ModuleResponsibilitiesCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
+        </>
+      )}
+
+      {subTab === "system" && (
+        <>
+          <div style={{ ...s.card, marginBottom: 20 }}>
+            <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>App Status</p>
+            {[
+              ["Version", "4.0"],
+              ["Sheet URL", draft.sheetUrl ? "Configured" : "Not configured"],
+              ["Webhook URL", draft.webhookUrl ? "Configured" : "Not configured"],
+              ["Cache", draft.enableCache ? "Enabled" : "Disabled"],
+              ["Auto-Sync", draft.enableAutoSync ? `Every ${draft.autoSyncMinutes || 5} min` : "Disabled"],
+              ["Debug Mode", draft.enableDebugMode ? "On" : "Off"],
+              ["Last sync", syncMsg || "Not synced yet"],
+            ].map(([k, v]) => (
+              <div
+                key={k}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  padding: "5px 0",
+                  borderBottom: `1px solid ${T.border}`,
+                  fontSize: 12,
+                }}
+              >
+                <span style={{ color: T.textSecondary }}>{k}</span>
+                <span style={{ color: T.textHighlight, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...s.card, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <i className="ti ti-settings" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+              <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Sync &amp; Cache Preferences</p>
+            </div>
+
+            <Toggle
+              T={T}
+              s={s}
+              label="Enable Auto-Sync"
+              desc="Automatically re-sync from Google Sheets in the background at the interval below."
+              checked={draft.enableAutoSync}
+              onChange={(v) => set("enableAutoSync", v)}
+            />
+            <Field
+              T={T}
+              s={s}
+              label="Auto-Sync Interval (minutes)"
+              type="number"
+              value={draft.autoSyncMinutes}
+              onChange={(v) => set("autoSyncMinutes", Number(v) || 5)}
+              desc="How often to automatically re-sync when Auto-Sync is enabled."
+            />
+            <Toggle T={T} s={s} label="Enable Cache" checked={draft.enableCache} onChange={(v) => set("enableCache", v)} />
+            <Field
+              T={T}
+              s={s}
+              label="Cache Duration (minutes)"
+              type="number"
+              value={draft.cacheDurationMinutes}
+              onChange={(v) => set("cacheDurationMinutes", Number(v) || 10)}
+              desc="How long cached data is considered fresh before a background refresh."
+            />
+            <Toggle T={T} s={s} label="Enable Debug Mode" checked={draft.enableDebugMode} onChange={(v) => set("enableDebugMode", v)} />
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <button style={{ ...s.btn, fontSize: 12 }} onClick={clearCache}>
+                <i className="ti ti-trash-x" aria-hidden="true" /> Clear Cache
+              </button>
+              {cacheMsg && <span style={{ fontSize: 12, color: T.success, alignSelf: "center" }}>{cacheMsg}</span>}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+              <button style={s.btnPrimary} onClick={save}>
+                <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
+              </button>
+              {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
