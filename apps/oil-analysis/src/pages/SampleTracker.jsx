@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { sampleTrackerStatus } from "../parsers";
+import { sampleTrackerStatus, computeOilChangeNextDue } from "../parsers";
 import { trackerStatusChip as statusChip } from "../theme";
 import EquipmentSearch from "../components/EquipmentSearch";
 import DotTimeline from "../components/DotTimeline";
@@ -18,6 +18,8 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
   const [classFilter, setClassFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [expanded, setExpanded] = useState(null);
+  const [dueWindowMonths, setDueWindowMonths] = useState(1);
+  const [showDueModal, setShowDueModal] = useState(false);
 
   const registry = equipmentRegistry || [];
 
@@ -50,6 +52,38 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     OVERDUE: rows.filter((r) => r.status.label === "OVERDUE").length,
     MISSING: rows.filter((r) => r.status.label === "MISSING").length,
   };
+
+  // "Due in the next N months" — only ever drawn from equipment that's
+  // currently OK (overdue/missing ones are already surfaced by their own
+  // tile above, not re-counted here). Reuses computeOilChangeNextDue for
+  // the due-date math — same day-of-month-overflow-clamped addMonths as
+  // the Oil Change Log, just applied to the sampling interval instead of
+  // the change interval; intervalMonths() itself handles both fields
+  // identically, so this is the exact same calculation, not a new one.
+  const dueSoon = useMemo(() => {
+    return rows
+      .map(({ eq, history, status }) => {
+        if (status.label !== "OK") return null;
+        const lastDate = history[0]?.date || "";
+        if (!lastDate) return null;
+        const dueDate = computeOilChangeNextDue(lastDate, eq.interval);
+        if (!dueDate) return null;
+        return { eq, dueDate };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [rows]);
+
+  const dueWindowCutoff = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + dueWindowMonths);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, [dueWindowMonths]);
+
+  const dueInWindow = dueSoon.filter((d) => d.dueDate <= dueWindowCutoff);
 
   const areas = ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean)))];
   const classes = ["All", ...Array.from(new Set(registry.map((r) => r.assetClass).filter(Boolean)))];
@@ -95,6 +129,30 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
         <div style={{ ...s.card, textAlign: "center", padding: "10px 8px", marginBottom: 0 }}>
           <div style={{ fontSize: 28, fontWeight: 800, color: T.textSecondary }}>{registry.length}</div>
           <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>Total</div>
+        </div>
+        <div
+          style={{
+            ...s.card,
+            textAlign: "center",
+            padding: "10px 8px",
+            marginBottom: 0,
+            cursor: "pointer",
+            border: `2px solid transparent`,
+          }}
+          onClick={() => setShowDueModal(true)}
+        >
+          <div style={{ fontSize: 28, fontWeight: 800, color: T.accent }}>{dueInWindow.length}</div>
+          <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>Due Soon</div>
+          <select
+            style={{ ...s.select, fontSize: 10, padding: "2px 4px", marginTop: 4, width: "100%" }}
+            value={dueWindowMonths}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setDueWindowMonths(Number(e.target.value))}
+          >
+            <option value={1}>Next 1 month</option>
+            <option value={2}>Next 2 months</option>
+            <option value={3}>Next 3 months</option>
+          </select>
         </div>
       </div>
 
@@ -328,6 +386,96 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           </div>
         )}
       </div>
+
+      {showDueModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          onClick={() => setShowDueModal(false)}
+        >
+          <div
+            style={{
+              background: T.cardBg,
+              border: `1px solid ${T.border}`,
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 520,
+              maxHeight: "80vh",
+              overflowY: "auto",
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>
+                  Due in the next {dueWindowMonths} month{dueWindowMonths > 1 ? "s" : ""}
+                </p>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>
+                  {dueInWindow.length} LP(s) — sorted soonest first.
+                </p>
+              </div>
+              <button
+                style={{ ...s.btn, padding: "6px 10px" }}
+                onClick={() => setShowDueModal(false)}
+                aria-label="Close"
+              >
+                <i className="ti ti-x" aria-hidden="true" />
+              </button>
+            </div>
+
+            {dueInWindow.length === 0 ? (
+              <p style={{ fontSize: 13, color: T.textMuted, textAlign: "center", padding: "20px 0" }}>
+                Nothing due in this window.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {dueInWindow.map(({ eq, dueDate }) => (
+                  <div
+                    key={eq.code}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: T.cardSubBg,
+                      border: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: T.textSecondary,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {eq.description}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: "nowrap" }}>
+                      {new Date(dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

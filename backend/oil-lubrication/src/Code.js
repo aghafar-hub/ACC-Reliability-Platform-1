@@ -245,6 +245,9 @@ function doGet(e) {
       case "getNotificationSettings":
         result = getNotificationSettings_();
         break;
+      case "getModuleResponsibilities":
+        result = { responsibilities: getModuleResponsibilities_() };
+        break;
       case "getInAppNotifications":
         result = getInAppNotifications_(auth.session ? auth.session.email : "", e.parameter.limit);
         break;
@@ -585,6 +588,17 @@ function doPost(e) {
         var notifyResult = updateNotificationSettings_(data);
         logError("doPost:updateNotificationSettings", notifyResult.error || "ok", {actingUser: actingUser});
         return jsonOut(notifyResult.error ? {status: "error", message: notifyResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "setModuleResponsibility") {
+        // Same reasoning as updateNotificationSettings above — this is
+        // platform-wide admin config (who's assigned per contractor, not
+        // any one contractor's own data), so ROLE-ADMIN only.
+        requireAdmin_(auth.session);
+        var respResult = setModuleResponsibility_(data);
+        logError("doPost:setModuleResponsibility", respResult.error || "ok", {module: data.module, contractor: data.contractor, role: data.role, actingUser: actingUser});
+        if (!respResult.error) recordAudit_(ss, MODULE_RESP_SHEET, data.module + "/" + data.contractor + "/" + data.role, "update", actingUser, data.contractor, "Assigned " + data.role + " for " + data.contractor);
+        return jsonOut(respResult.error ? {status: "error", message: respResult.error} : {status: "ok"});
       }
 
       if (data.action === "markNotificationRead") {

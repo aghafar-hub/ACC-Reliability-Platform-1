@@ -2,6 +2,25 @@
 // Code.js (see docs/oil-lubrication-migration-notes.md).
 
 
+// Finds the column for `monthHeader` ("Jun-26"), scanning from col B
+// onward (col A is the equipment code, and this naturally skips "Last
+// sample"/"interval Days"/"INTERVAL" since none of those normalize to a
+// month) — or creates a new column at the end if none exists yet. Shared
+// by updateSampleTrackerMonthly below and checkSampleOverdueAndNotify
+// (SampleOverdue.js) so both ever write to exactly the same column for a
+// given month, never two different ones.
+function findOrCreateMonthColumn_(sheet, monthHeader) {
+  var lastCol = sheet.getLastColumn();
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  for (var c = 1; c < headers.length; c++) {
+    if (normalizeMonthHeader(headers[c]) === monthHeader) return c + 1;
+  }
+  var newCol = lastCol + 1;
+  sheet.getRange(1, newCol).setValue(monthHeader);
+  return newCol;
+}
+
+
 function updateSampleTrackerMonthly(ss, data) {
   var sheet = ss.getSheetByName("Oil Sample Tracker");
   if (!sheet) return false;
@@ -19,22 +38,10 @@ function updateSampleTrackerMonthly(ss, data) {
   var displayDate = d.toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" });
   var cellValue   = status + "|" + displayDate;
 
-  var lastCol = sheet.getLastColumn();
   var lastRow = sheet.getLastRow();
   if (lastRow < 1) return false;
 
-  // Find or create month column (scanning from col B onward — this
-  // naturally skips "Last sample" / "interval Days" / "INTERVAL" since
-  // none of those normalize to a month).
-  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
-  var monthCol = -1;
-  for (var c = 1; c < headers.length; c++) {
-    if (normalizeMonthHeader(headers[c]) === monthHeader) { monthCol = c + 1; break; }
-  }
-  if (monthCol === -1) {
-    monthCol = lastCol + 1;
-    sheet.getRange(1, monthCol).setValue(monthHeader);
-  }
+  var monthCol = findOrCreateMonthColumn_(sheet, monthHeader);
 
   // Find equipment row
   var colAVals = lastRow > 0 ? sheet.getRange(1, 1, lastRow, 1).getValues() : [];

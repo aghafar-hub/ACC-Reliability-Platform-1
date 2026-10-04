@@ -1031,6 +1031,29 @@ export async function updateNotificationSettings(webhookUrl, settings) {
   return verify;
 }
 
+// Who's assigned as Contractor Engineer (per contractor) for the monthly
+// sample-overdue digest (SampleOverdue.js) to notify — see
+// ModuleResponsibilities.js's own comment for why this is stored in Oil
+// Lubrication's own sheet rather than Platform Core's. Readable by
+// anyone; writable only by App Admins (setModuleResponsibility is
+// requireAdmin_-gated server-side, same as updateNotificationSettings).
+export async function getModuleResponsibilities(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getModuleResponsibilities" });
+  return Array.isArray(json.responsibilities) ? json.responsibilities : [];
+}
+
+export async function setModuleResponsibility(webhookUrl, data) {
+  await postBlind(webhookUrl, {
+    action: "setModuleResponsibility",
+    module: data.module || "Oil Lubrication",
+    contractor: data.contractor || "",
+    role: data.role || "",
+    email: data.email || "",
+    displayName: data.displayName || "",
+  });
+  return getModuleResponsibilities(webhookUrl);
+}
+
 // ── Platform Core (real account lookups) ────────────────────────────────
 // A different backend from everything above (its own Apps Script Web App,
 // its own URL — see SessionContext.jsx's usePlatformCoreUrl) and its own

@@ -2587,6 +2587,97 @@ narrowed to Technicians only — unchanged from before, since "dropdown
 from contractor users" was already satisfied and narrowing it further
 wasn't asked for.
 
+## 4au. Monthly sample-overdue digest + Module Responsibilities (Patch 40)
+
+A new daily check that catches oil-analysis samples the moment they go
+overdue, instead of relying on someone noticing a blank cell on the Oil
+Sample Tracker page. Three things ship together:
+
+1. **Overdue detection**: for every LP with `Oil_Analysis_Required = Yes`,
+   the same OK/OVERDUE/MISSING grace windows the Sample Tracker page
+   already shows (`sampleTrackerStatus` in `apps/oil-analysis/src/parsers.js`)
+   are recomputed server-side. Any LP that's gone MISSING gets a
+   `Missing|<date>` cell written into the Oil Sample Tracker sheet's
+   **current month column only** — confirmed with the user as a deliberate
+   choice: no backfill. However long an LP has already been overdue, each
+   run only ever touches the current month, so the "Missing" trail builds
+   forward from whenever this patch first runs, and never rewrites history
+   for gaps that predate it. A cell that already has something in it
+   (a real sample entered today, or an earlier run's own stamp) is never
+   overwritten.
+2. **"Module Responsibilities"**: a new admin-only settings card
+   (Platform Core's unified Settings page, via Oil Lubrication's own
+   `Settings.jsx`) where an App Admin assigns a real registered account —
+   picked from Platform Core's own directory via the existing
+   `TechnicianPicker`/`listOrgUsers` plumbing, not a free-typed email — as
+   the Contractor Engineer responsible for each contractor (RHI, ASEC).
+   The digest looks this up to know who to notify. The assignment itself
+   is stored in Oil Lubrication's own spreadsheet
+   (`OL_MODULE_RESPONSIBILITIES`), not Platform Core's, for the same
+   reason `OL_NOTIFY_REVIEWERS` already is (see `Notifications.js`'s
+   `getNotifyReviewers_` comment): this backend has no session or
+   credential of its own to call Platform Core with, and a live
+   cross-project fetch on every digest run would add a new network call
+   and failure mode. Only the UI reads Platform Core's real account list
+   live — the stored assignment record stays local, same as every other
+   notification list this backend already keeps.
+3. **Monthly digest**: once per contractor per calendar month (tracked in
+   a new `OL_SAMPLE_DIGEST_LOG` sheet, so the underlying check can safely
+   run daily without re-notifying every day), the assigned Contractor
+   Engineer gets an in-app notification plus email listing what's
+   currently overdue/missing and what's coming due in the next 30 days.
+   If nobody's been assigned yet in Module Responsibilities, the digest
+   silently skips that contractor rather than erroring.
+
+**Code**: two new files —
+`ModuleResponsibilities.js` (`getModuleResponsibilities_`,
+`getModuleResponsibleEmail_`, `setModuleResponsibility_`) and
+`SampleOverdue.js` (`checkSampleOverdueAndNotify`, the function the new
+trigger below calls). `SampleTracker.js`'s month-column lookup was
+factored out into a shared `findOrCreateMonthColumn_` so the digest and
+the existing per-sample update path can never land the same month in two
+different columns. `Code.js` gained a `getModuleResponsibilities` case in
+`doGet` and a `setModuleResponsibility` action in `doPost` (admin-gated via
+`requireAdmin_`, audited via `recordAudit_`, same pattern as
+`updateNotificationSettings`).
+
+As with every other Code.js change in this project: copy the full,
+updated content of `ModuleResponsibilities.js`, `SampleOverdue.js`,
+`SampleTracker.js`, and `Code.js` from this repo into the matching files
+in the live Apps Script project, then deploy.
+
+**New sheets**: `OL_MODULE_RESPONSIBILITIES` and `OL_SAMPLE_DIGEST_LOG`
+are both self-creating (same pattern as `OL_ACTION_PHRASES`/
+`OL_IN_APP_NOTIFICATIONS`) — nothing to set up by hand in the spreadsheet.
+
+**New trigger you set up once**: exactly like sections 4g/4h —
+- Function: `checkSampleOverdueAndNotify`
+- Event source: Time-driven
+- Type: Day timer (pick any time of day)
+
+`checkSampleOverdueAndNotify` is deliberately named with **no trailing
+underscore**, for the same reason `sendAgingActionsDigest`/
+`sendLowStockDigest` were renamed earlier in this document: Apps Script's
+Triggers UI hides underscore-suffixed function names from its function
+picker entirely, so a name ending in `_` could never actually be selected
+here.
+
+**Verify**: run `checkSampleOverdueAndNotify` manually once from the
+script editor and check the Debug Log for `{status: "ok", ...}`. Confirm
+on the Oil Sample Tracker sheet that any LP you know is overdue got a new
+`Missing|<date>` cell in the current month column (and that a cell with
+an existing value was left alone). Assign a Contractor Engineer in
+Settings → Module Responsibilities for a contractor with at least one
+overdue or soon-due LP, run the function again, and confirm that account
+receives both an in-app notification (bell icon, deep-links to Sample
+Tracker) and an email; re-running it a second time the same month should
+not send a second email (check `OL_SAMPLE_DIGEST_LOG`).
+
+**Still open**: the Sample Tracker page's own "due in the next N months"
+summary card (quantities due within a 1/2/3-month lookahead, click to see
+the matching LP list) is a frontend-only addition on top of this same
+interval math and hasn't been built yet.
+
 ## 5. What's still open after this
 
 - **Vibration Analysis backend**: not started — needs its own
