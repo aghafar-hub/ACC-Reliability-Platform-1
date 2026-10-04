@@ -119,7 +119,6 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
   const [areaFilter, setAreaFilter] = useState("All");
   const [periodDays, setPeriodDays] = useState(90);
   const [activityType, setActivityType] = useState("All"); // Activities Trend toggle
-  const [contractorDonutType, setContractorDonutType] = useState("Oil Change"); // Activities by Contractor toggle
 
   const [topUps, setTopUps] = useState([]);
   const [routineItems, setRoutineItems] = useState([]);
@@ -225,7 +224,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
     [scopedRegistry, trackerByEquip]
   );
 
-  // Fleet Oil Health — % of real lab results (within the selected period,
+  // Oil Health — % of real lab results (within the selected period,
   // same scoping as every other KPI) that came back Normal, using the
   // exact same Normal/Caution/Alert classification Oil Sampling Log's own
   // Condition Trend chart uses (conditionBucket, imported from there
@@ -293,15 +292,23 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
     return out;
   }, [routineItems]);
 
-  // Activities by Contractor donuts — RHI vs ASEC split for the selected
-  // activity type, within the active period.
-  const contractorDonutData = useMemo(() => {
-    const stats = contractorDonutType === "Oil Change" ? ocStats : contractorDonutType === "Oil Sample" ? sampleStats : topUpStats;
-    return [
-      { name: "RHI", value: stats.byContractor.RHI, color: T.accent },
-      { name: "ASEC", value: stats.byContractor.ASEC, color: T.warning },
-    ].filter((d) => d.value > 0);
-  }, [contractorDonutType, ocStats, sampleStats, topUpStats, T.accent, T.warning]);
+  // Activities by Contractor donuts — RHI vs ASEC split, one donut per
+  // activity type, shown side by side so all three are visible at once.
+  const contractorDonuts = useMemo(
+    () =>
+      [
+        { label: "Oil Change", stats: ocStats },
+        { label: "Oil Sample", stats: sampleStats },
+        { label: "Top Up", stats: topUpStats },
+      ].map(({ label, stats }) => ({
+        label,
+        data: [
+          { name: "RHI", value: stats.byContractor.RHI, color: T.accent },
+          { name: "ASEC", value: stats.byContractor.ASEC, color: T.warning },
+        ].filter((d) => d.value > 0),
+      })),
+    [ocStats, sampleStats, topUpStats, T.accent, T.warning]
+  );
 
   // Condensed Oil Inventory widget — Inventory Status donut by stock-level
   // tier, confirmed directly by the user as the simplified replacement for
@@ -389,7 +396,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
         />
         <KpiCard
           T={T} s={s} icon="ti-heart-rate-monitor" color="success"
-          label={`Fleet Oil Health (${periodDays}d)`}
+          label={`Oil Health (${periodDays}d)`}
           value={fleetHealth.normalPct == null ? "—" : `${fleetHealth.normalPct}%`}
           sub={
             fleetHealth.total === 0
@@ -467,26 +474,36 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <div style={s.card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <p style={{ fontWeight: 700, margin: 0 }}>Activities by Contractor</p>
-            <select style={{ ...s.select, width: 140, fontSize: 11 }} value={contractorDonutType} onChange={(e) => setContractorDonutType(e.target.value)}>
-              <option>Oil Change</option>
-              <option>Oil Sample</option>
-              <option>Top Up</option>
-            </select>
+          <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Activities by Contractor</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            {contractorDonuts.map(({ label, data }) => (
+              <div key={label} style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: T.textSecondary, margin: "0 0 2px" }}>{label}</p>
+                {data.length === 0 ? (
+                  <p style={{ color: T.textMuted, fontSize: 10.5, margin: "30px 0" }}>No activity</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={130}>
+                    <PieChart>
+                      <Pie data={data} dataKey="value" nameKey="name" innerRadius={28} outerRadius={50} paddingAngle={2} label={({ value }) => value}>
+                        {data.map((d) => <Cell key={d.name} fill={d.color} />)}
+                      </Pie>
+                      <Tooltip content={<ChartTooltip T={T} />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            ))}
           </div>
-          {contractorDonutData.length === 0 ? (
-            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No activity in this period.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={contractorDonutData} dataKey="value" nameKey="name" innerRadius={40} outerRadius={70} paddingAngle={2} label={({ name, value }) => `${name} ${value}`}>
-                  {contractorDonutData.map((d) => <Cell key={d.name} fill={d.color} />)}
-                </Pie>
-                <Tooltip content={<ChartTooltip T={T} />} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
+          <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 2, fontSize: 10.5 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, display: "inline-block" }} />
+              <span style={{ color: T.textSecondary }}>RHI</span>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: T.warning, display: "inline-block" }} />
+              <span style={{ color: T.textSecondary }}>ASEC</span>
+            </span>
+          </div>
         </div>
 
         <div style={s.card}>

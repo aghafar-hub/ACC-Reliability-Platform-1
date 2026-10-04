@@ -14,6 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { useTheme } from "../ThemeContext";
+import { useSession } from "../SessionContext";
 import * as api from "../api";
 import RoutineDetail from "./RoutineDetail";
 import NewRoutine from "./NewRoutine";
@@ -148,6 +149,25 @@ export default function Routines({
 }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
+  // Bug-hunt: "Create Route" was shown to every logged-in account with no
+  // role check at all, but the backend's createRoutine action requires
+  // "Create" permission (Code.js's requirePermission_) and Rbac.js's
+  // ROLE_GRANTS only gives that to ROLE-CENG/ROLE-RENG/ROLE-MGR/ROLE-ADMIN
+  // — a ROLE-TECH account (View+Edit only) could fill the whole form out
+  // correctly and it would still always fail. Because createRoutine is a
+  // blind no-cors POST (see api.js's own comment on why), the client can
+  // never read that rejection back directly — it only ever showed up as
+  // the generic, misleading "wasn't confirmed saved" error from the
+  // follow-up verify-read finding nothing. Hiding the entry point for a
+  // Technician avoids that dead end entirely, mirroring the same
+  // session.claims.roles check EditActionModal.jsx/Settings.jsx already
+  // use for their own role-gated UI.
+  const session = useSession();
+  const canCreateRoutines = useMemo(() => {
+    const roles = session?.claims?.roles;
+    if (!session) return true; // no session to check against — standalone build
+    return (roles || []).some((r) => r === "ROLE-ADMIN" || r === "ROLE-CENG" || r === "ROLE-RENG" || r === "ROLE-MGR");
+  }, [session]);
   // Collapsed by default on mobile only (the Area dropdown + 6 due-status
   // pills + search box were stacking several rows above the actual list on
   // a phone — the Patch 35 mobile audit's own finding); always open on
@@ -652,9 +672,11 @@ export default function Routines({
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Routines</p>
-        <button style={s.btnPrimary} onClick={() => setView("new")}>
-          <i className="ti ti-plus" aria-hidden="true" /> Create Route
-        </button>
+        {canCreateRoutines && (
+          <button style={s.btnPrimary} onClick={() => setView("new")}>
+            <i className="ti ti-plus" aria-hidden="true" /> Create Route
+          </button>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
