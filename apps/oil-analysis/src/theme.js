@@ -448,6 +448,54 @@ export const THEMES = {
     pillSuccess: "rgba(22,163,74,0.12)",
     pillInfo: "rgba(37,99,235,0.12)",
   },
+  // New theme (user request: "powerfull theme, all tabs, all chips/graphs
+  // colourful") — same dark-indigo-card structure as the original 10
+  // themes, but every status/accent hue is pushed to a punchier, more
+  // saturated value than any existing theme uses. Every chip (s.badge) and
+  // every status-colored chart bar/pie slice already reads straight off
+  // these 4 tokens (danger/warning/success/accent) across every tab, so
+  // this alone makes the whole app read more colorful without touching a
+  // single page — added as a 12th option, none of the originals touched.
+  "Vivid Spectrum": {
+    appBg: "#0B0E1C",
+    sidebarBg: "#141937",
+    cardBg: "#141937",
+    topbarBg: "#141937",
+    border: "#2B3263",
+    border2: "#20264E",
+    inputBg: "#0B0E1C",
+    metricBg: "#0B0E1C",
+    textPrimary: "#F1F3FF",
+    textSecondary: "#9499D6",
+    sidebarText: "#F1F3FF",
+    sidebarTextSecondary: "#9499D6",
+    textMuted: "#4D5490",
+    textHighlight: "#FFFFFF",
+    textSubtle: "#BCC0EE",
+    accent: "#8B5CF6",
+    accentText: "#FFFFFF",
+    navActive: "rgba(139,92,246,0.16)",
+    tableHead: "#0B0E1C",
+    tableRow: "#141937",
+    tableRowAlt: "#10152E",
+    tableHover: "rgba(139,92,246,0.09)",
+    scrollThumb: "#2B3263",
+    cardSubBg: "#10142C",
+    infoBarBg: "#171C3E",
+    codeBg: "#070914",
+    codeText: "#22D3EE",
+    danger: "#FB4570",
+    warning: "#FFB020",
+    success: "#1BD79A",
+    info: "#22C3FF",
+    dangerBg: "#2E0E1E",
+    warningBg: "#2E1F00",
+    successBg: "#07291F",
+    pillDanger: "rgba(251,69,112,0.18)",
+    pillWarning: "rgba(255,176,32,0.18)",
+    pillSuccess: "rgba(27,215,154,0.18)",
+    pillInfo: "rgba(34,195,255,0.18)",
+  },
 };
 
 export const DEFAULT_THEME = "Navy Dark";

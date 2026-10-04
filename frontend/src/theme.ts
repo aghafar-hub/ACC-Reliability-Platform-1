@@ -43,6 +43,11 @@ export const THEME_PALETTES: ThemePalette[] = [
   // separately from textPrimary/textSecondary (which stay tuned for the
   // light surfaces) instead of reusing them — see the ThemePalette comment.
   { name: 'ACC Corporate', appBg: '#F4F6F9', sidebarBg: '#0B2340', cardBg: '#FFFFFF', border: '#D7DEE8', textPrimary: '#0F1E2D', textSecondary: '#5B6B7F', sidebarText: '#E8F0F8', sidebarTextSecondary: '#8CA3BE', accent: '#2563EB', accentText: '#FFFFFF' },
+  // New theme (user request: "powerfull theme, all tabs, all chips/graphs
+  // colourful") — kept in sync with the exact same palette added to both
+  // embedded apps' own theme.js files (see each one's own comment), same
+  // reasoning as the ACC Corporate entry above.
+  { name: 'Vivid Spectrum', appBg: '#0B0E1C', sidebarBg: '#141937', cardBg: '#141937', border: '#2B3263', textPrimary: '#F1F3FF', textSecondary: '#9499D6', sidebarText: '#F1F3FF', sidebarTextSecondary: '#9499D6', accent: '#8B5CF6', accentText: '#FFFFFF' },
 ];
 
 export const THEME_NAMES = THEME_PALETTES.map((t) => t.name);

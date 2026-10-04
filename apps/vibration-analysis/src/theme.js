@@ -490,6 +490,58 @@ export const THEMES = {
     purpleBg: "#EDE9FE",
     pillPurple: "#7C3AED",
   },
+  // New theme (user request: "powerfull theme, all tabs, all chips/graphs
+  // colourful") — kept in sync with the exact same palette added to
+  // apps/oil-analysis/src/theme.js, same reasoning as the ACC Corporate
+  // entry above: every status/accent hue pushed more saturated than any
+  // existing theme, so every chip and status-colored chart reads more
+  // colorful everywhere without touching a single page. purple/purpleBg/
+  // pillPurple are this app's own extra severity tier (see Dashboard.jsx's
+  // "Danger" status card), given its own distinct fuchsia rather than
+  // reusing accent.
+  "Vivid Spectrum": {
+    appBg: "#0B0E1C",
+    sidebarBg: "#141937",
+    cardBg: "#141937",
+    topbarBg: "#141937",
+    border: "#2B3263",
+    border2: "#20264E",
+    inputBg: "#0B0E1C",
+    metricBg: "#0B0E1C",
+    textPrimary: "#F1F3FF",
+    textSecondary: "#9499D6",
+    sidebarText: "#F1F3FF",
+    sidebarTextSecondary: "#9499D6",
+    textMuted: "#4D5490",
+    textHighlight: "#FFFFFF",
+    textSubtle: "#BCC0EE",
+    accent: "#8B5CF6",
+    accentText: "#FFFFFF",
+    navActive: "rgba(139,92,246,0.16)",
+    tableHead: "#0B0E1C",
+    tableRow: "#141937",
+    tableRowAlt: "#10152E",
+    tableHover: "#1E2550",
+    scrollThumb: "#2B3263",
+    cardSubBg: "#10142C",
+    infoBarBg: "#171C3E",
+    codeBg: "#070914",
+    codeText: "#22D3EE",
+    danger: "#FB4570",
+    warning: "#FFB020",
+    success: "#1BD79A",
+    info: "#22C3FF",
+    dangerBg: "#2E0E1E",
+    warningBg: "#2E1F00",
+    successBg: "#07291F",
+    pillDanger: "#FB4570",
+    pillWarning: "#FFB020",
+    pillSuccess: "#1BD79A",
+    pillInfo: "#22C3FF",
+    purple: "#D946EF",
+    purpleBg: "#2E1140",
+    pillPurple: "#D946EF",
+  },
 };
 
 export const DEFAULT_THEME = "Navy Dark";
