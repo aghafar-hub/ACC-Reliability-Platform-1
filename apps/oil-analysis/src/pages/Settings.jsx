@@ -518,6 +518,27 @@ export default function Settings({
     setTimeout(() => setCacheMsg(""), 4000);
   }
 
+  // Non-admin users don't see any of this at all — not read-only, not
+  // disabled fields, nothing rendered — same as AccountsPanel's own
+  // `if (!claims?.roles.includes(ROLE.ADMIN)) return null` on the General
+  // settings tab. Theme/appearance has no module-level equivalent here
+  // (it lives on the General tab, visible to everyone there), so there's
+  // nothing for a non-admin to see on this tab at all.
+  if (!isAdmin) {
+    return (
+      <div style={{ maxWidth: 740 }}>
+        <p style={s.sectionTitle}>Settings</p>
+        <div style={{ ...s.card, textAlign: "center", padding: 40 }}>
+          <i className="ti ti-lock" style={{ fontSize: 32, color: T.textMuted, display: "block", marginBottom: 12 }} aria-hidden="true" />
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.textPrimary }}>Admin access required</p>
+          <p style={{ margin: "6px 0 0", fontSize: 12, color: T.textSecondary }}>
+            Only an App Admin account can view Oil Lubrication's settings.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 740 }}>
       <p style={s.sectionTitle}>Settings</p>

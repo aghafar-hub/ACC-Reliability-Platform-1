@@ -5,29 +5,36 @@ import BackfillButton from "../components/BackfillButton";
 import ConfigUnlockModal from "../components/ConfigUnlockModal";
 import { APP_VERSION, configStore, DEFAULT_WEBHOOK_URL } from "../config";
 
-// Sub-tabs: Connection and Contractors stay passcode-gated (same
-// ConfigUnlockModal as before — this app has no real session/RBAC system
-// yet, unlike Oil Lubrication, so unlike that app's own Settings cleanup
-// there is no `isAdmin` to replace this with; that's the bigger
-// contractor-separation/RBAC build the user has on hold pending a database
-// update, not a stale-settings cleanup). System stays open to everyone,
-// same as before.
+// Both tabs are passcode-gated (same ConfigUnlockModal as before — this
+// app has no real session/RBAC system yet, unlike Oil Lubrication, so
+// there is no `isAdmin` to gate on; that's the bigger contractor-
+// separation/RBAC build the user has on hold pending a database update,
+// not a stale-settings cleanup). The password is the only access-control
+// mechanism this app has today, so — per the user's explicit instruction
+// that non-admin users shouldn't see any of these settings — it now
+// covers System too, not just Connection; previously System (Backfill,
+// App Info, setup instructions) was open to everyone.
 const TABS = [
   { key: "connection", label: "Connection" },
-  { key: "contractors", label: "Contractors" },
   { key: "system", label: "System" },
 ];
-const GATED_TABS = new Set(["connection", "contractors"]);
+const GATED_TABS = new Set(["connection", "system"]);
 
-// Settings page: Connection (webhook/sheet URL, test/sync), Contractors
-// (contractor list), System (Backfill Last Readings, app info, Apps Script
-// setup instructions). Ported from the original's `Hm`, then cut down:
-// the "Appearance" tab (logo + theme picker) only ever fed this app's own
-// standalone Sidebar/branding — confirmed dead with the user: the
-// standalone GitHub Pages build (no login, no Platform Core shell, and a
-// different Apps Script backend than this platform's) is an old, unused
-// version, so that UI never did anything in production. Theme now lives
-// in Platform Core's own Settings page.
+// Settings page: Connection (webhook/sheet URL, test/sync), System
+// (Backfill Last Readings, app info, Apps Script setup instructions).
+// Ported from the original's `Hm`, then cut down twice:
+// 1. The "Appearance" tab (logo + theme picker) only ever fed this app's
+//    own standalone Sidebar/branding — confirmed dead with the user: the
+//    standalone GitHub Pages build (no login, no Platform Core shell,
+//    and a different Apps Script backend than this platform's) is an
+//    old, unused version, so that UI never did anything in production.
+//    Theme now lives in Platform Core's own Settings page.
+// 2. The "Contractors" tab (contractor list) and the "Configuration
+//    Sheet Setup" instructions card are gone too — confirmed with the
+//    user as no longer needed. `config.contractors` itself is untouched
+//    (saveConfiguration still round-trips whatever value is already
+//    stored, it's just no longer editable from this screen) in case
+//    anything else still reads it.
 export default function Settings({
   webhookUrl,
   setWebhookUrl,
@@ -46,9 +53,10 @@ export default function Settings({
   const [showUnlock, setShowUnlock] = useState(false);
   // Which gated tab the unlock-prompting click was for — so unlocking
   // actually lands on the tab the user clicked, not wherever they
-  // already were. With only one gated tab (the old "Configuration") this
-  // didn't matter; splitting it into Connection/Contractors means a
-  // locked click's target has to be remembered across the modal.
+  // already were. With a single gated tab (the original "Configuration")
+  // this didn't matter; now that Connection and System are both gated
+  // separately, a locked click's target has to be remembered across the
+  // modal.
   const [pendingTab, setPendingTab] = useState(null);
   const [draft, setDraft] = useState({ ...config });
   const [saveMessage, setSaveMessage] = useState("");
@@ -281,22 +289,6 @@ export default function Settings({
             )}
           </div>
 
-          <div style={{ ...s.card, marginBottom: 16, borderColor: T.info }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.info, marginBottom: 8 }}>📋 Configuration Sheet Setup</div>
-            <div style={{ fontSize: 12.5, color: T.textPrimary, lineHeight: 1.8 }}>
-              <b>Create a sheet tab named exactly:</b>{" "}
-              <code style={{ background: T.codeBg, color: T.codeText, padding: "1px 6px", borderRadius: 4 }}>Configuration</code>
-              <br />
-              <b>Row 1:</b> Headers →{" "}
-              <code style={{ background: T.codeBg, color: T.codeText, padding: "1px 6px", borderRadius: 4 }}>Key</code> |{" "}
-              <code style={{ background: T.codeBg, color: T.codeText, padding: "1px 6px", borderRadius: 4 }}>Value</code>
-              <br />
-              <b>Row 2+:</b> App will auto-create key-value rows when you save configuration.
-              <br />
-              Leave it blank — the app will populate it on first save.
-            </div>
-          </div>
-
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
             <span style={{ fontSize: 12, color: T.success, fontWeight: 700, alignSelf: "center" }}>{saveMessage}</span>
             <button style={s.btn} onClick={saveConfiguration}>
@@ -306,34 +298,7 @@ export default function Settings({
         </div>
       )}
 
-      {tab === "contractors" && unlocked && (
-        <div>
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Contractors</div>
-            <div style={{ marginBottom: 4 }}>
-              <label style={s.label}>Contractor List (comma-separated)</label>
-              <input
-                style={s.input}
-                value={draft.contractors || "RHI,ASEC"}
-                onChange={(e) => set("contractors", e.target.value)}
-                placeholder="RHI,ASEC"
-              />
-              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>
-                Line1/Line2 → first contractor, CM1/CM2 → second contractor (for auto-generate monthly actions)
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: T.success, fontWeight: 700, alignSelf: "center" }}>{saveMessage}</span>
-            <button style={s.btn} onClick={saveConfiguration}>
-              Save Configuration
-            </button>
-          </div>
-        </div>
-      )}
-
-      {tab === "system" && (
+      {tab === "system" && unlocked && (
         <div>
           <div style={{ ...s.card, marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 8 }}>Backfill Last Readings</div>
