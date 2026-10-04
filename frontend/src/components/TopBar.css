@@ -5,9 +5,20 @@
   height: 56px;
   padding: 0 20px;
   flex-shrink: 0;
+  /* Glass surface, not a flat fill — page content scrolls up underneath
+     this sticky bar (see position:sticky below), so the blur gives a real
+     layering cue instead of decoration. color-mix blends the theme's own
+     card color with transparency rather than hardcoding an alpha value
+     that would look wrong against both a near-white and a near-black
+     palette. Falls back to a solid fill on a browser with no
+     backdrop-filter support (plain opaque bar — still fully legible). */
   background: var(--shell-card-bg, #0d1e35);
+  background: color-mix(in srgb, var(--shell-card-bg, #0d1e35) 80%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
   border-bottom: 1px solid var(--shell-border, #1e3a5f);
   color: var(--shell-text, #e2e8f0);
+  font-family: var(--sans);
   /* Nothing in the shell scrolls independently — #root/body is the one
      real scroll container (index.css) — so without this, TopBar was a
      plain in-flow element that scrolled away with the page underneath it
@@ -39,16 +50,20 @@
 .shell-topbar-menu-btn {
   display: none;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--shell-border, #1e3a5f);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--shell-card-bg, #0d1e35);
   color: var(--shell-text, #e2e8f0);
   cursor: pointer;
   padding: 0;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+.shell-topbar-menu-btn:active {
+  transform: scale(0.93);
 }
 
 .shell-topbar-menu-btn:hover {
@@ -93,7 +108,9 @@
 }
 
 .shell-topbar-module {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14.5px;
   color: var(--shell-text, #e2e8f0);
   white-space: nowrap;
   overflow: hidden;
@@ -174,12 +191,16 @@
   border: 1px solid var(--shell-border, #1e3a5f);
   background: var(--shell-card-bg, #0d1e35);
   color: var(--shell-text, #e2e8f0);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 5px 10px;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.shell-topbar-sync-btn:active:not(:disabled) {
+  transform: scale(0.95);
 }
 .shell-topbar-sync-btn:hover {
   border-color: var(--shell-accent, #38bdf8);
@@ -226,9 +247,9 @@
    this trigger via its own `position: absolute`. */
 
 .shell-topbar-icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--shell-border, #1e3a5f);
   background: var(--shell-card-bg, #0d1e35);
   color: var(--shell-text, #e2e8f0);
@@ -236,10 +257,14 @@
   align-items: center;
   justify-content: center;
   text-decoration: none;
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
 .shell-topbar-icon-btn:hover {
   border-color: var(--shell-accent, #38bdf8);
+}
+.shell-topbar-icon-btn:active {
+  transform: scale(0.93);
 }
 
 .shell-topbar-user {
@@ -250,16 +275,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 40px;
   border: 1px solid var(--shell-border, #1e3a5f);
   background: var(--shell-card-bg, #0d1e35);
   color: var(--shell-text, #e2e8f0);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 4px 10px 4px 4px;
   cursor: pointer;
+  transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 
 .shell-topbar-user-trigger:hover {
   border-color: var(--shell-accent, #38bdf8);
+}
+.shell-topbar-user-trigger:active {
+  transform: scale(0.97);
 }
 
 .shell-topbar-avatar {
@@ -299,24 +329,36 @@
 
 .shell-topbar-user-menu {
   position: absolute;
-  top: 46px;
+  top: 48px;
   right: 0;
-  min-width: 170px;
-  background: var(--shell-card-bg, #16213a);
+  min-width: 180px;
+  background: color-mix(in srgb, var(--shell-card-bg, #16213a) 92%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--shell-border, #1e293b);
-  border-radius: 10px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-3);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 210;
+  animation: shell-menu-in var(--motion-base) var(--motion-ease);
+}
+
+@keyframes shell-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
 }
 
 .shell-topbar-user-menu-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px;
   padding: 10px 14px;
+  box-sizing: border-box;
   border: none;
   background: none;
   color: var(--shell-text, #e2e8f0);

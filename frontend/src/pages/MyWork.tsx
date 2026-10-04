@@ -9,15 +9,31 @@ import {
   type RoutineItem,
 } from '../api/oilLubrication';
 import { useAuth } from '../auth/AuthContext';
+import { tapHaptic } from '../haptics';
 import './MyWork.css';
 
 const OPEN_STATUSES = ['Assigned', 'InProgress'];
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
+// Left-border accent color on each card — the status is already named in
+// the badge text, but a technician scanning a list of 10+ routines reads
+// the colored edge before the label. Mirrors a physical equipment tag's own
+// colored status strip rather than decorating for its own sake.
+function statusAccentClass(status: string, overdue: boolean): string {
+  if (overdue) return 'mywork-card--overdue';
+  if (status === 'InProgress') return 'mywork-card--inprogress';
+  if (status === 'Submitted') return 'mywork-card--submitted';
+  return '';
+}
+
 function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void }) {
   const overdue = !!routine.dueDate && routine.dueDate < TODAY() && OPEN_STATUSES.includes(routine.status);
   return (
-    <button type="button" className="mywork-card" onClick={onOpen}>
+    <button
+      type="button"
+      className={`mywork-card tap-scale ${statusAccentClass(routine.status, overdue)}`}
+      onClick={onOpen}
+    >
       <div className="mywork-card-top">
         <span className="mywork-card-title">{routine.routeName || routine.routineId}</span>
         <span className={overdue ? 'mywork-badge mywork-badge--overdue' : 'mywork-badge'}>
@@ -82,6 +98,7 @@ function ItemRow({
         sampleTaken,
       });
       setDirty(false);
+      tapHaptic();
       onSaved(saved);
     } catch (err) {
       onError(describeError(err, 'Could not save this item.'));
@@ -92,9 +109,16 @@ function ItemRow({
 
   return (
     <tr className={implemented ? 'mywork-row mywork-row--done' : reason.trim() ? 'mywork-row mywork-row--warn' : 'mywork-row'}>
-      <td className="mywork-td mywork-td-lp">{item.lpId}</td>
-      <td className="mywork-td">{item.itemType}</td>
-      <td className="mywork-td">
+      {/* data-label feeds each cell's own ::before on the <700px card layout
+          (MyWork.css) — the table markup/logic stays exactly as-is, only
+          the visual presentation reflows from a row to a stacked card. */}
+      <td className="mywork-td mywork-td-lp" data-label="LP">
+        <span>{item.lpId}</span>
+      </td>
+      <td className="mywork-td" data-label="Type">
+        <span>{item.itemType}</span>
+      </td>
+      <td className="mywork-td" data-label="Status">
         <select
           className="mywork-select"
           value={implemented ? 'yes' : 'no'}
@@ -105,7 +129,7 @@ function ItemRow({
           <option value="yes">Done</option>
         </select>
       </td>
-      <td className="mywork-td">
+      <td className="mywork-td" data-label={implemented ? 'Qty' : 'Reason'}>
         {implemented ? (
           <input
             className="mywork-input"
@@ -126,17 +150,37 @@ function ItemRow({
           />
         )}
       </td>
-      <td className="mywork-td mywork-td-center">
+      <td className="mywork-td mywork-td-center" data-label="Sample taken">
         <input type="checkbox" disabled={locked} checked={sampleTaken} onChange={(e) => markDirty(setSampleTaken)(e.target.checked)} />
       </td>
-      <td className="mywork-td">
+      <td className="mywork-td mywork-td-save">
         {!locked && (
-          <button type="button" className="mywork-btn" onClick={handleSave} disabled={saving || !dirty}>
+          <button type="button" className="mywork-btn tap-scale" onClick={handleSave} disabled={saving || !dirty}>
             {saving ? '…' : 'Save'}
           </button>
         )}
       </td>
     </tr>
+  );
+}
+
+// Replaces a plain "Loading…" string while routines/items are in flight —
+// a shape matching the real content (card grid or table rows) reads as
+// "this is already here, just filling in" rather than a dead stop, which
+// matters more on a flaky plant-floor connection where this can sit for a
+// few seconds. Pure CSS pulse (MyWork.css's @keyframes mywork-skeleton-pulse),
+// no layout measurement needed.
+function SkeletonCards({ count }: { count: number }) {
+  return (
+    <div className="mywork-grid" aria-hidden="true">
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="mywork-card mywork-skeleton-card">
+          <div className="mywork-skeleton-bar" style={{ width: '70%', height: 14 }} />
+          <div className="mywork-skeleton-bar" style={{ width: '45%', height: 11, marginTop: 10 }} />
+          <div className="mywork-skeleton-bar" style={{ width: '100%', height: 6, marginTop: 16 }} />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -184,6 +228,7 @@ function RoutineDetail({
     setError(null);
     try {
       await submitRoutine(sessionToken, routine.routineId);
+      tapHaptic();
       onSubmitted();
     } catch (err) {
       setError(describeError(err, 'Could not submit this routine.'));
@@ -194,7 +239,7 @@ function RoutineDetail({
 
   return (
     <div>
-      <button type="button" className="mywork-back" onClick={onBack}>
+      <button type="button" className="mywork-back tap-scale" onClick={onBack}>
         ← Back to My Work
       </button>
       <h2 className="mywork-detail-title">{routine.routeName || routine.routineId}</h2>
@@ -203,7 +248,7 @@ function RoutineDetail({
         {routine.dueDate ? ` · due ${routine.dueDate}` : ''}
       </p>
 
-      {loading && <p className="mywork-empty">Loading…</p>}
+      {loading && <SkeletonCards count={3} />}
       {error && <p className="mywork-error">{error}</p>}
 
       {!loading && items.length > 0 && (
@@ -235,7 +280,12 @@ function RoutineDetail({
       )}
 
       {canSubmit && !loading && items.length > 0 && (
-        <button type="button" className="mywork-btn mywork-btn-primary" onClick={handleSubmitRoutine} disabled={submitting}>
+        <button
+          type="button"
+          className="mywork-btn mywork-btn-primary tap-scale"
+          onClick={handleSubmitRoutine}
+          disabled={submitting}
+        >
           {submitting ? 'Submitting…' : 'Submit Routine for Review'}
         </button>
       )}
@@ -321,7 +371,7 @@ export default function MyWork({ showHeading = true }: { showHeading?: boolean }
         </>
       )}
       {error && <p className="mywork-error">{error}</p>}
-      {routines === null && !error && <p className="mywork-empty">Loading…</p>}
+      {routines === null && !error && <SkeletonCards count={4} />}
       {routines !== null && todo.length === 0 && awaiting.length === 0 && (
         <p className="mywork-empty">No work assigned yet — routines assigned to you will show up here.</p>
       )}
@@ -342,7 +392,7 @@ export default function MyWork({ showHeading = true }: { showHeading?: boolean }
           <p className="mywork-section-title">Awaiting approval</p>
           <div className="mywork-grid">
             {awaiting.map((r) => (
-              <div key={r.routineId} className="mywork-card mywork-card--static">
+              <div key={r.routineId} className="mywork-card mywork-card--static mywork-card--submitted">
                 <div className="mywork-card-top">
                   <span className="mywork-card-title">{r.routeName || r.routineId}</span>
                   <span className="mywork-badge">{r.status}</span>

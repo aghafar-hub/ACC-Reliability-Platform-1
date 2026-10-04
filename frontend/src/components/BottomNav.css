@@ -19,11 +19,40 @@
        to 0 on a device with no notch/home-indicator inset. */
     padding-bottom: env(safe-area-inset-bottom, 0);
     background: var(--shell-sidebar-bg, #0f172a);
+    background: color-mix(in srgb, var(--shell-sidebar-bg, #0f172a) 88%, transparent);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
     border-top: 1px solid var(--shell-border, #1e293b);
     z-index: 300;
   }
 
+  /* The one deliberate motion moment on this bar — a pill that slides
+     under whichever of the 5 equal-width slots (4 tabs + More) is active,
+     instead of every item just silently swapping color. Sized/positioned
+     in the 0–100% box of a single slot; BottomNav.tsx translates it by
+     slotIndex * 100%, so this element's own width IS one slot's width. */
+  .bottom-nav-indicator {
+    position: absolute;
+    top: 6px;
+    left: 0;
+    width: 20%;
+    height: 40px;
+    pointer-events: none;
+    transition: transform var(--motion-base) var(--motion-ease);
+  }
+
+  .bottom-nav-indicator::after {
+    content: '';
+    display: block;
+    margin: 0 10px;
+    height: 100%;
+    border-radius: var(--radius-md);
+    background: var(--shell-accent, #38bdf8);
+    opacity: 0.14;
+  }
+
   .bottom-nav-item {
+    position: relative;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -35,7 +64,7 @@
     border: none;
     background: transparent;
     color: var(--shell-sidebar-text-secondary, #8ea0bb);
-    font-family: inherit;
+    font-family: var(--sans);
     font-size: 10.5px;
     font-weight: 600;
     text-decoration: none;
@@ -49,9 +78,17 @@
     white-space: nowrap;
     max-width: 100%;
     padding: 0 4px;
+    transition: transform var(--motion-fast) var(--motion-ease);
   }
 
   .bottom-nav-item--active {
     color: var(--shell-accent, #38bdf8);
+  }
+
+  /* .tap-scale (index.css) already handles the press-compress — this
+     widens its effect slightly for a bottom-nav tap specifically, since a
+     whole-button scale reads better here than the default 0.97. */
+  .bottom-nav-item:active {
+    transform: scale(0.94);
   }
 }

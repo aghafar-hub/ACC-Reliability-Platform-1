@@ -21,6 +21,18 @@
     <meta name="apple-mobile-web-app-title" content="ACC Reliability" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ACC Reliability</title>
+    <!-- Shell type system (visual redesign pass): Space Grotesk for
+         display/headings, IBM Plex Sans for UI/body, IBM Plex Mono for
+         equipment IDs/readings/timestamps — see index.css's --font-* vars.
+         Loaded once here, shared by every shell page; the two embedded
+         legacy apps keep their own fonts (out of scope, see each app's own
+         README). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+    />
     <!-- Tabler icons: the embedded as-is Oil Analysis app depends on this (its own index.html loads it the same way) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
     <script>

@@ -4,8 +4,9 @@
 }
 
 .accounts-panel-title {
+  font-family: var(--font-display);
   font-size: 1.1rem;
-  font-weight: 700;
+  font-weight: 600;
   margin: 0 0 0.25rem;
   color: var(--shell-text);
 }
@@ -20,27 +21,39 @@
 .accounts-form input[type='email'] {
   flex: 1;
   min-width: 220px;
+  min-height: 40px;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--shell-border, #e2e8f0);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
+  font-family: var(--sans);
+  box-sizing: border-box;
 }
 
 .accounts-form select {
+  min-height: 40px;
   padding: 0.5rem 0.7rem;
   border: 1px solid var(--shell-border, #e2e8f0);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
+  font-family: var(--sans);
 }
 
 .accounts-form button {
+  min-height: 40px;
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--shell-accent, #1d4ed8);
   color: var(--shell-accent-text, #fff);
   font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.accounts-form button:active {
+  transform: scale(0.96);
 }
 
 .accounts-form button:disabled {
@@ -74,7 +87,7 @@
   background: #ecfdf5;
   border: 1px solid #6ee7b7;
   color: #065f46;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 0.75rem 1rem;
   font-size: 0.85rem;
   margin-bottom: 1rem;
@@ -121,9 +134,10 @@
 }
 
 .accounts-table button {
+  min-height: 36px;
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--shell-border, #e2e8f0);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--shell-text);
   font-size: 0.8rem;

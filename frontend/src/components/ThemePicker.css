@@ -1,25 +1,43 @@
 .theme-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.75rem;
+  gap: var(--space-3);
   max-width: 760px;
 }
 
+/* Card chrome (border/background/label) reads from the shell's OWN current
+   theme — these used to be hardcoded white/light values regardless of which
+   palette was active, which put a bright white card on top of, say, Navy
+   Dark or Carbon Dark's near-black page. Each swatch's PREVIEW patch below
+   still shows that swatch's own theme colors unconditionally (inline
+   styles from ThemePicker.tsx) — only the surrounding frame follows the
+   active theme. */
 .theme-swatch {
-  border: 2px solid #e2e8f0;
-  border-radius: 10px;
+  border: 2px solid var(--shell-border, #e2e8f0);
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
-  background: #fff;
+  background: var(--shell-card-bg, #fff);
   padding: 0;
   text-align: left;
-  font-family: inherit;
-  transition: border-color 0.15s;
+  font-family: var(--sans);
+  box-shadow: var(--elevation-1);
+  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.theme-swatch:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-2);
+}
+
+.theme-swatch:active {
+  transform: scale(0.97);
 }
 
 .theme-swatch--active {
-  border-color: #1d4ed8;
-  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.25);
+  border-color: var(--shell-accent, #1d4ed8);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--shell-accent, #1d4ed8) 25%, transparent);
 }
 
 .theme-swatch-preview {
@@ -33,7 +51,7 @@
   display: block;
   width: 24px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .theme-swatch-accent {
@@ -51,9 +69,9 @@
   padding: 8px 10px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--shell-text, #1e293b);
 }
 
 .theme-swatch-check {
-  color: #1d4ed8;
+  color: var(--shell-accent, #1d4ed8);
 }

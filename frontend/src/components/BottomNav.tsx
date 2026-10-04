@@ -1,4 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
+import { tapHaptic } from '../haptics';
 import { Icon } from '../icons';
 import './BottomNav.css';
 
@@ -29,18 +30,30 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   // "More" highlights whenever the active route isn't one of the 4 primary
   // tabs, so the bar always shows where you are, even for a page (Settings,
   // Equipment, Reliability Measures, Compressors) that only lives behind it.
-  const onPrimaryTab = PRIMARY_ITEMS.some((item) =>
+  const primaryIndex = PRIMARY_ITEMS.findIndex((item) =>
     item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
   );
+  // 5 equal-width slots (4 primary + More) — the sliding indicator just
+  // needs to know which one of the 5 to sit under; -1 (no primary tab
+  // active) means "More" owns it, slot index 4.
+  const activeSlot = primaryIndex === -1 ? PRIMARY_ITEMS.length : primaryIndex;
 
   return (
     <nav className="bottom-nav" aria-label="Primary">
+      <span
+        className="bottom-nav-indicator"
+        style={{ transform: `translateX(${activeSlot * 100}%)` }}
+        aria-hidden="true"
+      />
       {PRIMARY_ITEMS.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           end={item.end}
-          className={({ isActive }) => (isActive ? 'bottom-nav-item bottom-nav-item--active' : 'bottom-nav-item')}
+          onClick={tapHaptic}
+          className={({ isActive }) =>
+            isActive ? 'bottom-nav-item bottom-nav-item--active tap-scale' : 'bottom-nav-item tap-scale'
+          }
         >
           <Icon name={item.icon} size={21} />
           <span>{item.label}</span>
@@ -48,8 +61,13 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
       ))}
       <button
         type="button"
-        className={onPrimaryTab ? 'bottom-nav-item' : 'bottom-nav-item bottom-nav-item--active'}
-        onClick={onOpenMore}
+        className={
+          primaryIndex === -1 ? 'bottom-nav-item bottom-nav-item--active tap-scale' : 'bottom-nav-item tap-scale'
+        }
+        onClick={() => {
+          tapHaptic();
+          onOpenMore();
+        }}
       >
         <Icon name="menu" size={21} />
         <span>More</span>
