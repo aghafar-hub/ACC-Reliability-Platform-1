@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { formatDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
@@ -10,6 +11,8 @@ import useIsMobile from "../hooks/useIsMobile";
 const STATUS_COLOR_KEY = { Open: "danger", "In Progress": "warning", "Waiting Stoppage": "accent", Closed: "success" };
 const COLUMNS = ["Open", "In Progress", "Waiting Stoppage", "Closed"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const AGE_BUCKETS = ["0–7d", "8–14d", "15–30d", "30d+"];
+const AGE_BUCKET_COLOR_KEY = { "0–7d": "success", "8–14d": "warning", "15–30d": "danger", "30d+": "danger" };
 
 // SVG donut-slice path — same math Dashboard.jsx's own status donut uses.
 function arcPath(startFrac, fracLen, radius, cx, cy) {
@@ -35,6 +38,32 @@ function ageColor(T, days) {
   if (days > 14) return T.danger;
   if (days >= 7) return T.warning;
   return T.success;
+}
+// Same 4 bands the per-card age badge already uses (ageColor above), just
+// as buckets for the new Open Actions by Age chart instead of one number.
+function ageBucket(days) {
+  if (days == null) return null;
+  if (days <= 7) return "0–7d";
+  if (days <= 14) return "8–14d";
+  if (days <= 30) return "15–30d";
+  return "30d+";
+}
+function monthKey(d) {
+  return `${d.getFullYear()}-${d.getMonth()}`;
+}
+
+function ChartTooltip({ T, active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
+      {label && <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>}
+      {payload.map((p) => (
+        <div key={p.dataKey || p.name} style={{ color: T.textPrimary, fontWeight: 700 }}>
+          <span style={{ color: p.color || p.payload?.fill }}>●</span> {p.name}: {p.value}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // This page renders a Kanban board grouped by status rather than
@@ -81,7 +110,7 @@ export default function ActionTracker({
   // picks which one column's cards to list, full width, one at a time.
   const [mobileStatusTab, setMobileStatusTab] = useState("Open");
 
-  const registry = equipmentRegistry || [];
+  const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   const registryByCode = useMemo(() => {
     const map = {};
     registry.forEach((r) => (map[r.code] = r));
@@ -111,8 +140,11 @@ export default function ActionTracker({
   const hasFilters = equipCode || areaFilter !== "All" || contractorFilter !== "All" || month !== "All" || year !== "All";
   const visible = actions.filter(matchesFilters);
 
-  const statusCounts = COLUMNS.reduce((acc, st) => ({ ...acc, [st]: actions.filter((a) => a.status === st).length }), {});
-  const totalActions = actions.length || 1;
+  // Filter-reactive (built from `visible`, not the raw `actions` array) —
+  // matches the standing rule from Oil Change Log/Oil Sampling Log that
+  // every filter on a page affects every graph on it, not just the board.
+  const statusCounts = COLUMNS.reduce((acc, st) => ({ ...acc, [st]: visible.filter((a) => a.status === st).length }), {});
+  const totalActions = visible.length || 1;
   let acc = 0;
   const donutArcs = COLUMNS.map((st) => {
     const frac = statusCounts[st] / totalActions;
@@ -120,6 +152,54 @@ export default function ActionTracker({
     acc += frac;
     return { st, path };
   });
+
+  const unassignedCount = useMemo(() => visible.filter((a) => a.status !== "Closed" && !a.assignedTo).length, [visible]);
+
+  const ageData = useMemo(() => {
+    const counts = { "0–7d": 0, "8–14d": 0, "15–30d": 0, "30d+": 0 };
+    visible.forEach((a) => {
+      if (a.status === "Closed") return;
+      const bucket = ageBucket(ageDays(a.revisionDate));
+      if (bucket) counts[bucket]++;
+    });
+    return AGE_BUCKETS.map((b) => ({ bucket: b, count: counts[b], fill: T[AGE_BUCKET_COLOR_KEY[b]] }));
+  }, [visible, T]);
+
+  const contractorData = useMemo(() => {
+    const counts = { RHI: 0, ASEC: 0 };
+    visible.forEach((a) => {
+      const code = a.equipmentCode || a.unitId || "";
+      const c = registryByCode[code]?.contractor;
+      if (counts[c] != null) counts[c]++;
+    });
+    return [
+      { name: "RHI", value: counts.RHI, color: T.accent },
+      { name: "ASEC", value: counts.ASEC, color: T.warning },
+    ].filter((d) => d.value > 0);
+  }, [visible, registryByCode, T.accent, T.warning]);
+
+  // Opened (by revisionDate) vs Closed (by completedDate), last 6 calendar
+  // months — the one thing neither the status donut nor the kanban board
+  // show at all: whether the backlog is shrinking or growing over time.
+  const trendData = useMemo(() => {
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: monthKey(d), label: d.toLocaleDateString("en-US", { month: "short" }), Opened: 0, Closed: 0 });
+    }
+    const byKey = {};
+    months.forEach((m) => (byKey[m.key] = m));
+    visible.forEach((a) => {
+      const opened = a.revisionDate ? new Date(a.revisionDate) : null;
+      if (opened && !isNaN(opened) && byKey[monthKey(opened)]) byKey[monthKey(opened)].Opened++;
+      if (a.status === "Closed" && a.completedDate) {
+        const closed = new Date(a.completedDate);
+        if (!isNaN(closed) && byKey[monthKey(closed)]) byKey[monthKey(closed)].Closed++;
+      }
+    });
+    return months;
+  }, [visible]);
 
   function columnItems(status) {
     const list = visible.filter((a) => a.status === status);
@@ -259,7 +339,7 @@ export default function ActionTracker({
           {donutArcs.map(({ st, path }) => path && <path key={st} d={path} fill={T[STATUS_COLOR_KEY[st]]} opacity="0.92" />)}
           <circle cx="50" cy="50" r="29" fill={T.cardBg} />
           <text x="50" y="47" textAnchor="middle" fontSize="17" fontWeight="800" fill={T.textPrimary}>
-            {actions.length}
+            {visible.length}
           </text>
           <text x="50" y="61" textAnchor="middle" fontSize="8" fill={T.textSecondary}>
             actions
@@ -286,6 +366,67 @@ export default function ActionTracker({
               </span>
             </div>
           ))}
+        </div>
+        <div style={{ textAlign: "center", minWidth: 120 }}>
+          <div style={{ fontSize: 26, fontWeight: 800, color: unassignedCount > 0 ? T.danger : T.textPrimary }}>{unassignedCount}</div>
+          <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>No Owner Assigned</div>
+          <div style={{ fontSize: 10, color: T.textMuted }}>open/in-progress</div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 1.3fr", gap: 14, margin: "14px 0" }}>
+        <div style={s.card}>
+          <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Open Actions by Age</p>
+          {ageData.every((d) => d.count === 0) ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No open actions.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={ageData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={T.border2} vertical={false} />
+                <XAxis dataKey="bucket" tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+                <Tooltip content={<ChartTooltip T={T} />} />
+                <Bar dataKey="count" name="Actions" radius={[4, 4, 0, 0]}>
+                  {ageData.map((d) => (
+                    <Cell key={d.bucket} fill={d.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div style={s.card}>
+          <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Actions by Contractor</p>
+          {contractorData.length === 0 ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No actions in view.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie data={contractorData} dataKey="value" nameKey="name" innerRadius={38} outerRadius={64} paddingAngle={2} label={({ name, value }) => `${name} ${value}`}>
+                  {contractorData.map((d) => (
+                    <Cell key={d.name} fill={d.color} />
+                  ))}
+                </Pie>
+                <Tooltip content={<ChartTooltip T={T} />} />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        <div style={s.card}>
+          <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Opened vs Closed (last 6 months)</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={trendData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border2} vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip content={<ChartTooltip T={T} />} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Opened" fill={T.accent} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Closed" fill={T.success} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
