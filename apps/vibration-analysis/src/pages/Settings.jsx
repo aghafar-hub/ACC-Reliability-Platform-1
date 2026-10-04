@@ -3,19 +3,31 @@ import { useTheme } from "../ThemeContext";
 import { readAll, saveConfig as saveConfigApi, testConnection } from "../api";
 import BackfillButton from "../components/BackfillButton";
 import ConfigUnlockModal from "../components/ConfigUnlockModal";
-import { APP_VERSION, configStore, DEFAULT_WEBHOOK_URL, toDriveDirectUrl } from "../config";
-import { THEMES } from "../theme";
+import { APP_VERSION, configStore, DEFAULT_WEBHOOK_URL } from "../config";
 
+// Sub-tabs: Connection and Contractors stay passcode-gated (same
+// ConfigUnlockModal as before — this app has no real session/RBAC system
+// yet, unlike Oil Lubrication, so unlike that app's own Settings cleanup
+// there is no `isAdmin` to replace this with; that's the bigger
+// contractor-separation/RBAC build the user has on hold pending a database
+// update, not a stale-settings cleanup). System stays open to everyone,
+// same as before.
 const TABS = [
-  { key: "appearance", label: "Appearance" },
-  { key: "configuration", label: "Configuration" },
+  { key: "connection", label: "Connection" },
+  { key: "contractors", label: "Contractors" },
   { key: "system", label: "System" },
 ];
+const GATED_TABS = new Set(["connection", "contractors"]);
 
-// Settings page: Appearance (logo + one of 8 theme palettes), Configuration
-// (passcode-gated: webhook/sheet URL, contractor list, Configuration-sheet
-// setup notes), System (Backfill Last Readings, app info, Apps Script setup
-// instructions). Ported from the original's `Hm`.
+// Settings page: Connection (webhook/sheet URL, test/sync), Contractors
+// (contractor list), System (Backfill Last Readings, app info, Apps Script
+// setup instructions). Ported from the original's `Hm`, then cut down:
+// the "Appearance" tab (logo + theme picker) only ever fed this app's own
+// standalone Sidebar/branding — confirmed dead with the user: the
+// standalone GitHub Pages build (no login, no Platform Core shell, and a
+// different Apps Script backend than this platform's) is an old, unused
+// version, so that UI never did anything in production. Theme now lives
+// in Platform Core's own Settings page.
 export default function Settings({
   webhookUrl,
   setWebhookUrl,
@@ -23,24 +35,25 @@ export default function Settings({
   setSheetUrl,
   themeName,
   onSync,
-  logoUrl,
-  setLogoUrl,
   config,
   setConfig,
   syncState,
   webhookRef,
-  navBridge,
 }) {
-  const { T, s, setThemeName } = useTheme();
-  const [tab, setTab] = useState("appearance");
+  const { T, s } = useTheme();
+  const [tab, setTab] = useState("connection");
   const [unlocked, setUnlocked] = useState(false);
   const [showUnlock, setShowUnlock] = useState(false);
+  // Which gated tab the unlock-prompting click was for — so unlocking
+  // actually lands on the tab the user clicked, not wherever they
+  // already were. With only one gated tab (the old "Configuration") this
+  // didn't matter; splitting it into Connection/Contractors means a
+  // locked click's target has to be remembered across the modal.
+  const [pendingTab, setPendingTab] = useState(null);
   const [draft, setDraft] = useState({ ...config });
   const [saveMessage, setSaveMessage] = useState("");
   const [testResults, setTestResults] = useState(null);
   const [testing, setTesting] = useState(false);
-  const [logoInput, setLogoInput] = useState(logoUrl || "");
-  const [logoLoads, setLogoLoads] = useState(true);
 
   const set = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
 
@@ -122,15 +135,6 @@ export default function Settings({
     setTesting(false);
   };
 
-  const saveLogo = () => {
-    const direct = toDriveDirectUrl(logoInput);
-    configStore.saveLogo(direct);
-    setLogoUrl(direct);
-    setLogoInput(direct);
-    setSaveMessage("✓ Logo saved");
-    setTimeout(() => setSaveMessage(""), 2000);
-  };
-
   return (
     <div style={{ padding: 20, maxWidth: 860 }}>
       {showUnlock && (
@@ -138,7 +142,7 @@ export default function Settings({
           onUnlock={() => {
             setUnlocked(true);
             setShowUnlock(false);
-            setTab("configuration");
+            if (pendingTab) setTab(pendingTab);
           }}
           onCancel={() => setShowUnlock(false)}
         />
@@ -161,7 +165,8 @@ export default function Settings({
             <div
               key={t.key}
               onClick={() => {
-                if (t.key === "configuration" && !unlocked) {
+                if (GATED_TABS.has(t.key) && !unlocked) {
+                  setPendingTab(t.key);
                   setShowUnlock(true);
                   return;
                 }
@@ -178,7 +183,7 @@ export default function Settings({
                 borderRight: t.key !== "system" ? `1px solid ${T.border}` : "none",
               }}
             >
-              {t.key === "configuration" ? (unlocked ? t.label : `${t.label} 🔒`) : t.label}
+              {GATED_TABS.has(t.key) ? (unlocked ? t.label : `${t.label} 🔒`) : t.label}
             </div>
           );
         })}
@@ -186,143 +191,37 @@ export default function Settings({
 
       {saveMessage && <div style={{ fontSize: 13, color: T.success, fontWeight: 700, marginBottom: 12 }}>{saveMessage}</div>}
 
-      {tab === "appearance" && (
-        <div>
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 4 }}>Logo</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <label style={s.label}>Logo URL (Google Drive direct link)</label>
-                <input
-                  style={s.input}
-                  value={logoInput}
-                  onChange={(e) => {
-                    setLogoInput(e.target.value);
-                    setLogoLoads(true);
-                  }}
-                  placeholder="https://drive.google.com/uc?export=view&id=…"
-                />
-              </div>
-              <button style={s.btn} onClick={saveLogo}>
-                Save Logo
-              </button>
-            </div>
-            {logoInput && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 11, color: T.textMuted }}>Preview:</span>
-                {logoLoads ? (
-                  <img
-                    src={toDriveDirectUrl(logoInput)}
-                    alt="Logo preview"
-                    style={{ height: 40, maxWidth: 200, objectFit: "contain" }}
-                    onError={() => setLogoLoads(false)}
-                  />
-                ) : (
-                  <span style={{ fontSize: 12, color: T.danger }}>⚠ Could not load image — ensure the file is publicly shared</span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {navBridge ? (
-            <div style={s.card}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 4 }}>Theme</div>
-              <div style={{ fontSize: 12, color: T.textSecondary }}>
-                Theme is now managed from the platform Settings page (sidebar → Settings).
-              </div>
-            </div>
-          ) : (
-          <div style={s.card}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Theme</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
-              {Object.keys(THEMES).map((name) => {
-                const palette = THEMES[name];
-                const active = name === themeName;
-                return (
-                  <div
-                    key={name}
-                    onClick={() => setThemeName(name)}
-                    style={{
-                      cursor: "pointer",
-                      borderRadius: 10,
-                      overflow: "hidden",
-                      border: `2px solid ${active ? palette.accent : T.border}`,
-                      boxShadow: active ? `0 0 0 3px ${palette.accent}33` : "none",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <div style={{ background: palette.appBg, padding: "8px 8px 5px" }}>
-                      <div style={{ display: "flex", gap: 3, marginBottom: 5 }}>
-                        <div
-                          style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 4,
-                            background: palette.sidebarBg,
-                            border: `1px solid ${palette.border}`,
-                          }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ height: 7, borderRadius: 3, background: palette.accent, marginBottom: 3 }} />
-                          <div style={{ height: 5, borderRadius: 3, background: palette.textMuted, opacity: 0.4 }} />
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 3 }}>
-                        {[palette.success, palette.warning, palette.danger, palette.purple || palette.accent].map((c, i) => (
-                          <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: c }} />
-                        ))}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        background: palette.cardBg,
-                        padding: "6px 8px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <span style={{ fontSize: 11, fontWeight: 700, color: palette.textPrimary }}>{name}</span>
-                      {active && (
-                        <span
-                          style={{
-                            width: 13,
-                            height: 13,
-                            borderRadius: "50%",
-                            background: palette.accent,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 9,
-                            color: palette.accentText,
-                            fontWeight: 800,
-                          }}
-                        >
-                          ✓
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          )}
-        </div>
-      )}
-
-      {tab === "configuration" && unlocked && (
+      {tab === "connection" && unlocked && (
         <div>
           <div style={{ ...s.card, marginBottom: 16 }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Connection</div>
+
+            {/* Read-only, not an input: the real value is baked into the
+                build (config.js's DEFAULT_WEBHOOK_URL). Letting it be
+                hand-edited used to mean a mistyped URL could silently
+                desync this device from the real backend with no obvious
+                cause; Test Connection is the safe way to check it still
+                answers. */}
             <div style={{ marginBottom: 10 }}>
               <label style={s.label}>Webhook URL (Apps Script /exec URL)</label>
-              <input
-                style={s.input}
-                value={draft.webhookUrl || ""}
-                onChange={(e) => set("webhookUrl", e.target.value)}
-                placeholder={DEFAULT_WEBHOOK_URL}
-              />
+              <p
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: 12,
+                  color: T.textSecondary,
+                  fontFamily: "monospace",
+                  wordBreak: "break-all",
+                  background: T.codeBg,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 6,
+                  padding: "6px 10px",
+                }}
+              >
+                {draft.webhookUrl || DEFAULT_WEBHOOK_URL}
+              </p>
+              <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+                Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
+              </p>
             </div>
             <div style={{ marginBottom: 10 }}>
               <label style={s.label}>Google Sheet URL (for &quot;Open Sheet&quot; button)</label>
@@ -382,22 +281,6 @@ export default function Settings({
             )}
           </div>
 
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Contractors</div>
-            <div style={{ marginBottom: 4 }}>
-              <label style={s.label}>Contractor List (comma-separated)</label>
-              <input
-                style={s.input}
-                value={draft.contractors || "RHI,ASEC"}
-                onChange={(e) => set("contractors", e.target.value)}
-                placeholder="RHI,ASEC"
-              />
-              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>
-                Line1/Line2 → first contractor, CM1/CM2 → second contractor (for auto-generate monthly actions)
-              </div>
-            </div>
-          </div>
-
           <div style={{ ...s.card, marginBottom: 16, borderColor: T.info }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: T.info, marginBottom: 8 }}>📋 Configuration Sheet Setup</div>
             <div style={{ fontSize: 12.5, color: T.textPrimary, lineHeight: 1.8 }}>
@@ -411,6 +294,33 @@ export default function Settings({
               <b>Row 2+:</b> App will auto-create key-value rows when you save configuration.
               <br />
               Leave it blank — the app will populate it on first save.
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
+            <span style={{ fontSize: 12, color: T.success, fontWeight: 700, alignSelf: "center" }}>{saveMessage}</span>
+            <button style={s.btn} onClick={saveConfiguration}>
+              Save Configuration
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tab === "contractors" && unlocked && (
+        <div>
+          <div style={{ ...s.card, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Contractors</div>
+            <div style={{ marginBottom: 4 }}>
+              <label style={s.label}>Contractor List (comma-separated)</label>
+              <input
+                style={s.input}
+                value={draft.contractors || "RHI,ASEC"}
+                onChange={(e) => set("contractors", e.target.value)}
+                placeholder="RHI,ASEC"
+              />
+              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>
+                Line1/Line2 → first contractor, CM1/CM2 → second contractor (for auto-generate monthly actions)
+              </div>
             </div>
           </div>
 
@@ -457,7 +367,7 @@ export default function Settings({
               <br />
               3. <b>Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone</b>
               <br />
-              4. Copy the <code>/exec</code> URL → paste in Settings → Configuration → Webhook URL
+              4. Copy the <code>/exec</code> URL → paste in Settings → Connection → Webhook URL
               <br />
               5. After ANY future change: <b>Deploy → Manage deployments → edit → New version → Deploy</b>
             </div>

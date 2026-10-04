@@ -442,13 +442,10 @@ export default function App({ navBridge } = {}) {
         setSheetUrl={setSheetUrl}
         themeName={themeName}
         onSync={syncNow}
-        logoUrl={logoUrl}
-        setLogoUrl={setLogoUrl}
         config={config}
         setConfig={setConfig}
         syncState={syncState}
         webhookRef={webhookRef}
-        navBridge={navBridge}
       />
     );
   }
