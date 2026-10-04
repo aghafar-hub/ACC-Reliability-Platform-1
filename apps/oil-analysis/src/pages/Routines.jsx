@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { useSession } from "../SessionContext";
+import { useSession, useSessionContractor } from "../SessionContext";
 import * as api from "../api";
 import RoutineDetail from "./RoutineDetail";
 import NewRoutine from "./NewRoutine";
@@ -23,6 +23,7 @@ import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 
 const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitted", "Approved"];
+const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 
 // Route-type tab: "All Routines" keeps every route type in one unified
 // list; the other three pull out just that type. Originally Oil Change
@@ -184,6 +185,14 @@ export default function Routines({
     if (!session) return true; // no session to check against — standalone build
     return (roles || []).some((r) => r === "ROLE-ADMIN" || r === "ROLE-CENG" || r === "ROLE-RENG" || r === "ROLE-MGR");
   }, [session]);
+  // Routines had no Contractor filter at all — same pattern as Oil
+  // Inventory/Dashboard: locked to the account's own contractor for a
+  // scoped RHI/ASEC session (its data is already scoped server-side, see
+  // getRoutinesOverview/getRoutines' own scope filter in the backend — a
+  // dropdown there would be a no-op), a real "All Contractors"/RHI/ASEC
+  // picker for an ACC/unscoped account.
+  const scopedContractor = useSessionContractor();
+  const [contractorFilter, setContractorFilter] = useState(scopedContractor || "All");
   // Collapsed by default on mobile only (the Area dropdown + 6 due-status
   // pills + search box were stacking several rows above the actual list on
   // a phone — the Patch 35 mobile audit's own finding); always open on
@@ -255,9 +264,10 @@ export default function Routines({
   // overviewItems directly, so switching tabs shows that route type's own
   // totals (matching the reference mockup's per-tab KPI behavior).
   const routeTypeItems = useMemo(() => {
-    if (routeTypeTab === "All") return overviewItems;
-    return overviewItems.filter((i) => i.routeType === routeTypeTab);
-  }, [overviewItems, routeTypeTab]);
+    let items = routeTypeTab === "All" ? overviewItems : overviewItems.filter((i) => i.routeType === routeTypeTab);
+    if (contractorFilter !== "All") items = items.filter((i) => i.contractor === contractorFilter);
+    return items;
+  }, [overviewItems, routeTypeTab, contractorFilter]);
 
   const areaOptions = useMemo(
     () => ["All", ...Array.from(new Set(routeTypeItems.map((i) => i.area).filter(Boolean))).sort()],
@@ -688,13 +698,25 @@ export default function Routines({
   // ─── Default: Overview ────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Routines</p>
-        {canCreateRoutines && (
-          <button style={s.btnPrimary} onClick={() => setView("new")}>
-            <i className="ti ti-plus" aria-hidden="true" /> Create Route
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {!scopedContractor && (
+            <select style={{ ...s.select, width: 170, fontSize: 12 }} value={contractorFilter} onChange={(e) => setContractorFilter(e.target.value)}>
+              <option value="All">All Contractors</option>
+              {CONTRACTOR_OPTIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
+          {canCreateRoutines && (
+            <button style={s.btnPrimary} onClick={() => setView("new")}>
+              <i className="ti ti-plus" aria-hidden="true" /> Create Route
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>

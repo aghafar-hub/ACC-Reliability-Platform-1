@@ -42,11 +42,9 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   const requiredOilType = item.requiredOilType || reg?.lubricant || "";
   const requiredOilBrand = reg?.lubricantBrand || "";
   const requiredQty = reg?.lubricantQuantityL || "";
-  const isSampleItem = item.itemType === "Sample";
   const [implemented, setImplemented] = useState(item.implemented === "Yes");
   const [reason, setReason] = useState(item.notImplementedReason || "");
   const [quantity, setQuantity] = useState(item.actualQuantity || "");
-  const [sampleTaken, setSampleTaken] = useState(item.sampleTaken === "Yes");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -71,7 +69,12 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
         notImplementedReason: implemented ? "" : reason,
         actualDate: implemented ? todayISO() : "",
         actualQuantity: quantity,
-        sampleTaken,
+        // The Sampling checklist's own "Sample Taken?" control was
+        // removed entirely (not needed, confirmed directly by the
+        // user) — "Done" on a Sampling-route item already means the
+        // sample was taken, so this just mirrors that instead of
+        // asking the technician to tick a second, redundant box.
+        sampleTaken: implemented,
       });
       setDirty(false);
       onSaved(saved);
@@ -134,18 +137,6 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
           />
         )}
       </td>
-      {/* Sample? only ever makes sense on a Sampling route's own items —
-          it used to render (always unchecked, never meaningful) for a
-          plain oil Change/TopUp item too. */}
-      {isSampleItem ? (
-        <td style={s.td}>
-          <input type="checkbox" disabled={locked} checked={sampleTaken} onChange={(e) => markDirty(setSampleTaken)(e.target.checked)} />
-        </td>
-      ) : (
-        <td style={s.td}>
-          <span style={{ color: T.textMuted }}>—</span>
-        </td>
-      )}
       <td style={s.td}>
         {!locked && (
           <button style={s.btn} onClick={handleSave} disabled={saving || !dirty}>
@@ -512,7 +503,6 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
               <th style={s.th}>Required Qty</th>
               <th style={s.th}>Status</th>
               <th style={s.th}>Qty / Reason</th>
-              <th style={s.th}>Sample?</th>
               <th style={s.th}></th>
             </tr>
           </thead>
