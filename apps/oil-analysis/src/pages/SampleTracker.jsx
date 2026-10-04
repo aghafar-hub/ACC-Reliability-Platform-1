@@ -21,16 +21,27 @@ function shortLabel(d) {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-// OK -> "On Track", OVERDUE -> "Overdue", MISSING -> "Missing" — same
-// three states sampleTrackerStatus already returns, just the board's own
-// column names. Colors mirror the original tiles exactly: MISSING is the
-// more severe of the two (it's past OVERDUE's own grace period too), so
-// it keeps the danger color while OVERDUE keeps warning, matching every
-// other MISSING/OVERDUE chip already in this app (SampleOverdue.js's
-// digest included).
-const BUCKET_LABEL = { OK: "On Track", OVERDUE: "Overdue", MISSING: "Missing" };
-const BUCKETS = ["Overdue", "Missing", "On Track"];
-const BUCKET_COLOR_KEY = { Overdue: "warning", Missing: "danger", "On Track": "success" };
+// OVERDUE -> "Overdue", MISSING -> "Missing" map straight across from
+// sampleTrackerStatus's own two bad states. OK splits into two columns
+// instead of one: "Due Soon" (an OK item whose computed due date falls
+// inside the window picked at the top of that column) and "On Track"
+// (every other OK item — no due date at all, e.g. "If Needed", or one
+// further out than the window). Every OK item lands in exactly one of
+// the two — never both — so the four columns always add up to the
+// filtered total. Colors mirror the original tiles: MISSING stays the
+// more severe red (it's past OVERDUE's own grace period too) while
+// OVERDUE keeps warning, matching every other MISSING/OVERDUE chip
+// already in this app (SampleOverdue.js's digest included); Due Soon
+// gets the same accent blue Oil Change Log uses for its own "coming up"
+// states.
+const BUCKETS = ["Overdue", "Missing", "Due Soon", "On Track"];
+const BUCKET_COLOR_KEY = { Overdue: "warning", Missing: "danger", "Due Soon": "accent", "On Track": "success" };
+
+function bucketFor(r, dueSoonCodes) {
+  if (r.status.label === "OVERDUE") return "Overdue";
+  if (r.status.label === "MISSING") return "Missing";
+  return dueSoonCodes.has(r.eq.code) ? "Due Soon" : "On Track";
+}
 
 // Classifies a tracker/sample cell's status text into one of three real
 // lab-result grades for the Condition Trend chart — "Missing"/"Pending"
@@ -170,7 +181,6 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
   const [groupBy, setGroupBy] = useState("equipment");
   const [viewingHistory, setViewingHistory] = useState(null);
   const [dueWindowMonths, setDueWindowMonths] = useState(1);
-  const [showDueModal, setShowDueModal] = useState(false);
 
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
 
@@ -221,17 +231,12 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     [rows, equipCode, classFilter, areaFilter, contractorFilter]
   );
 
-  const byBucket = useMemo(() => {
-    const map = { Overdue: [], Missing: [], "On Track": [] };
-    filtered.forEach((r) => map[BUCKET_LABEL[r.status.label] || "On Track"].push(r));
-    BUCKETS.forEach((b) => map[b].sort((a, b2) => a.eq.code.localeCompare(b2.eq.code)));
-    return map;
-  }, [filtered]);
-
-  // "Due in the next N months" — reuses computeOilChangeNextDue for the
-  // due-date math (see its own comment: same day-of-month-overflow-
-  // clamped addMonths as the Oil Change Log, applied to the sampling
-  // interval instead of the change interval).
+  // Every OK item's computed due date (reuses computeOilChangeNextDue —
+  // same day-of-month-overflow-clamped addMonths as the Oil Change Log,
+  // applied to the sampling interval instead of the change interval). An
+  // item with no fixed interval ("If Needed") never gets a due date here,
+  // so it can only ever land in "On Track", never "Due Soon" — there's
+  // nothing to be "soon" against.
   const dueSoon = useMemo(() => {
     return filtered
       .map(({ eq, history, status }) => {
@@ -255,7 +260,31 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     return `${y}-${m}-${day}`;
   }, [dueWindowMonths]);
 
-  const dueInWindow = dueSoon.filter((d) => d.dueDate <= dueWindowCutoff);
+  // Which codes fall inside the Due Soon window right now — carved OUT
+  // of "On Track" below, never duplicated into both columns, so the four
+  // columns always add up to exactly the filtered total.
+  const dueDateByCode = useMemo(() => {
+    const map = new Map();
+    dueSoon.forEach(({ eq, dueDate }) => map.set(eq.code, dueDate));
+    return map;
+  }, [dueSoon]);
+  const dueSoonCodes = useMemo(() => {
+    const codes = new Set();
+    dueDateByCode.forEach((dueDate, code) => {
+      if (dueDate <= dueWindowCutoff) codes.add(code);
+    });
+    return codes;
+  }, [dueDateByCode, dueWindowCutoff]);
+
+  const byBucket = useMemo(() => {
+    const map = { Overdue: [], Missing: [], "Due Soon": [], "On Track": [] };
+    filtered.forEach((r) => map[bucketFor(r, dueSoonCodes)].push(r));
+    map["Due Soon"].sort((a, b) => (dueDateByCode.get(a.eq.code) || "").localeCompare(dueDateByCode.get(b.eq.code) || ""));
+    map["Overdue"].sort((a, b) => a.eq.code.localeCompare(b.eq.code));
+    map["Missing"].sort((a, b) => a.eq.code.localeCompare(b.eq.code));
+    map["On Track"].sort((a, b) => a.eq.code.localeCompare(b.eq.code));
+    return map;
+  }, [filtered, dueSoonCodes, dueDateByCode]);
 
   // ── Chart 1: Samples Due by Week ────────────────────────────────────
   const weeklyData = useMemo(() => {
@@ -282,11 +311,11 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     const byContractor = {};
     filtered.forEach((r) => {
       const c = r.eq.contractor || "Unassigned";
-      (byContractor[c] ||= { contractor: c, Overdue: 0, Missing: 0, "On Track": 0 });
-      byContractor[c][BUCKET_LABEL[r.status.label] || "On Track"]++;
+      (byContractor[c] ||= { contractor: c, Overdue: 0, Missing: 0, "Due Soon": 0, "On Track": 0 });
+      byContractor[c][bucketFor(r, dueSoonCodes)]++;
     });
     return Object.values(byContractor);
-  }, [filtered]);
+  }, [filtered, dueSoonCodes]);
 
   // ── Chart 3: Oil condition trend, from real lab-result history ─────
   const trendData = useMemo(() => {
@@ -328,6 +357,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="Overdue" fill={T.warning} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Missing" fill={T.danger} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="Due Soon" fill={T.accent} radius={[3, 3, 0, 0]} />
               <Bar dataKey="On Track" fill={T.success} radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -446,36 +476,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
         </div>
       </div>
 
-      {/* ====== DUE SOON (small standalone card) ====== */}
-      <div
-        style={{
-          ...s.card,
-          display: "flex",
-          alignItems: "center",
-          gap: 14,
-          marginBottom: 16,
-          cursor: "pointer",
-        }}
-        onClick={() => setShowDueModal(true)}
-      >
-        <div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: T.accent }}>{dueInWindow.length}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary }}>Due Soon</div>
-        </div>
-        <select
-          style={{ ...s.select, fontSize: 12 }}
-          value={dueWindowMonths}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => setDueWindowMonths(Number(e.target.value))}
-        >
-          <option value={1}>Next 1 month</option>
-          <option value={2}>Next 2 months</option>
-          <option value={3}>Next 3 months</option>
-        </select>
-        <span style={{ fontSize: 11, color: T.textMuted, marginLeft: "auto" }}>Click to see the list</span>
-      </div>
-
-      {/* ====== THREE-COLUMN BOARD ====== */}
+      {/* ====== FOUR-COLUMN BOARD (Due Soon's own window picker sits in its column header) ====== */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14, marginBottom: 16 }}>
         {BUCKETS.map((bucket) => {
           const colorKey = BUCKET_COLOR_KEY[bucket];
@@ -508,6 +509,27 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
                 <span style={{ fontSize: 12, fontWeight: 800, color, textTransform: "uppercase" }}>{bucket}</span>
                 <span style={{ fontSize: 12, fontWeight: 800, color }}>{list.length}</span>
               </div>
+              {bucket === "Due Soon" && (
+                <div
+                  style={{
+                    padding: "6px 12px",
+                    border: `1px solid ${T.border}`,
+                    borderTop: "none",
+                    borderBottom: "none",
+                    background: T.cardBg,
+                  }}
+                >
+                  <select
+                    style={{ ...s.select, fontSize: 11.5, width: "100%" }}
+                    value={dueWindowMonths}
+                    onChange={(e) => setDueWindowMonths(Number(e.target.value))}
+                  >
+                    <option value={1}>Within 1 month</option>
+                    <option value={2}>Within 2 months</option>
+                    <option value={3}>Within 3 months</option>
+                  </select>
+                </div>
+              )}
               <div
                 style={{
                   border: `1px solid ${T.border}`,
@@ -554,79 +576,6 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
         />
       )}
 
-      {showDueModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-          onClick={() => setShowDueModal(false)}
-        >
-          <div
-            style={{
-              background: T.cardBg,
-              border: `1px solid ${T.border}`,
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 520,
-              maxHeight: "80vh",
-              overflowY: "auto",
-              padding: 24,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>
-                  Due in the next {dueWindowMonths} month{dueWindowMonths > 1 ? "s" : ""}
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>{dueInWindow.length} LP(s) — sorted soonest first.</p>
-              </div>
-              <button style={{ ...s.btn, padding: "6px 10px" }} onClick={() => setShowDueModal(false)} aria-label="Close">
-                <i className="ti ti-x" aria-hidden="true" />
-              </button>
-            </div>
-
-            {dueInWindow.length === 0 ? (
-              <p style={{ fontSize: 13, color: T.textMuted, textAlign: "center", padding: "20px 0" }}>Nothing due in this window.</p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {dueInWindow.map(({ eq, dueDate }) => (
-                  <div
-                    key={eq.code}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 10,
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      background: T.cardSubBg,
-                      border: `1px solid ${T.border}`,
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
-                      <div style={{ fontSize: 11, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {eq.description}
-                      </div>
-                    </div>
-                    <span style={{ fontSize: 11, color: T.textMuted, whiteSpace: "nowrap" }}>
-                      {new Date(dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
