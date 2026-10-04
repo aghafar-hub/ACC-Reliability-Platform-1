@@ -44,6 +44,11 @@
 //                                              (Status: Paused/Cancelled, or back to
 //                                              Assigned to resume). See Routines.js's
 //                                              setRoutineStatus.
+//   doPost deleteRoutine                    → Admin-only hard delete of a routine AND
+//                                              every OA_ROUTINE_ITEMS row it owns —
+//                                              distinct from setRoutineStatus's
+//                                              "Cancelled" (which keeps the record).
+//                                              See Routines.js's deleteRoutine.
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
 //   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
 //   ?action=getOilInventoryConsumption&months=6 → actual historical monthly usage (Patch 21)
@@ -389,6 +394,16 @@ function doPost(e) {
         logError("doPost:setRoutineStatus", statusResult.error || "ok", {routineId: data.routineId, status: data.status, actingUser: actingUser});
         if (!statusResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, statusRoutineContractor, "Changed routine status to " + (data.status || ""));
         return jsonOut(statusResult.error ? {status: "error", message: statusResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "deleteRoutine") {
+        requireAdmin_(auth.session);
+        var deleteRoutineContractor = getRoutineContractor_(data.routineId);
+        var deleteRoutineResult = deleteRoutine(ss, data);
+        if (!deleteRoutineResult.error) invalidateRoutinesOverviewCache();
+        logError("doPost:deleteRoutine", deleteRoutineResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!deleteRoutineResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "delete", actingUser, deleteRoutineContractor, "Deleted routine and its checklist items");
+        return jsonOut(deleteRoutineResult.error ? {status: "error", message: deleteRoutineResult.error} : {status: "ok"});
       }
 
       if (data.action === "submitRoutineItem") {

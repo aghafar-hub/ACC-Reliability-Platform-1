@@ -148,7 +148,7 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   );
 }
 
-export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged, onBack, canEdit }) {
+export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged, onBack, canEdit, isAdmin }) {
   const { T, s } = useTheme();
   const [routine, setRoutine] = useState(null);
   const [items, setItems] = useState([]);
@@ -377,6 +377,19 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     }
   }
 
+  async function handleDelete() {
+    setWorking(true);
+    try {
+      await api.deleteRoutine(webhookUrl, routineId);
+      pushToast("Routine and its checklist deleted.", "success");
+      onBack();
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   if (loading) return <p style={{ color: T.textSecondary }}>Loading routine…</p>;
   if (error) return <p style={{ color: T.danger }}>{error}</p>;
   if (!routine) return <p style={{ color: T.danger }}>Routine not found.</p>;
@@ -445,6 +458,15 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
               <i className="ti ti-ban" aria-hidden="true" /> Cancel
             </button>
           )}
+          {isAdmin && (
+            <button
+              style={{ ...s.btn, color: "#fff", background: T.danger, borderColor: T.danger }}
+              onClick={() => window.confirm("Permanently delete this routine and all its checklist items? This cannot be undone.") && handleDelete()}
+              disabled={working}
+            >
+              <i className="ti ti-trash" aria-hidden="true" /> Delete
+            </button>
+          )}
           <button style={s.btn} onClick={onBack}>
             <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
           </button>
@@ -454,6 +476,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
       {editing && (
         <EditRoutineModal
           routine={routine}
+          items={items}
           equipmentRegistry={equipmentRegistry}
           onClose={() => setEditing(false)}
           onSave={handleEditSave}

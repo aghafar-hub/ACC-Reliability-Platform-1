@@ -294,6 +294,42 @@ function setRoutineStatus(ss, data) {
 }
 
 
+// Admin-only hard delete (Routines tab improvement pass): distinct from
+// setRoutineStatus's "Cancelled" — Cancel keeps the routine and its
+// checklist around as a record of what was asked for and never done;
+// this actually removes it, confirmed directly by the user as an Admin-
+// only capability ("admin can delete routine not just cancelled"). Also
+// removes every OA_ROUTINE_ITEMS row that belongs to it ("all related
+// data will be deleted") — but deliberately NOT any real-world record a
+// completed item already created elsewhere (an Oil Change LOG/Oil Top Up
+// LOG entry, an in-app notification, an audit trail row): those document
+// something that actually happened and stay true regardless of whether
+// the routine that prompted them still exists, same reasoning
+// deleteRouteTemplate never touches the routines a template already
+// generated.
+function deleteRoutine(ss, data) {
+  var routineId = String(data.routineId || "").trim();
+  if (!routineId) return { error: "routineId is required" };
+  var routineSheet = ss.getSheetByName("ROUTINES");
+  if (!routineSheet) return { error: "ROUTINES sheet not found" };
+  var rowIdx = findRowIndex(routineSheet, [0], [routineId], dataStartRowFor("ROUTINES"));
+  if (rowIdx === -1) return { error: "Routine not found" };
+  routineSheet.deleteRow(rowIdx);
+
+  var itemsSheet = ss.getSheetByName("OA_ROUTINE_ITEMS");
+  if (itemsSheet) {
+    var dataStart = dataStartRowFor("OA_ROUTINE_ITEMS");
+    var vals = itemsSheet.getDataRange().getValues();
+    // Delete bottom-to-top so each deleteRow() doesn't shift the index of
+    // rows still waiting to be checked.
+    for (var i = vals.length - 1; i >= dataStart - 1; i--) {
+      if (String(vals[i][1] || "").trim() === routineId) itemsSheet.deleteRow(i + 1);
+    }
+  }
+  return { status: "ok" };
+}
+
+
 function submitRoutineItem(ss, data) {
   var routineItemId = String(data.routineItemId || "").trim();
   if (!routineItemId) return { error: "routineItemId is required" };

@@ -781,6 +781,18 @@ export async function setRoutineStatus(webhookUrl, routineId, status) {
   return saved;
 }
 
+// Admin-only hard delete — see Routines.js's own deleteRoutine comment for
+// why this is distinct from setRoutineStatus("Cancelled"). Backend
+// rejects it outright for anyone without ROLE-ADMIN.
+export async function deleteRoutine(webhookUrl, routineId) {
+  await postBlind(webhookUrl, { action: "deleteRoutine", routineId });
+
+  const routines = await getRoutines(webhookUrl);
+  if (routines.some((r) => r.routineId === routineId)) {
+    throw new SaveVerificationError(`The delete wasn't confirmed — please try again.`);
+  }
+}
+
 // ── Route Templates (recurring Routines) ────────────────────────────────
 // Not synced as part of readAll() either — same on-demand pattern as
 // Routines above. generateDueRouteInstances (the function that actually

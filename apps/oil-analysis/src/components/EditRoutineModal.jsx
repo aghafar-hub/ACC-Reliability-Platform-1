@@ -9,9 +9,22 @@ import TechnicianPicker from "./TechnicianPicker";
 // shell as NewRoutine.jsx (forked, not reinvented — see that file's own
 // comment on why), but follows EditActionModal.jsx's convention of never
 // calling the API itself: it just hands the parent a payload via onSave.
-export default function EditRoutineModal({ routine, equipmentRegistry, onClose, onSave }) {
+//
+// Bug-hunt-adjacent: the first version of this modal only surfaced the
+// handful of actually-editable fields, with nothing else about the
+// routine visible at all — confirmed directly by the user as too little
+// context to edit against ("too little data not all routine"). Now shows
+// the full picture — Route Type/Contractor/Status up top, every
+// equipment/LP point the routine actually covers at the bottom — even
+// though the equipment list itself still isn't editable here.
+export default function EditRoutineModal({ routine, items, equipmentRegistry, onClose, onSave }) {
   const { T, s } = useTheme();
   const isEmergencyTopUp = routine.routeType === "Emergency Top Up";
+  const registryByLp = useMemo(() => {
+    const map = {};
+    (equipmentRegistry || []).forEach((r) => (map[r.code] = r));
+    return map;
+  }, [equipmentRegistry]);
   const [routeName, setRouteName] = useState(routine.routeName || "");
   const [assignedTo, setAssignedTo] = useState(routine.assignedTo || "");
   const [dueDate, setDueDate] = useState(routine.dueDate || "");
@@ -68,6 +81,16 @@ export default function EditRoutineModal({ routine, equipmentRegistry, onClose, 
         </div>
 
         <div style={{ padding: 22 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: T.textSecondary, marginBottom: 16 }}>
+            <span>
+              <strong style={{ color: T.textPrimary }}>{routine.routeType || "—"}</strong>
+            </span>
+            <span>Contractor: {routine.contractor || "—"}</span>
+            <span>Status: {routine.status || "—"}</span>
+            <span>{(items || []).length} equipment</span>
+            {routine.createdDate && <span>Created {routine.createdDate} by {routine.createdBy || "—"}</span>}
+          </div>
+
           <div style={{ marginBottom: 14 }}>
             <label style={s.label}>Route Name</label>
             <input style={s.input} type="text" value={routeName} onChange={(e) => setRouteName(e.target.value)} />
@@ -96,9 +119,27 @@ export default function EditRoutineModal({ routine, equipmentRegistry, onClose, 
           </div>
 
           {isEmergencyTopUp && (
-            <div>
+            <div style={{ marginBottom: 14 }}>
               <label style={s.label}>Reason</label>
               <input style={s.input} type="text" placeholder="e.g. Leakage, low level, seal issue…" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          )}
+
+          {items && items.length > 0 && (
+            <div>
+              <label style={s.label}>Equipment / Lubrication Points ({items.length}) — not editable here</label>
+              <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, maxHeight: 160, overflowY: "auto" }}>
+                {items.map((item) => {
+                  const reg = registryByLp[item.lpId];
+                  return (
+                    <div key={item.routineItemId} style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border2}`, fontSize: 12 }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</span>
+                      {"  "}
+                      {reg?.lubricationPoint || reg?.description || ""}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>

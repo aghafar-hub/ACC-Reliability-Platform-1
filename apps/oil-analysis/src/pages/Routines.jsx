@@ -185,6 +185,15 @@ export default function Routines({
     if (!session) return true; // no session to check against — standalone build
     return (roles || []).some((r) => r === "ROLE-ADMIN" || r === "ROLE-CENG" || r === "ROLE-RENG" || r === "ROLE-MGR");
   }, [session]);
+  // Hard-delete (as opposed to Cancel, which keeps the record) is Admin-
+  // only — see backend/oil-lubrication/src/Routines.js's deleteRoutine
+  // comment. Same "don't even show an entry point that would always fail
+  // server-side" reasoning as canCreateRoutines above.
+  const isAdmin = useMemo(() => {
+    const roles = session?.claims?.roles;
+    if (!session) return true; // no session to check against — standalone build
+    return (roles || []).some((r) => r === "ROLE-ADMIN");
+  }, [session]);
   // Routines had no Contractor filter at all — same pattern as Oil
   // Inventory/Dashboard: locked to the account's own contractor for a
   // scoped RHI/ASEC session (its data is already scoped server-side, see
@@ -500,6 +509,7 @@ export default function Routines({
         onDataChanged={onDataChanged}
         onBack={backToOverviewOrTemplate}
         canEdit={canCreateRoutines}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -616,16 +626,16 @@ export default function Routines({
                 horizontally with no visible affordance, leaving the Status/
                 Progress/Due/Created columns cut off the right edge of a
                 phone screen (the Patch 35 mobile audit's own finding). */}
-            <div className="dash-table-desktop" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+            <div className="dash-table-desktop" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "auto", maxHeight: 520 }}>
               <table style={s.table}>
                 <thead>
                   <tr>
-                    <th style={s.th}>Route Name</th>
-                    <th style={s.th}>Assigned To</th>
-                    <th style={s.th}>Status</th>
-                    <th style={s.th}>Progress</th>
-                    <th style={s.th}>Due</th>
-                    <th style={s.th}>Created</th>
+                    <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Route Name</th>
+                    <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Assigned To</th>
+                    <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Status</th>
+                    <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Progress</th>
+                    <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Due</th>
+                    <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Created</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -827,18 +837,22 @@ export default function Routines({
           ) : (
             <>
               {/* Desktop: full 6-column table. Mobile (<=860px): a stacked
-                  card list — see the templateDetail table above for why. */}
-              <div className="dash-table-desktop" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+                  card list — see the templateDetail table above for why.
+                  Fixed height with its own internal scroll (confirmed
+                  directly by the user) instead of growing the whole page
+                  taller as more routines pile up — sticky header so the
+                  column labels stay put while scrolling. */}
+              <div className="dash-table-desktop" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "auto", maxHeight: 520 }}>
                 <table style={s.table}>
                   <thead>
                     <tr>
-                      <th style={s.th}>Routine Name</th>
-                      <th style={s.th}>Type</th>
-                      <th style={s.th}>Equipment Count</th>
-                      <th style={s.th}>Frequency</th>
-                      <th style={s.th}>Next Due Date</th>
-                      <th style={s.th}>Status</th>
-                      <th style={s.th}>Last Completed</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Routine Name</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Type</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Equipment Count</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Frequency</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Next Due Date</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Status</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Last Completed</th>
                     </tr>
                   </thead>
                   <tbody>
