@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
+import { useSessionContractor } from "../SessionContext";
 import * as api from "../api";
 import { newId } from "../parsers";
 import OilProductDetail from "./OilProductDetail";
@@ -331,11 +332,53 @@ function ChartTooltip({ T, active, payload, label, unit = "L" }) {
     <div style={{ background: T.cardBg || T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
       <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>
       {payload.map((p) => (
-        <div key={p.dataKey} style={{ color: T.textPrimary, fontWeight: 700 }}>
+        <div key={p.dataKey} style={{ color: p.color || T.textPrimary, fontWeight: 700 }}>
+          {p.name ? `${p.name}: ` : ""}
           {p.value} {unit}
         </div>
       ))}
     </div>
+  );
+}
+
+// Recomputes a contractor-filtered monthly trend from byProduct's own
+// per-product `monthly` arrays (already returned by
+// getOilInventoryConsumption, see OilInventory.js's own comment on that
+// shape) — entirely client-side, no new backend endpoint needed, since
+// each product row already carries its own contractor. Mirrors the
+// backend's own totalsByMonth aggregation (sum each month index across
+// matching products), just scoped to whichever contractor is picked.
+function monthlyTotalsFor(byProduct, monthKeys, contractor) {
+  const rows = contractor && contractor !== "All" ? byProduct.filter((p) => p.contractor === contractor) : byProduct;
+  return monthKeys.map((_, idx) => Math.round(rows.reduce((sum, p) => sum + (p.monthly[idx] || 0), 0) * 100) / 100);
+}
+
+// Shared by the Forecast tab and the Overview tab's own "Upcoming
+// Shortfalls" section (the user asked for the forecast to also get a
+// graph on Overview, not just its own tab) — a horizontal Current Stock
+// vs Projected Need bar per oil, so a shortfall (Projected Need bar
+// longer than Current Stock) reads at a glance instead of only from the
+// Shortfall column in the table below it.
+function ForecastChart({ T, rows }) {
+  if (rows.length === 0) return null;
+  const chartData = rows.map((r) => ({
+    label: r.lubricantBrand ? `${r.lubricant} · ${r.lubricantBrand}` : r.lubricant,
+    stock: r.currentStock ?? 0,
+    needed: r.quantityNeeded,
+  }));
+  const height = Math.min(400, Math.max(140, chartData.length * 38));
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+        <XAxis type="number" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+        <YAxis type="category" dataKey="label" width={150} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} />
+        <Tooltip content={<ChartTooltip T={T} />} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Bar dataKey="stock" name="Current Stock" fill={T.success} radius={[0, 4, 4, 0]} />
+        <Bar dataKey="needed" name="Projected Need" fill={T.accent} radius={[0, 4, 4, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -345,7 +388,7 @@ function ChartTooltip({ T, active, payload, label, unit = "L" }) {
 // pulls from getOilInventoryConsumption and getOilInventoryForecast on its
 // own (products come in as a prop, already loaded by the parent for the
 // Stock List tab) rather than re-fetching what's already in hand.
-function OverviewTab({ webhookUrl, products, onOpenProduct }) {
+function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, onNavigateTab }) {
   const { T, s } = useTheme();
   const [consumption, setConsumption] = useState(null);
   const [forecast, setForecast] = useState(null);
@@ -365,42 +408,55 @@ function OverviewTab({ webhookUrl, products, onOpenProduct }) {
   }, [webhookUrl]);
 
   const lowStock = products.filter((p) => p.currentStock != null && p.recorderLevel != null && p.currentStock <= p.recorderLevel);
-  const thisMonthTotal = consumption?.totalsByMonth?.length ? consumption.totalsByMonth[consumption.totalsByMonth.length - 1] : 0;
-  const openShortfalls = (forecast?.forecast || []).filter((r) => r.shortfall != null && r.shortfall > 0).length;
-  const chartData = (consumption?.months || []).map((m, i) => ({ month: monthLabel(m), total: consumption.totalsByMonth[i] }));
+  const forecastRows = (forecast?.forecast || []).filter((r) => contractorFilter === "All" || r.contractor === contractorFilter);
+  const shortfallRows = forecastRows.filter((r) => r.shortfall != null && r.shortfall > 0);
+  const openShortfalls = shortfallRows.length;
+  const monthlyTotals = consumption ? monthlyTotalsFor(consumption.byProduct, consumption.months, contractorFilter) : [];
+  const thisMonthTotal = monthlyTotals.length ? monthlyTotals[monthlyTotals.length - 1] : 0;
+  const chartData = (consumption?.months || []).map((m, i) => ({ month: monthLabel(m), total: monthlyTotals[i] }));
+
+  const kpis = [
+    { label: "Total Products", value: products.length, color: "accent", icon: "ti-box" },
+    { label: "Low Stock", value: lowStock.length, color: lowStock.length ? "danger" : "success", icon: "ti-alert-triangle", onClick: () => onNavigateTab("stock") },
+    { label: "This Month's Consumption", value: `${thisMonthTotal} L`, color: "textPrimary", icon: "ti-chart-bar", onClick: () => onNavigateTab("consumption") },
+    { label: "Open Shortfalls (3mo)", value: openShortfalls, color: openShortfalls ? "warning" : "success", icon: "ti-alert-circle", onClick: () => onNavigateTab("forecast") },
+  ];
 
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
-        {[
-          { label: "Total Products", value: products.length, color: "accent", icon: "ti-box" },
-          { label: "Low Stock", value: lowStock.length, color: lowStock.length ? "danger" : "success", icon: "ti-alert-triangle" },
-          { label: "This Month's Consumption", value: `${thisMonthTotal} L`, color: "textPrimary", icon: "ti-chart-bar" },
-          { label: "Open Shortfalls (3mo)", value: openShortfalls, color: openShortfalls ? "warning" : "success", icon: "ti-alert-circle" },
-        ].map((m) => (
-          <div key={m.label} style={{ ...s.metricCard, display: "flex", alignItems: "center", gap: 12 }}>
-            <span
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: T[m.color] + "22",
-                color: T[m.color],
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 16,
-                flexShrink: 0,
-              }}
+        {kpis.map((m) => {
+          const Tag = m.onClick ? "button" : "div";
+          return (
+            <Tag
+              key={m.label}
+              type={m.onClick ? "button" : undefined}
+              onClick={m.onClick}
+              style={{ ...s.metricCard, display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", font: "inherit", cursor: m.onClick ? "pointer" : "default" }}
             >
-              <i className={`ti ${m.icon}`} aria-hidden="true" />
-            </span>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-              <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
-            </div>
-          </div>
-        ))}
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: T[m.color] + "22",
+                  color: T[m.color],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                  flexShrink: 0,
+                }}
+              >
+                <i className={`ti ${m.icon}`} aria-hidden="true" />
+              </span>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+                <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+              </div>
+            </Tag>
+          );
+        })}
       </div>
 
       <div style={{ ...s.card, marginBottom: 20 }}>
@@ -425,6 +481,18 @@ function OverviewTab({ webhookUrl, products, onOpenProduct }) {
               <Area type="monotone" dataKey="total" stroke={T.accent} strokeWidth={2} fill="url(#invConsumptionFill)" />
             </AreaChart>
           </ResponsiveContainer>
+        )}
+      </div>
+
+      <div style={{ ...s.card, marginBottom: 20 }}>
+        <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Upcoming Shortfalls (next 3 months)</p>
+        <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>Current stock vs. projected need per oil — a shorter stock bar than need bar means a shortfall.</p>
+        {loading ? (
+          <p style={{ color: T.textSecondary, margin: 0 }}>Loading…</p>
+        ) : forecastRows.length === 0 ? (
+          <p style={{ color: T.textSecondary, margin: 0 }}>Nothing projected as due in this window.</p>
+        ) : (
+          <ForecastChart T={T} rows={forecastRows} />
         )}
       </div>
 
@@ -507,6 +575,7 @@ function StockListTab({ products, loading, error, onAdd, onOpenProduct }) {
             <thead>
               <tr>
                 <th style={s.th}>Type / Brand</th>
+                <th style={s.th}>Contractor</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Reorder Level</th>
                 <th style={s.th}>Location</th>
@@ -523,6 +592,7 @@ function StockListTab({ products, loading, error, onAdd, onOpenProduct }) {
                       <div style={{ fontWeight: 700 }}>{p.lubricantType}</div>
                       <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
                     </td>
+                    <td style={s.td}>{p.contractor || "—"}</td>
                     <td style={s.td}>
                       <span style={low ? { color: T.danger, fontWeight: 700 } : undefined}>
                         {p.currentStock != null ? `${p.currentStock} ${p.unit || ""}` : "—"}
@@ -553,7 +623,9 @@ function StockListTab({ products, loading, error, onAdd, onOpenProduct }) {
 // ─── Consumption tab (Patch 24, backed by Patch 21's aggregation) ────────
 const CONSUMPTION_MONTHS_OPTIONS = [3, 6, 12];
 
-function ConsumptionTab({ webhookUrl, onOpenProduct }) {
+const CONSUMPTION_SERIES_COLORS = ["accent", "warning", "danger", "success"];
+
+function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
   const { T, s } = useTheme();
   const [months, setMonths] = useState(6);
   const [data, setData] = useState(null);
@@ -572,8 +644,37 @@ function ConsumptionTab({ webhookUrl, onOpenProduct }) {
     return () => { cancelled = true; };
   }, [webhookUrl, months]);
 
-  const chartData = (data?.months || []).map((m, i) => ({ month: monthLabel(m), total: data.totalsByMonth[i] }));
-  const byProduct = (data?.byProduct || []).slice().sort((a, b) => b.total - a.total);
+  const byProductAll = useMemo(() => data?.byProduct || [], [data]);
+  const monthKeys = useMemo(() => data?.months || [], [data]);
+  // More than one contractor actually has consumption in this window AND
+  // no single contractor is picked — split the trend into one series per
+  // contractor (stacked) instead of one blended bar, same "breakdown by
+  // contractor" pattern as everywhere else in the app; narrows back down
+  // to a single series the moment a specific contractor is picked.
+  const presentContractors = useMemo(
+    () => Array.from(new Set(byProductAll.map((p) => p.contractor).filter(Boolean))).sort(),
+    [byProductAll]
+  );
+  const splitChart = contractorFilter === "All" && presentContractors.length > 1;
+
+  const chartData = useMemo(() => {
+    if (!monthKeys.length) return [];
+    if (splitChart) {
+      const totalsByContractor = presentContractors.map((c) => monthlyTotalsFor(byProductAll, monthKeys, c));
+      return monthKeys.map((m, i) => {
+        const row = { month: monthLabel(m) };
+        presentContractors.forEach((c, ci) => { row[c] = totalsByContractor[ci][i]; });
+        return row;
+      });
+    }
+    const totals = monthlyTotalsFor(byProductAll, monthKeys, contractorFilter);
+    return monthKeys.map((m, i) => ({ month: monthLabel(m), total: totals[i] }));
+  }, [monthKeys, splitChart, presentContractors, byProductAll, contractorFilter]);
+  const hasChartData = chartData.some((d) => Object.keys(d).some((k) => k !== "month" && d[k] > 0));
+
+  const byProduct = (contractorFilter === "All" ? byProductAll : byProductAll.filter((p) => p.contractor === contractorFilter))
+    .slice()
+    .sort((a, b) => b.total - a.total);
 
   return (
     <div>
@@ -595,8 +696,8 @@ function ConsumptionTab({ webhookUrl, onOpenProduct }) {
       ) : (
         <>
           <div style={{ ...s.card, marginBottom: 20 }}>
-            <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Total Consumption by Month</p>
-            {chartData.every((d) => !d.total) ? (
+            <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Total Consumption by Month{splitChart ? " — by Contractor" : ""}</p>
+            {!hasChartData ? (
               <p style={{ color: T.textSecondary, margin: 0 }}>No logged Issue movements in this window.</p>
             ) : (
               <ResponsiveContainer width="100%" height={240}>
@@ -605,7 +706,23 @@ function ConsumptionTab({ webhookUrl, onOpenProduct }) {
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={34} />
                   <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
-                  <Bar dataKey="total" fill={T.accent} radius={[4, 4, 0, 0]} />
+                  {splitChart ? (
+                    <>
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      {presentContractors.map((c, idx) => (
+                        <Bar
+                          key={c}
+                          dataKey={c}
+                          name={c}
+                          stackId="a"
+                          fill={T[CONSUMPTION_SERIES_COLORS[idx % CONSUMPTION_SERIES_COLORS.length]]}
+                          radius={idx === presentContractors.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                        />
+                      ))}
+                    </>
+                  ) : (
+                    <Bar dataKey="total" fill={T.accent} radius={[4, 4, 0, 0]} />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -660,7 +777,7 @@ function ConsumptionTab({ webhookUrl, onOpenProduct }) {
 // per oil per contractor.
 const FORECAST_MONTHS_OPTIONS = [1, 3, 6];
 
-function ForecastTab({ webhookUrl }) {
+function ForecastTab({ webhookUrl, contractorFilter }) {
   const { T, s } = useTheme();
   const [months, setMonths] = useState(3);
   const [data, setData] = useState(null);
@@ -679,8 +796,10 @@ function ForecastTab({ webhookUrl }) {
     return () => { cancelled = true; };
   }, [webhookUrl, months]);
 
-  const rows = data?.forecast || [];
-  const insufficientHistory = data?.insufficientHistory || [];
+  const rows = (data?.forecast || []).filter((r) => contractorFilter === "All" || r.contractor === contractorFilter);
+  const insufficientHistory = (data?.insufficientHistory || []).filter(
+    (e) => contractorFilter === "All" || e.contractor === contractorFilter
+  );
 
   return (
     <div>
@@ -712,7 +831,12 @@ function ForecastTab({ webhookUrl }) {
               </p>
             </div>
           ) : (
-            <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+            <>
+              <div style={{ ...s.card, marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Current Stock vs. Projected Need</p>
+                <ForecastChart T={T} rows={rows} />
+              </div>
+              <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
               <table style={s.table}>
                 <thead>
                   <tr>
@@ -753,7 +877,8 @@ function ForecastTab({ webhookUrl }) {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
 
           {insufficientHistory.length > 0 && (
@@ -786,7 +911,7 @@ function ForecastTab({ webhookUrl }) {
 const MOVEMENT_TYPE_FILTERS = ["All", "Receipt", "Issue", "Adjustment"];
 const MOVEMENTS_DISPLAY_CAP = 200;
 
-function MovementsTab({ webhookUrl, products, onOpenProduct }) {
+function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct }) {
   const { T, s } = useTheme();
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -814,6 +939,7 @@ function MovementsTab({ webhookUrl, products, onOpenProduct }) {
 
   const q = search.trim().toLowerCase();
   const visible = movements.filter((m) => {
+    if (contractorFilter !== "All" && m.contractor !== contractorFilter) return false;
     if (typeFilter !== "All" && m.movementType !== typeFilter) return false;
     if (!q) return true;
     const product = productById.get(m.productId);
@@ -826,21 +952,13 @@ function MovementsTab({ webhookUrl, products, onOpenProduct }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        {MOVEMENT_TYPE_FILTERS.map((t) => (
-          <button
-            key={t}
-            style={{
-              ...s.btn,
-              fontSize: 12,
-              background: typeFilter === t ? T.accent : "transparent",
-              color: typeFilter === t ? T.accentText : T.textSecondary,
-              borderColor: typeFilter === t ? T.accent : T.border,
-            }}
-            onClick={() => setTypeFilter(t)}
-          >
-            {t}
-          </button>
-        ))}
+        <select style={{ ...s.select, width: 140, fontSize: 12 }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+          {MOVEMENT_TYPE_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t === "All" ? "All Types" : t}
+            </option>
+          ))}
+        </select>
         <input
           style={{ ...s.input, flex: 1, minWidth: 200 }}
           type="search"
@@ -921,6 +1039,18 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Stock is owned per-contractor, not pooled — same reasoning
+  // CONTRACTOR_OPTIONS' own comment gives — so every tab here benefits from
+  // the same shared Contractor filter every other redesigned page in this
+  // app already has. Locked to the account's own org for a scoped caller
+  // (same pattern as Dashboard.jsx's scopedContractor), since their data is
+  // already scoped server-side and a dropdown would be a no-op for them.
+  const scopedContractor = useSessionContractor();
+  const [contractorFilter, setContractorFilter] = useState(scopedContractor || "All");
+  const visibleProducts = useMemo(
+    () => (contractorFilter === "All" ? products : products.filter((p) => p.contractor === contractorFilter)),
+    [products, contractorFilter]
+  );
 
   const refresh = useCallback(async () => {
     if (!webhookUrl) return;
@@ -983,15 +1113,31 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
 
   return (
     <div>
-      <p style={{ ...s.sectionTitle, margin: "0 0 16px" }}>Oil Inventory</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+        <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Inventory</p>
+        {!scopedContractor && (
+          <select style={{ ...s.select, width: 170, fontSize: 12 }} value={contractorFilter} onChange={(e) => setContractorFilter(e.target.value)}>
+            <option value="All">All Contractors</option>
+            {CONTRACTOR_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
       <TabBar T={T} s={s} activeTab={activeTab} setActiveTab={setActiveTab} />
-      {activeTab === "overview" && <OverviewTab webhookUrl={webhookUrl} products={products} onOpenProduct={openProduct} />}
-      {activeTab === "stock" && (
-        <StockListTab products={products} loading={loading} error={error} onAdd={() => setView("add")} onOpenProduct={openProduct} />
+      {activeTab === "overview" && (
+        <OverviewTab webhookUrl={webhookUrl} products={visibleProducts} contractorFilter={contractorFilter} onOpenProduct={openProduct} onNavigateTab={setActiveTab} />
       )}
-      {activeTab === "consumption" && <ConsumptionTab webhookUrl={webhookUrl} onOpenProduct={openProduct} />}
-      {activeTab === "forecast" && <ForecastTab webhookUrl={webhookUrl} />}
-      {activeTab === "movements" && <MovementsTab webhookUrl={webhookUrl} products={products} onOpenProduct={openProduct} />}
+      {activeTab === "stock" && (
+        <StockListTab products={visibleProducts} loading={loading} error={error} onAdd={() => setView("add")} onOpenProduct={openProduct} />
+      )}
+      {activeTab === "consumption" && <ConsumptionTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} onOpenProduct={openProduct} />}
+      {activeTab === "forecast" && <ForecastTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} />}
+      {activeTab === "movements" && (
+        <MovementsTab webhookUrl={webhookUrl} products={visibleProducts} contractorFilter={contractorFilter} onOpenProduct={openProduct} />
+      )}
     </div>
   );
 }
