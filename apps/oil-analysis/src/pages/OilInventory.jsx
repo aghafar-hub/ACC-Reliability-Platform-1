@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor } from "../SessionContext";
 import * as api from "../api";
@@ -354,68 +354,52 @@ function monthlyTotalsFor(byProduct, monthKeys, contractor) {
 }
 
 // Shared by the Forecast tab and the Overview tab's own "Upcoming
-// Shortfalls" section — a bullet-style coverage bar per oil (current
-// stock filled in against a tick mark for the projected need), replacing
-// an earlier paired-horizontal-bar Recharts layout the user found hard to
-// read ("i don't like the side bar view"): two separate sideways bars per
-// row made it hard to tell at a glance which oils were actually short, and
-// scaled badly past a handful of rows. This reads as "how full is the
-// tank against what we need" directly, worst shortfall first, with the
-// numbers spelled out underneath instead of requiring an axis/legend.
+// Shortfalls" section — a vertical grouped-column chart (Current Stock
+// vs. Projected Need per oil). Went through two earlier shapes the user
+// didn't like: a paired horizontal-bar Recharts layout ("the side bar
+// view"), then a horizontal bullet/coverage bar — both read sideways; this
+// is a standard upright column chart instead, with the Stock column
+// colored red the moment it falls short of Need so the comparison doesn't
+// rely on reading two bar lengths against each other.
 function ForecastChart({ T, rows }) {
   if (rows.length === 0) return null;
   const sorted = rows
-    .map((r) => {
-      const stock = r.currentStock ?? 0;
-      const need = r.quantityNeeded || 0;
-      const short = r.shortfall != null && r.shortfall > 0;
-      return { ...r, stock, need, max: Math.max(stock, need, 1), short };
-    })
-    .sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0) || b.need - a.need);
+    .map((r) => ({
+      label: r.lubricantBrand ? `${r.lubricant} · ${r.lubricantBrand}` : r.lubricant,
+      contractor: r.contractor,
+      stock: r.currentStock ?? 0,
+      need: r.quantityNeeded || 0,
+      short: r.shortfall != null && r.shortfall > 0,
+    }))
+    .sort((a, b) => b.need - b.stock - (a.need - a.stock));
 
+  const chartWidth = Math.max(480, sorted.length * 100);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {sorted.map((r) => {
-        const stockPct = Math.min(100, (r.stock / r.max) * 100);
-        const needPct = Math.min(100, (r.need / r.max) * 100);
-        const barColor = r.short ? T.danger : T.success;
-        return (
-          <div key={`${r.contractor}|${r.lubricant}|${r.lubricantBrand}`}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 5 }}>
-              <div style={{ minWidth: 0 }}>
-                <span style={{ fontWeight: 700, fontSize: 13 }}>{r.lubricant}</span>
-                {r.lubricantBrand && <span style={{ fontSize: 11.5, color: T.textSecondary }}> · {r.lubricantBrand}</span>}
-                <span style={{ fontSize: 11, color: T.textSecondary, marginLeft: 6 }}>({r.contractor})</span>
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: barColor, whiteSpace: "nowrap" }}>
-                {r.currentStock == null ? "No matching product" : r.short ? `${r.shortfall} L short` : "Covered"}
-              </span>
-            </div>
-            <div style={{ position: "relative", height: 16, borderRadius: 8, background: T.border + "66" }}>
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: `${stockPct}%`,
-                  background: barColor,
-                  borderRadius: 8,
-                  transition: "width .3s",
-                }}
-              />
-              <div
-                title={`Projected need: ${r.need} L`}
-                style={{ position: "absolute", left: `${needPct}%`, top: -3, bottom: -3, width: 3, background: T.textPrimary, borderRadius: 2 }}
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: T.textSecondary, marginTop: 4 }}>
-              <span>Stock: {r.stock} L</span>
-              <span>Need: {r.need} L</span>
-            </div>
-          </div>
-        );
-      })}
+    <div style={{ overflowX: "auto" }}>
+      <ResponsiveContainer width={chartWidth} height={300}>
+        <BarChart data={sorted} margin={{ top: 10, right: 10, bottom: 55, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11, fill: T.textSecondary }}
+            axisLine={{ stroke: T.border }}
+            tickLine={false}
+            angle={-30}
+            textAnchor="end"
+            interval={0}
+            height={60}
+          />
+          <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={40} />
+          <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
+          <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" />
+          <Bar dataKey="stock" name="Current Stock" radius={[4, 4, 0, 0]}>
+            {sorted.map((d, i) => (
+              <Cell key={i} fill={d.short ? T.danger : T.success} />
+            ))}
+          </Bar>
+          <Bar dataKey="need" name="Projected Need" fill={T.accent} radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -525,7 +509,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
       <div style={{ ...s.card, marginBottom: 20 }}>
         <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Upcoming Shortfalls (next 3 months)</p>
         <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
-          Each bar is current stock against the tick mark for projected need — red means the stock won't cover it, worst shortfall first.
+          Current Stock vs. Projected Need per oil — the Stock column turns red when it won't cover the need, worst shortfall first.
         </p>
         {loading ? (
           <p style={{ color: T.textSecondary, margin: 0 }}>Loading…</p>
@@ -875,7 +859,7 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
               <div style={{ ...s.card, marginBottom: 20 }}>
                 <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Current Stock vs. Projected Need</p>
                 <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 14px" }}>
-                  Each bar is current stock against the tick mark for projected need — red means the stock won't cover it, worst shortfall first.
+                  The Stock column turns red when it won't cover the Need column next to it — worst shortfall first.
                 </p>
                 <ForecastChart T={T} rows={rows} />
               </div>
