@@ -496,6 +496,53 @@ export const THEMES = {
     pillSuccess: "rgba(27,215,154,0.18)",
     pillInfo: "rgba(34,195,255,0.18)",
   },
+  // Light counterpart to "Vivid Spectrum" above (user request: "another
+  // colorful theme but on light theme not dark") — same idea, white cards
+  // on a very light lavender-tinted background, but with the accent/
+  // status hues pushed more vivid than any of the existing light themes
+  // (Slate Light/Pearl White/Sky Blue/Rose Light/Mint Fresh/Warm Sand each
+  // only vary ONE hue; this one varies all of them together, same as its
+  // dark sibling) — added as a 13th option, none of the originals touched.
+  "Vivid Spectrum Light": {
+    appBg: "#F6F5FC",
+    sidebarBg: "#FFFFFF",
+    cardBg: "#FFFFFF",
+    topbarBg: "#FFFFFF",
+    border: "#DEDCF2",
+    border2: "#ECEAFA",
+    inputBg: "#FFFFFF",
+    metricBg: "#FFFFFF",
+    textPrimary: "#1A1535",
+    textSecondary: "#5B5A8C",
+    sidebarText: "#1A1535",
+    sidebarTextSecondary: "#5B5A8C",
+    textMuted: "#9795C4",
+    textHighlight: "#0F0B2E",
+    textSubtle: "#3F3D6B",
+    accent: "#7C3AED",
+    accentText: "#FFFFFF",
+    navActive: "rgba(124,58,237,0.10)",
+    tableHead: "#F3F1FD",
+    tableRow: "#FFFFFF",
+    tableRowAlt: "#FAF9FE",
+    tableHover: "rgba(124,58,237,0.06)",
+    scrollThumb: "#C9C6ED",
+    cardSubBg: "#F7F6FD",
+    infoBarBg: "#F1EEFC",
+    codeBg: "#F0EEFC",
+    codeText: "#6D28D9",
+    danger: "#E11D48",
+    warning: "#D97706",
+    success: "#059669",
+    info: "#0891B2",
+    dangerBg: "#FDE8ED",
+    warningBg: "#FDF2E3",
+    successBg: "#E6F7F0",
+    pillDanger: "rgba(225,29,72,0.14)",
+    pillWarning: "rgba(217,119,6,0.14)",
+    pillSuccess: "rgba(5,150,105,0.14)",
+    pillInfo: "rgba(8,145,178,0.14)",
+  },
 };
 
 export const DEFAULT_THEME = "Navy Dark";

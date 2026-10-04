@@ -48,6 +48,10 @@ export const THEME_PALETTES: ThemePalette[] = [
   // embedded apps' own theme.js files (see each one's own comment), same
   // reasoning as the ACC Corporate entry above.
   { name: 'Vivid Spectrum', appBg: '#0B0E1C', sidebarBg: '#141937', cardBg: '#141937', border: '#2B3263', textPrimary: '#F1F3FF', textSecondary: '#9499D6', sidebarText: '#F1F3FF', sidebarTextSecondary: '#9499D6', accent: '#8B5CF6', accentText: '#FFFFFF' },
+  // Light counterpart to "Vivid Spectrum" above (user request: "another
+  // colorful theme but on light theme not dark") — kept in sync with the
+  // exact same palette added to both embedded apps' own theme.js files.
+  { name: 'Vivid Spectrum Light', appBg: '#F6F5FC', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#DEDCF2', textPrimary: '#1A1535', textSecondary: '#5B5A8C', sidebarText: '#1A1535', sidebarTextSecondary: '#5B5A8C', accent: '#7C3AED', accentText: '#FFFFFF' },
 ];
 
 export const THEME_NAMES = THEME_PALETTES.map((t) => t.name);
