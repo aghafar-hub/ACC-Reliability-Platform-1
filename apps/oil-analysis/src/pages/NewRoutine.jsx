@@ -115,6 +115,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
       label: `${r.code} — ${r.lubricationPoint || r.description}`,
       equipmentId: r.equipmentId,
       oilType: r.lubricant,
+      area: r.area,
       suggestionReason: r.suggestionReason,
     };
   }
@@ -292,7 +293,15 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
         onCreated(null, saved.templateId);
       } else {
         const routineId = newId("RT");
-        const items = selected.map((sel) => ({ routineItemId: newId("RI"), lpId: sel.lpId }));
+        const items = selected.map((sel) => ({ routineItemId: newId("RI"), lpId: sel.lpId, requiredOilType: sel.oilType || "" }));
+        // Routines tab improvement pass: a one-time route's Area was never
+        // sent at all before (only the recurring-template path had one) —
+        // see Routines.js's own Area column comment. Emergency Top Up has
+        // no Area filter UI (it's always a single specific piece of
+        // equipment), so its area comes straight off that one selected
+        // point instead; everything else uses whatever the Area filter was
+        // set to when the equipment was picked.
+        const routeArea = isEmergencyTopUp ? selected[0]?.area || "" : area === "All" ? "" : area;
         const saved = await api.createRoutine(webhookUrl, {
           routineId,
           routeName: routeName.trim(),
@@ -303,6 +312,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
           createdBy,
           items,
           reason: isEmergencyTopUp ? reason.trim() : undefined,
+          area: routeArea,
         });
         pushToast("Route created.", "success");
         onCreated(saved.routineId, null);

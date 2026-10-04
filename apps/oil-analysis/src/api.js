@@ -709,7 +709,7 @@ export async function getRoutineItems(webhookUrl, routineId) {
 // send CORS headers on a POST response) means write-verification always
 // has to be a follow-up read; a client-supplied id makes that an exact
 // lookup instead of guessing "the newest matching routine".
-export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, assignedTo, contractor, createdBy, items, reason }) {
+export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, assignedTo, contractor, createdBy, items, reason, area }) {
   await postBlind(webhookUrl, {
     action: "createRoutine",
     routineId,
@@ -721,6 +721,7 @@ export async function createRoutine(webhookUrl, { routineId, routeName, routeTyp
     createdBy: createdBy || "",
     items,
     reason: reason || "", // Patch 18 — required server-side for routeType "Emergency Top Up" only
+    area: area || "",
   });
 
   const routines = await getRoutines(webhookUrl);
@@ -740,6 +741,42 @@ export async function assignRoutineTechnician(webhookUrl, routineId, assignedTo)
   const saved = routines.find((r) => r.routineId === routineId);
   if (!saved || saved.status !== "Assigned") {
     throw new SaveVerificationError(`The assignment wasn't confirmed saved — please try again.`);
+  }
+  return saved;
+}
+
+// Routines tab improvement pass: the one field-edit path a routine never
+// had — RouteType and its item list are deliberately NOT editable here
+// (see Routines.js's own updateRoutine comment).
+export async function updateRoutine(webhookUrl, routineId, { routeName, assignedTo, dueDate, area, reason }) {
+  await postBlind(webhookUrl, {
+    action: "updateRoutine",
+    routineId,
+    routeName,
+    assignedTo,
+    dueDate: dueDate || "",
+    area: area || "",
+    reason: reason || "",
+  });
+
+  const routines = await getRoutines(webhookUrl);
+  const saved = routines.find((r) => r.routineId === routineId);
+  if (!saved || saved.routeName !== routeName || saved.assignedTo !== assignedTo) {
+    throw new SaveVerificationError(`The routine edit wasn't confirmed saved — please try again.`);
+  }
+  return saved;
+}
+
+// Pause/Resume/Cancel — status is one of "Paused"/"Cancelled"/"Assigned"
+// (the last one resumes a Paused routine). See Routines.js's
+// setRoutineStatus for the allowed-transition rules this mirrors.
+export async function setRoutineStatus(webhookUrl, routineId, status) {
+  await postBlind(webhookUrl, { action: "setRoutineStatus", routineId, status });
+
+  const routines = await getRoutines(webhookUrl);
+  const saved = routines.find((r) => r.routineId === routineId);
+  if (!saved || saved.status !== status) {
+    throw new SaveVerificationError(`The status change wasn't confirmed saved — please try again.`);
   }
   return saved;
 }

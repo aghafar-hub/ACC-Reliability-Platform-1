@@ -827,11 +827,12 @@ export function rowToRoutine(row) {
     dueDate: formatDate(row[14]),
     sourceTemplateId: row[15] || "",
     reason: row[16] || "", // Patch 18 — required for routeType "Emergency Top Up" only
+    area: row[17] || "", // Routines tab improvement pass — see Routines.js's own column comment
     // itemsTotal/itemsDone are NOT raw sheet columns — getRoutines() (Routines.js)
     // appends them after the real row, so their index always trails one past
-    // the sheet's own last real column (currently 16, Reason).
-    itemsTotal: Number(row[17]) || 0,
-    itemsDone: Number(row[18]) || 0,
+    // the sheet's own last real column (currently 17, Area).
+    itemsTotal: Number(row[18]) || 0,
+    itemsDone: Number(row[19]) || 0,
   };
 }
 

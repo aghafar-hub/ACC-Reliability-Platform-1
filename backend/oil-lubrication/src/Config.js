@@ -23,6 +23,17 @@ var DASHBOARD_CACHE_KEY = "dashboard_v4";
 
 var DASHBOARD_CACHE_SECONDS = 300; // 5 minutes
 
+// getRoutinesOverview was reading Equipment Registry (944 rows) + ROUTINE_
+// TEMPLATES + ROUTINES + OA_ROUTINE_ITEMS fresh on every single load (4
+// full getDataRange().getValues() calls, each a real network round trip to
+// Sheets) — the user reported the Routines tab taking too long to load.
+// Same cache-per-contractor-scope pattern as DASHBOARD_CACHE_KEY above;
+// see invalidateRoutinesOverviewCache's own comment in Utils.js for where
+// it's cleared.
+var ROUTINES_OVERVIEW_CACHE_KEY = "routines_overview_v1";
+
+var ROUTINES_OVERVIEW_CACHE_SECONDS = 300; // 5 minutes
+
 
 // OPTION A HARDENING (see docs/oil-lubrication-migration-notes.md): which
 // sheets the GENERIC append/updateRow/deleteRow path — driven directly by

@@ -22,7 +22,16 @@
 // required (why the top-up was needed — leakage, low level, etc.). An
 // Emergency Top Up routine is always single-equipment (exactly one item),
 // confirmed directly by the user, unlike Oil Change/Sampling routes which
-// can cover many LPs.
+// can cover many LPs. 17 Area — added for the Routines tab's own "Area"
+// filter/chart, which a standalone routine always reported blank for
+// before this (getRoutinesOverview had nowhere to read it from — see
+// RouteTemplates.js's own comment); derived client-side from the selected
+// equipment (NewRoutine.jsx) and never auto-populated for a template-
+// generated routine (that one's own Area lives on its ROUTINE_TEMPLATES
+// row instead, same as RouteType/Frequency/OilType already do — a
+// generated routine's raw sheet row is genuinely shorter than this and
+// simply has nothing written past SourceTemplateId, which is fine, Sheets
+// rows don't need to be rectangular).
 // OA_ROUTINE_ITEMS columns: 0 RoutineItemId, 1 RoutineId, 2 LP_ID,
 // 3 ItemType, 4 RequiredOilType, 5 Implemented, 6 NotImplementedReason,
 // 7 ActualDate, 8 ActualQuantity, 9 SampleTaken, 10 CreatedDate,
@@ -144,6 +153,7 @@ function createRoutine(ss, data) {
     dueDate,
     "", // SourceTemplateId — blank for a manually-created routine
     reason,
+    String(data.area || "").trim(),
   ];
   appendRow(ss, "ROUTINES", routineRow);
 
@@ -205,6 +215,81 @@ function assignRoutineTechnician(ss, data) {
     logError("notifyRoutineAssigned_:assignRoutineTechnician", e, { routineId: routineId });
   }
 
+  return { status: "ok" };
+}
+
+
+// Edit Routine (Routines tab improvement pass): the one gap this app had
+// no path for at all — nothing could ever change a routine's own name,
+// technician, due date, area, or (for an Emergency Top Up) its reason
+// after creation. Deliberately does NOT touch RouteType or the LP/item
+// list — OA_ROUTINE_ITEMS rows (and any checklist progress already saved
+// against them) are keyed off the routine as created, and letting the
+// equipment list change out from under in-progress checklist entries is a
+// different, riskier feature than a straightforward field edit. Locked
+// once Approved, same as everything else about a routine at that point —
+// it's the final sign-off, not a draft.
+function updateRoutine(ss, data) {
+  var routineId = String(data.routineId || "").trim();
+  if (!routineId) return { error: "routineId is required" };
+  var sheet = ss.getSheetByName("ROUTINES");
+  if (!sheet) return { error: "ROUTINES sheet not found" };
+  var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
+  if (rowIdx === -1) return { error: "Routine not found" };
+  var currentStatus = String(sheet.getRange(rowIdx, 6).getValue() || "").trim();
+  if (currentStatus === "Approved") return { error: "Cannot edit an approved routine" };
+
+  var routeName = String(data.routeName || "").trim();
+  if (!routeName) return { error: "routeName is required" };
+  var assignedTo = String(data.assignedTo || "").trim();
+  if (!assignedTo) return { error: "assignedTo is required" };
+  var routeType = String(sheet.getRange(rowIdx, 14).getValue() || "").trim();
+  var reason = String(data.reason || "").trim();
+  if (routeType === "Emergency Top Up" && !reason) return { error: "A reason is required for an Emergency Top Up" };
+
+  var dueDate = data.dueDate ? new Date(data.dueDate) : "";
+  if (dueDate && isNaN(dueDate.getTime())) dueDate = "";
+
+  sheet.getRange(rowIdx, 3).setValue(assignedTo);   // AssignedTo
+  sheet.getRange(rowIdx, 13).setValue(routeName);   // RouteName
+  sheet.getRange(rowIdx, 15).setValue(dueDate);     // DueDate
+  sheet.getRange(rowIdx, 17).setValue(reason);      // Reason
+  sheet.getRange(rowIdx, 18).setValue(String(data.area || "").trim()); // Area
+  return { status: "ok" };
+}
+
+
+// Pause/Resume/Cancel (Routines tab improvement pass) — mirrors
+// setRouteTemplateStatus's naming and shape for the recurring-template
+// side, one function covering all three transitions since they're really
+// one "change the workflow Status, with rules about which changes are
+// allowed" operation. A paused/cancelled routine still has every checklist
+// item it had before (OA_ROUTINE_ITEMS is untouched) — pausing/cancelling
+// only ever changes ROUTINES' own Status column.
+function setRoutineStatus(ss, data) {
+  var routineId = String(data.routineId || "").trim();
+  if (!routineId) return { error: "routineId is required" };
+  var status = String(data.status || "").trim();
+  if (["Paused", "Cancelled", "Assigned"].indexOf(status) === -1) {
+    return { error: "status must be Paused, Cancelled, or Assigned (to resume)" };
+  }
+  var sheet = ss.getSheetByName("ROUTINES");
+  if (!sheet) return { error: "ROUTINES sheet not found" };
+  var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
+  if (rowIdx === -1) return { error: "Routine not found" };
+  var currentStatus = String(sheet.getRange(rowIdx, 6).getValue() || "").trim();
+
+  if (status === "Paused" && currentStatus !== "Assigned" && currentStatus !== "InProgress") {
+    return { error: "Only an Assigned or InProgress routine can be paused" };
+  }
+  if (status === "Assigned" && currentStatus !== "Paused") {
+    return { error: "Only a Paused routine can be resumed" };
+  }
+  if (status === "Cancelled" && (currentStatus === "Approved" || currentStatus === "Cancelled")) {
+    return { error: "An approved or already-cancelled routine cannot be cancelled" };
+  }
+
+  sheet.getRange(rowIdx, 6).setValue(status);
   return { status: "ok" };
 }
 

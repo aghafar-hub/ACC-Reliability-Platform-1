@@ -189,6 +189,7 @@ function generateDueRouteInstances() {
     }
 
     invalidateDashboardCache();
+    invalidateRoutinesOverviewCache();
     logError("generateDueRouteInstances:ok", "generated " + generated.length, { generated: generated });
     return { status: "ok", generated: generated };
   } finally {
@@ -306,11 +307,13 @@ function intervalMonthsForRoute_(freqText) {
 // get its own top-level row here — it's reached by drilling into its
 // parent template instead (frontend concern, not this endpoint's).
 //
-// dueStatus values: "Paused" (template only — never auto-generates until
-// resumed, so a due-date comparison would be misleading), "Completed"
-// (standalone routine only — already Approved, nothing left to do),
-// "Overdue" / "Due Soon" / "On Schedule" (everything else, from comparing
-// the item's own due date against today).
+// dueStatus values: "Paused" (a template never auto-generates until
+// resumed, or a standalone routine someone paused — either way a due-date
+// comparison would be misleading), "Cancelled" (standalone routine only,
+// via setRoutineStatus), "Completed" (standalone routine only — already
+// Approved, nothing left to do), "Overdue" / "Due Soon" / "On Schedule"
+// (everything else, from comparing the item's own due date against
+// today).
 var ROUTINE_DUE_SOON_DAYS = 7;
 
 function countMatchingEquipment_(registry, routeType, area, oilType, contractor) {
@@ -336,6 +339,15 @@ function classifyDueStatus_(dueDate, today) {
 }
 
 function getRoutinesOverview(scope) {
+  var cacheKey = ROUTINES_OVERVIEW_CACHE_KEY + (scope ? (":" + scope) : "");
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get(cacheKey);
+  if (cached) {
+    var parsed = JSON.parse(cached);
+    parsed.fromCache = true;
+    return parsed;
+  }
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var registry = readEquipmentRegistry().equipment;
   var templateRows = readSheet(ss, "ROUTINE_TEMPLATES", true);
@@ -403,6 +415,15 @@ function getRoutinesOverview(scope) {
     var dueDate = r[14] ? new Date(r[14]) : null;
     var approvedDate = r[8] ? new Date(r[8]) : null;
     var isApproved = workflowStatus === "Approved";
+    // dueStatus mirrors a template's own "Paused" handling above — a
+    // paused or cancelled routine's due date comparison would be
+    // misleading (it isn't going anywhere until resumed, or ever, if
+    // cancelled), same reasoning as classifyDueStatus_'s own header
+    // comment on why "Paused" skips the date math entirely.
+    var oneTimeDueStatus = isApproved ? "Completed"
+      : workflowStatus === "Paused" ? "Paused"
+      : workflowStatus === "Cancelled" ? "Cancelled"
+      : classifyDueStatus_(dueDate, today);
 
     items.push({
       kind: "routine",
@@ -410,17 +431,22 @@ function getRoutinesOverview(scope) {
       routeName: String(r[12] || "").trim(),
       routeType: String(r[13] || "").trim(),
       contractor: contractor,
-      area: "",
+      // Area (col 17) — added alongside updateRoutine/setRoutineStatus; a
+      // routine created before this column existed just reads back blank
+      // here, same as it always has.
+      area: String(r[17] || "").trim(),
       frequency: "One-time",
       equipmentCount: itemCounts[routineId] || 0,
       nextDueDate: dueDate && !isNaN(dueDate.getTime()) ? dueDate.toISOString() : "",
-      dueStatus: isApproved ? "Completed" : classifyDueStatus_(dueDate, today),
+      dueStatus: oneTimeDueStatus,
       lastCompleted: isApproved && approvedDate && !isNaN(approvedDate.getTime()) ? approvedDate.toISOString() : "",
       workflowStatus: workflowStatus,
     });
   });
 
-  return { items: items, count: items.length };
+  var result = { items: items, count: items.length };
+  cache.put(cacheKey, JSON.stringify(result), ROUTINES_OVERVIEW_CACHE_SECONDS);
+  return result;
 }
 
 

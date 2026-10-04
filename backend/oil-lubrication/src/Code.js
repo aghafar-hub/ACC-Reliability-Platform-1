@@ -30,8 +30,20 @@
 //                                              one-time routine, each with a computed
 //                                              Equipment Count/Next Due Date/dueStatus
 //                                              (Overdue/Due Soon/On Schedule/Paused/
-//                                              Completed)/Last Completed — the main
-//                                              Routines list's data source
+//                                              Cancelled/Completed)/Last Completed — the
+//                                              main Routines list's data source. Cached
+//                                              per contractor scope (Routines tab load-
+//                                              time pass) — see ROUTINES_OVERVIEW_CACHE_*
+//                                              in Config.js and invalidateRoutinesOverview
+//                                              Cache in Utils.js.
+//   doPost updateRoutine                    → edit a routine's own RouteName/AssignedTo/
+//                                              DueDate/Area/Reason (not RouteType or its
+//                                              items) — locked once Approved. See
+//                                              Routines.js's updateRoutine.
+//   doPost setRoutineStatus                 → pause/resume/cancel a standalone routine
+//                                              (Status: Paused/Cancelled, or back to
+//                                              Assigned to resume). See Routines.js's
+//                                              setRoutineStatus.
 //   ?action=getOilInventory                 → all "Oil Inventory" product rows
 //   ?action=getOilInventoryForecast&months=3 → projected consumption vs. current stock
 //   ?action=getOilInventoryConsumption&months=6 → actual historical monthly usage (Patch 21)
@@ -351,9 +363,32 @@ function doPost(e) {
         var createRoutineScope = getContractorScope_(auth.session);
         if (createRoutineScope) data.contractor = createRoutineScope;
         var createResult = createRoutine(ss, data);
+        invalidateRoutinesOverviewCache();
         logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         if (!createResult.error) recordAudit_(ss, "ROUTINES", createResult.routineId, "create", actingUser, data.contractor, "Created routine");
         return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
+      }
+
+      if (data.action === "updateRoutine") {
+        requirePermission_(auth.session, "Edit");
+        var updRoutineContractor = getRoutineContractor_(data.routineId);
+        requireContractorMatch_(auth.session, updRoutineContractor);
+        var updRoutineResult = updateRoutine(ss, data);
+        if (!updRoutineResult.error) invalidateRoutinesOverviewCache();
+        logError("doPost:updateRoutine", updRoutineResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!updRoutineResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, updRoutineContractor, "Edited routine");
+        return jsonOut(updRoutineResult.error ? {status: "error", message: updRoutineResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "setRoutineStatus") {
+        requirePermission_(auth.session, "Edit");
+        var statusRoutineContractor = getRoutineContractor_(data.routineId);
+        requireContractorMatch_(auth.session, statusRoutineContractor);
+        var statusResult = setRoutineStatus(ss, data);
+        if (!statusResult.error) invalidateRoutinesOverviewCache();
+        logError("doPost:setRoutineStatus", statusResult.error || "ok", {routineId: data.routineId, status: data.status, actingUser: actingUser});
+        if (!statusResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, statusRoutineContractor, "Changed routine status to " + (data.status || ""));
+        return jsonOut(statusResult.error ? {status: "error", message: statusResult.error} : {status: "ok"});
       }
 
       if (data.action === "submitRoutineItem") {
@@ -384,6 +419,7 @@ function doPost(e) {
         requireContractorMatch_(auth.session, approveContractor);
         data.actingUser = actingUser;
         var appResult = approveRoutine(ss, data);
+        if (!appResult.error) invalidateRoutinesOverviewCache();
         logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         if (!appResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, approveContractor, "Approved routine");
         return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
@@ -414,6 +450,7 @@ function doPost(e) {
         var createTplScope = getContractorScope_(auth.session);
         if (createTplScope) data.contractor = createTplScope;
         var createTplResult = createRouteTemplate(ss, data);
+        if (!createTplResult.error) invalidateRoutinesOverviewCache();
         logError("doPost:createRouteTemplate", createTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
         if (!createTplResult.error) recordAudit_(ss, "ROUTINE_TEMPLATES", createTplResult.templateId, "create", actingUser, data.contractor, "Created route template");
         return jsonOut(createTplResult.error ? {status: "error", message: createTplResult.error} : {status: "ok", templateId: createTplResult.templateId});
@@ -424,6 +461,7 @@ function doPost(e) {
         var tplStatusContractor = getTemplateContractor_(data.templateId);
         requireContractorMatch_(auth.session, tplStatusContractor);
         var tplStatusResult = setRouteTemplateStatus(ss, data);
+        if (!tplStatusResult.error) invalidateRoutinesOverviewCache();
         logError("doPost:setRouteTemplateStatus", tplStatusResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
         if (!tplStatusResult.error) recordAudit_(ss, "ROUTINE_TEMPLATES", data.templateId, "update", actingUser, tplStatusContractor, "Changed route template status to " + (data.status || ""));
         return jsonOut(tplStatusResult.error ? {status: "error", message: tplStatusResult.error} : {status: "ok"});
@@ -439,6 +477,7 @@ function doPost(e) {
         var deleteTplContractor = getTemplateContractor_(data.templateId);
         requireContractorMatch_(auth.session, deleteTplContractor);
         var deleteTplResult = deleteRouteTemplate(ss, data);
+        if (!deleteTplResult.error) invalidateRoutinesOverviewCache();
         logError("doPost:deleteRouteTemplate", deleteTplResult.error || "ok", {templateId: data.templateId, actingUser: actingUser});
         if (!deleteTplResult.error) recordAudit_(ss, "ROUTINE_TEMPLATES", data.templateId, "delete", actingUser, deleteTplContractor, "Deleted route template");
         return jsonOut(deleteTplResult.error ? {status: "error", message: deleteTplResult.error} : {status: "ok"});

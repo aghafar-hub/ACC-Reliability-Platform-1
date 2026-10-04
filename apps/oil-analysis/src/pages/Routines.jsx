@@ -24,13 +24,15 @@ import useIsMobile from "../hooks/useIsMobile";
 
 const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitted", "Approved"];
 
-// Route-type tab (confirmed directly by the user): "All Routines" keeps
-// every route type in one unified list; the other two pull out just that
-// type. Oil Change isn't its own tab — it's the bulk of "All Routines" by
-// default, same as the user's own framing ("tab for all routines, and
-// split in the oil analysis sampling and emergency top up").
+// Route-type tab: "All Routines" keeps every route type in one unified
+// list; the other three pull out just that type. Originally Oil Change
+// had no tab of its own (it was meant to just be read off "All Routines",
+// per an earlier design pass) — added back directly at the user's
+// request since in practice people still wanted to filter down to just
+// Oil Change routes the same way they can for Sampling/Emergency Top Up.
 const ROUTE_TYPE_TABS = [
-  { key: "All", label: "All Routines", icon: "ti-droplet" },
+  { key: "All", label: "All Routines", icon: "ti-list" },
+  { key: "Oil Change", label: "Oil Change", icon: "ti-droplet" },
   { key: "Sampling", label: "Oil Sampling", icon: "ti-flask" },
   { key: "Emergency Top Up", label: "Emergency Top Up", icon: "ti-alert-triangle" },
 ];
@@ -80,6 +82,20 @@ function ChartTooltip({ T, active, payload, label }) {
 // routine's DueDate vs. today / already Approved).
 const DUE_STATUS_FILTERS = ["All", "Overdue", "Due Soon", "On Schedule", "Paused", "Completed"];
 const DUE_STATUS_COLOR = { Overdue: "danger", "Due Soon": "warning", "On Schedule": "success", Paused: "textMuted", Completed: "success", Unknown: "textMuted" };
+
+// Same 3 icons NewRoutine.jsx's own ROUTE_TYPES uses, so a route's type
+// reads the same icon whether you're creating it or looking at the list.
+const ROUTE_TYPE_ICON = { "Oil Change": "ti-droplet", "Sampling": "ti-flask", "Emergency Top Up": "ti-alert-triangle" };
+
+function RouteTypeBadge({ T, routeType }) {
+  if (!routeType) return <span style={{ color: T.textMuted }}>—</span>;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12 }}>
+      <i className={`ti ${ROUTE_TYPE_ICON[routeType] || "ti-droplet"}`} aria-hidden="true" />
+      {routeType}
+    </span>
+  );
+}
 
 function DueStatusBadge({ T, status }) {
   const color = T[DUE_STATUS_COLOR[status]] || T.textSecondary;
@@ -225,9 +241,10 @@ export default function Routines({
   // always computed off the FULL overviewItems, never the already-filtered
   // set, so switching tabs doesn't change what the other tabs' own counts read.
   const routeTypeCounts = useMemo(() => {
-    const counts = { All: overviewItems.length, Sampling: 0, "Emergency Top Up": 0 };
+    const counts = { All: overviewItems.length, "Oil Change": 0, Sampling: 0, "Emergency Top Up": 0 };
     overviewItems.forEach((i) => {
-      if (i.routeType === "Sampling") counts.Sampling++;
+      if (i.routeType === "Oil Change") counts["Oil Change"]++;
+      else if (i.routeType === "Sampling") counts.Sampling++;
       else if (i.routeType === "Emergency Top Up") counts["Emergency Top Up"]++;
     });
     return counts;
@@ -472,6 +489,7 @@ export default function Routines({
         pushToast={pushToast}
         onDataChanged={onDataChanged}
         onBack={backToOverviewOrTemplate}
+        canEdit={canCreateRoutines}
       />
     );
   }
@@ -793,6 +811,7 @@ export default function Routines({
                   <thead>
                     <tr>
                       <th style={s.th}>Routine Name</th>
+                      <th style={s.th}>Type</th>
                       <th style={s.th}>Equipment Count</th>
                       <th style={s.th}>Frequency</th>
                       <th style={s.th}>Next Due Date</th>
@@ -806,6 +825,9 @@ export default function Routines({
                         <td style={s.td}>
                           {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
                           {item.routeName || item.id}
+                        </td>
+                        <td style={s.td}>
+                          <RouteTypeBadge T={T} routeType={item.routeType} />
                         </td>
                         <td style={s.td}>{item.equipmentCount}</td>
                         <td style={s.td}>{item.frequency}</td>
@@ -831,7 +853,7 @@ export default function Routines({
                       <DueStatusBadge T={T} status={item.dueStatus} />
                     </div>
                     <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
-                      {item.equipmentCount} equipment{item.frequency ? ` · ${item.frequency}` : ""}
+                      <RouteTypeBadge T={T} routeType={item.routeType} /> · {item.equipmentCount} equipment{item.frequency ? ` · ${item.frequency}` : ""}
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted, marginTop: 8 }}>
                       <span>Due {formatDateShort(item.nextDueDate)}</span>

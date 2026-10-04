@@ -113,6 +113,20 @@ function invalidateDashboardCache() {
   CacheService.getScriptCache().removeAll(keys);
 }
 
+// Same clear-all-scopes shape as invalidateDashboardCache above, for
+// getRoutinesOverview's own cache (RouteTemplates.js). Called by every
+// write that can change what that endpoint returns: a new routine or
+// route template, a routine's status/area/name/due-date changing
+// (approve, pause/resume/cancel, edit), or a template being paused/
+// resumed/deleted — NOT every write (e.g. assigning a technician or
+// submitting a single checklist item doesn't change anything
+// getRoutinesOverview actually surfaces, so those skip this on purpose).
+function invalidateRoutinesOverviewCache() {
+  var keys = [ROUTINES_OVERVIEW_CACHE_KEY];
+  KNOWN_CONTRACTORS.forEach(function (c) { keys.push(ROUTINES_OVERVIEW_CACHE_KEY + ":" + c); });
+  CacheService.getScriptCache().removeAll(keys);
+}
+
 
 // Compares two date-like cell values (Date objects, serial numbers, or strings).
 // Returns >0 if a is later than b, 0 if equal/unknown, <0 if earlier.

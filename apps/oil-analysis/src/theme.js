@@ -611,6 +611,7 @@ export function buildStyles(T) {
         Approved: T.success,
         Active: T.success,
         Paused: T.textMuted,
+        Cancelled: T.danger,
         // Patch 9 — Audit Log action types (Activity.jsx).
         create: T.success,
         update: T.accent,

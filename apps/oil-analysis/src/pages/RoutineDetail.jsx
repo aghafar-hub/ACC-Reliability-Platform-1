@@ -5,6 +5,7 @@ import * as api from "../api";
 import { routineSuggestionReason, todayISO } from "../parsers";
 import ProgressBar from "../components/ProgressBar";
 import TechnicianPicker from "../components/TechnicianPicker";
+import EditRoutineModal from "../components/EditRoutineModal";
 
 const REASON_COLOR = { resample: "danger", overdue: "warning", missing: "danger", due: "accent" };
 
@@ -33,6 +34,15 @@ function ReasonBadge({ T, reason }) {
 function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId, pushToast, onSaved }) {
   const { T, s } = useTheme();
   const reg = registryByLp[item.lpId];
+  // Oil Type/Brand prefers the registry's own live value for this LP — it
+  // was never actually captured on the item itself before this pass (see
+  // NewRoutine.jsx's own comment on sending requiredOilType), so an older
+  // routine's item.requiredOilType is blank and falls back to the registry
+  // instead of going blank in the table.
+  const requiredOilType = item.requiredOilType || reg?.lubricant || "";
+  const requiredOilBrand = reg?.lubricantBrand || "";
+  const requiredQty = reg?.lubricantQuantityL || "";
+  const isSampleItem = item.itemType === "Sample";
   const [implemented, setImplemented] = useState(item.implemented === "Yes");
   const [reason, setReason] = useState(item.notImplementedReason || "");
   const [quantity, setQuantity] = useState(item.actualQuantity || "");
@@ -82,6 +92,17 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
       </td>
       <td style={s.td}>{item.itemType}</td>
       <td style={s.td}>
+        {requiredOilType ? (
+          <>
+            <div style={{ fontWeight: 600 }}>{requiredOilType}</div>
+            {requiredOilBrand && <div style={{ fontSize: 11, color: T.textSecondary }}>{requiredOilBrand}</div>}
+          </>
+        ) : (
+          <span style={{ color: T.textMuted }}>—</span>
+        )}
+      </td>
+      <td style={s.td}>{requiredQty ? `${requiredQty} L` : <span style={{ color: T.textMuted }}>—</span>}</td>
+      <td style={s.td}>
         <select
           style={s.select}
           value={implemented ? "yes" : "no"}
@@ -113,9 +134,18 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
           />
         )}
       </td>
-      <td style={s.td}>
-        <input type="checkbox" disabled={locked} checked={sampleTaken} onChange={(e) => markDirty(setSampleTaken)(e.target.checked)} />
-      </td>
+      {/* Sample? only ever makes sense on a Sampling route's own items —
+          it used to render (always unchecked, never meaningful) for a
+          plain oil Change/TopUp item too. */}
+      {isSampleItem ? (
+        <td style={s.td}>
+          <input type="checkbox" disabled={locked} checked={sampleTaken} onChange={(e) => markDirty(setSampleTaken)(e.target.checked)} />
+        </td>
+      ) : (
+        <td style={s.td}>
+          <span style={{ color: T.textMuted }}>—</span>
+        </td>
+      )}
       <td style={s.td}>
         {!locked && (
           <button style={s.btn} onClick={handleSave} disabled={saving || !dirty}>
@@ -127,7 +157,7 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   );
 }
 
-export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged, onBack }) {
+export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry, samples, actions, oilChanges, pushToast, onDataChanged, onBack, canEdit }) {
   const { T, s } = useTheme();
   const [routine, setRoutine] = useState(null);
   const [items, setItems] = useState([]);
@@ -139,6 +169,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const [commentBy, setCommentBy] = useState("");
   const [working, setWorking] = useState(false);
   const [assignee, setAssignee] = useState("");
+  const [editing, setEditing] = useState(false);
 
   const itemsDone = items.filter((i) => i.implemented === "Yes").length;
 
@@ -328,38 +359,115 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     }
   }
 
+  async function handleEditSave(payload) {
+    try {
+      const saved = await api.updateRoutine(webhookUrl, routineId, payload);
+      setRoutine(saved);
+      setEditing(false);
+      pushToast("Route updated.", "success");
+    } catch (err) {
+      pushToast(err.message, "error");
+    }
+  }
+
+  async function handleSetStatus(status) {
+    setWorking(true);
+    try {
+      const saved = await api.setRoutineStatus(webhookUrl, routineId, status);
+      setRoutine(saved);
+      pushToast(
+        status === "Paused" ? "Route paused." : status === "Cancelled" ? "Route cancelled." : "Route resumed.",
+        "success"
+      );
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   if (loading) return <p style={{ color: T.textSecondary }}>Loading routine…</p>;
   if (error) return <p style={{ color: T.danger }}>{error}</p>;
   if (!routine) return <p style={{ color: T.danger }}>Routine not found.</p>;
 
   const unassigned = routine.status === "Unassigned";
-  const locked = routine.status === "Approved" || unassigned;
+  const paused = routine.status === "Paused";
+  const cancelled = routine.status === "Cancelled";
+  const locked = routine.status === "Approved" || cancelled || paused || unassigned;
   const canSubmit = routine.status === "Assigned" || routine.status === "InProgress";
   const canApprove = routine.status === "Submitted";
+  const canPause = routine.status === "Assigned" || routine.status === "InProgress";
+  const canResume = paused;
+  const canCancel = routine.status !== "Approved" && !cancelled;
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 10, flexWrap: "wrap" }}>
         <div>
           <p style={{ ...s.sectionTitle, margin: "0 0 4px" }}>
             {routine.routeName || `Routine — ${routine.assignedTo}`} <span style={s.badge(routine.status)}>{routine.status}</span>
           </p>
           <p style={{ fontSize: 12.5, color: T.textSecondary, margin: 0 }}>
             {routine.routeType ? `${routine.routeType} · ` : ""}
+            {routine.area ? `${routine.area} · ` : ""}
             {routine.contractor || "—"}
             {routine.assignedTo ? ` · ${routine.assignedTo}` : ""} · created {routine.createdDate || "—"}
             {routine.dueDate ? ` · due ${routine.dueDate}` : ""}
             {routine.submittedDate ? ` · submitted ${routine.submittedDate}` : ""}
             {routine.approvedDate ? ` · approved ${routine.approvedDate}` : ""}
           </p>
+          {/* Reason was already required/captured on create for an
+              Emergency Top Up, but had no display surface anywhere after
+              — it was write-only until this pass. */}
+          {routine.routeType === "Emergency Top Up" && routine.reason && (
+            <p style={{ fontSize: 12.5, color: T.warning, margin: "4px 0 0" }}>
+              <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 4 }} />
+              Reason: {routine.reason}
+            </p>
+          )}
           <div style={{ marginTop: 8 }}>
             <ProgressBar done={itemsDone} total={items.length} width={140} />
           </div>
         </div>
-        <button style={s.btn} onClick={onBack}>
-          <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {canEdit && !locked && (
+            <button style={s.btn} onClick={() => setEditing(true)}>
+              <i className="ti ti-pencil" aria-hidden="true" /> Edit
+            </button>
+          )}
+          {canEdit && canPause && (
+            <button style={s.btn} onClick={() => handleSetStatus("Paused")} disabled={working}>
+              <i className="ti ti-player-pause" aria-hidden="true" /> Pause
+            </button>
+          )}
+          {canEdit && canResume && (
+            <button style={s.btn} onClick={() => handleSetStatus("Assigned")} disabled={working}>
+              <i className="ti ti-player-play" aria-hidden="true" /> Resume
+            </button>
+          )}
+          {canEdit && canCancel && (
+            <button
+              style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
+              onClick={() => window.confirm("Cancel this route? This can't be undone.") && handleSetStatus("Cancelled")}
+              disabled={working}
+            >
+              <i className="ti ti-ban" aria-hidden="true" /> Cancel
+            </button>
+          )}
+          <button style={s.btn} onClick={onBack}>
+            <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
+          </button>
+        </div>
       </div>
+
+      {editing && (
+        <EditRoutineModal
+          routine={routine}
+          equipmentRegistry={equipmentRegistry}
+          onClose={() => setEditing(false)}
+          onSave={handleEditSave}
+        />
+      )}
 
       {unassigned && (
         <div style={{ ...s.card, marginBottom: 20, borderColor: T.danger }}>
@@ -385,12 +493,23 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
         </div>
       )}
 
+      {(paused || cancelled) && (
+        <div style={{ ...s.card, marginBottom: 20, borderColor: paused ? T.warning : T.danger }}>
+          <p style={{ fontWeight: 700, margin: 0, color: paused ? T.warning : T.danger }}>
+            <i className={`ti ${paused ? "ti-player-pause" : "ti-ban"}`} aria-hidden="true" style={{ marginRight: 6 }} />
+            {paused ? "This route is paused — resume it to keep working the checklist below." : "This route has been cancelled."}
+          </p>
+        </div>
+      )}
+
       <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 20 }}>
         <table style={s.table}>
           <thead>
             <tr>
               <th style={s.th}>Point</th>
               <th style={s.th}>Item Type</th>
+              <th style={s.th}>Required Oil</th>
+              <th style={s.th}>Required Qty</th>
               <th style={s.th}>Status</th>
               <th style={s.th}>Qty / Reason</th>
               <th style={s.th}>Sample?</th>
