@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { sampleTrackerStatus, computeOilChangeNextDue } from "../parsers";
+import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import SampleHistoryModal from "../components/SampleHistoryModal";
 
@@ -41,20 +41,6 @@ function bucketFor(r, dueSoonCodes) {
   if (r.status.label === "OVERDUE") return "Overdue";
   if (r.status.label === "MISSING") return "Missing";
   return dueSoonCodes.has(r.eq.code) ? "Due Soon" : "On Track";
-}
-
-// Classifies a tracker/sample cell's status text into one of three real
-// lab-result grades for the Condition Trend chart — "Missing"/"Pending"
-// aren't lab results (nothing was analyzed yet), so they're excluded
-// here rather than forced into Normal or Alert; the Overdue/Missing
-// board already covers that distinction. Same prefix matching as
-// theme.js's trackerStatusChip, collapsed to 3 buckets.
-function conditionBucket(status) {
-  const d = String(status || "").trim().toUpperCase();
-  if (d.startsWith("NORM") || d === "N" || d.startsWith("SATIS") || d === "S") return "Normal";
-  if (d.startsWith("CAUTI") || d.startsWith("WARN") || d === "C" || d === "W") return "Caution";
-  if (d.startsWith("ALERT") || d === "A" || d.startsWith("UNSAT") || d === "U") return "Alert";
-  return null;
 }
 
 function monthlyConditionTrend(entries) {

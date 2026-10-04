@@ -315,6 +315,21 @@ export function sampleTrackerStatus(lastDateStr, intervalText) {
   return { label: "MISSING", daysInfo: `${formatMonths(ageMonths - months)} missing` };
 }
 
+// Classifies a tracker/sample cell's status text into one of three real
+// lab-result grades — "Missing"/"Pending" aren't lab results (nothing was
+// analyzed yet), so they're excluded here rather than forced into Normal
+// or Alert. Same prefix matching as theme.js's trackerStatusChip,
+// collapsed to 3 buckets. Shared by Oil Sampling Log's own Condition
+// Trend chart and Dashboard's Fleet Oil Health KPI, so the two can never
+// silently disagree about what counts as Normal/Caution/Alert.
+export function conditionBucket(status) {
+  const d = String(status || "").trim().toUpperCase();
+  if (d.startsWith("NORM") || d === "N" || d.startsWith("SATIS") || d === "S") return "Normal";
+  if (d.startsWith("CAUTI") || d.startsWith("WARN") || d === "C" || d === "W") return "Caution";
+  if (d.startsWith("ALERT") || d === "A" || d.startsWith("UNSAT") || d === "U") return "Alert";
+  return null;
+}
+
 // How far ahead of a point's real due date it starts showing up as
 // "due soon" — matches the backend's own ROUTE_GENERATION_LEAD_DAYS
 // (RouteTemplates.js), so a manually-built route and a recurring

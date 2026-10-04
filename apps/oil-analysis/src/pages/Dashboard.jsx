@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor } from "../SessionContext";
+import { sampleTrackerStatus, computeOilChangeStatus, conditionBucket } from "../parsers";
 import * as api from "../api";
 
 const PERIOD_OPTIONS = [
@@ -58,9 +59,29 @@ function periodStats(rows, dateKey, contractorKey, periodDays, scopeCodes, codeK
   return { total, byContractor, pctChange };
 }
 
-function KpiCard({ T, s, icon, color, label, value, sub, pctChange, breakdown }) {
+// `onClick` is what makes each KPI a chip to somewhere else in the app —
+// every KPI below has one except Emergency Top Ups, which has no owning
+// page of its own to send to (flagged rather than wired to a link that
+// wouldn't make sense). Rendered as a real <button> (not a div with an
+// onClick) so it's keyboard/focus accessible like every other clickable
+// card in this app.
+function KpiCard({ T, s, icon, color, label, value, sub, pctChange, breakdown, onClick }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div style={{ ...s.metricCard, display: "flex", flexDirection: "column", gap: 8 }}>
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      style={{
+        ...s.metricCard,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        textAlign: "left",
+        fontFamily: "inherit",
+        width: "100%",
+        cursor: onClick ? "pointer" : "default",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span
           style={{
@@ -87,11 +108,11 @@ function KpiCard({ T, s, icon, color, label, value, sub, pctChange, breakdown })
           <span style={{ color: T.warning, fontWeight: 700 }}>ASEC {breakdown.ASEC}</span>
         </div>
       )}
-    </div>
+    </Tag>
   );
 }
 
-export default function Dashboard({ samples, actions, oilChangeEvents, equipmentRegistry, webhookUrl, onSelectSample }) {
+export default function Dashboard({ samples, actions, oilChangeEvents, oilChanges, trackerByEquip, equipmentRegistry, webhookUrl, navigate }) {
   const { T, s } = useTheme();
   const scopedContractor = useSessionContractor();
   const [contractorFilter, setContractorFilter] = useState(scopedContractor || "All");
@@ -180,6 +201,49 @@ export default function Dashboard({ samples, actions, oilChangeEvents, equipment
     scopedRegistry.forEach((r) => { if (out[r.contractor] != null) out[r.contractor]++; });
     return out;
   }, [scopedRegistry]);
+
+  // How many LPs are currently overdue — current URGENCY, not period
+  // activity volume like the KPIs above. Same "Overdue" definition each
+  // owning page's own board uses: computeOilChangeStatus for Oil Change
+  // (the exact function OilChangeLog.jsx's own history preview already
+  // calls), sampleTrackerStatus for sampling (same as Oil Sampling Log's
+  // board). "Due Soon" isn't surfaced here — it depends on a window the
+  // user picks on that page's own board, which doesn't fit a single KPI
+  // number; Overdue/Missing are the two states that are urgent regardless
+  // of any window.
+  const oilChangeOverdue = useMemo(
+    () => (oilChanges || []).filter((oc) => (!scopeCodes || scopeCodes.has(oc.equipmentCode)) && computeOilChangeStatus(oc.nextDueDate) === "Overdue").length,
+    [oilChanges, scopeCodes]
+  );
+  const samplingAttention = useMemo(
+    () =>
+      scopedRegistry.filter((eq) => {
+        const lastDate = (trackerByEquip?.[eq.code] || [])[0]?.date || "";
+        const label = sampleTrackerStatus(lastDate, eq.interval).label;
+        return label === "OVERDUE" || label === "MISSING";
+      }).length,
+    [scopedRegistry, trackerByEquip]
+  );
+
+  // Fleet Oil Health — % of real lab results (within the selected period,
+  // same scoping as every other KPI) that came back Normal, using the
+  // exact same Normal/Caution/Alert classification Oil Sampling Log's own
+  // Condition Trend chart uses (conditionBucket, imported from there
+  // rather than copied, so the two can never silently disagree).
+  const fleetHealth = useMemo(() => {
+    const counts = { Normal: 0, Caution: 0, Alert: 0 };
+    const periodStart = daysAgo(periodDays);
+    scopedRegistry.forEach((eq) => {
+      (trackerByEquip?.[eq.code] || []).forEach((entry) => {
+        const d = new Date(entry.sortDate);
+        if (isNaN(d) || d < periodStart) return;
+        const bucket = conditionBucket(entry.status);
+        if (bucket) counts[bucket]++;
+      });
+    });
+    const total = counts.Normal + counts.Caution + counts.Alert;
+    return { ...counts, total, normalPct: total > 0 ? Math.round((counts.Normal / total) * 100) : null };
+  }, [scopedRegistry, trackerByEquip, periodDays]);
 
   // Activities Trend (last 6 months) — stacked by type, filtered to the
   // active toggle (All shows all 3 stacked, a single type isolates it).
@@ -308,13 +372,41 @@ export default function Dashboard({ samples, actions, oilChangeEvents, equipment
         </select>
       </div>
 
+      {/* "Right Now" — current urgency, not period activity volume. This is
+          the genuinely new data this page didn't surface before: Oil
+          Change Log's and Oil Sampling Log's own Overdue/Missing boards,
+          and Oil Sampling Log's Condition Trend, condensed to one number
+          each. Each links straight to its owning page. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 12 }}>
+        <KpiCard
+          T={T} s={s} icon="ti-droplet-filled" color="warning" label="Oil Changes Overdue" value={oilChangeOverdue}
+          onClick={() => navigate?.("oilchange")}
+        />
+        <KpiCard
+          T={T} s={s} icon="ti-flask-2" color="danger" label="Samples Needing Attention" value={samplingAttention}
+          sub="Overdue or Missing"
+          onClick={() => navigate?.("tracker")}
+        />
+        <KpiCard
+          T={T} s={s} icon="ti-heart-rate-monitor" color="success"
+          label={`Fleet Oil Health (${periodDays}d)`}
+          value={fleetHealth.normalPct == null ? "—" : `${fleetHealth.normalPct}%`}
+          sub={
+            fleetHealth.total === 0
+              ? "No lab results in this period"
+              : `Normal · ${fleetHealth.Caution} Caution, ${fleetHealth.Alert} Alert`
+          }
+          onClick={() => navigate?.("tracker")}
+        />
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 20 }}>
-        <KpiCard T={T} s={s} icon="ti-building-factory-2" color="accent" label="Total Equipment" value={totalEquipment} breakdown={equipByContractor} />
-        <KpiCard T={T} s={s} icon="ti-droplet" color="info" label="Total LP Points" value={totalLpPoints} breakdown={lpByContractor} />
-        <KpiCard T={T} s={s} icon="ti-oil" color="success" label={`Oil Changes (${periodDays}d)`} value={ocStats.total} pctChange={ocStats.pctChange} breakdown={ocStats.byContractor} />
-        <KpiCard T={T} s={s} icon="ti-flask" color="accent" label={`Oil Samples (${periodDays}d)`} value={sampleStats.total} pctChange={sampleStats.pctChange} breakdown={sampleStats.byContractor} />
-        <KpiCard T={T} s={s} icon="ti-droplet-plus" color="danger" label={`Emergency Top Ups (${periodDays}d)`} value={topUpStats.total} pctChange={topUpStats.pctChange} breakdown={topUpStats.byContractor} />
-        <KpiCard T={T} s={s} icon="ti-checklist" color="warning" label="Open Actions" value={openActions.length} breakdown={openActionsByContractor} />
+        <KpiCard T={T} s={s} icon="ti-building-factory-2" color="accent" label="Total Equipment" value={totalEquipment} breakdown={equipByContractor} onClick={() => navigate?.("equipment")} />
+        <KpiCard T={T} s={s} icon="ti-droplet" color="info" label="Total LP Points" value={totalLpPoints} breakdown={lpByContractor} onClick={() => navigate?.("equipment")} />
+        <KpiCard T={T} s={s} icon="ti-droplet-filled" color="success" label={`Oil Changes (${periodDays}d)`} value={ocStats.total} pctChange={ocStats.pctChange} breakdown={ocStats.byContractor} onClick={() => navigate?.("oilchange")} />
+        <KpiCard T={T} s={s} icon="ti-flask" color="accent" label={`Oil Samples (${periodDays}d)`} value={sampleStats.total} pctChange={sampleStats.pctChange} breakdown={sampleStats.byContractor} onClick={() => navigate?.("tracker")} />
+        <KpiCard T={T} s={s} icon="ti-droplet-plus" color="danger" label={`Emergency Top Ups (${periodDays}d)`} value={topUpStats.total} pctChange={topUpStats.pctChange} breakdown={topUpStats.byContractor} onClick={() => navigate?.("activity")} />
+        <KpiCard T={T} s={s} icon="ti-checklist" color="warning" label="Open Actions" value={openActions.length} breakdown={openActionsByContractor} onClick={() => navigate?.("actions")} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -448,7 +540,11 @@ export default function Dashboard({ samples, actions, oilChangeEvents, equipment
               </thead>
               <tbody>
                 {topOverdueRoutines.map((r) => (
-                  <tr key={r.id} style={{ borderTop: `1px solid ${T.border}` }}>
+                  <tr
+                    key={r.id}
+                    style={{ borderTop: `1px solid ${T.border}`, cursor: navigate ? "pointer" : "default" }}
+                    onClick={() => navigate?.("routines", r.id)}
+                  >
                     <td style={{ padding: "6px 16px" }}>{r.routeName || r.id}</td>
                     <td style={{ padding: "6px 8px" }}>{r.contractor}</td>
                     <td style={{ padding: "6px 16px", color: T.danger, fontWeight: 700 }}>{r.daysOverdue}</td>
@@ -474,7 +570,11 @@ export default function Dashboard({ samples, actions, oilChangeEvents, equipment
               </thead>
               <tbody>
                 {openActions.slice(0, 10).map((a, i) => (
-                  <tr key={a._id || i} style={{ borderTop: `1px solid ${T.border}`, cursor: onSelectSample ? "pointer" : "default" }}>
+                  <tr
+                    key={a._id || i}
+                    style={{ borderTop: `1px solid ${T.border}`, cursor: navigate ? "pointer" : "default" }}
+                    onClick={() => navigate?.("actions")}
+                  >
                     <td style={{ padding: "6px 16px" }}>{a.equipmentCode}</td>
                     <td style={{ padding: "6px 8px" }}>{a.status}</td>
                     <td style={{ padding: "6px 16px" }}>{a.agreedAction || a.accAction || "—"}</td>
@@ -500,7 +600,11 @@ export default function Dashboard({ samples, actions, oilChangeEvents, equipment
               </thead>
               <tbody>
                 {upcomingForecastAlerts.map((a, i) => (
-                  <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                  <tr
+                    key={i}
+                    style={{ borderTop: `1px solid ${T.border}`, cursor: navigate ? "pointer" : "default" }}
+                    onClick={() => navigate?.("inventory")}
+                  >
                     <td style={{ padding: "6px 16px" }}>{a.oilType}</td>
                     <td style={{ padding: "6px 8px", color: a.status === "Shortfall" ? T.danger : T.warning, fontWeight: 700 }}>{a.status}</td>
                     <td style={{ padding: "6px 16px" }}>{a.detail}</td>

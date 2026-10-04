@@ -1167,9 +1167,11 @@ function AppShell({ config, setConfig, navBridge }) {
               samples={samples}
               actions={actions}
               oilChangeEvents={oilChangeEvents}
+              oilChanges={oilChanges}
+              trackerByEquip={trackerByEquip}
               equipmentRegistry={equipmentRegistry}
               webhookUrl={config.webhookUrl}
-              onSelectSample={(sm) => goToReport(sm, "dashboard")}
+              navigate={navigate}
             />
           )}
           {page === "equipment" && (
