@@ -31,7 +31,16 @@
 // row instead, same as RouteType/Frequency/OilType already do — a
 // generated routine's raw sheet row is genuinely shorter than this and
 // simply has nothing written past SourceTemplateId, which is fine, Sheets
-// rows don't need to be rectangular).
+// rows don't need to be rectangular). 18 Duration — days of grace after
+// DueDate before a standalone routine counts as Overdue (confirmed
+// directly by the user: "Due date and Duration on days, if its started
+// during this duration so will be on schedule"). No separate "work
+// actually started" timestamp exists anywhere in this schema, so this is
+// implemented as a window on the same today-vs-date comparison
+// classifyDueStatus_ already does everywhere else, not literal start-time
+// tracking — see getRoutinesOverview's own comment in RouteTemplates.js.
+// Blank/0 for a routine created before this existed behaves exactly like
+// the old no-grace-period logic (dueDate + 0 = dueDate).
 // OA_ROUTINE_ITEMS columns: 0 RoutineItemId, 1 RoutineId, 2 LP_ID,
 // 3 ItemType, 4 RequiredOilType, 5 Implemented, 6 NotImplementedReason,
 // 7 ActualDate, 8 ActualQuantity, 9 SampleTaken, 10 CreatedDate,
@@ -66,6 +75,29 @@ function getRoutines() {
     return r.concat([c.total, c.done]);
   });
   return { routines: enriched, count: enriched.length };
+}
+
+
+// Single-routine lookup (Routines tab improvement pass — "opening the
+// routine from table taking too much time"). RoutineDetail.jsx used to
+// call the full getRoutines() above just to find one row by id — that
+// reads the ENTIRE ROUTINES sheet AND the entire OA_ROUTINE_ITEMS sheet
+// (to join on every OTHER routine's own item counts too), every single
+// time anyone opened any one routine. The detail page already fetches
+// its own item list separately (getRoutineItems) and computes its own
+// done-count client-side, so it never actually needed that join — this
+// skips it entirely and returns just the one row.
+function getRoutine(routineId, scope) {
+  var id = String(routineId || "").trim();
+  if (!id) return { error: "routineId is required" };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rows = readSheet(ss, "ROUTINES", true);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() !== id) continue;
+    if (scope && String(rows[i][3] || "").trim() !== scope) return { error: "Routine not found" };
+    return { routine: rows[i] };
+  }
+  return { error: "Routine not found" };
 }
 
 
@@ -154,6 +186,7 @@ function createRoutine(ss, data) {
     "", // SourceTemplateId — blank for a manually-created routine
     reason,
     String(data.area || "").trim(),
+    Math.max(0, parseInt(data.duration, 10) || 0),
   ];
   appendRow(ss, "ROUTINES", routineRow);
 
@@ -255,6 +288,7 @@ function updateRoutine(ss, data) {
   sheet.getRange(rowIdx, 15).setValue(dueDate);     // DueDate
   sheet.getRange(rowIdx, 17).setValue(reason);      // Reason
   sheet.getRange(rowIdx, 18).setValue(String(data.area || "").trim()); // Area
+  sheet.getRange(rowIdx, 19).setValue(Math.max(0, parseInt(data.duration, 10) || 0)); // Duration
   return { status: "ok" };
 }
 

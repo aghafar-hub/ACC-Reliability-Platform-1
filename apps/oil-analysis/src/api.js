@@ -674,6 +674,22 @@ export async function getRoutines(webhookUrl) {
   return (json.routines || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutine);
 }
 
+// Routines tab improvement pass: "opening the routine from table taking
+// too much time" — RoutineDetail.jsx used to call getRoutines() (above)
+// just to find the one routine it needed, which reads the ENTIRE ROUTINES
+// sheet AND joins the entire OA_ROUTINE_ITEMS sheet to compute every
+// OTHER routine's own item counts too — all just to display one row. This
+// single-routine lookup skips that join entirely (see Routines.js's own
+// getRoutine comment). itemsTotal/itemsDone come back 0 from rowToRoutine
+// here (this response has no join to source them from) — harmless, since
+// RoutineDetail.jsx already computes its own done-count client-side from
+// the checklist items it fetches separately.
+export async function getRoutine(webhookUrl, routineId) {
+  const json = await getJSON(webhookUrl, { action: "getRoutine", routineId });
+  if (!json.routine) return null;
+  return rowToRoutine(json.routine);
+}
+
 // Patch 20: the unified Routines main-view aggregation — recurring
 // templates and standalone one-time routines as one list, each already
 // computed server-side (equipmentCount/nextDueDate/dueStatus/lastCompleted
@@ -709,13 +725,14 @@ export async function getRoutineItems(webhookUrl, routineId) {
 // send CORS headers on a POST response) means write-verification always
 // has to be a follow-up read; a client-supplied id makes that an exact
 // lookup instead of guessing "the newest matching routine".
-export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, assignedTo, contractor, createdBy, items, reason, area }) {
+export async function createRoutine(webhookUrl, { routineId, routeName, routeType, dueDate, duration, assignedTo, contractor, createdBy, items, reason, area }) {
   await postBlind(webhookUrl, {
     action: "createRoutine",
     routineId,
     routeName,
     routeType,
     dueDate: dueDate || "",
+    duration: duration || 0,
     assignedTo,
     contractor: contractor || "",
     createdBy: createdBy || "",
@@ -724,8 +741,10 @@ export async function createRoutine(webhookUrl, { routineId, routeName, routeTyp
     area: area || "",
   });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  // getRoutine (not getRoutines — see its own comment) for the verify-read:
+  // these writes only ever need to confirm the ONE routine they just
+  // touched, not re-fetch every routine in the sheet to find it.
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved) {
     throw new SaveVerificationError(`The routine wasn't confirmed saved to the sheet — please try again.`);
   }
@@ -737,8 +756,7 @@ export async function createRoutine(webhookUrl, { routineId, routeName, routeTyp
 export async function assignRoutineTechnician(webhookUrl, routineId, assignedTo) {
   await postBlind(webhookUrl, { action: "assignRoutineTechnician", routineId, assignedTo });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved || saved.status !== "Assigned") {
     throw new SaveVerificationError(`The assignment wasn't confirmed saved — please try again.`);
   }
@@ -748,19 +766,19 @@ export async function assignRoutineTechnician(webhookUrl, routineId, assignedTo)
 // Routines tab improvement pass: the one field-edit path a routine never
 // had — RouteType and its item list are deliberately NOT editable here
 // (see Routines.js's own updateRoutine comment).
-export async function updateRoutine(webhookUrl, routineId, { routeName, assignedTo, dueDate, area, reason }) {
+export async function updateRoutine(webhookUrl, routineId, { routeName, assignedTo, dueDate, duration, area, reason }) {
   await postBlind(webhookUrl, {
     action: "updateRoutine",
     routineId,
     routeName,
     assignedTo,
     dueDate: dueDate || "",
+    duration: duration || 0,
     area: area || "",
     reason: reason || "",
   });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved || saved.routeName !== routeName || saved.assignedTo !== assignedTo) {
     throw new SaveVerificationError(`The routine edit wasn't confirmed saved — please try again.`);
   }
@@ -773,8 +791,7 @@ export async function updateRoutine(webhookUrl, routineId, { routeName, assigned
 export async function setRoutineStatus(webhookUrl, routineId, status) {
   await postBlind(webhookUrl, { action: "setRoutineStatus", routineId, status });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved || saved.status !== status) {
     throw new SaveVerificationError(`The status change wasn't confirmed saved — please try again.`);
   }
@@ -787,8 +804,8 @@ export async function setRoutineStatus(webhookUrl, routineId, status) {
 export async function deleteRoutine(webhookUrl, routineId) {
   await postBlind(webhookUrl, { action: "deleteRoutine", routineId });
 
-  const routines = await getRoutines(webhookUrl);
-  if (routines.some((r) => r.routineId === routineId)) {
+  const saved = await getRoutine(webhookUrl, routineId);
+  if (saved) {
     throw new SaveVerificationError(`The delete wasn't confirmed — please try again.`);
   }
 }
@@ -869,8 +886,7 @@ export async function submitRoutineItem(webhookUrl, routineId, item) {
 export async function submitRoutine(webhookUrl, routineId) {
   await postBlind(webhookUrl, { action: "submitRoutine", routineId });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved || saved.status !== "Submitted") {
     throw new SaveVerificationError(`The routine wasn't confirmed submitted — please try again.`);
   }
@@ -880,8 +896,7 @@ export async function submitRoutine(webhookUrl, routineId) {
 export async function approveRoutine(webhookUrl, routineId, approvedBy) {
   await postBlind(webhookUrl, { action: "approveRoutine", routineId, approvedBy: approvedBy || "" });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved || saved.status !== "Approved") {
     throw new SaveVerificationError(`The routine wasn't confirmed approved — please try again.`);
   }
@@ -891,8 +906,7 @@ export async function approveRoutine(webhookUrl, routineId, approvedBy) {
 export async function addRoutineComment(webhookUrl, routineId, commentText, commentBy) {
   await postBlind(webhookUrl, { action: "addRoutineComment", routineId, commentText, commentBy: commentBy || "" });
 
-  const routines = await getRoutines(webhookUrl);
-  const saved = routines.find((r) => r.routineId === routineId);
+  const saved = await getRoutine(webhookUrl, routineId);
   if (!saved || saved.accComment !== commentText) {
     throw new SaveVerificationError(`The comment wasn't confirmed saved — please try again.`);
   }

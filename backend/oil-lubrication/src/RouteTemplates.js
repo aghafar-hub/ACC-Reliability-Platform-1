@@ -330,9 +330,19 @@ function countMatchingEquipment_(registry, routeType, area, oilType, contractor)
   return count;
 }
 
-function classifyDueStatus_(dueDate, today) {
+// durationDays (optional, defaults to 0 — a template's own NextGenerateDate
+// call site never passes one, preserving its exact old behavior) is a
+// grace period after dueDate before a routine counts as Overdue —
+// confirmed directly by the user: "Due date and Duration on days, if its
+// started during this duration so will be on schedule." No "work actually
+// started" timestamp exists anywhere in this schema, so this is a window
+// on the same today-vs-date comparison this function already did, not
+// literal start-time tracking — see Routines.js's own Duration column
+// comment.
+function classifyDueStatus_(dueDate, today, durationDays) {
   if (!dueDate || isNaN(dueDate.getTime())) return "Unknown";
-  var diffDays = Math.floor((dueDate.getTime() - today.getTime()) / 86400000);
+  var windowEnd = dueDate.getTime() + (durationDays || 0) * 86400000;
+  var diffDays = Math.floor((windowEnd - today.getTime()) / 86400000);
   if (diffDays < 0) return "Overdue";
   if (diffDays <= ROUTINE_DUE_SOON_DAYS) return "Due Soon";
   return "On Schedule";
@@ -399,10 +409,16 @@ function getRoutinesOverview(scope) {
     });
   });
 
-  var itemCounts = {}; // routineId -> OA_ROUTINE_ITEMS row count
+  // routineId -> { total, done } — now tracks completion too (Routines
+  // tab improvement pass), not just the count, so the overview table can
+  // show a completion percentage per routine without a separate fetch.
+  var itemCounts = {};
   readSheet(ss, "OA_ROUTINE_ITEMS", true).forEach(function (r) {
     var rid = String(r[1] || "").trim();
-    if (rid) itemCounts[rid] = (itemCounts[rid] || 0) + 1;
+    if (!rid) return;
+    if (!itemCounts[rid]) itemCounts[rid] = { total: 0, done: 0 };
+    itemCounts[rid].total++;
+    if (String(r[5] || "").trim() === "Yes") itemCounts[rid].done++;
   });
 
   routineRows.forEach(function (r) {
@@ -415,6 +431,7 @@ function getRoutinesOverview(scope) {
     var dueDate = r[14] ? new Date(r[14]) : null;
     var approvedDate = r[8] ? new Date(r[8]) : null;
     var isApproved = workflowStatus === "Approved";
+    var duration = parseInt(r[18], 10) || 0; // Duration (days) — see Routines.js's own column comment
     // dueStatus mirrors a template's own "Paused" handling above — a
     // paused or cancelled routine's due date comparison would be
     // misleading (it isn't going anywhere until resumed, or ever, if
@@ -423,7 +440,9 @@ function getRoutinesOverview(scope) {
     var oneTimeDueStatus = isApproved ? "Completed"
       : workflowStatus === "Paused" ? "Paused"
       : workflowStatus === "Cancelled" ? "Cancelled"
-      : classifyDueStatus_(dueDate, today);
+      : classifyDueStatus_(dueDate, today, duration);
+
+    var counts = itemCounts[routineId] || { total: 0, done: 0 };
 
     items.push({
       kind: "routine",
@@ -436,8 +455,11 @@ function getRoutinesOverview(scope) {
       // here, same as it always has.
       area: String(r[17] || "").trim(),
       frequency: "One-time",
-      equipmentCount: itemCounts[routineId] || 0,
+      equipmentCount: counts.total,
+      itemsDone: counts.done,
+      completionPct: counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : null,
       nextDueDate: dueDate && !isNaN(dueDate.getTime()) ? dueDate.toISOString() : "",
+      duration: duration,
       dueStatus: oneTimeDueStatus,
       lastCompleted: isApproved && approvedDate && !isNaN(approvedDate.getTime()) ? approvedDate.toISOString() : "",
       workflowStatus: workflowStatus,

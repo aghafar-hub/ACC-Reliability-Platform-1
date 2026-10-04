@@ -200,9 +200,13 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
       // simultaneous exec?action=... requests came back 404 on their
       // redirect-to-content step). One at a time avoids the same failure
       // mode here.
-      const routines = await api.getRoutines(webhookUrl);
+      // getRoutine (single-row lookup), not getRoutines (full sheet +
+      // OA_ROUTINE_ITEMS join for every routine) — "opening the routine
+      // from table taking too much time" was this call reading and
+      // joining the WHOLE Routines module just to show one row. See
+      // api.js's own getRoutine comment.
+      const found = await api.getRoutine(webhookUrl, routineId);
       const routineItems = await api.getRoutineItems(webhookUrl, routineId);
-      const found = routines.find((r) => r.routineId === routineId);
       setRoutine(found || null);
       setItems(routineItems);
       if (found) setComment(found.accComment || "");

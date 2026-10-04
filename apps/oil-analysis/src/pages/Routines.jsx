@@ -118,6 +118,20 @@ function DueStatusBadge({ T, status }) {
   );
 }
 
+// Completion % only exists on standalone one-time routines (see
+// RouteTemplates.js's getRoutinesOverview — a recurring template's own
+// "equipment" are a spec, not a checklist with done/not-done items), so a
+// template row always gets null here and shows no tint/column value.
+// Same red->amber->green bucketing as a dueStatus badge, not a continuous
+// gradient — easier to scan a column of them at a glance.
+function completionColor(pct, T) {
+  if (pct === null || pct === undefined) return null;
+  if (pct >= 100) return T.success;
+  if (pct >= 50) return T.accent;
+  if (pct > 0) return T.warning;
+  return T.danger;
+}
+
 function formatDateShort(iso) {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -852,35 +866,56 @@ export default function Routines({
                       <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Frequency</th>
                       <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Next Due Date</th>
                       <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Status</th>
+                      <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Completion</th>
                       <th style={{ ...s.th, position: "sticky", top: 0, background: T.cardBg, zIndex: 1 }}>Last Completed</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleOverviewItems.map((item) => (
-                      <tr key={item.id} style={{ cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
-                        <td style={s.td}>
-                          {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
-                          {item.routeName || item.id}
-                        </td>
-                        <td style={s.td}>
-                          <RouteTypeBadge T={T} routeType={item.routeType} />
-                        </td>
-                        <td style={s.td}>{item.equipmentCount}</td>
-                        <td style={s.td}>{item.frequency}</td>
-                        <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
-                        <td style={s.td}>
-                          <DueStatusBadge T={T} status={item.dueStatus} />
-                        </td>
-                        <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
-                      </tr>
-                    ))}
+                    {visibleOverviewItems.map((item) => {
+                      const compColor = completionColor(item.completionPct, T);
+                      return (
+                        <tr
+                          key={item.id}
+                          style={{ cursor: "pointer", background: compColor ? compColor + "14" : undefined }}
+                          onClick={() => openOverviewItem(item)}
+                        >
+                          <td style={s.td}>
+                            {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
+                            {item.routeName || item.id}
+                          </td>
+                          <td style={s.td}>
+                            <RouteTypeBadge T={T} routeType={item.routeType} />
+                          </td>
+                          <td style={s.td}>{item.equipmentCount}</td>
+                          <td style={s.td}>{item.frequency}</td>
+                          <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
+                          <td style={s.td}>
+                            <DueStatusBadge T={T} status={item.dueStatus} />
+                          </td>
+                          <td style={s.td}>
+                            {item.completionPct === null || item.completionPct === undefined ? (
+                              <span style={{ color: T.textMuted }}>—</span>
+                            ) : (
+                              <ProgressBar done={item.itemsDone} total={item.equipmentCount} width={70} />
+                            )}
+                          </td>
+                          <td style={s.td}>{formatDateShort(item.lastCompleted)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               <div className="dash-table-mobile" style={{ flexDirection: "column", gap: 10 }}>
-                {visibleOverviewItems.map((item) => (
-                  <div key={item.id} style={{ ...s.card, cursor: "pointer" }} onClick={() => openOverviewItem(item)}>
+                {visibleOverviewItems.map((item) => {
+                  const compColor = completionColor(item.completionPct, T);
+                  return (
+                  <div
+                    key={item.id}
+                    style={{ ...s.card, cursor: "pointer", background: compColor ? compColor + "14" : s.card.background }}
+                    onClick={() => openOverviewItem(item)}
+                  >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                       <span style={{ fontWeight: 700, fontSize: 13.5 }}>
                         {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
@@ -891,12 +926,18 @@ export default function Routines({
                     <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
                       <RouteTypeBadge T={T} routeType={item.routeType} /> · {item.equipmentCount} equipment{item.frequency ? ` · ${item.frequency}` : ""}
                     </div>
+                    {item.completionPct !== null && item.completionPct !== undefined && (
+                      <div style={{ marginTop: 6 }}>
+                        <ProgressBar done={item.itemsDone} total={item.equipmentCount} width={120} />
+                      </div>
+                    )}
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted, marginTop: 8 }}>
                       <span>Due {formatDateShort(item.nextDueDate)}</span>
                       <span>Last done {formatDateShort(item.lastCompleted)}</span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}

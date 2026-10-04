@@ -23,6 +23,13 @@
 //                                              the only way this app writes to it
 //   ?action=getRecentSamples&page=1&limit=50→ paginated Data_Entry rows (newest first)
 //   ?action=getRoutines                     → all ROUTINES rows
+//   ?action=getRoutine&routineId=XXXX       → single ROUTINES row by id, no
+//                                              OA_ROUTINE_ITEMS join — much
+//                                              lighter than getRoutines for
+//                                              the one-routine case (the
+//                                              Routines tab's own detail
+//                                              view). See Routines.js's
+//                                              getRoutine.
 //   ?action=getRoutineItems&routineId=XXXX  → all OA_ROUTINE_ITEMS rows for one routine
 //   ?action=getRouteTemplates               → all ROUTINE_TEMPLATES rows (recurring routes)
 //   ?action=getRoutinesOverview              → unified list (Patch 20, see RouteTemplates.js):
@@ -216,6 +223,9 @@ function doGet(e) {
           result.routines = result.routines.filter(function (r) { return String(r[3] || "").trim() === scope; });
           result.count = result.routines.length;
         }
+        break;
+      case "getRoutine":
+        result = getRoutine(e.parameter.routineId || "", scope);
         break;
       case "getRoutineItems":
         var itemsRoutineId = e.parameter.routineId || "";

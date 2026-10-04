@@ -65,6 +65,11 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   const [routeName, setRouteName] = useState("");
   const [frequency, setFrequency] = useState("One-time");
   const [dueDate, setDueDate] = useState("");
+  // Grace period (days) after dueDate before a one-time routine counts as
+  // Overdue — confirmed directly by the user. Not shown/sent for a
+  // recurring template, which has no single due date of its own to apply
+  // a grace window to.
+  const [duration, setDuration] = useState("");
   // Patch 19: "" for an ACC/unscoped account until they pick their first
   // piece of equipment — see toggleRow/selectAllShown, which derive and
   // lock it from there instead of a manual dropdown.
@@ -307,6 +312,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
           routeName: routeName.trim(),
           routeType,
           dueDate: dueDate || undefined,
+          duration: duration ? Number(duration) : 0,
           assignedTo: assignedTo.trim(),
           contractor,
           createdBy,
@@ -425,6 +431,25 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
               <input style={s.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
+
+          {!isRecurring && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14, marginBottom: 16 }}>
+              <div>
+                <label style={s.label}>Grace Period (days)</label>
+                <input
+                  style={s.input}
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                />
+              </div>
+              <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "auto 0 0" }}>
+                Still counts as On Schedule for this many days past the Due Date before flipping to Overdue.
+              </p>
+            </div>
+          )}
 
           {/* Emergency Top Up is one equipment, picked straight from the
               search below — Area/Oil Type filtering and a suggestion

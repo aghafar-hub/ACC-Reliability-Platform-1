@@ -28,6 +28,7 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
   const [routeName, setRouteName] = useState(routine.routeName || "");
   const [assignedTo, setAssignedTo] = useState(routine.assignedTo || "");
   const [dueDate, setDueDate] = useState(routine.dueDate || "");
+  const [duration, setDuration] = useState(routine.duration || "");
   const [area, setArea] = useState(routine.area || "All");
   const [reason, setReason] = useState(routine.reason || "");
   const [saving, setSaving] = useState(false);
@@ -47,6 +48,7 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
         routeName: routeName.trim(),
         assignedTo: assignedTo.trim(),
         dueDate: dueDate || "",
+        duration: duration ? Number(duration) : 0,
         area: area === "All" ? "" : area,
         reason: isEmergencyTopUp ? reason.trim() : "",
       });
@@ -111,6 +113,14 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
                 ))}
               </select>
             </div>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={s.label}>Grace Period (days)</label>
+            <input style={s.input} type="number" min="0" placeholder="0" value={duration} onChange={(e) => setDuration(e.target.value)} />
+            <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "4px 0 0" }}>
+              Still counts as On Schedule for this many days past the Due Date before flipping to Overdue.
+            </p>
           </div>
 
           <div style={{ marginBottom: isEmergencyTopUp ? 14 : 0 }}>
