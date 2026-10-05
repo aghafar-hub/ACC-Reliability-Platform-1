@@ -181,6 +181,22 @@ function AppShell({ config, setConfig, navBridge }) {
   const [pendingSyncCount, setPendingSyncCount] = useState(() => offlineQueueCount());
   const flushInProgressRef = useRef(false);
 
+  // Every internal tab below used to fully unmount on navigating away (a
+  // plain `page === "x" &&` conditional), so any tab that fetches its own
+  // data on mount — Routines, OilInventory, Activity all call the API
+  // directly in a mount effect — refetched from the server on every single
+  // revisit, and every tab's own local UI state (filters, scroll position,
+  // selected row) reset too. Same fix already proven one level up for the
+  // Oil Lubrication/Vibration Analysis top-level tabs (see
+  // EmbeddedOilAnalysis.tsx's file comment): mount each tab once, on its
+  // first visit, then keep it mounted and only toggle visibility via CSS
+  // from then on — see the `visitedPages.has(...)` + `display: page === ...`
+  // wrapper around each page below.
+  const [visitedPages, setVisitedPages] = useState(() => new Set(["dashboard"]));
+  useEffect(() => {
+    setVisitedPages((prev) => (prev.has(page) ? prev : new Set(prev).add(page)));
+  }, [page]);
+
   // The tracker sheet only reflects samples added through this app (or
   // manually kept in sync by hand); Data_Entry is always current, since
   // every sample lands there regardless of how it was entered. Overlaying
@@ -1162,144 +1178,177 @@ function AppShell({ config, setConfig, navBridge }) {
           pendingSyncCount={pendingSyncCount}
         />
         <div className="app-content" style={{ flex: 1, overflowY: "auto", padding: 24, background: T.appBg }}>
-          {page === "dashboard" && (
-            <Dashboard
-              samples={samples}
-              actions={actions}
-              oilChangeEvents={oilChangeEvents}
-              oilChanges={oilChanges}
-              trackerByEquip={trackerByEquip}
-              equipmentRegistry={equipmentRegistry}
-              webhookUrl={config.webhookUrl}
-              navigate={navigate}
-            />
+          {visitedPages.has("dashboard") && (
+            <div style={{ display: page === "dashboard" ? undefined : "none" }}>
+              <Dashboard
+                samples={samples}
+                actions={actions}
+                oilChangeEvents={oilChangeEvents}
+                oilChanges={oilChanges}
+                trackerByEquip={trackerByEquip}
+                equipmentRegistry={equipmentRegistry}
+                webhookUrl={config.webhookUrl}
+                navigate={navigate}
+              />
+            </div>
           )}
-          {page === "equipment" && (
-            <Equipment
-              samples={samples}
-              equipmentRegistry={equipmentRegistry}
-              actions={actions}
-              oilChanges={oilChanges}
-              actionRegistry={actionRegistry}
-              webhookUrl={config.webhookUrl}
-              pushToast={pushToast}
-              onSelectSample={(sm) => goToReport(sm, "equipment")}
-              onEditSample={onEditSample}
-              onDeleteSample={onDeleteSample}
-              onOpenReport={goToOilReport}
-              onAddAction={onAddAction}
-              onUpdateAction={onUpdateAction}
-              onDeleteAction={onDeleteAction}
-              onSaveOilChange={onSaveOilChange}
-              initialCode={equipmentSelectedCode}
-              onCodeChange={setEquipmentSelectedCode}
-            />
+          {visitedPages.has("equipment") && (
+            <div style={{ display: page === "equipment" ? undefined : "none" }}>
+              <Equipment
+                samples={samples}
+                equipmentRegistry={equipmentRegistry}
+                actions={actions}
+                oilChanges={oilChanges}
+                actionRegistry={actionRegistry}
+                webhookUrl={config.webhookUrl}
+                pushToast={pushToast}
+                onSelectSample={(sm) => goToReport(sm, "equipment")}
+                onEditSample={onEditSample}
+                onDeleteSample={onDeleteSample}
+                onOpenReport={goToOilReport}
+                onAddAction={onAddAction}
+                onUpdateAction={onUpdateAction}
+                onDeleteAction={onDeleteAction}
+                onSaveOilChange={onSaveOilChange}
+                initialCode={equipmentSelectedCode}
+                onCodeChange={setEquipmentSelectedCode}
+              />
+            </div>
           )}
-          {page === "report" && selectedEquipment && (
-            <OilAnalysisReport
-              sample={selectedEquipment}
-              samples={samples}
-              actions={actions}
-              oilChanges={oilChanges}
-              equipmentOptions={equipmentOptions}
-              equipmentRegistry={equipmentRegistry}
-              actionRegistry={actionRegistry}
-              onAddAction={onAddAction}
-              onUpdateAction={onUpdateAction}
-              onDeleteAction={onDeleteAction}
-            />
+          {visitedPages.has("report") && (
+            <div style={{ display: page === "report" ? undefined : "none" }}>
+              {selectedEquipment ? (
+                <OilAnalysisReport
+                  sample={selectedEquipment}
+                  samples={samples}
+                  actions={actions}
+                  oilChanges={oilChanges}
+                  equipmentOptions={equipmentOptions}
+                  equipmentRegistry={equipmentRegistry}
+                  actionRegistry={actionRegistry}
+                  onAddAction={onAddAction}
+                  onUpdateAction={onUpdateAction}
+                  onDeleteAction={onDeleteAction}
+                />
+              ) : (
+                <div style={{ color: T.textSecondary }}>Select a sample from the Dashboard or Equipment page first.</div>
+              )}
+            </div>
           )}
-          {page === "report" && !selectedEquipment && (
-            <div style={{ color: T.textSecondary }}>Select a sample from the Dashboard or Equipment page first.</div>
+          {visitedPages.has("oilreport") && (
+            <div style={{ display: page === "oilreport" ? undefined : "none" }}>
+              <OilReportSearch
+                samples={samples}
+                oilChanges={oilChanges}
+                actions={actions}
+                equipmentRegistry={equipmentRegistry}
+                actionRegistry={actionRegistry}
+                trackerByEquip={trackerByEquip}
+                onAddAction={onAddAction}
+                onUpdateAction={onUpdateAction}
+                initialCode={oilReportCode}
+              />
+            </div>
           )}
-          {page === "oilreport" && (
-            <OilReportSearch
-              samples={samples}
-              oilChanges={oilChanges}
-              actions={actions}
-              equipmentRegistry={equipmentRegistry}
-              actionRegistry={actionRegistry}
-              trackerByEquip={trackerByEquip}
-              onAddAction={onAddAction}
-              onUpdateAction={onUpdateAction}
-              initialCode={oilReportCode}
-            />
+          {visitedPages.has("upload") && (
+            <div style={{ display: page === "upload" ? undefined : "none" }}>
+              <AddSample
+                equipmentOptions={equipmentOptions}
+                equipmentRegistry={equipmentRegistry}
+                existingSamples={samples}
+                onAdd={onAddSample}
+                onBulkAdd={onBulkAddSamples}
+              />
+            </div>
           )}
-          {page === "upload" && (
-            <AddSample
-              equipmentOptions={equipmentOptions}
-              equipmentRegistry={equipmentRegistry}
-              existingSamples={samples}
-              onAdd={onAddSample}
-              onBulkAdd={onBulkAddSamples}
-            />
+          {visitedPages.has("actions") && (
+            <div style={{ display: page === "actions" ? undefined : "none" }}>
+              <ActionTracker
+                actions={actions}
+                samples={samples}
+                oilChanges={oilChanges}
+                equipmentRegistry={equipmentRegistry}
+                actionRegistry={actionRegistry}
+                onAddAction={onAddAction}
+                onUpdateAction={onUpdateAction}
+                onDeleteAction={onDeleteAction}
+              />
+            </div>
           )}
-          {page === "actions" && (
-            <ActionTracker
-              actions={actions}
-              samples={samples}
-              oilChanges={oilChanges}
-              equipmentRegistry={equipmentRegistry}
-              actionRegistry={actionRegistry}
-              onAddAction={onAddAction}
-              onUpdateAction={onUpdateAction}
-              onDeleteAction={onDeleteAction}
-            />
+          {visitedPages.has("oilchange") && (
+            <div style={{ display: page === "oilchange" ? undefined : "none" }}>
+              <OilChangeLog
+                oilChanges={oilChanges}
+                oilChangeEvents={oilChangeEvents}
+                actions={actions}
+                equipmentRegistry={equipmentRegistry}
+                onSave={onSaveOilChange}
+                onAddAction={onAddAction}
+              />
+            </div>
           )}
-          {page === "oilchange" && (
-            <OilChangeLog
-              oilChanges={oilChanges}
-              oilChangeEvents={oilChangeEvents}
-              actions={actions}
-              equipmentRegistry={equipmentRegistry}
-              onSave={onSaveOilChange}
-              onAddAction={onAddAction}
-            />
+          {visitedPages.has("routines") && (
+            <div style={{ display: page === "routines" ? undefined : "none" }}>
+              <Routines
+                webhookUrl={config.webhookUrl}
+                equipmentRegistry={equipmentRegistry}
+                samples={samples}
+                actions={actions}
+                oilChanges={oilChanges}
+                pushToast={pushToast}
+                onDataChanged={runSync}
+                initialRoutineId={deepLinkRoutineId}
+                onInitialRoutineConsumed={() => setDeepLinkRoutineId(null)}
+              />
+            </div>
           )}
-          {page === "routines" && (
-            <Routines
-              webhookUrl={config.webhookUrl}
-              equipmentRegistry={equipmentRegistry}
-              samples={samples}
-              actions={actions}
-              oilChanges={oilChanges}
-              pushToast={pushToast}
-              onDataChanged={runSync}
-              initialRoutineId={deepLinkRoutineId}
-              onInitialRoutineConsumed={() => setDeepLinkRoutineId(null)}
-            />
+          {visitedPages.has("inventory") && (
+            <div style={{ display: page === "inventory" ? undefined : "none" }}>
+              <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
+            </div>
           )}
-          {page === "inventory" && (
-            <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
+          {visitedPages.has("reports") && (
+            <div style={{ display: page === "reports" ? undefined : "none" }}>
+              <Reports
+                webhookUrl={config.webhookUrl}
+                actions={actions}
+                oilChanges={oilChanges}
+                oilChangeEvents={oilChangeEvents}
+                samples={samples}
+                equipmentRegistry={equipmentRegistry}
+                trackerByEquip={trackerByEquip}
+              />
+            </div>
           )}
-          {page === "reports" && (
-            <Reports
-              webhookUrl={config.webhookUrl}
-              actions={actions}
-              oilChanges={oilChanges}
-              oilChangeEvents={oilChangeEvents}
-              samples={samples}
-              equipmentRegistry={equipmentRegistry}
-              trackerByEquip={trackerByEquip}
-            />
+          {visitedPages.has("activity") && (
+            <div style={{ display: page === "activity" ? undefined : "none" }}>
+              <Activity webhookUrl={config.webhookUrl} />
+            </div>
           )}
-          {page === "activity" && <Activity webhookUrl={config.webhookUrl} />}
-          {page === "tracker" && (
-            <SampleTracker trackerByEquip={trackerByEquip} oilChanges={oilChanges} equipmentRegistry={equipmentRegistry} />
+          {visitedPages.has("tracker") && (
+            <div style={{ display: page === "tracker" ? undefined : "none" }}>
+              <SampleTracker trackerByEquip={trackerByEquip} oilChanges={oilChanges} equipmentRegistry={equipmentRegistry} />
+            </div>
           )}
-          {page === "howto" && <HowToUse />}
-          {page === "settings" && (
-            <Settings
-              config={config}
-              onSave={updateConfig}
-              onSync={runSync}
-              syncState={syncState}
-              syncMsg={syncMsg}
-              equipmentRegistry={equipmentRegistry}
-              onRegistryChange={setEquipmentRegistry}
-              actionRegistry={actionRegistry}
-              onActionRegistryChange={setActionRegistry}
-            />
+          {visitedPages.has("howto") && (
+            <div style={{ display: page === "howto" ? undefined : "none" }}>
+              <HowToUse />
+            </div>
+          )}
+          {visitedPages.has("settings") && (
+            <div style={{ display: page === "settings" ? undefined : "none" }}>
+              <Settings
+                config={config}
+                onSave={updateConfig}
+                onSync={runSync}
+                syncState={syncState}
+                syncMsg={syncMsg}
+                equipmentRegistry={equipmentRegistry}
+                onRegistryChange={setEquipmentRegistry}
+                actionRegistry={actionRegistry}
+                onActionRegistryChange={setActionRegistry}
+              />
+            </div>
           )}
         </div>
       </div>
