@@ -205,6 +205,44 @@ export default function App({ navBridge } = {}) {
     setSyncState({ status: "loading", message: "Loading…" });
     try {
       let data = await getStartupBundle(url);
+      // RELIABILITY: a deployment that hasn't actually picked up the
+      // getStartupBundle/getRmsSpmHistory addition yet (stale Apps Script
+      // container, or a redeploy that hasn't fully propagated) answers with
+      // {error: "Unknown action: ..."} rather than real data. readAll() is
+      // the one action that has existed since before this split and is
+      // guaranteed to work on any deployment version, so fall back to it
+      // wholesale (including rms/spm, exactly like the Sync button) rather
+      // than leaving the user with a permanently empty Dashboard.
+      if (data.error && /unknown action/i.test(data.error)) {
+        const full = await readAll(url);
+        if (full.error) throw new Error(full.error);
+        setRms((full.rms || []).map(rowToRMS));
+        setSpm((full.spm || []).map(rowToSPM));
+        setCompliance((full.compliance || []).map(rowToCompliance));
+        setRmsRegister((full.rmsRegister || []).map(rowToRmsRegister));
+        setSpmRegister((full.spmRegister || []).map(rowToSpmRegister));
+        setLastRms((full.lastRms || []).map(rowToLastRMS));
+        setLastSpm((full.lastSpm || []).map(rowToLastSPM));
+        setActions((full.actions || []).map(rowToAction));
+        setVibPoints((full.vibPoints || []).map(rowToVibPoint));
+        if (full.config && typeof full.config === "object") {
+          const merged = { ...configRef.current };
+          if (full.config.webhookUrl) merged.webhookUrl = full.config.webhookUrl;
+          if (full.config.googleSheetUrl) {
+            merged.googleSheetUrl = full.config.googleSheetUrl;
+            setSheetUrl(full.config.googleSheetUrl);
+          }
+          if (full.config.contractors) merged.contractors = full.config.contractors;
+          setConfig(merged);
+        }
+        rmsSpmLoadedRef.current = true;
+        const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setSyncState({
+          status: "ok",
+          message: `✓ Loaded (fallback — redeploy the backend to speed this up) — ${time}`,
+        });
+        return;
+      }
       if (data.error) throw new Error(data.error);
       // RELIABILITY: Apps Script Web Apps can intermittently come back with
       // a valid-but-empty response on the very first hit after a redeploy or
