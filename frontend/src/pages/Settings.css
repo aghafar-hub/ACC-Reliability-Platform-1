@@ -50,3 +50,42 @@
 .settings-panel {
   max-width: 640px;
 }
+
+/* General's own sub-tabs (Appearance / Users) — same bordered-segmented-
+   control language as .settings-tabs above, one size down, so it reads as
+   nested inside the General section rather than a second top-level row. */
+.settings-subtabs {
+  display: inline-flex;
+  gap: 0;
+  margin: 0 0 1.25rem;
+  padding: 2px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-sm);
+  background: var(--shell-card-bg);
+}
+
+.settings-subtab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 32px;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--shell-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+}
+
+.settings-subtab:hover {
+  color: var(--shell-text);
+}
+
+.settings-subtab--active {
+  background: var(--shell-accent);
+  color: var(--shell-accent-text);
+}

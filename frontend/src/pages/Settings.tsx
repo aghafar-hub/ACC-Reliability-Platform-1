@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
 import ThemePicker from '../components/ThemePicker';
@@ -6,11 +7,23 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
+type GeneralSubTabId = 'appearance' | 'users';
 
 const TABS: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: 'general', label: 'General', icon: 'settings' },
   { id: 'oil-analysis', label: 'Oil Lubrication', icon: 'droplet' },
   { id: 'vibration-analysis', label: 'Vibration Analysis', icon: 'graphs' },
+];
+
+// "General" own sub-tabs (user request: "can we make subtab for users as
+// we did in oil setting") — same bordered-segmented-control pattern as the
+// module-level TABS above (and as apps/oil-analysis/src/pages/Settings.jsx's
+// own SETTINGS_SUB_TABS strip), one level down: Appearance (the theme
+// picker, previously shown unconditionally) and Users (AccountsPanel,
+// previously stacked directly underneath it on the same screen).
+const GENERAL_SUB_TABS: { id: GeneralSubTabId; label: string; icon: string }[] = [
+  { id: 'appearance', label: 'Appearance', icon: 'settings' },
+  { id: 'users', label: 'Users', icon: 'action' },
 ];
 
 // Platform-level Settings (Patch 29) — one page with tabs for each module
@@ -30,6 +43,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const embeddedNav = useEmbeddedNav();
   const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
+  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>('appearance');
 
   function selectTab(tabId: SettingsTabId) {
     if (tabId === 'general') {
@@ -66,11 +80,31 @@ export default function Settings() {
 
       {activeTab === 'general' && (
         <div className="settings-panel">
-          <p className="settings-intro">
-            Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
-          </p>
-          <ThemePicker />
-          <AccountsPanel />
+          <div className="settings-subtabs" role="tablist" aria-label="General settings sections">
+            {GENERAL_SUB_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={tab.id === generalSubTab}
+                className={tab.id === generalSubTab ? 'settings-subtab settings-subtab--active' : 'settings-subtab'}
+                onClick={() => setGeneralSubTab(tab.id)}
+              >
+                <Icon name={tab.icon} size={14} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {generalSubTab === 'appearance' && (
+            <>
+              <p className="settings-intro">
+                Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
+              </p>
+              <ThemePicker />
+            </>
+          )}
+          {generalSubTab === 'users' && <AccountsPanel />}
         </div>
       )}
       {/* For a module tab, nothing else renders here on purpose — that
