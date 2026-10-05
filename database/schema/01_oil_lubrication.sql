@@ -96,7 +96,12 @@ CREATE TABLE oil_samples (
   additive_mg            DECIMAL(10,2),
   additive_p             DECIMAL(10,2),
   additive_zn            DECIMAL(10,2),
-  alert_type             VARCHAR(50),
+  alert_type             VARCHAR(255),  -- real values are full sentences up to ~180 chars
+                                          -- (e.g. "Excessive Water / Elevated TAN / Elevated
+                                          -- Viscosity / Unsatisfactory Oil / Particle Count Not
+                                          -- Reported"), not a short code — VARCHAR(50) (the
+                                          -- original guess) rejected 111 real rows during the
+                                          -- first local test migration
   sample_analysis        TEXT,
   flagged_parameters     TEXT,
   updated_at             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
