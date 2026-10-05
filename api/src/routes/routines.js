@@ -10,6 +10,7 @@ import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth } from "../auth.js";
 import { friendlyForeignKeyError } from "../dbErrors.js";
+import { writeAuditLog } from "../auditLog.js";
 
 export const routinesRouter = Router();
 routinesRouter.use(requireAuth);
@@ -162,6 +163,14 @@ routinesRouter.post("/:routineId/approve", async (req, res) => {
   if (result.affectedRows === 0) {
     return res.status(409).json({ error: "Routine not found, or not in Submitted status" });
   }
+  await writeAuditLog(pool, {
+    moduleId: "oil-lubrication",
+    entityType: "routine",
+    entityId: req.params.routineId,
+    action: "Approve",
+    actingUserId: req.user.uid,
+    summary: comment ? `Approved with comment: ${comment}` : "Approved",
+  });
   res.json({ status: "ok" });
 });
 

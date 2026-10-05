@@ -14,6 +14,10 @@ import { vibRegistersRouter } from "./routes/vibRegisters.js";
 import { vibReadingsRouter } from "./routes/vibReadings.js";
 import { vibComplianceRouter } from "./routes/vibCompliance.js";
 import { vibActionsRouter } from "./routes/vibActions.js";
+import { organizationsRouter } from "./routes/organizations.js";
+import { usersRouter, rolesRouter } from "./routes/users.js";
+import { settingsRouter } from "./routes/settings.js";
+import { auditLogRouter } from "./routes/auditLog.js";
 
 export const app = express();
 
@@ -37,6 +41,11 @@ app.use("/", vibRegistersRouter);
 app.use("/", vibReadingsRouter);
 app.use("/compliance", vibComplianceRouter);
 app.use("/vib-actions", vibActionsRouter);
+app.use("/organizations", organizationsRouter);
+app.use("/users", usersRouter);
+app.use("/roles", rolesRouter);
+app.use("/settings", settingsRouter);
+app.use("/audit-log", auditLogRouter);
 
 // Centralized error handler — any route that throws (including a rejected
 // promise, since this project's routes are all async) lands here instead of
