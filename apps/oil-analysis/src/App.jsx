@@ -1274,6 +1274,7 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {page === "reports" && (
             <Reports
+              webhookUrl={config.webhookUrl}
               actions={actions}
               oilChanges={oilChanges}
               oilChangeEvents={oilChangeEvents}

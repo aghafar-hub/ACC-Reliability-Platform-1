@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
-import { formatDate, sampleTrackerStatus, intervalMonths, todayISO } from "./parsers";
+import ExcelJS from "exceljs";
+import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
 
 // Four printable-to-PDF reports, generated entirely client-side from the
@@ -1022,6 +1023,644 @@ export function exportMonthlyActivityCsv({ samples, oilChangeEvents, actions, eq
   const a = document.createElement("a");
   a.href = url;
   a.download = `Monthly-Activity-Summary${fileSuffixFor(contractor)}-${month}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Oil Reports (user-requested rebuild): a single "+ New Report" screen
+// (NewReport.jsx) with one checklist, grouped exactly as the user laid
+// out — Condition Based Oil / Time Based Oil / Inventory Status / Forecast
+// — instead of today's one-card-per-report grid above. Generates ONE
+// output (PDF with charts, or a data-only multi-sheet Excel workbook —
+// confirmed directly by the user: "we can generate charts on pdf, but
+// excel keep focus only on data") containing only the sections checked.
+//
+// "Condition Based" vs "Time Based" is NOT a new classification invented
+// for this feature — it's the Equipment/LP Register's own existing
+// Oil_Analysis_Required / Oil_Change_Interval fields (confirmed directly
+// by the user: "we already know from equipment register which equipment
+// related to oil analysis and which equipment has time base changes").
+// ═══════════════════════════════════════════════════════════════════════
+
+export const CONDITION_SCOPE = (eq) => String(eq?.oilAnalysisRequired || "").trim().toLowerCase() === "yes";
+export const TIME_SCOPE = (eq) => !!String(eq?.oilChangeInterval || "").trim();
+
+function registryByCodeMap(equipmentRegistry) {
+  const map = {};
+  (equipmentRegistry || []).forEach((r) => (map[r.code] = r));
+  return map;
+}
+
+// Shared by every "overdue oil changes" section (condition- and time-
+// scoped alike) — same contractor-performance math buildOilChangeSection
+// already used, just additionally filtered by which equipment the LP
+// belongs to (via `scopeFilter` over the Equipment Register).
+function scopedOilChangeStats({ oilChanges, equipmentRegistry, actions, contractor = "All", scopeFilter }) {
+  const regByCode = registryByCodeMap(equipmentRegistry);
+  const inScope = (code) => {
+    const reg = regByCode[code];
+    return reg && scopeFilter(reg) && (contractor === "All" || reg.contractor === contractor);
+  };
+  const points = (oilChanges || []).filter((o) => inScope(o.equipmentCode));
+  const overdueList = points
+    .filter((o) => o.status === "Overdue")
+    .sort((a, b) => new Date(a.nextDueDate || 0) - new Date(b.nextDueDate || 0));
+
+  const contractors =
+    contractor === "All"
+      ? Array.from(new Set((equipmentRegistry || []).filter(scopeFilter).map((r) => r.contractor).filter(Boolean)))
+      : [contractor];
+  const stats = contractors.map((c) => {
+    const cPoints = points.filter((o) => regByCode[o.equipmentCode]?.contractor === c);
+    const overdue = cPoints.filter((o) => o.status === "Overdue");
+    const onTimePct = cPoints.length ? Math.round(((cPoints.length - overdue.length) / cPoints.length) * 100) : null;
+    const cActions = (actions || []).filter((a) => {
+      const reg = regByCode[a.equipmentCode];
+      return (a.contractor || reg?.contractor) === c && reg && scopeFilter(reg);
+    });
+    const closureRatePct = cActions.length ? Math.round((cActions.filter((a) => a.status === "Closed").length / cActions.length) * 100) : null;
+    return { name: c, total: cPoints.length, overdue: overdue.length, onTimePct, closureRatePct };
+  });
+  stats.sort((a, b) => b.overdue - a.overdue);
+
+  return { points, overdueList, stats, regByCode };
+}
+
+function renderOverdueChangesPdf(doc, { title, narrative, oilChanges, equipmentRegistry, contractor, scopeFilter }, y) {
+  const { overdueList, regByCode } = scopedOilChangeStats({ oilChanges, equipmentRegistry, actions: [], contractor, scopeFilter });
+  y = summaryParagraph(doc, narrative, y);
+  y = statStrip(doc, [{ value: overdueList.length, label: "OVERDUE NOW", color: BRAND.danger }], y);
+  y += 10;
+  y = needsNewPage(doc, y, 130);
+  y = sectionTitle(doc, title, y);
+  const rows = overdueList.map((o) => {
+    const reg = regByCode[o.equipmentCode];
+    const days = daysSince(o.nextDueDate);
+    return [
+      o.equipmentCode,
+      reg?.description || o.assetName || "—",
+      reg?.area || "—",
+      o.oilType || reg?.lubricant || "—",
+      reg?.contractor || "—",
+      formatDate(o.nextDueDate) || "—",
+      days == null ? "—" : `${days}d`,
+    ];
+  });
+  autoTable(doc, {
+    startY: y,
+    head: [["Equipment", "Description", "Area", "Oil Type", "Contractor", "Next Due", "Days Overdue"]],
+    body: rows.length ? rows : [["Nothing overdue in this scope right now", "", "", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 6) {
+        data.cell.styles.textColor = BRAND.danger;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+function renderPerformancePdf(doc, { title, narrative, oilChanges, equipmentRegistry, actions, contractor, scopeFilter }, y) {
+  const { stats } = scopedOilChangeStats({ oilChanges, equipmentRegistry, actions, contractor, scopeFilter });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  y = summaryParagraph(doc, narrative, y);
+  if (stats.length > 0) {
+    y = needsNewPage(doc, y, stats.length * 24 * 2 + 100);
+    y = sectionTitle(doc, `${title} — On-Time %`, y);
+    y = horizontalBars(doc, {
+      x: 36, y, width: pageWidth - 72,
+      rows: stats.map((s) => ({ label: s.name, value: s.onTimePct ?? 0, color: BRAND.teal })),
+      maxValue: 100, valueFormatter: (v) => `${v}%`,
+    });
+    y += 18;
+  }
+  y = needsNewPage(doc, y, 100);
+  autoTable(doc, {
+    startY: y,
+    head: [["Contractor", "Total Points", "Overdue", "On-Time %", "Action Closure %"]],
+    body: stats.length
+      ? stats.map((s) => [s.name, s.total, s.overdue, s.onTimePct == null ? "—" : `${s.onTimePct}%`, s.closureRatePct == null ? "—" : `${s.closureRatePct}%`])
+      : [["No contractors in this scope", "", "", "", ""]],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 5, lineColor: BRAND.border, lineWidth: 0.5 },
+    margin: { left: 36, right: 36 },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+// ── Condition Based Oil ──────────────────────────────────────────────────
+
+function buildOilHealthPdf(doc, { trackerByEquip, equipmentRegistry, contractor }, y) {
+  let registry = equipmentRegistry || [];
+  if (contractor !== "All") registry = registry.filter((r) => r.contractor === contractor);
+  const counts = { Normal: 0, Caution: 0, Alert: 0 };
+  registry.forEach((eq) => {
+    (trackerByEquip?.[eq.code] || []).forEach((entry) => {
+      const bucket = conditionBucket(entry.status);
+      if (bucket) counts[bucket]++;
+    });
+  });
+  const total = counts.Normal + counts.Caution + counts.Alert;
+  const normalPct = total > 0 ? Math.round((counts.Normal / total) * 100) : null;
+
+  y = summaryParagraph(
+    doc,
+    `Share of lab results currently on record that came back Normal vs. Caution vs. Alert${contractor === "All" ? " across all contractors" : ` for ${contractor}`}, using the same classification as Oil Sampling Log's own Condition Trend.`,
+    y
+  );
+  y = statStrip(doc, [{ value: normalPct == null ? "—" : `${normalPct}%`, label: "NORMAL", color: BRAND.success }], y);
+  y += 10;
+  if (total > 0) {
+    y = needsNewPage(doc, y, 110);
+    y = sectionTitle(doc, "Result Distribution", y);
+    y = donutWithLegend(doc, {
+      x: 36, y, radius: 36,
+      slices: [
+        { value: counts.Normal, label: "Normal", color: BRAND.success },
+        { value: counts.Caution, label: "Caution", color: BRAND.warning },
+        { value: counts.Alert, label: "Alert", color: BRAND.danger },
+      ],
+      legendX: 130,
+    });
+    y += 6;
+  }
+  return y;
+}
+function oilHealthRows({ trackerByEquip, equipmentRegistry, contractor }) {
+  let registry = equipmentRegistry || [];
+  if (contractor !== "All") registry = registry.filter((r) => r.contractor === contractor);
+  const rows = [];
+  registry.forEach((eq) => {
+    (trackerByEquip?.[eq.code] || []).forEach((entry) => {
+      const bucket = conditionBucket(entry.status);
+      if (bucket) rows.push([eq.code, eq.description || "—", eq.area || "—", eq.contractor || "—", entry.date || "—", entry.status || "—"]);
+    });
+  });
+  return rows;
+}
+
+function buildConditionOverdueChangesPdf(doc, { oilChanges, equipmentRegistry, contractor }, y) {
+  return renderOverdueChangesPdf(
+    doc,
+    {
+      title: "Overdue Oil Changes — Condition Based",
+      narrative: `Every condition-based lubrication point (Oil Analysis Required = Yes in the Equipment Register) whose oil change is currently overdue${contractor === "All" ? "" : `, scoped to ${contractor}`}.`,
+      oilChanges, equipmentRegistry, contractor, scopeFilter: CONDITION_SCOPE,
+    },
+    y
+  );
+}
+function buildConditionPerformancePdf(doc, { oilChanges, equipmentRegistry, actions, contractor }, y) {
+  return renderPerformancePdf(
+    doc,
+    {
+      title: "Condition Based Contractor Performance",
+      narrative: `On-time oil-change performance and action closure rate, scoped to condition-based lubrication points only${contractor === "All" ? ", by contractor" : ` for ${contractor}`}.`,
+      oilChanges, equipmentRegistry, actions, contractor, scopeFilter: CONDITION_SCOPE,
+    },
+    y
+  );
+}
+
+// ── Time Based Oil ───────────────────────────────────────────────────────
+
+function buildTimeOverdueChangesPdf(doc, { oilChanges, equipmentRegistry, contractor }, y) {
+  return renderOverdueChangesPdf(
+    doc,
+    {
+      title: "Overdue LP Points — Time Based",
+      narrative: `Every time-based lubrication point (a fixed Oil Change Interval set in the Equipment Register) whose oil change is currently overdue${contractor === "All" ? "" : `, scoped to ${contractor}`}.`,
+      oilChanges, equipmentRegistry, contractor, scopeFilter: TIME_SCOPE,
+    },
+    y
+  );
+}
+
+function routinesInScope(routinesOverview, contractor) {
+  let items = routinesOverview || [];
+  if (contractor !== "All") items = items.filter((r) => r.contractor === contractor);
+  return items;
+}
+
+function buildOpenRoutinesPdf(doc, { routinesOverview, contractor }, y) {
+  const items = routinesInScope(routinesOverview, contractor).filter((r) => r.dueStatus !== "Completed" && r.dueStatus !== "Cancelled");
+  const counts = { Overdue: 0, "Due Soon": 0, "On Schedule": 0, Paused: 0 };
+  items.forEach((r) => { if (counts[r.dueStatus] !== undefined) counts[r.dueStatus]++; });
+
+  y = summaryParagraph(doc, `Every recurring route template and standalone routine not yet completed or cancelled${contractor === "All" ? "" : ` for ${contractor}`}, with its current due status.`, y);
+  y = statStrip(
+    doc,
+    [
+      { value: items.length, label: "OPEN ROUTINES", color: BRAND.navy },
+      { value: counts.Overdue, label: "OVERDUE", color: BRAND.danger },
+      { value: counts["Due Soon"], label: "DUE SOON", color: BRAND.warning },
+      { value: counts["On Schedule"], label: "ON SCHEDULE", color: BRAND.success },
+    ],
+    y
+  );
+  y += 10;
+  y = needsNewPage(doc, y, 130);
+  const rows = [...items]
+    .sort((a, b) => new Date(a.nextDueDate || 0) - new Date(b.nextDueDate || 0))
+    .map((r) => [r.routeName || r.id, r.routeType || "—", r.area || "—", r.contractor || "—", r.equipmentCount ?? "—", formatDate(r.nextDueDate) || "—", r.dueStatus || "—"]);
+  autoTable(doc, {
+    startY: y,
+    head: [["Routine", "Type", "Area", "Contractor", "Equipment", "Next Due", "Status"]],
+    body: rows.length ? rows : [["No open routines in this scope", "", "", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 6) {
+        const map = { Overdue: BRAND.danger, "Due Soon": BRAND.warning, "On Schedule": BRAND.success, Paused: BRAND.muted };
+        data.cell.styles.textColor = map[data.cell.raw] || BRAND.muted;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+function buildComingSoonPdf(doc, { routinesOverview, contractor }, y) {
+  const items = routinesInScope(routinesOverview, contractor).filter((r) => r.routeType === "Oil Change" && r.dueStatus === "Due Soon");
+  y = summaryParagraph(doc, `Oil Change routines/templates due within the next 7 days${contractor === "All" ? "" : ` for ${contractor}`} — plan ahead for lubricant and crew availability.`, y);
+  y = statStrip(doc, [{ value: items.length, label: "COMING SOON", color: BRAND.warning }], y);
+  y += 10;
+  y = needsNewPage(doc, y, 110);
+  const rows = [...items]
+    .sort((a, b) => new Date(a.nextDueDate || 0) - new Date(b.nextDueDate || 0))
+    .map((r) => [r.routeName || r.id, r.area || "—", r.contractor || "—", r.equipmentCount ?? "—", formatDate(r.nextDueDate) || "—"]);
+  autoTable(doc, {
+    startY: y,
+    head: [["Routine", "Area", "Contractor", "Equipment", "Due Date"]],
+    body: rows.length ? rows : [["Nothing coming up in this scope", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+function lastCalendarMonthRange() {
+  const now = new Date();
+  const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const monthIndex = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+  return { year, monthIndex, label: new Date(year, monthIndex, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" }) };
+}
+
+function buildLastMonthTopUpPdf(doc, { topUps, contractor }, y) {
+  const { year, monthIndex, label } = lastCalendarMonthRange();
+  let items = (topUps || []).filter((t) => inPeriod(t.eventDate, year, monthIndex));
+  if (contractor !== "All") items = items.filter((t) => t.contractor === contractor);
+  const totalQty = items.reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
+
+  y = summaryParagraph(doc, `Every Emergency Top Up logged during ${label}${contractor === "All" ? "" : ` for ${contractor}`}.`, y);
+  y = statStrip(
+    doc,
+    [
+      { value: items.length, label: "TOP UPS LOGGED", color: BRAND.accent },
+      { value: `${totalQty}L`, label: "TOTAL QUANTITY", color: BRAND.warning },
+    ],
+    y
+  );
+  y += 10;
+  y = needsNewPage(doc, y, 110);
+  const rows = [...items]
+    .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
+    .map((t) => [formatDate(t.eventDate), t.lpId || "—", `${t.quantity ?? "—"}L`, t.oilBrandType || "—", t.reason || "—", t.contractor || "—"]);
+  autoTable(doc, {
+    startY: y,
+    head: [["Date", "Lubrication Point", "Qty", "Oil Type", "Reason", "Contractor"]],
+    body: rows.length ? rows : [[`No top ups logged in ${label}`, "", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+// "Completion" = % of routines/templates (among those actually due —
+// Completed/Overdue/Due Soon/On Schedule, excluding Paused/Cancelled)
+// that reached Completed — the same compliance-rate definition the
+// Dashboard's own "Routine Compliance Rate" card already uses, just
+// broken out per contractor instead of per route type.
+function buildContractorCompletionPdf(doc, { routinesOverview, contractor }, y) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const items = routinesInScope(routinesOverview, contractor).filter((r) => ["Completed", "Overdue", "Due Soon", "On Schedule"].includes(r.dueStatus));
+  const contractors = contractor === "All" ? Array.from(new Set(items.map((r) => r.contractor).filter(Boolean))) : [contractor];
+  const stats = contractors.map((c) => {
+    const list = items.filter((r) => r.contractor === c);
+    const done = list.filter((r) => r.dueStatus === "Completed").length;
+    return { name: c, total: list.length, done, pct: list.length ? Math.round((done / list.length) * 100) : null };
+  });
+
+  y = summaryParagraph(doc, `Share of due routines that reached Completed, per contractor${contractor === "All" ? "" : ` (${contractor} only)`}.`, y);
+  if (stats.length > 0) {
+    y = needsNewPage(doc, y, stats.length * 24 + 80);
+    y = sectionTitle(doc, "Completion Rate by Contractor", y);
+    y = horizontalBars(doc, {
+      x: 36, y, width: pageWidth - 72,
+      rows: stats.map((s) => ({ label: s.name, value: s.pct ?? 0, color: BRAND.success })),
+      maxValue: 100, valueFormatter: (v) => `${v}%`,
+    });
+    y += 18;
+  }
+  y = needsNewPage(doc, y, 90);
+  autoTable(doc, {
+    startY: y,
+    head: [["Contractor", "Due Routines", "Completed", "Completion %"]],
+    body: stats.length ? stats.map((s) => [s.name, s.total, s.done, s.pct == null ? "—" : `${s.pct}%`]) : [["No routines in this scope", "", "", ""]],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 9 },
+    styles: { fontSize: 9, cellPadding: 5, lineColor: BRAND.border, lineWidth: 0.5 },
+    margin: { left: 36, right: 36 },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+// ── Inventory Status & Forecast ──────────────────────────────────────────
+
+function buildInventoryStatusPdf(doc, { inventoryProducts, contractor }, y) {
+  let products = inventoryProducts || [];
+  if (contractor !== "All") products = products.filter((p) => p.contractor === contractor);
+  const lowStock = products.filter((p) => p.currentStock != null && p.recorderLevel != null && p.currentStock <= p.recorderLevel && p.currentStock > 0);
+  const outOfStock = products.filter((p) => (p.currentStock || 0) <= 0);
+
+  y = summaryParagraph(doc, `Current stock levels for every oil product${contractor === "All" ? "" : ` supplied to ${contractor}`}, flagging anything at or below its reorder level.`, y);
+  y = statStrip(
+    doc,
+    [
+      { value: products.length, label: "PRODUCTS", color: BRAND.navy },
+      { value: lowStock.length, label: "LOW STOCK", color: BRAND.warning },
+      { value: outOfStock.length, label: "OUT OF STOCK", color: BRAND.danger },
+    ],
+    y
+  );
+  y += 10;
+  y = needsNewPage(doc, y, 130);
+  const rows = [...products]
+    .sort((a, b) => (a.currentStock ?? 0) - (b.currentStock ?? 0))
+    .map((p) => [
+      p.lubricantType || "—", p.lubricantBrand || "—", p.contractor || "—",
+      p.currentStock == null ? "—" : `${p.currentStock}${p.unit || "L"}`,
+      p.recorderLevel == null ? "—" : `${p.recorderLevel}${p.unit || "L"}`,
+      (p.currentStock || 0) <= 0 ? "Out of Stock" : lowStock.includes(p) ? "Low" : "Sufficient",
+    ]);
+  autoTable(doc, {
+    startY: y,
+    head: [["Oil", "Brand", "Contractor", "Current Stock", "Reorder Level", "Status"]],
+    body: rows.length ? rows : [["No products in this scope", "", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 5) {
+        const map = { "Out of Stock": BRAND.danger, Low: BRAND.warning, Sufficient: BRAND.success };
+        data.cell.styles.textColor = map[data.cell.raw] || BRAND.muted;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+function buildForecastPdf(doc, { inventoryForecast, contractor }, y) {
+  let rows = (inventoryForecast?.forecast || []);
+  if (contractor !== "All") rows = rows.filter((f) => f.contractor === contractor);
+  const totalShortfall = rows.reduce((sum, f) => sum + (Number(f.shortfall) || 0), 0);
+
+  y = summaryParagraph(doc, `Projected lubricant need for next month against current stock${contractor === "All" ? "" : ` for ${contractor}`} — anything with a shortfall needs reordering before then.`, y);
+  y = statStrip(
+    doc,
+    [
+      { value: rows.length, label: "PRODUCTS FORECAST", color: BRAND.navy },
+      { value: rows.filter((f) => (f.shortfall || 0) > 0).length, label: "SHORTFALLS", color: BRAND.danger },
+      { value: `${totalShortfall}L`, label: "TOTAL SHORTFALL", color: BRAND.warning },
+    ],
+    y
+  );
+  y += 10;
+  y = needsNewPage(doc, y, 130);
+  const body = [...rows]
+    .sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0))
+    .map((f) => [
+      f.lubricant || "—", f.lubricantBrand || "—", f.contractor || "—",
+      f.currentStock == null ? "—" : `${f.currentStock}L`,
+      f.quantityNeeded == null ? "—" : `${f.quantityNeeded}L`,
+      (f.shortfall || 0) > 0 ? `${f.shortfall}L short` : "Covered",
+    ]);
+  autoTable(doc, {
+    startY: y,
+    head: [["Oil", "Brand", "Contractor", "Current Stock", "Projected Need", "Shortfall"]],
+    body: body.length ? body : [["No forecast data in this scope", "", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 5 && String(data.cell.raw).includes("short")) {
+        data.cell.styles.textColor = BRAND.danger;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  return doc.lastAutoTable.finalY + 24;
+}
+
+// ── Excel (data-only) row builders — one per section, reusing the exact
+// same scoping/filtering as that section's PDF builder above so the two
+// formats never silently disagree on what counts. ──────────────────────
+
+function excelOpenActions({ actions, equipmentRegistry, contractor }) {
+  const regByCode = registryByCodeMap(equipmentRegistry);
+  const contractorOf = (a) => a.contractor || regByCode[a.equipmentCode]?.contractor || "Unassigned";
+  let rows = (actions || []).filter((a) => FOCUS_STATUSES.includes(a.status));
+  if (contractor !== "All") rows = rows.filter((a) => contractorOf(a) === contractor);
+  return {
+    header: ["Ac. No", "Equipment", "Description", "Oil Type", "Status", "Days Open", "Contractor", "Agreed Action"],
+    rows: rows.map((a) => [a.acNo, a.equipmentCode, a.description, a.oilType, a.status, daysSince(a.revisionDate), contractorOf(a), a.agreedAction]),
+  };
+}
+function excelMissingOverdueSamples({ trackerByEquip, equipmentRegistry, contractor }) {
+  let registry = equipmentRegistry || [];
+  if (contractor !== "All") registry = registry.filter((r) => r.contractor === contractor);
+  const rows = registry
+    .map((eq) => {
+      const history = (trackerByEquip || {})[eq.code] || [];
+      const lastDate = history[0]?.date || "";
+      const status = sampleTrackerStatus(lastDate, eq.interval);
+      return { eq, lastDate, status };
+    })
+    .filter((r) => r.status.label !== "OK");
+  return {
+    header: ["Equipment", "Description", "Area", "Contractor", "Interval", "Last Sample", "Status", "Details"],
+    rows: rows.map(({ eq, lastDate, status }) => [eq.code, eq.description, eq.area, eq.contractor, eq.interval, lastDate, status.label, status.daysInfo]),
+  };
+}
+function excelOilHealth(data) {
+  return { header: ["Equipment", "Description", "Area", "Contractor", "Sample Date", "Result"], rows: oilHealthRows(data) };
+}
+function excelOverdueChanges({ oilChanges, equipmentRegistry, contractor }, scopeFilter) {
+  const { overdueList, regByCode } = scopedOilChangeStats({ oilChanges, equipmentRegistry, actions: [], contractor, scopeFilter });
+  return {
+    header: ["Equipment", "Description", "Area", "Oil Type", "Contractor", "Next Due", "Days Overdue"],
+    rows: overdueList.map((o) => {
+      const reg = regByCode[o.equipmentCode];
+      return [o.equipmentCode, reg?.description, reg?.area, o.oilType || reg?.lubricant, reg?.contractor, o.nextDueDate, daysSince(o.nextDueDate)];
+    }),
+  };
+}
+function excelPerformance({ oilChanges, equipmentRegistry, actions, contractor }, scopeFilter) {
+  const { stats } = scopedOilChangeStats({ oilChanges, equipmentRegistry, actions, contractor, scopeFilter });
+  return {
+    header: ["Contractor", "Total Points", "Overdue", "On-Time %", "Action Closure %"],
+    rows: stats.map((s) => [s.name, s.total, s.overdue, s.onTimePct, s.closureRatePct]),
+  };
+}
+function excelOpenRoutines({ routinesOverview, contractor }) {
+  const items = routinesInScope(routinesOverview, contractor).filter((r) => r.dueStatus !== "Completed" && r.dueStatus !== "Cancelled");
+  return {
+    header: ["Routine", "Type", "Area", "Contractor", "Equipment", "Next Due", "Status"],
+    rows: items.map((r) => [r.routeName || r.id, r.routeType, r.area, r.contractor, r.equipmentCount, r.nextDueDate, r.dueStatus]),
+  };
+}
+function excelComingSoon({ routinesOverview, contractor }) {
+  const items = routinesInScope(routinesOverview, contractor).filter((r) => r.routeType === "Oil Change" && r.dueStatus === "Due Soon");
+  return { header: ["Routine", "Area", "Contractor", "Equipment", "Due Date"], rows: items.map((r) => [r.routeName || r.id, r.area, r.contractor, r.equipmentCount, r.nextDueDate]) };
+}
+function excelLastMonthTopUp({ topUps, contractor }) {
+  const { year, monthIndex } = lastCalendarMonthRange();
+  let items = (topUps || []).filter((t) => inPeriod(t.eventDate, year, monthIndex));
+  if (contractor !== "All") items = items.filter((t) => t.contractor === contractor);
+  return {
+    header: ["Date", "Lubrication Point", "Quantity", "Oil Type", "Reason", "Contractor"],
+    rows: items.map((t) => [t.eventDate, t.lpId, t.quantity, t.oilBrandType, t.reason, t.contractor]),
+  };
+}
+function excelContractorCompletion({ routinesOverview, contractor }) {
+  const items = routinesInScope(routinesOverview, contractor).filter((r) => ["Completed", "Overdue", "Due Soon", "On Schedule"].includes(r.dueStatus));
+  const contractors = contractor === "All" ? Array.from(new Set(items.map((r) => r.contractor).filter(Boolean))) : [contractor];
+  return {
+    header: ["Contractor", "Due Routines", "Completed", "Completion %"],
+    rows: contractors.map((c) => {
+      const list = items.filter((r) => r.contractor === c);
+      const done = list.filter((r) => r.dueStatus === "Completed").length;
+      return [c, list.length, done, list.length ? Math.round((done / list.length) * 100) : null];
+    }),
+  };
+}
+function excelInventoryStatus({ inventoryProducts, contractor }) {
+  let products = inventoryProducts || [];
+  if (contractor !== "All") products = products.filter((p) => p.contractor === contractor);
+  return {
+    header: ["Oil", "Brand", "Contractor", "Current Stock", "Reorder Level", "Status"],
+    rows: products.map((p) => [
+      p.lubricantType, p.lubricantBrand, p.contractor, p.currentStock, p.recorderLevel,
+      (p.currentStock || 0) <= 0 ? "Out of Stock" : p.currentStock <= p.recorderLevel ? "Low" : "Sufficient",
+    ]),
+  };
+}
+function excelForecast({ inventoryForecast, contractor }) {
+  let rows = inventoryForecast?.forecast || [];
+  if (contractor !== "All") rows = rows.filter((f) => f.contractor === contractor);
+  return {
+    header: ["Oil", "Brand", "Contractor", "Current Stock", "Projected Need", "Shortfall"],
+    rows: rows.map((f) => [f.lubricant, f.lubricantBrand, f.contractor, f.currentStock, f.quantityNeeded, f.shortfall]),
+  };
+}
+
+// ── The single registry both NewReport.jsx's checklist and the two
+// generate functions below read from — one place that knows every
+// section's id, label, group, and how to render it in each format. ─────
+export const REPORT_GROUPS = [
+  { id: "condition", label: "Condition Based Oil" },
+  { id: "time", label: "Time Based Oil" },
+  { id: "inventory", label: "Inventory Status" },
+  { id: "forecast", label: "Forecast" },
+];
+
+export const REPORT_SECTIONS = [
+  { id: "condition-open-actions", group: "condition", label: "Open Actions", pdfTitle: "Open Actions", pdf: (doc, d, y) => buildActionSection(doc, d, y), excel: excelOpenActions },
+  { id: "condition-samples", group: "condition", label: "Missing / Overdue Samples", pdfTitle: "Missing / Overdue Samples", pdf: (doc, d, y) => buildSampleSection(doc, d, y), excel: excelMissingOverdueSamples },
+  { id: "condition-oil-health", group: "condition", label: "Oil Health (Lab Results)", pdfTitle: "Oil Health", pdf: buildOilHealthPdf, excel: excelOilHealth },
+  { id: "condition-overdue-changes", group: "condition", label: "Oil Overdue Changes", pdfTitle: "Overdue Oil Changes — Condition Based", pdf: buildConditionOverdueChangesPdf, excel: (d) => excelOverdueChanges(d, CONDITION_SCOPE) },
+  { id: "condition-performance", group: "condition", label: "Contractor Performance", pdfTitle: "Condition Based Contractor Performance", pdf: buildConditionPerformancePdf, excel: (d) => excelPerformance(d, CONDITION_SCOPE) },
+
+  { id: "time-overdue-lp", group: "time", label: "Overdue LP Points", pdfTitle: "Overdue LP Points — Time Based", pdf: buildTimeOverdueChangesPdf, excel: (d) => excelOverdueChanges(d, TIME_SCOPE) },
+  { id: "time-open-routines", group: "time", label: "Open Routines & Current Status", pdfTitle: "Open Routines & Current Status", pdf: buildOpenRoutinesPdf, excel: excelOpenRoutines },
+  { id: "time-coming-soon", group: "time", label: "Coming Soon Oil Change", pdfTitle: "Coming Soon Oil Change", pdf: buildComingSoonPdf, excel: excelComingSoon },
+  { id: "time-last-month-topup", group: "time", label: "Last Month Top Up", pdfTitle: "Last Month Top Up", pdf: buildLastMonthTopUpPdf, excel: excelLastMonthTopUp },
+  { id: "time-completion", group: "time", label: "Contractor Completion", pdfTitle: "Contractor Completion", pdf: buildContractorCompletionPdf, excel: excelContractorCompletion },
+
+  { id: "inventory-status", group: "inventory", label: "Inventory Status", pdfTitle: "Inventory Status", pdf: buildInventoryStatusPdf, excel: excelInventoryStatus },
+  { id: "forecast-next-month", group: "forecast", label: "Forecast — Next Month", pdfTitle: "Forecast — Next Month", pdf: buildForecastPdf, excel: excelForecast },
+];
+
+export async function generateOilReportPdf({ sectionIds, contractor = "All", data }) {
+  const selected = REPORT_SECTIONS.filter((s) => sectionIds.includes(s.id));
+  if (selected.length === 0) return;
+  const doc = await newDoc("Oil Report", scopeLineFor(contractor));
+  let y = 98;
+  selected.forEach((section, i) => {
+    if (i > 0) doc.addPage();
+    y = i === 0 ? y : 50;
+    y = bigSectionHeader(doc, section.pdfTitle, y);
+    y = section.pdf(doc, { ...data, contractor }, y, contractor);
+  });
+  addFooter(doc);
+  doc.save(`Oil-Report${fileSuffixFor(contractor)}-${toFileDate()}.pdf`);
+}
+
+export async function generateOilReportExcel({ sectionIds, contractor = "All", data }) {
+  const selected = REPORT_SECTIONS.filter((s) => sectionIds.includes(s.id));
+  if (selected.length === 0) return;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Arabian Cement — Oil Lubrication";
+  workbook.created = new Date();
+
+  selected.forEach((section) => {
+    const { header, rows } = section.excel({ ...data, contractor });
+    // Sheet names are capped at 31 chars, can't repeat, and reject
+    // * ? : \ / [ ] (confirmed by ExcelJS throwing on "Missing / Overdue
+    // Samples" with its "/") — every section label is already short and
+    // unique, so stripping just those characters before truncating is
+    // enough; no need for a fancier slug.
+    const safeName = section.label.replace(/[*?:\\/[\]]/g, "").slice(0, 31);
+    const sheet = workbook.addWorksheet(safeName);
+    sheet.addRow(header).font = { bold: true };
+    sheet.getRow(1).eachCell((cell) => {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0B2545" } };
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    });
+    (rows || []).forEach((r) => sheet.addRow(r));
+    sheet.columns.forEach((col) => {
+      let maxLen = 10;
+      col.eachCell?.({ includeEmpty: true }, (cell) => {
+        const len = String(cell.value ?? "").length;
+        if (len > maxLen) maxLen = len;
+      });
+      col.width = Math.min(maxLen + 2, 40);
+    });
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Oil-Report${fileSuffixFor(contractor)}-${toFileDate()}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
