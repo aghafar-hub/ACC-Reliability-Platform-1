@@ -1,14 +1,16 @@
 # Apps Script webhook contract
 
 This app talks to a Google Apps Script deployed as a Web App. The script
-itself lives in your Google Sheet's Apps Script project — a copy of the
-version currently deployed behind this app's default webhook URL is kept
-at [`apps-script/Code.gs`](../apps-script/Code.gs) (see
-[`apps-script/README.md`](../apps-script/README.md) for two real bugs found
-there and a corrected `Code.fixed.gs`). This document describes the HTTP
-contract `src/api.js` relies on; where a claim below is confirmed directly
-against `Code.gs` rather than inferred from the client bundle alone, it
-says so.
+itself lives in your Google Sheet's Apps Script project — a copy of it is
+kept at
+[`backend/vibration-analysis/src/`](../../../backend/vibration-analysis/src/),
+split into one topic file per concern the same way
+`backend/oil-lubrication/src/` is (see that folder's `Code.js` for the
+full file list, including the two real bugs found by comparing the
+original pasted source against the live Sheet). This document describes
+the HTTP contract `src/api.js` relies on; where a claim below is confirmed
+directly against that backend rather than inferred from the client bundle
+alone, it says so.
 
 Base URL is whatever's set in **Settings → Configuration → Webhook URL** —
 an `https://script.google.com/macros/s/XXXX/exec` URL, defaulting to the
@@ -95,23 +97,23 @@ which tab it actually touches.
   **raw camelCase form state** (`equipmentId`, `readingDate`, ...) with
   only an extra `"Action No"` key bolted on — confirmed directly from the
   bundle (`{...formState, "Action No": formState.actionNo}`). Confirmed
-  against `apps-script/Code.gs`'s `buildActionRow()`: every field is read
+  against `backend/vibration-analysis/src/ActionTracker.js`'s
+  `buildActionRow()`: every field is read
   as `params['Field Name'] || params.fieldName || <default>`, so either
   key shape works. Reproduced exactly as found in `ActionTracker.jsx`'s
   save handler — harmless, not a bug, now that the handler side is visible.
-- **The Limits Settings page and Equipment Register's edit modal both
-  trigger a real backend bug: every RMS/SPM limit save lands in the wrong
-  column.** This lives entirely in `updateRegisterLimits`'s handler on the
-  Apps Script side, not in this app — see
-  [`apps-script/README.md`](../apps-script/README.md#1-updateregisterlimits-writes-every-limit-to-the-wrong-column)
-  for the full column-by-column breakdown. In short: an RMS save corrupts
-  that equipment's `Points` list with a number and shifts Good/Acceptable/
-  Alarm one column over; an SPM save corrupts `SPM Type` and `SPM Normal`
-  and never actually reaches the real SPM Alarm column at all. A corrected
-  script (`apps-script/Code.fixed.gs`) exists but isn't deployed anywhere
-  by this repo — it has to be pasted into the Apps Script project and
-  redeployed manually. Separately, Limits Settings' own form only collects
-  Normal and Caution (there's no SPM Alarm field in that UI at all) and
+- **The Limits Settings page and Equipment Register's edit modal both used
+  to trigger a real backend bug: every RMS/SPM limit save landed in the
+  wrong column.** This lived entirely in `updateRegisterLimits`'s handler
+  on the Apps Script side, not in this app — see
+  `backend/vibration-analysis/src/EquipmentRegister.js`'s own header
+  comment for the full column-by-column breakdown. In short: an RMS save
+  corrupted that equipment's `Points` list with a number and shifted
+  Good/Acceptable/Alarm one column over; an SPM save corrupted `SPM Type`
+  and `SPM Normal` and never actually reached the real SPM Alarm column at
+  all. Fixed in `EquipmentRegister.js`, now live. Separately, Limits
+  Settings' own form only collects Normal and Caution (there's no SPM
+  Alarm field in that UI at all) and
   sends the Caution value as both `spmCaution` and `spmAlarm` — reproduced
   exactly as found in `pages/LimitsSettings.jsx`, and, combined with the
   backend bug above, means an SPM save from this page ends up writing the

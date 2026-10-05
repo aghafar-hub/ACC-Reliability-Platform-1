@@ -280,7 +280,8 @@ export function rowToRmsRegister(row) {
 // Production tab "VIB ID Registry" — one row per physical measurement
 // point, the permanent per-point identity every RMS/SPM DATA row's own
 // "VIB ID" column references. The backend's `readVibRegistry()` (see
-// apps-script/Code.fixed.gs) reshapes the sheet's real underscore-separated
+// backend/vibration-analysis/src/VibRegistry.js) reshapes the sheet's
+// real underscore-separated
 // headers (VIB_ID, Equipment_ID, Position_Code, Point_Description,
 // Reading columns, VIB_Status — one of which has a stray trailing space in
 // the live sheet) into this parser's expected spaced header text, the same

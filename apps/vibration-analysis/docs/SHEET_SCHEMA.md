@@ -3,10 +3,12 @@
 Everything in this app lives in one Google Sheet. This document lays out
 every tab this app reads or writes, and exactly which column maps to which
 field in `src/parsers.js`. A copy of the actual deployed Apps Script backend
-now lives at [`apps-script/Code.gs`](../apps-script/Code.gs), so most of
-what used to be inference below is now confirmed directly against real
-server code — see [`apps-script/README.md`](../apps-script/README.md) for
-two real bugs found there in the process. Two confidence levels still
+now lives at
+[`backend/vibration-analysis/src/`](../../../backend/vibration-analysis/src/),
+so most of what used to be inference below is now confirmed directly
+against real server code — see that folder's `Code.js` for the full file
+list, including two real bugs found and fixed there
+(`EquipmentRegister.js`, `Triggers.js`). Two confidence levels still
 appear below, and each section says which applies:
 
 - **Confirmed** — either the client sends/receives this literal column
@@ -75,8 +77,9 @@ measurement point, the permanent identity every RMS/SPM DATA row's own
 `VIB ID` column references. Headers on row 1, data from row 2. The real
 sheet's own headers are underscore-separated (`VIB_ID`, `Equipment_ID`,
 etc.) and one (`Reading columns `) has a stray trailing space — the
-backend's `readVibRegistry()` (`apps-script/Code.fixed.gs`) reads by fixed
-column position rather than the generic `readSheet()` for exactly that
+backend's `readVibRegistry()` (`backend/vibration-analysis/src/VibRegistry.js`)
+reads by fixed column position rather than the generic `readSheet()` (in
+`Utils.js`) for exactly that
 reason, and re-emits clean, spaced header-text keys (`"VIB ID"`,
 `"Equipment ID"`, …) matching every other sheet's own convention, so
 `rowToVibPoint()` in `src/parsers.js` reads it the same way it reads
@@ -190,8 +193,9 @@ compliance tiles and the Generate Monthly Actions candidate list), but
 `machineStatus` field at all — only `readingStatus` (the client-computed
 Good/Acceptable/Alarm/Danger band) is sent. The client's own in-memory copy
 of a freshly-saved reading sets `machineStatus: ""` locally, but that value
-is never transmitted. **Confirmed against `apps-script/Code.gs`**: the
-backend does stamp it itself, server-side — `handleUpsertLastRMS`/
+is never transmitted. **Confirmed against `backend/vibration-analysis/src/
+RmsData.js`/`SpmData.js`**: the backend does stamp it itself, server-side
+— `handleUpsertLastRMS`/
 `handleUpsertLastSPM` both call `recalcMachineStatus(ss, equipmentId)`
 (which re-scans every row across both Last Reading sheets for that
 equipment and reduces to the single worst `readingStatus` via

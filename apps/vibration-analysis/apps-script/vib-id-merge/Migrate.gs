@@ -4,8 +4,9 @@
  * Renames every Equipment ID cell from the old dotted format
  * ("111.CP.400") to the ACC Platform master DB's format ("111.CP400"),
  * for the 158 equipment that exist in both. Paste this as an ADDITIONAL
- * file in the same Apps Script project as Code.v2.gs (Apps Script projects
- * support multiple .gs files — use the "+" next to Files in the editor).
+ * file in the same Apps Script project as backend/vibration-analysis/src/
+ * (Apps Script projects support multiple .gs files — use the "+" next to
+ * Files in the editor).
  *
  * RUN ONE SHEET AT A TIME, not migrateEquipmentIds() — the RMS DATA sheet
  * alone (6,586 rows) took nearly all of one execution's time budget, and
@@ -204,11 +205,12 @@ var EQUIPMENT_ID_MAP = {
 
 // Sheets to migrate, and which column holds the Equipment ID.
 // "byHeader" sheets: find the column by matching this exact header text in
-// that sheet's own header row (per SHEET_CFG in Code.v2.gs).
+// that sheet's own header row (per SHEET_CFG in
+// backend/vibration-analysis/src/Config.js).
 // "byIndex" sheets: Compliance Tracker's reader (readCompliance in
-// Code.v2.gs) reads column C positionally regardless of its header text,
-// so this migration matches that same convention rather than guessing a
-// header name.
+// backend/vibration-analysis/src/Compliance.js) reads column C
+// positionally regardless of its header text, so this migration matches
+// that same convention rather than guessing a header name.
 var MIGRATION_TARGETS = [
   { sheet: SHEET_RMS,        mode: 'byHeader', header: 'Equipment ID' },
   { sheet: SHEET_SPM,        mode: 'byHeader', header: 'Equipment ID' },

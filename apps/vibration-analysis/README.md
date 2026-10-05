@@ -83,7 +83,7 @@ src/
     GraphsDashboard.jsx / ComplianceTracker.jsx / ActionTracker.jsx / LimitsSettings.jsx / Settings.jsx
 docs/                             full documentation (start at docs/README.md)
 legacy-exact-copy/                the original app's untouched compiled build, kept for reference
-apps-script/                      the Apps Script webhook backend (Code.gs) + a bugfixed Code.fixed.gs
+apps-script/                      one-time vib-id-merge/ migration kit — live backend moved to backend/vibration-analysis/src/
 .github/workflows/                ci.yml (lint + format-check + build), deploy.yml (GitHub Pages)
 ```
 

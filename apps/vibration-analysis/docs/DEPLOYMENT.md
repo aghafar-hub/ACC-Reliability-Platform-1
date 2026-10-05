@@ -84,12 +84,16 @@ file, and none should be added unless a genuine secret is introduced later.
 
 This app has no server of its own, but the Google Apps Script Web App it
 depends on is real server-side code, and a copy of it now lives at
-[`apps-script/Code.gs`](../apps-script/Code.gs) — see
-[`apps-script/README.md`](../apps-script/README.md) for what it is, two
-real bugs found by comparing it against the live Sheet, and
-`apps-script/Code.fixed.gs`, a corrected version. None of this is deployed
-automatically by anything in this repo (there's no credential or mechanism
-here that could reach a Google Apps Script project); applying a fix means
-manually pasting `Code.fixed.gs` into the Sheet's Extensions → Apps Script
-editor and redeploying, per the setup steps in Settings → System → "Apps
-Script v3 — Setup Instructions" inside the running app.
+[`backend/vibration-analysis/src/`](../../../backend/vibration-analysis/src/)
+— one topic file per concern (`Code.js`, `Config.js`, `EquipmentRegister.js`,
+`Triggers.js`, `VibRegistry.js`, etc.), the same structure
+`backend/oil-lubrication/src/` uses. `Code.js`'s own header comment
+documents two real bugs found by comparing the original pasted source
+against the live Sheet (now corrected in `EquipmentRegister.js` and
+`Triggers.js`) plus the VIB ID Registry read (`VibRegistry.js`). None of
+this is deployed automatically by anything in this repo (there's no
+credential or mechanism here that could reach a Google Apps Script
+project); applying a change means manually pasting every file in
+`backend/vibration-analysis/src/` into the Sheet's Extensions → Apps
+Script editor and redeploying, per the setup steps in Settings → System →
+"Apps Script v3 — Setup Instructions" inside the running app.

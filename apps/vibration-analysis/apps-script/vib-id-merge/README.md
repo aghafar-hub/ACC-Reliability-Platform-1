@@ -39,9 +39,10 @@ guessed.
 1. **`equipment-id-migration-map.csv`** — reference only (158 old→new ID
    pairs). This is the same mapping baked into `Migrate.gs` below; the CSV
    is here so you can eyeball it before running anything.
-2. **`Migrate.gs`** — paste as an _additional_ file in the sandbox's Apps
-   Script project (alongside `Code.v2.gs` — Apps Script projects hold
-   multiple `.gs` files). **Run these 5 functions one at a time**, as 5
+2. **`Migrate.gs`** — paste as an _additional_ file in the same Apps
+   Script project as `backend/vibration-analysis/src/` (Apps Script
+   projects hold multiple `.gs` files). **Run these 5 functions one at a
+   time**, as 5
    separate Run clicks (pick each from the editor's function dropdown), not
    the combined `migrateEquipmentIds()` — on a sheet this size, one big run
    burns most of its execution time budget on the first large sheet and
@@ -76,8 +77,9 @@ guessed.
    (e.g. `465.BL580` → "Blower / rotary blower"). Worth a quick pass to
    give them proper names in the rebuilt Register before relying on them —
    not blocking, just cosmetic.
-6. **`Code.v2.gs`** (in the parent `apps-script/` folder, not this one) —
-   superseded, see that folder's own README. `Code.fixed.gs` is the one
+6. **`Code.v2.gs`** (used to live in the parent `apps-script/` folder) —
+   removed; it's superseded entirely by
+   `backend/vibration-analysis/src/VibRegistry.js`, which is what's
    actually wired to the real "VIB ID Registry" tab now.
 7. **`BackfillVibIds.gs`** — once the real sheet is on this schema for
    real: fills the (blank) VIB ID column on every existing RMS/SPM DATA
@@ -121,20 +123,20 @@ all 199 distinct ones found:
 
 `VIB_ID` is now wired into the React app — New Reading shows the VIB ID
 next to each point, and Equipment Register shows a VIB ID coverage column
-per equipment — but switching `DEFAULT_WEBHOOK_URL` over from production
-to this sandbox is still a decision for you to make explicitly, not
-something this kit does on its own.
+per equipment — confirmed since: this is now the real production Sheet and
+webhook, not a sandbox being evaluated.
 
 ## Backfilling VIB ID on existing RMS/SPM DATA rows
 
 Now that the production `📥 RMS DATA`/`📥 SPM DATA` sheets have a real "VIB
-ID" column (see the main `apps-script/README.md`'s v3.2 notes) but it's
+ID" column (see `backend/vibration-analysis/src/VibRegistry.js`) but it's
 blank on every pre-existing row, **`BackfillVibIds.gs`** fills it in by
 matching each row against "VIB ID Registry" — paste it as an additional
-file in the same Apps Script project as `Code.fixed.gs` (it calls that
-file's `readVibRegistry()` directly, so `Code.fixed.gs` must already be the
-deployed `Code.gs`), then run `backfillRmsVibIds()` and `backfillSpmVibIds()`
-as two separate Run clicks, same reasoning as `Migrate.gs` above.
+file in the same Apps Script project as `backend/vibration-analysis/src/`
+(it calls that project's `readVibRegistry()` directly, so every file in
+`backend/vibration-analysis/src/` must already be pasted in and deployed),
+then run `backfillRmsVibIds()` and `backfillSpmVibIds()` as two separate
+Run clicks, same reasoning as `Migrate.gs` above.
 
 It only ever fills a blank VIB ID cell, never overwrites one that already
 has a value — safe to re-run any time, including after a partial run or

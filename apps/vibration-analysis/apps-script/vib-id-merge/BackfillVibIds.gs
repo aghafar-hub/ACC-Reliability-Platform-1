@@ -1,11 +1,12 @@
 /**
  * Backfills the (mostly blank) "VIB ID" column on every existing row of
  * 📥 RMS DATA and 📥 SPM DATA by matching each row against the "VIB ID
- * Registry" tab — the same registry Code.fixed.gs's readVibRegistry()
- * already serves to the app. Paste this as an ADDITIONAL file in the same
- * Apps Script project as Code.fixed.gs (it calls that file's
- * readVibRegistry()/SHEET_VIB_REGISTRY directly — make sure Code.fixed.gs
- * is already the deployed Code.gs before running this).
+ * Registry" tab — the same registry backend/vibration-analysis/src/
+ * VibRegistry.js's readVibRegistry() already serves to the app. Paste this
+ * as an ADDITIONAL file in the same Apps Script project as that backend
+ * (it calls readVibRegistry()/SHEET_VIB_REGISTRY directly — make sure
+ * every file in backend/vibration-analysis/src/ is already pasted in and
+ * deployed before running this).
  *
  * RUN ONE SHEET AT A TIME, same reasoning as Migrate.gs: 📥 RMS DATA alone
  * is 6,500+ rows and can burn most of one execution's time budget, so pick
@@ -67,7 +68,7 @@ function normalizeVibMatchText(s) {
 // data problem to fix at the source, not something this function should
 // silently pick a winner for by overwriting.
 function buildVibRegistryLookup(ss) {
-  var rows = readVibRegistry(ss); // from Code.fixed.gs, same project
+  var rows = readVibRegistry(ss); // from backend/vibration-analysis/src/VibRegistry.js, same project
   var lookup = {};
   rows.forEach(function (r) {
     var eid = r['Equipment ID'];

@@ -131,12 +131,13 @@ component as `s`.
 
 See [API_CONTRACT.md](./API_CONTRACT.md#known-gaps) for the write-related
 gaps (no write verification, the now-resolved `updateAction` payload
-question, the `updateRegisterLimits` column-shift bug, the non-functional
-passcode, the unwired auto-sync config fields) — all reproduced from the
-original bundle, not introduced by this rebuild. The backend source itself
-— `apps-script/Code.gs`, plus two confirmed bugs and a corrected version —
-is covered in [`apps-script/README.md`](../apps-script/README.md). One more,
-specific to this document's scope:
+question, the now-fixed `updateRegisterLimits` column-shift bug, the
+non-functional passcode, the unwired auto-sync config fields) — all
+reproduced from the original bundle, not introduced by this rebuild. The
+backend source itself lives at
+[`backend/vibration-analysis/src/`](../../../backend/vibration-analysis/src/)
+— see that folder's `Code.js` for the full file list and what each one
+covers. One more, specific to this document's scope:
 
 - **This rebuild adds an `ErrorBoundary`** (`components/ErrorBoundary.jsx`)
   that the original doesn't have at all — an uncaught render error in the

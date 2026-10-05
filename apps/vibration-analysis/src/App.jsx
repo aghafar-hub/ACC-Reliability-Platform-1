@@ -135,8 +135,9 @@ export default function App({ navBridge } = {}) {
       setLastSpm((data.lastSpm || []).map(rowToLastSPM));
       setActions((data.actions || []).map(rowToAction));
       // `vibPoints` comes from the "VIB ID Registry" tab, wired into
-      // readAll() via readVibRegistry() (see apps-script/Code.fixed.gs) —
-      // an older webhook that predates this still simply won't have the
+      // readAll() via readVibRegistry() (see
+      // backend/vibration-analysis/src/VibRegistry.js) — an older webhook
+      // that predates this still simply won't have the
       // key, which is fine, everything downstream already treats an empty
       // list as "no VIB IDs available yet" rather than an error.
       setVibPoints((data.vibPoints || []).map(rowToVibPoint));
