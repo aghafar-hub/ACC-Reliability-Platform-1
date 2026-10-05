@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import { authRouter } from "./routes/auth.js";
+import { equipmentRouter } from "./routes/equipment.js";
 
 export const app = express();
 
@@ -10,6 +11,7 @@ app.use(express.json());
 app.get("/health", (_req, res) => res.json({ status: "ok", time: new Date().toISOString() }));
 
 app.use("/auth", authRouter);
+app.use("/equipment", equipmentRouter);
 
 // Centralized error handler — any route that throws (including a rejected
 // promise, since this project's routes are all async) lands here instead of
