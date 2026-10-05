@@ -1089,11 +1089,34 @@ function scopedOilChangeStats({ oilChanges, equipmentRegistry, actions, contract
   return { points, overdueList, stats, regByCode };
 }
 
+// Horizontal bar chart of how many items in `list` belong to each Area
+// (via each item's own `equipmentCode` looked up in `regByCode`), worst
+// area first, capped at the top 8 so a long tail of 1-count areas
+// doesn't turn into an unreadable chart.
+function byAreaChart(doc, { list, regByCode, y, color, title = "By Area" }) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const counts = {};
+  list.forEach((item) => {
+    const area = regByCode[item.equipmentCode]?.area || "Unassigned";
+    counts[area] = (counts[area] || 0) + 1;
+  });
+  const rows = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([label, value]) => ({ label, value, color }));
+  if (rows.length === 0) return y;
+  y = needsNewPage(doc, y, rows.length * 24 + 50);
+  y = sectionTitle(doc, title, y);
+  y = horizontalBars(doc, { x: 36, y, width: pageWidth - 72, rows });
+  return y + 18;
+}
+
 function renderOverdueChangesPdf(doc, { title, narrative, oilChanges, equipmentRegistry, contractor, scopeFilter }, y) {
   const { overdueList, regByCode } = scopedOilChangeStats({ oilChanges, equipmentRegistry, actions: [], contractor, scopeFilter });
   y = summaryParagraph(doc, narrative, y);
   y = statStrip(doc, [{ value: overdueList.length, label: "OVERDUE NOW", color: BRAND.danger }], y);
   y += 10;
+  y = byAreaChart(doc, { list: overdueList, regByCode, y, color: BRAND.danger, title: "Overdue by Area" });
   y = needsNewPage(doc, y, 130);
   y = sectionTitle(doc, title, y);
   const rows = overdueList.map((o) => {
@@ -1137,6 +1160,15 @@ function renderPerformancePdf(doc, { title, narrative, oilChanges, equipmentRegi
     y = horizontalBars(doc, {
       x: 36, y, width: pageWidth - 72,
       rows: stats.map((s) => ({ label: s.name, value: s.onTimePct ?? 0, color: BRAND.teal })),
+      maxValue: 100, valueFormatter: (v) => `${v}%`,
+    });
+    y += 18;
+
+    y = needsNewPage(doc, y, stats.length * 24 + 60);
+    y = sectionTitle(doc, `${title} — Action Closure %`, y);
+    y = horizontalBars(doc, {
+      x: 36, y, width: pageWidth - 72,
+      rows: stats.map((s) => ({ label: s.name, value: s.closureRatePct ?? 0, color: BRAND.accent })),
       maxValue: 100, valueFormatter: (v) => `${v}%`,
     });
     y += 18;
@@ -1267,6 +1299,21 @@ function buildOpenRoutinesPdf(doc, { routinesOverview, contractor }, y) {
     y
   );
   y += 10;
+  if (items.length > 0) {
+    y = needsNewPage(doc, y, 110);
+    y = sectionTitle(doc, "Status Distribution", y);
+    y = donutWithLegend(doc, {
+      x: 36, y, radius: 36,
+      slices: [
+        { value: counts.Overdue, label: "Overdue", color: BRAND.danger },
+        { value: counts["Due Soon"], label: "Due Soon", color: BRAND.warning },
+        { value: counts["On Schedule"], label: "On Schedule", color: BRAND.success },
+        { value: counts.Paused, label: "Paused", color: BRAND.muted },
+      ],
+      legendX: 130,
+    });
+    y += 6;
+  }
   y = needsNewPage(doc, y, 130);
   const rows = [...items]
     .sort((a, b) => new Date(a.nextDueDate || 0) - new Date(b.nextDueDate || 0))
@@ -1290,18 +1337,46 @@ function buildOpenRoutinesPdf(doc, { routinesOverview, contractor }, y) {
   return doc.lastAutoTable.finalY + 24;
 }
 
-function buildComingSoonPdf(doc, { routinesOverview, contractor }, y) {
-  const items = routinesInScope(routinesOverview, contractor).filter((r) => r.routeType === "Oil Change" && r.dueStatus === "Due Soon");
-  y = summaryParagraph(doc, `Oil Change routines/templates due within the next 7 days${contractor === "All" ? "" : ` for ${contractor}`} — plan ahead for lubricant and crew availability.`, y);
+// Confirmed directly by the user: "Coming Soon Oil Change" reads from the
+// Oil Change LOG's own current-state-per-LP data (same `oilChanges` +
+// Equipment Register the Overdue sections above use), NOT from Routines/
+// Route Templates — a first pass of this section used the latter by
+// mistake. "Coming soon" = not yet overdue, next due date within the next
+// 7 days (same Due Soon window the Routines tab itself uses).
+const COMING_SOON_DAYS = 7;
+function scopedComingSoonChanges({ oilChanges, equipmentRegistry, contractor = "All", scopeFilter }) {
+  const regByCode = registryByCodeMap(equipmentRegistry);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const windowEnd = new Date(today.getTime() + COMING_SOON_DAYS * 86400000);
+  const inScope = (code) => {
+    const reg = regByCode[code];
+    return reg && scopeFilter(reg) && (contractor === "All" || reg.contractor === contractor);
+  };
+  const items = (oilChanges || [])
+    .filter((o) => inScope(o.equipmentCode) && o.status !== "Overdue" && o.nextDueDate)
+    .filter((o) => {
+      const d = new Date(o.nextDueDate);
+      return !isNaN(d) && d >= today && d <= windowEnd;
+    })
+    .sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate));
+  return { items, regByCode };
+}
+
+function buildComingSoonPdf(doc, { oilChanges, equipmentRegistry, contractor }, y) {
+  const { items, regByCode } = scopedComingSoonChanges({ oilChanges, equipmentRegistry, contractor, scopeFilter: TIME_SCOPE });
+  y = summaryParagraph(doc, `Time-based lubrication points due for an oil change in the next ${COMING_SOON_DAYS} days, from the Oil Change Log${contractor === "All" ? "" : ` for ${contractor}`} — plan ahead for lubricant and crew availability.`, y);
   y = statStrip(doc, [{ value: items.length, label: "COMING SOON", color: BRAND.warning }], y);
   y += 10;
+  y = byAreaChart(doc, { list: items, regByCode, y, color: BRAND.warning, title: "Coming Soon by Area" });
   y = needsNewPage(doc, y, 110);
-  const rows = [...items]
-    .sort((a, b) => new Date(a.nextDueDate || 0) - new Date(b.nextDueDate || 0))
-    .map((r) => [r.routeName || r.id, r.area || "—", r.contractor || "—", r.equipmentCount ?? "—", formatDate(r.nextDueDate) || "—"]);
+  const rows = items.map((o) => {
+    const reg = regByCode[o.equipmentCode];
+    return [o.equipmentCode, reg?.description || "—", reg?.area || "—", reg?.contractor || "—", formatDate(o.nextDueDate) || "—"];
+  });
   autoTable(doc, {
     startY: y,
-    head: [["Routine", "Area", "Contractor", "Equipment", "Due Date"]],
+    head: [["Equipment", "Description", "Area", "Contractor", "Due Date"]],
     body: rows.length ? rows : [["Nothing coming up in this scope", "", "", "", ""]],
     theme: "striped",
     headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
@@ -1319,6 +1394,7 @@ function lastCalendarMonthRange() {
 }
 
 function buildLastMonthTopUpPdf(doc, { topUps, contractor }, y) {
+  const pageWidth = doc.internal.pageSize.getWidth();
   const { year, monthIndex, label } = lastCalendarMonthRange();
   let items = (topUps || []).filter((t) => inPeriod(t.eventDate, year, monthIndex));
   if (contractor !== "All") items = items.filter((t) => t.contractor === contractor);
@@ -1334,6 +1410,17 @@ function buildLastMonthTopUpPdf(doc, { topUps, contractor }, y) {
     y
   );
   y += 10;
+  if (items.length > 0) {
+    const byContractor = {};
+    items.forEach((t) => { byContractor[t.contractor || "Unassigned"] = (byContractor[t.contractor || "Unassigned"] || 0) + (Number(t.quantity) || 0); });
+    const rows = Object.entries(byContractor)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label2, value]) => ({ label: label2, value, color: BRAND.accent }));
+    y = needsNewPage(doc, y, rows.length * 24 + 50);
+    y = sectionTitle(doc, "Quantity by Contractor", y);
+    y = horizontalBars(doc, { x: 36, y, width: pageWidth - 72, rows, valueFormatter: (v) => `${v}L` });
+    y += 18;
+  }
   y = needsNewPage(doc, y, 110);
   const rows = [...items]
     .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
@@ -1408,6 +1495,23 @@ function buildInventoryStatusPdf(doc, { inventoryProducts, contractor }, y) {
     y
   );
   y += 10;
+  if (products.length > 0) {
+    const sufficient = products.length - lowStock.length - outOfStock.length;
+    y = needsNewPage(doc, y, 110);
+    y = sectionTitle(doc, "Stock Status", y);
+    y = donutWithLegend(doc, {
+      x: 36,
+      y,
+      radius: 36,
+      slices: [
+        { value: sufficient, label: "Sufficient", color: BRAND.success },
+        { value: lowStock.length, label: "Low", color: BRAND.warning },
+        { value: outOfStock.length, label: "Out of Stock", color: BRAND.danger },
+      ],
+      legendX: 130,
+    });
+    y += 6;
+  }
   y = needsNewPage(doc, y, 130);
   const rows = [...products]
     .sort((a, b) => (a.currentStock ?? 0) - (b.currentStock ?? 0))
@@ -1437,6 +1541,7 @@ function buildInventoryStatusPdf(doc, { inventoryProducts, contractor }, y) {
 }
 
 function buildForecastPdf(doc, { inventoryForecast, contractor }, y) {
+  const pageWidth = doc.internal.pageSize.getWidth();
   let rows = (inventoryForecast?.forecast || []);
   if (contractor !== "All") rows = rows.filter((f) => f.contractor === contractor);
   const totalShortfall = rows.reduce((sum, f) => sum + (Number(f.shortfall) || 0), 0);
@@ -1452,6 +1557,16 @@ function buildForecastPdf(doc, { inventoryForecast, contractor }, y) {
     y
   );
   y += 10;
+  const shortfalls = rows.filter((f) => (f.shortfall || 0) > 0);
+  if (shortfalls.length > 0) {
+    const barRows = [...shortfalls]
+      .sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0))
+      .map((f) => ({ label: f.lubricant || "—", value: Number(f.shortfall) || 0, color: BRAND.danger }));
+    y = needsNewPage(doc, y, barRows.length * 24 + 50);
+    y = sectionTitle(doc, "Shortfall by Product", y);
+    y = horizontalBars(doc, { x: 36, y, width: pageWidth - 72, rows: barRows, valueFormatter: (v) => `${v}L` });
+    y += 18;
+  }
   y = needsNewPage(doc, y, 130);
   const body = [...rows]
     .sort((a, b) => (b.shortfall || 0) - (a.shortfall || 0))
@@ -1536,9 +1651,15 @@ function excelOpenRoutines({ routinesOverview, contractor }) {
     rows: items.map((r) => [r.routeName || r.id, r.routeType, r.area, r.contractor, r.equipmentCount, r.nextDueDate, r.dueStatus]),
   };
 }
-function excelComingSoon({ routinesOverview, contractor }) {
-  const items = routinesInScope(routinesOverview, contractor).filter((r) => r.routeType === "Oil Change" && r.dueStatus === "Due Soon");
-  return { header: ["Routine", "Area", "Contractor", "Equipment", "Due Date"], rows: items.map((r) => [r.routeName || r.id, r.area, r.contractor, r.equipmentCount, r.nextDueDate]) };
+function excelComingSoon({ oilChanges, equipmentRegistry, contractor }) {
+  const { items, regByCode } = scopedComingSoonChanges({ oilChanges, equipmentRegistry, contractor, scopeFilter: TIME_SCOPE });
+  return {
+    header: ["Equipment", "Description", "Area", "Contractor", "Due Date"],
+    rows: items.map((o) => {
+      const reg = regByCode[o.equipmentCode];
+      return [o.equipmentCode, reg?.description, reg?.area, reg?.contractor, o.nextDueDate];
+    }),
+  };
 }
 function excelLastMonthTopUp({ topUps, contractor }) {
   const { year, monthIndex } = lastCalendarMonthRange();
@@ -1585,10 +1706,10 @@ function excelForecast({ inventoryForecast, contractor }) {
 // generate functions below read from — one place that knows every
 // section's id, label, group, and how to render it in each format. ─────
 export const REPORT_GROUPS = [
-  { id: "condition", label: "Condition Based Oil" },
-  { id: "time", label: "Time Based Oil" },
-  { id: "inventory", label: "Inventory Status" },
-  { id: "forecast", label: "Forecast" },
+  { id: "condition", label: "Condition Based Oil", icon: "ti-flask", iconColor: "accent" },
+  { id: "time", label: "Time Based Oil", icon: "ti-clock", iconColor: "warning" },
+  { id: "inventory", label: "Inventory Status", icon: "ti-package", iconColor: "success" },
+  { id: "forecast", label: "Forecast", icon: "ti-chart-line", iconColor: "danger" },
 ];
 
 export const REPORT_SECTIONS = [

@@ -131,42 +131,60 @@ export default function NewReport({ webhookUrl, actions, oilChanges, samples, eq
         </div>
       </div>
 
-      {REPORT_GROUPS.map((group) => {
-        const sections = REPORT_SECTIONS.filter((sec) => sec.group === group.id);
-        const allChecked = sections.every((sec) => sectionIds.includes(sec.id));
-        return (
-          <div key={group.id} style={{ ...s.card, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <p style={{ fontWeight: 700, margin: 0, fontSize: 13, color: T.textHighlight }}>{group.label}</p>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: T.textSecondary, cursor: "pointer" }}>
-                <input type="checkbox" checked={allChecked} onChange={() => toggleGroup(group.id)} />
-                All
-              </label>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 8 }}>
-              {sections.map((sec) => (
-                <label
-                  key={sec.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 12.5,
-                    color: T.textPrimary,
-                    cursor: "pointer",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    background: sectionIds.includes(sec.id) ? T.navActive : "transparent",
-                  }}
-                >
-                  <input type="checkbox" checked={sectionIds.includes(sec.id)} onChange={() => toggleSection(sec.id)} />
-                  {sec.label}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 16 }}>
+        {REPORT_GROUPS.map((group) => {
+          const sections = REPORT_SECTIONS.filter((sec) => sec.group === group.id);
+          const checkedCount = sections.filter((sec) => sectionIds.includes(sec.id)).length;
+          const allChecked = checkedCount === sections.length;
+          return (
+            <div key={group.id} style={{ ...s.card, display: "flex", flexDirection: "column", gap: 12, marginBottom: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 38, height: 38, borderRadius: 10, background: T[group.iconColor] + "22", color: T[group.iconColor],
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}
+                  >
+                    <i className={`ti ${group.icon}`} style={{ fontSize: 19 }} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{group.label}</div>
+                    <div style={{ fontSize: 11, color: T.textSecondary }}>
+                      {checkedCount} of {sections.length} selected
+                    </div>
+                  </div>
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: T.textSecondary, cursor: "pointer" }}>
+                  <input type="checkbox" checked={allChecked} onChange={() => toggleGroup(group.id)} />
+                  All
                 </label>
-              ))}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {sections.map((sec) => (
+                  <label
+                    key={sec.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 12.5,
+                      color: T.textPrimary,
+                      cursor: "pointer",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      background: sectionIds.includes(sec.id) ? T.navActive : "transparent",
+                    }}
+                  >
+                    <input type="checkbox" checked={sectionIds.includes(sec.id)} onChange={() => toggleSection(sec.id)} />
+                    {sec.label}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
         <button style={s.btnPrimary} disabled={sectionIds.length === 0 || loading || generating} onClick={() => handleGenerate("pdf")}>
