@@ -319,10 +319,16 @@ CREATE TABLE module_responsibilities (
   org_id                 INT NOT NULL,
   role_id                 INT,
   user_id                   INT NOT NULL,
+  -- Standard SQL treats NULL as never equal to NULL, so a plain UNIQUE KEY
+  -- on (module_id, org_id, role_id) silently allows duplicate rows whenever
+  -- role_id is NULL ("responsible for this module/org regardless of role"
+  -- — the common case). role_key coalesces NULL to 0 specifically so the
+  -- uniqueness check below actually catches that case too.
+  role_key                  INT AS (COALESCE(role_id, 0)) STORED,
   CONSTRAINT fk_resp_org FOREIGN KEY (org_id) REFERENCES organizations(org_id),
   CONSTRAINT fk_resp_role FOREIGN KEY (role_id) REFERENCES roles(role_id),
   CONSTRAINT fk_resp_user FOREIGN KEY (user_id) REFERENCES users(user_id),
-  UNIQUE KEY uq_resp (module_id, org_id, role_id)
+  UNIQUE KEY uq_resp (module_id, org_id, role_key)
 ) ENGINE=InnoDB;
 
 CREATE TABLE notify_reviewers (

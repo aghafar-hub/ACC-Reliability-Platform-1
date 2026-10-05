@@ -6,6 +6,9 @@ import { lubricationPointsRouter } from "./routes/lubricationPoints.js";
 import { oilSamplesRouter } from "./routes/oilSamples.js";
 import { oilActionsRouter } from "./routes/oilActions.js";
 import { routinesRouter, routineItemsRouter } from "./routes/routines.js";
+import { oilInventoryRouter } from "./routes/oilInventory.js";
+import { routeTemplatesRouter } from "./routes/routeTemplates.js";
+import { oilReferenceRouter } from "./routes/oilReference.js";
 
 export const app = express();
 
@@ -21,6 +24,9 @@ app.use("/oil-samples", oilSamplesRouter);
 app.use("/oil-actions", oilActionsRouter);
 app.use("/routines", routinesRouter);
 app.use("/routine-items", routineItemsRouter);
+app.use("/oil-inventory", oilInventoryRouter);
+app.use("/route-templates", routeTemplatesRouter);
+app.use("/", oilReferenceRouter);
 
 // Centralized error handler — any route that throws (including a rejected
 // promise, since this project's routes are all async) lands here instead of
