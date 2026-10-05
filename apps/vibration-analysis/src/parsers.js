@@ -82,25 +82,39 @@ export function normalizePoint(value) {
 
 // ── Sheet header rows (used both for CSV/append payloads and for display) ─
 
-// RMS DATA — note the literal line break inside the "Gear" header: the live
-// sheet's header cell is wrapped onto two lines ("Gear\n(mm/s)"), and the
-// backend's column lookup is exact-match, so the newline has to be
-// reproduced here rather than "cleaned up".
+// RMS DATA — schema as of the VIB_ID merge (see
+// apps-script/vib-id-merge/README.md): a "VIB ID" column was inserted
+// after "Equipment Name", shifting every column after it one to the right
+// from the pre-merge layout, and the "Gear (mm/s)" reading column was
+// dropped entirely (per the user's own call — no equipment needs a Gear
+// reading anymore). `rowToRMS`'s `_matchCols` below must stay in step with
+// these positions.
 export const RMS_HEADERS = [
   "#",
   "Equipment Name",
+  "VIB ID",
   "Equipment ID",
   "Asset ID",
   "Date",
   "AXial (mm/s)",
-  "Gear\n(mm/s)",
   "Horizontal (mm/s)",
   "Vertical (mm/s)",
   "Max Velocity (mm/s)",
 ];
 
-// SPM DATA
-export const SPM_HEADERS = ["#", "Equipment Name", "Equipment ID", "Asset ID", "Type", "Date", "HDm (dBsv)", "HDc (dBsv)", "Gs"];
+// SPM DATA — same VIB_ID-merge column insertion as RMS DATA above.
+export const SPM_HEADERS = [
+  "#",
+  "Equipment Name",
+  "VIB ID",
+  "Equipment ID",
+  "Asset ID",
+  "Type",
+  "Date",
+  "HDm (dBsv)",
+  "HDc (dBsv)",
+  "Gs",
+];
 
 // Action Tracker — column order used by the CSV export (Action Tracker page)
 // and the appendAction/updateAction payload's field names.
@@ -132,26 +146,25 @@ export function rowToRMS(row) {
   const equipmentId = String(row["Equipment ID"] || "").trim();
   const date = parseSheetDate(row.Date);
   const axial = parseNumber(row["AXial (mm/s)"]);
-  const gear = parseNumber(row["Gear\n(mm/s)"]);
   const horizontal = parseNumber(row["Horizontal (mm/s)"]);
   const vertical = parseNumber(row["Vertical (mm/s)"]);
   let maxVel = parseNumber(row["Max Velocity (mm/s)"]);
   if (maxVel === null) {
-    const values = [axial, gear, horizontal, vertical].filter((v) => v !== null);
+    const values = [axial, horizontal, vertical].filter((v) => v !== null);
     maxVel = values.length ? Math.max(...values) : null;
   }
   return {
     _id: `RMS|${equipmentId}|${point}|${date}`,
-    _matchCols: [2, 3, 4],
+    _matchCols: [3, 4, 5],
     _matchValues: [equipmentId, row["Asset ID"], row.Date],
     _rowNum: row._rowNum,
     seq: row["#"],
     equipmentName: row["Equipment Name"] || "",
+    vibId: String(row["VIB ID"] || "").trim(),
     equipmentId,
     point,
     date,
     axial,
-    gear,
     horizontal,
     vertical,
     maxVel,
@@ -159,16 +172,19 @@ export function rowToRMS(row) {
 }
 
 // Row-array form for append/update writes (column order matches RMS_HEADERS
-// minus the header row itself).
+// minus the header row itself). `vibId` is looked up and attached by
+// App.jsx's mutations.addRMS/updateRMS (via vibIdMap) before this is
+// called — plain reading objects built by the New Reading / Edit Reading
+// forms don't carry one themselves.
 export function rmsToRow(reading) {
   return [
     reading.seq ?? "",
     reading.equipmentName ?? "",
+    reading.vibId ?? "",
     reading.equipmentId ?? "",
     reading.point ?? "",
     reading.date ?? "",
     reading.axial ?? "",
-    reading.gear ?? "",
     reading.horizontal ?? "",
     reading.vertical ?? "",
     reading.maxVel ?? "",
@@ -183,11 +199,12 @@ export function rowToSPM(row) {
   const date = parseSheetDate(row.Date);
   return {
     _id: `SPM|${equipmentId}|${point}|${date}`,
-    _matchCols: [2, 3, 5],
+    _matchCols: [3, 4, 6],
     _matchValues: [equipmentId, row["Asset ID"], row.Date],
     _rowNum: row._rowNum,
     seq: row["#"],
     equipmentName: row["Equipment Name"] || "",
+    vibId: String(row["VIB ID"] || "").trim(),
     equipmentId,
     point,
     type: row.Type || "SPM",
@@ -198,10 +215,12 @@ export function rowToSPM(row) {
   };
 }
 
+// `vibId` — see rmsToRow's own comment above; same App.jsx enrichment path.
 export function spmToRow(reading) {
   return [
     reading.seq ?? "",
     reading.equipmentName ?? "",
+    reading.vibId ?? "",
     reading.equipmentId ?? "",
     reading.point ?? "",
     reading.type ?? "SPM",
@@ -257,12 +276,16 @@ export function rowToRmsRegister(row) {
 
 // ── Equipment Register (SPM side) ──────────────────────────────────────
 
-// ── VIB Point Map (ACC Platform master DB merge) ───────────────────────
-// Sandbox-only tab, not present on the production webhook — readAll()
-// simply omits `vibPoints` there, so every consumer of this treats an
-// empty/missing list as "no VIB IDs available yet" rather than an error.
-// See apps-script/vib-id-merge/README.md for the merge itself.
-
+// ── VIB ID Registry (ACC Platform master DB merge) ──────────────────────
+// Production tab "VIB ID Registry" — one row per physical measurement
+// point, the permanent per-point identity every RMS/SPM DATA row's own
+// "VIB ID" column references. The backend's `readVibRegistry()` (see
+// apps-script/Code.fixed.gs) reshapes the sheet's real underscore-separated
+// headers (VIB_ID, Equipment_ID, Position_Code, Point_Description,
+// Reading columns, VIB_Status — one of which has a stray trailing space in
+// the live sheet) into this parser's expected spaced header text, the same
+// convention every other sheet reader in this file already uses. See
+// apps-script/vib-id-merge/README.md for how this tab was built.
 export function rowToVibPoint(row) {
   return {
     _id: `VIB|${row["VIB ID"] || ""}`,
@@ -271,6 +294,8 @@ export function rowToVibPoint(row) {
     positionCode: String(row["Position Code"] || "").trim(),
     family: String(row.Family || "").trim(),
     description: normalizePoint(row["Point Description"]),
+    readingColumns: String(row["Reading Columns"] || "").trim(),
+    contractor: String(row.Contractor || "").trim(),
     status: String(row.Status || ""),
     _rowNum: row._rowNum,
   };
@@ -309,7 +334,6 @@ export function rowToLastRMS(row) {
     point,
     date: parseSheetDate(row.Date),
     axial: parseNumber(row.Axial || row.AXial),
-    gear: parseNumber(row.Gear),
     horizontal: parseNumber(row.Horizontal),
     vertical: parseNumber(row.Vertical),
     maxVel: parseNumber(row["Max Velocity"] || row["Max Velocity (mm/s)"]),

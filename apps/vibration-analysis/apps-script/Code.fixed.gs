@@ -1,10 +1,13 @@
 /**
- * Arabian Cement — Vibration & Condition Monitoring  v3.1 (FIXED)
+ * Arabian Cement — Vibration & Condition Monitoring  v3.2 (FIXED + VIB ID)
  *
  * This is Code.gs with two corrections applied — see apps-script/README.md
  * for the full explanation of what was wrong and how it was verified
- * against the live Sheet. Everything else is byte-for-byte identical to
- * Code.gs; only the lines marked "FIX:" below changed.
+ * against the live Sheet — plus one addition: readAll() now also returns
+ * the "VIB ID Registry" tab (see readVibRegistry() below) now that it's
+ * part of production, not just the sandbox. Everything else is
+ * byte-for-byte identical to Code.gs; only the lines marked "FIX:" or
+ * "VIB ID:" below changed.
  *
  *   1. handleUpdateRegisterLimits() wrote every RMS/SPM limit field one
  *      column to the left of where that column actually lives in
@@ -17,6 +20,15 @@
  *      does not exist (the real tab, per SHEET_ACTIONS above, is
  *      "📋 Action Tracker") — so the year/month row-hide filter silently
  *      never ran. Corrected to match SHEET_ACTIONS.
+ *   3. VIB ID: readAll() now reads "VIB ID Registry" (one row per physical
+ *      measurement point — the permanent VIB_ID every RMS/SPM DATA row's
+ *      own "VIB ID" column references) via a dedicated readVibRegistry(),
+ *      not the generic readSheet() — that tab's "Reading columns " header
+ *      has a stray trailing space in the live sheet, which would otherwise
+ *      become part of the JSON key every client-side lookup has to match
+ *      exactly. readVibRegistry() reads by fixed column position instead
+ *      (same approach readCompliance() already uses for its own
+ *      irregularly-shaped sheet) and emits clean, trimmed field names.
  *
  * Apps Script Web App
  *
@@ -52,6 +64,7 @@ var SHEET_LAST_RMS   = '📋 Last RMS Reading';
 var SHEET_LAST_SPM   = '📋 Last SPM Reading';
 var SHEET_ACTIONS    = '📋 Action Tracker';
 var SHEET_CONFIG     = 'Configuration';
+var SHEET_VIB_REGISTRY = 'VIB ID Registry'; // VIB ID: production tab, see readVibRegistry() below
 
 // ─── Header/data row config (1-based) ────────────────────────────────────────
 var SHEET_CFG = {};
@@ -64,6 +77,7 @@ SHEET_CFG[SHEET_LAST_RMS]   = { headerRow: 1, dataStartRow: 2 };
 SHEET_CFG[SHEET_LAST_SPM]   = { headerRow: 1, dataStartRow: 2 };
 SHEET_CFG[SHEET_ACTIONS]    = { headerRow: 5, dataStartRow: 6 };
 SHEET_CFG[SHEET_CONFIG]     = { headerRow: 1, dataStartRow: 2 };
+SHEET_CFG[SHEET_VIB_REGISTRY] = { headerRow: 1, dataStartRow: 2 };
 
 function dataStartRowFor(sn) { var c=SHEET_CFG[sn]; return c?c.dataStartRow:2; }
 function headerRowFor(sn)    { var c=SHEET_CFG[sn]; return c?c.headerRow:1; }
@@ -150,7 +164,43 @@ function readAll() {
     lastSpm:     readSheet(ss, SHEET_LAST_SPM),
     actions:     readActionsRaw(ss),
     config:      readConfigRaw(ss),
+    vibPoints:   readVibRegistry(ss), // VIB ID: see readVibRegistry() below
   };
+}
+
+// VIB ID: "VIB ID Registry" reader — real column order confirmed directly
+// against the live sheet: VIB_ID(1), Equipment_ID(2), Position_Code(3),
+// Family(4), Point_Description(5), Reading columns(6, trailing space in
+// the real header), Contractor(7), VIB_Status(8). Reads by fixed position
+// rather than the generic readSheet() (see this file's top comment for
+// why) and emits the same spaced header-text keys every other sheet in
+// this file's generic reader produces, so src/parsers.js's rowToVibPoint()
+// can read it the same way it reads every other sheet.
+function readVibRegistry(ss) {
+  var sheet = ss.getSheetByName(SHEET_VIB_REGISTRY);
+  if (!sheet) return [];
+  var dataStart = dataStartRowFor(SHEET_VIB_REGISTRY);
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < dataStart || lastCol < 1) return [];
+  var data = sheet.getRange(dataStart, 1, lastRow - dataStart + 1, Math.max(lastCol, 8)).getValues();
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0] && !row[1]) continue; // skip blank rows
+    out.push({
+      'VIB ID':             String(row[0]||'').trim(),
+      'Equipment ID':       String(row[1]||'').trim(),
+      'Position Code':      String(row[2]||'').trim(),
+      'Family':             String(row[3]||'').trim(),
+      'Point Description':  String(row[4]||'').trim(),
+      'Reading Columns':    String(row[5]||'').trim(),
+      'Contractor':         String(row[6]||'').trim(),
+      'Status':             String(row[7]||'').trim(),
+      _rowNum: dataStart + i,
+    });
+  }
+  return out;
 }
 
 // ─── Generic sheet reader ─────────────────────────────────────────────────────

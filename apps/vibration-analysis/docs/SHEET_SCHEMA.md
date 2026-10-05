@@ -25,41 +25,78 @@ One row per RMS (vibration velocity) reading. Sheet tab name is literally
 Per `Code.gs`'s `SHEET_CFG`: headers live on row 3, data starts row 4 (rows
 1–2 are free for a title banner/instructions, matching the live sheet).
 
-| Col | Header                | Field (`rowToRMS`) | Notes                                                                                                               |
-| --- | --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| 0   | `#`                   | `seq`              | Row sequence number, assigned client-side as `max(existing)+1`                                                      |
-| 1   | `Equipment Name`      | `equipmentName`    |                                                                                                                     |
-| 2   | `Equipment ID`        | `equipmentId`      | Match column for update/delete                                                                                      |
-| 3   | `Asset ID`            | `point`            | The measurement point label (e.g. "Motor DE"), normalized on read — see `normalizePoint()`                          |
-| 4   | `Date`                | `date`             | Match column for update/delete                                                                                      |
-| 5   | `AXial (mm/s)`        | `axial`            | Note the header's own capitalization: "AXial", not "Axial"                                                          |
-| 6   | `Gear\n(mm/s)`        | `gear`             | The header cell has a literal line break in it (wrapped text) — the lookup key must match exactly, newline included |
-| 7   | `Horizontal (mm/s)`   | `horizontal`       |                                                                                                                     |
-| 8   | `Vertical (mm/s)`     | `vertical`         |                                                                                                                     |
-| 9   | `Max Velocity (mm/s)` | `maxVel`           | If blank on read, computed client-side as `max(axial, gear, horizontal, vertical)`                                  |
+As of the VIB_ID merge (see `apps-script/vib-id-merge/README.md`): a
+`VIB ID` column was inserted after `Equipment Name`, shifting every column
+after it one to the right, and `Gear (mm/s)` was dropped entirely — no
+equipment needs a Gear reading anymore, per the user's own call.
 
-Match key for `updateRow`/`deleteRow`: columns `[2, 3, 4]` (Equipment ID,
+| Col | Header                | Field (`rowToRMS`) | Notes                                                                                                                            |
+| --- | ---------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| 0   | `#`                   | `seq`              | Row sequence number, assigned client-side as `max(existing)+1`                                                                   |
+| 1   | `Equipment Name`      | `equipmentName`    |                                                                                                                                    |
+| 2   | `VIB ID`              | `vibId`            | Permanent per-point identifier (see VIB ID Registry below) — looked up and attached by App.jsx's mutations, not user-entered      |
+| 3   | `Equipment ID`        | `equipmentId`      | Match column for update/delete                                                                                                   |
+| 4   | `Asset ID`            | `point`            | The measurement point label (e.g. "Motor DE"), normalized on read — see `normalizePoint()`                                       |
+| 5   | `Date`                | `date`             | Match column for update/delete                                                                                                   |
+| 6   | `AXial (mm/s)`        | `axial`            | Note the header's own capitalization: "AXial", not "Axial"                                                                       |
+| 7   | `Horizontal (mm/s)`   | `horizontal`       |                                                                                                                                    |
+| 8   | `Vertical (mm/s)`     | `vertical`         |                                                                                                                                    |
+| 9   | `Max Velocity (mm/s)` | `maxVel`           | If blank on read, computed client-side as `max(axial, horizontal, vertical)`                                                      |
+
+Match key for `updateRow`/`deleteRow`: columns `[3, 4, 5]` (Equipment ID,
 Asset ID, Date).
 
 ## 📥 SPM DATA (confirmed)
 
 One row per SPM (Shock Pulse Method bearing-condition) reading. Sheet tab
 name is literally `"📥 SPM DATA"`. Same row layout as RMS DATA: headers on
-row 3, data from row 4.
+row 3, data from row 4. Same VIB_ID-merge column insertion as RMS DATA
+above.
 
 | Col | Header           | Field (`rowToSPM`) | Notes                           |
-| --- | ---------------- | ------------------ | ------------------------------- |
+| --- | ---------------- | ------------------ | -------------------------------- |
 | 0   | `#`              | `seq`              |                                 |
 | 1   | `Equipment Name` | `equipmentName`    |                                 |
-| 2   | `Equipment ID`   | `equipmentId`      | Match column                    |
-| 3   | `Asset ID`       | `point`            | Measurement point, normalized   |
-| 4   | `Type`           | `type`             | Defaults to `"SPM"` if blank    |
-| 5   | `Date`           | `date`             | Match column                    |
-| 6   | `HDm (dBsv)`     | `hdm`              | Maximum shock value             |
-| 7   | `HDc (dBsv)`     | `hdc`              | Carpet (background) shock value |
-| 8   | `Gs`             | `gs`               |                                 |
+| 2   | `VIB ID`         | `vibId`            | See RMS DATA's own row above     |
+| 3   | `Equipment ID`   | `equipmentId`      | Match column                    |
+| 4   | `Asset ID`       | `point`            | Measurement point, normalized   |
+| 5   | `Type`           | `type`             | Defaults to `"SPM"` if blank    |
+| 6   | `Date`           | `date`             | Match column                    |
+| 7   | `HDm (dBsv)`     | `hdm`              | Maximum shock value             |
+| 8   | `HDc (dBsv)`     | `hdc`              | Carpet (background) shock value |
+| 9   | `Gs`             | `gs`               |                                 |
 
-Match key: columns `[2, 3, 5]` (Equipment ID, Asset ID, Date).
+Match key: columns `[3, 4, 6]` (Equipment ID, Asset ID, Date).
+
+## VIB ID Registry (confirmed)
+
+Sheet tab name is literally `"VIB ID Registry"` — one row per physical
+measurement point, the permanent identity every RMS/SPM DATA row's own
+`VIB ID` column references. Headers on row 1, data from row 2. The real
+sheet's own headers are underscore-separated (`VIB_ID`, `Equipment_ID`,
+etc.) and one (`Reading columns `) has a stray trailing space — the
+backend's `readVibRegistry()` (`apps-script/Code.fixed.gs`) reads by fixed
+column position rather than the generic `readSheet()` for exactly that
+reason, and re-emits clean, spaced header-text keys (`"VIB ID"`,
+`"Equipment ID"`, …) matching every other sheet's own convention, so
+`rowToVibPoint()` in `src/parsers.js` reads it the same way it reads
+everything else. Read-only from the app's side — nothing writes to this tab.
+
+| Col | Real sheet header  | Key `readVibRegistry()` emits | Field (`rowToVibPoint`) | Notes                                                               |
+| --- | -------------------- | ------------------------------ | ------------------------- | --------------------------------------------------------------------- |
+| 0   | `VIB_ID`             | `VIB ID`                       | `vibId`                   | e.g. `Vb-111.CP400-CDE-RMS`                                           |
+| 1   | `Equipment_ID`       | `Equipment ID`                 | `equipmentId`              |                                                                        |
+| 2   | `Position_Code`      | `Position Code`                | `positionCode`             | e.g. `CDE`                                                            |
+| 3   | `Family`             | `Family`                        | `family`                   | `RMS` or `SPM` — matched against `vibPointKey()`'s own `family` arg   |
+| 4   | `Point_Description`  | `Point Description`            | `description`              | Normalized on read — matched against RMS/SPM DATA's own `point`      |
+| 5   | `Reading columns `   | `Reading Columns`              | `readingColumns`            | Free text, e.g. "Axial, Horizontal, Vertical" or "HDm, HDc"          |
+| 6   | `Contractor`         | `Contractor`                    | `contractor`               |                                                                        |
+| 7   | `VIB_Status`         | `Status`                        | `status`                   | e.g. `Active`                                                         |
+
+Lookup key: `equipmentId|description|family`, built by `vibPointKey()` in
+`src/domain.js` and shared by every consumer (App.jsx's `vibIdMap`, New
+Reading, Equipment Register) so they can never disagree on how to match a
+VIB ID to a point.
 
 ## Equipment Register (confirmed: two separate tabs)
 

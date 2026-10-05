@@ -8,12 +8,15 @@ which is deliberately never touched — so it can actually be fixed.
 
 ## Files
 
-- **`vib-id-merge/`** — a sandbox-only kit for adopting the ACC Platform
-  asset master DB's `VIB_ID` as a permanent point identifier: an importable
-  CSV for a new `🔗 VIB Point Map` tab, a review list for equipment that
-  didn't auto-match, and `Code.v2.gs` (the backend addition). See
-  `vib-id-merge/README.md`.
-- **`Code.gs`** — the script currently deployed behind the app's default
+- **`vib-id-merge/`** — the kit that built the `VIB_ID` system now live in
+  production: `Migrate.gs` (the equipment-ID rename), the rebuilt Register
+  CSVs, and the original sandbox plan. Its own README still describes the
+  sandbox-stage plan (tab named `🔗 VIB Point Map`, spaced header text) —
+  superseded by what actually shipped: a tab named `VIB ID Registry` with
+  underscore-separated headers (`VIB_ID`, `Equipment_ID`, etc., one with a
+  stray trailing space). `Code.fixed.gs`'s `readVibRegistry()` (see below)
+  is what actually reads it now, not `Code.v2.gs`.
+- **`Code.gs`** — the script originally deployed behind the app's default
   webhook URL (`DEFAULT_WEBHOOK_URL` in `src/config.js`), reproduced
   verbatim as supplied, version "v3.1". One transcription artifact was
   corrected on the way in: the pasted source's `onEdit` function ended with
@@ -21,23 +24,29 @@ which is deliberately never touched — so it can actually be fixed.
   error and make the *entire* script (including `doGet`/`doPost`) fail to
   save in the Apps Script editor — since the live webhook demonstrably
   works, this was almost certainly lost/added in copy-paste, not something
-  actually deployed. Removed; nothing else was changed. If your real
-  Apps Script project's source differs from this file in any other way,
-  this file is the one that's stale, not the live deployment.
-- **`Code.fixed.gs`** — `Code.gs` with two bugs corrected (see below). Not
-  deployed anywhere by default — this repo has no way to touch your Apps
-  Script project. To apply it: open your Sheet → Extensions → Apps Script,
-  replace `Code.gs`'s contents with this file, then **Deploy → Manage
-  deployments → edit → New version → Deploy** (editing the file alone does
-  nothing until you redeploy).
+  actually deployed. Removed; nothing else was changed. Superseded by
+  `Code.fixed.gs` below — kept here only as the historical starting point.
+- **`Code.v2.gs`** — superseded. An earlier sandbox-only addition that read
+  a tab named `🔗 VIB Point Map` with different (spaced) header names —
+  that tab was never the one that shipped to production. `Code.fixed.gs`'s
+  `readVibRegistry()` is the one actually wired to the real
+  `VIB ID Registry` tab; don't deploy this file.
+- **`Code.fixed.gs`** — `Code.gs` with two bugs corrected (see below) plus
+  the production `readVibRegistry()` addition (version "v3.2"). This is
+  the one to deploy: open your Sheet → Extensions → Apps Script, replace
+  `Code.gs`'s contents with this file, then **Deploy → Manage deployments
+  → edit → New version → Deploy** (editing the file alone does nothing
+  until you redeploy).
 
-## Bugs found by comparing this script against the live Sheet
+## Bugs found by comparing this script against the live Sheet, plus one addition
 
-Both were found by reading `handleUpdateRegisterLimits()` and `onEdit()`
-against the real column layout of "⚙ RMS Register" and "⚙ SPM Register"
-(confirmed directly from the Sheet's own data, not inferred) and the real
-tab name of the Action Tracker sheet (`SHEET_ACTIONS` in this same file).
-Neither is a bug in the React app — both live entirely in this script, so
+The first two were found by reading `handleUpdateRegisterLimits()` and
+`onEdit()` against the real column layout of "⚙ RMS Register" and "⚙ SPM
+Register" (confirmed directly from the Sheet's own data, not inferred) and
+the real tab name of the Action Tracker sheet (`SHEET_ACTIONS` in this same
+file). The third (below) isn't a bug fix, it's `readAll()` catching up to a
+tab the client was already built to use. None of these three are bugs in
+the React app — all three live entirely in this script, so
 fixing them means redeploying `Code.fixed.gs`, not changing anything in
 `src/`.
 
@@ -101,6 +110,20 @@ feature it implements (hiding rows in the sheet's Action Tracker tab that
 don't match cells `D3`/`G3`) has never actually run. `Code.fixed.gs` checks
 against `SHEET_ACTIONS` directly instead of a second hardcoded string, so
 it can't drift out of sync with the real tab name again.
+
+### 3. `readAll()` didn't return the VIB ID Registry
+
+Neither `Code.gs` nor `Code.fixed.gs` (until this change) returned anything
+for the `VIB ID Registry` tab, even though the RMS/SPM DATA sheets, Equipment
+Register, and the React app's own `parsers.js`/`App.jsx` were already built
+to use a per-point `VIB_ID` (see `vib-id-merge/README.md`). `Code.fixed.gs`
+now adds a `vibRegistry` key to `readAll()`'s response via a new
+`readVibRegistry()` function (reading the sheet by fixed column position,
+not the generic `readSheet()`, because one of its real headers — `Reading
+columns `, note the trailing space — would otherwise leak that whitespace
+into the JSON key every client-side lookup has to match). This isn't a bug
+fix to existing behavior, it's new functionality the client was already
+written to expect but the backend never shipped.
 
 ## What this means for data already in the Sheet
 

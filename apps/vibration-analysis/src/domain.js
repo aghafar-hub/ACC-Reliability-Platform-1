@@ -207,7 +207,6 @@ export function buildDashboardEntries(lastRms, lastSpm, registryMap, rmsRegister
       date: r.date,
       value: r.maxVel,
       axial: r.axial,
-      gear: r.gear,
       horizontal: r.horizontal,
       vertical: r.vertical,
       status,

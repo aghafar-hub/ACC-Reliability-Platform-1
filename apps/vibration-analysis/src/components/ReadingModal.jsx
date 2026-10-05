@@ -17,9 +17,9 @@ export default function ReadingModal({ type, initial, rmsRegMap, spmRegMap, thre
   const points = type === "RMS" ? rmsReg?.points || [] : spmReg?.points || [];
 
   const maxVel = useMemo(() => {
-    const values = [form.axial, form.gear, form.horizontal, form.vertical].map((v) => parseFloat(v)).filter((v) => !isNaN(v));
+    const values = [form.axial, form.horizontal, form.vertical].map((v) => parseFloat(v)).filter((v) => !isNaN(v));
     return values.length ? Math.max(...values) : null;
-  }, [form.axial, form.gear, form.horizontal, form.vertical]);
+  }, [form.axial, form.horizontal, form.vertical]);
 
   return (
     <Modal title={`${form._id ? "Edit" : "Add"} ${type} Reading`} onClose={onCancel} width={480}>
@@ -54,7 +54,6 @@ export default function ReadingModal({ type, initial, rmsRegMap, spmRegMap, thre
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
             {[
               ["axial", "Axial (mm/s)"],
-              ["gear", "Gear (mm/s)"],
               ["horizontal", "Horizontal (mm/s)"],
               ["vertical", "Vertical (mm/s)"],
             ].map(([key, label]) => (

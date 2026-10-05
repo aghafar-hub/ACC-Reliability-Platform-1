@@ -134,11 +134,11 @@ export default function App({ navBridge } = {}) {
       setLastRms((data.lastRms || []).map(rowToLastRMS));
       setLastSpm((data.lastSpm || []).map(rowToLastSPM));
       setActions((data.actions || []).map(rowToAction));
-      // `vibPoints` only exists on webhooks that have the sandbox's
-      // "🔗 VIB Point Map" tab wired into their readAll() (Code.v2.gs) —
-      // production's response simply won't have this key, which is fine,
-      // everything downstream already treats an empty list as "no VIB IDs
-      // available yet" rather than an error.
+      // `vibPoints` comes from the "VIB ID Registry" tab, wired into
+      // readAll() via readVibRegistry() (see apps-script/Code.fixed.gs) —
+      // an older webhook that predates this still simply won't have the
+      // key, which is fine, everything downstream already treats an empty
+      // list as "no VIB IDs available yet" rather than an error.
       setVibPoints((data.vibPoints || []).map(rowToVibPoint));
       if (data.config && typeof data.config === "object") {
         const merged = { ...configRef.current };
@@ -242,7 +242,6 @@ export default function App({ navBridge } = {}) {
         point: reading.point,
         date: reading.date,
         axial: reading.axial ?? "",
-        gear: reading.gear ?? "",
         horizontal: reading.horizontal ?? "",
         vertical: reading.vertical ?? "",
         maxVelocity: reading.maxVel ?? "",
@@ -286,14 +285,16 @@ export default function App({ navBridge } = {}) {
     () => ({
       addRMS: (reading) => {
         const seq = nextSeq(rms);
-        const record = { ...reading, seq, _id: `RMS|${reading.equipmentId}|${reading.point}|${reading.date}` };
+        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "RMS")] || "";
+        const record = { ...reading, seq, vibId, _id: `RMS|${reading.equipmentId}|${reading.point}|${reading.date}` };
         setRms((prev) => [...prev, record]);
         const url = configRef.current?.webhookUrl || webhookRef.current;
         appendRow(url, RMS_SHEET, rmsToRow(record), RMS_HEADERS);
         applyLastRms(record);
       },
       updateRMS: (reading) => {
-        const record = { ...reading, _id: `RMS|${reading.equipmentId}|${reading.point}|${reading.date}` };
+        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "RMS")] || reading.vibId || "";
+        const record = { ...reading, vibId, _id: `RMS|${reading.equipmentId}|${reading.point}|${reading.date}` };
         setRms((prev) => prev.map((r) => (r._id === reading._id ? record : r)));
         const url = configRef.current?.webhookUrl || webhookRef.current;
         updateRow(url, RMS_SHEET, reading._matchCols, reading._matchValues, rmsToRow(record));
@@ -313,14 +314,16 @@ export default function App({ navBridge } = {}) {
       },
       addSPM: (reading) => {
         const seq = nextSeq(spm);
-        const record = { ...reading, seq, type: "SPM", _id: `SPM|${reading.equipmentId}|${reading.point}|${reading.date}` };
+        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "SPM")] || "";
+        const record = { ...reading, seq, vibId, type: "SPM", _id: `SPM|${reading.equipmentId}|${reading.point}|${reading.date}` };
         setSpm((prev) => [...prev, record]);
         const url = configRef.current?.webhookUrl || webhookRef.current;
         appendRow(url, SPM_SHEET, spmToRow(record), SPM_HEADERS);
         applyLastSpm(record);
       },
       updateSPM: (reading) => {
-        const record = { ...reading, _id: `SPM|${reading.equipmentId}|${reading.point}|${reading.date}` };
+        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "SPM")] || reading.vibId || "";
+        const record = { ...reading, vibId, _id: `SPM|${reading.equipmentId}|${reading.point}|${reading.date}` };
         setSpm((prev) => prev.map((r) => (r._id === reading._id ? record : r)));
         const url = configRef.current?.webhookUrl || webhookRef.current;
         updateRow(url, SPM_SHEET, reading._matchCols, reading._matchValues, spmToRow(record));
@@ -339,7 +342,7 @@ export default function App({ navBridge } = {}) {
         }
       },
     }),
-    [rms, spm, applyLastRms, applyLastSpm]
+    [rms, spm, applyLastRms, applyLastSpm, vibIdMap]
   );
 
   let content;

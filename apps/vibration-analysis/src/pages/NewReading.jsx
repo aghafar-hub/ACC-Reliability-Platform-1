@@ -8,19 +8,19 @@ import { ICONS } from "../components/icons";
 import { resolveThresholds, rmsColorKey, rmsStatus, spmColorKey, spmStatus, vibPointKey, worseStatus } from "../domain";
 import { monthKey, parseNumber } from "../parsers";
 
-const RMS_FIELDS = ["axial", "gear", "horizontal", "vertical"];
+const RMS_FIELDS = ["axial", "horizontal", "vertical"];
 
 // Bulk "enter today's readings for one equipment" form: one card per RMS
-// measurement point (Axial/Gear/Horizontal/Vertical inputs) and one per SPM
+// measurement point (Axial/Horizontal/Vertical inputs) and one per SPM
 // point (HDm/HDc/Gs), saved together with "Save All Readings". Also pushes
 // an updateCompliance write and locally updates the Compliance Tracker's
 // current month to "YES" for this equipment, using whichever reading came
 // back most severe. Ported from the original's `Em`.
 //
-// `vibIdMap` (equipmentId|point|family -> VIB_ID, from App.jsx) is a
-// sandbox-only addition — see apps-script/vib-id-merge/README.md. It's
-// shown as a small badge next to each point when a match exists; empty on
-// production, where no card shows a badge at all.
+// `vibIdMap` (equipmentId|point|family -> VIB_ID, from App.jsx) is shown as
+// a small badge next to each point when a match exists — see
+// apps-script/vib-id-merge/README.md for how the registry it's built from
+// was put together.
 export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresholdsMap, mutations, webhookUrl, setCompliance, vibIdMap }) {
   const { T, s } = useTheme();
   const [equipmentId, setEquipmentId] = useState("");
@@ -41,7 +41,7 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
     const missing = [];
     rmsPoints.forEach((point) => {
       const values = rmsForm[point] || {};
-      if (!values.axial && !values.gear && !values.horizontal && !values.vertical) missing.push(`RMS: ${point}`);
+      if (!values.axial && !values.horizontal && !values.vertical) missing.push(`RMS: ${point}`);
     });
     spmPoints.forEach((point) => {
       if (!(spmForm[point] || {}).hdm) missing.push(`SPM: ${point}`);
@@ -62,14 +62,13 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
     let savedCount = 0;
     rmsPoints.forEach((point) => {
       const values = rmsForm[point] || {};
-      if (!values.axial && !values.gear && !values.horizontal && !values.vertical) return;
+      if (!values.axial && !values.horizontal && !values.vertical) return;
       const axial = parseNumber(values.axial);
-      const gear = parseNumber(values.gear);
       const horizontal = parseNumber(values.horizontal);
       const vertical = parseNumber(values.vertical);
-      const nums = [axial, gear, horizontal, vertical].filter((v) => v !== null);
+      const nums = [axial, horizontal, vertical].filter((v) => v !== null);
       const maxVel = nums.length ? Math.max(...nums) : null;
-      mutations.addRMS({ equipmentId, equipmentName: equipment.equipment || "", point, date, axial, gear, horizontal, vertical, maxVel });
+      mutations.addRMS({ equipmentId, equipmentName: equipment.equipment || "", point, date, axial, horizontal, vertical, maxVel });
       savedCount++;
     });
     spmPoints.forEach((point) => {
@@ -93,12 +92,9 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
       const statuses = [
         ...rmsPoints.map((point) => {
           const values = rmsForm[point] || {};
-          const nums = [
-            parseNumber(values.axial),
-            parseNumber(values.gear),
-            parseNumber(values.horizontal),
-            parseNumber(values.vertical),
-          ].filter((v) => v !== null);
+          const nums = [parseNumber(values.axial), parseNumber(values.horizontal), parseNumber(values.vertical)].filter(
+            (v) => v !== null
+          );
           const maxVel = nums.length ? Math.max(...nums) : null;
           return rmsStatus(maxVel, thresholds);
         }),
@@ -126,7 +122,7 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
   const hasAnyValue =
     rmsPoints.some((p) => {
       const v = rmsForm[p] || {};
-      return v.axial || v.gear || v.horizontal || v.vertical;
+      return v.axial || v.horizontal || v.vertical;
     }) || spmPoints.some((p) => (spmForm[p] || {}).hdm);
 
   return (
@@ -192,12 +188,9 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
             </div>
             {rmsPoints.map((point) => {
               const values = rmsForm[point] || {};
-              const nums = [
-                parseNumber(values.axial),
-                parseNumber(values.gear),
-                parseNumber(values.horizontal),
-                parseNumber(values.vertical),
-              ].filter((v) => v !== null);
+              const nums = [parseNumber(values.axial), parseNumber(values.horizontal), parseNumber(values.vertical)].filter(
+                (v) => v !== null
+              );
               const maxVel = nums.length ? Math.max(...nums) : null;
               const status = rmsStatus(maxVel, thresholds);
               const vibId = vibIdMap?.[vibPointKey(equipmentId, point, "RMS")];
