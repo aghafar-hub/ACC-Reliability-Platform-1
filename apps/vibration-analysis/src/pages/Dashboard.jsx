@@ -15,7 +15,7 @@ const STATUS_TILES = [
 
 // Landing page: equipment-count donut, 4 status tiles, quick filters, and a
 // grid of per-equipment status cards — ported from the original's `Cm`.
-export default function Dashboard({ lastRms, lastSpm, registryMap, rmsRegMap, spmRegMap, thresholdsMap, setPage, setGraphAsset }) {
+export default function Dashboard({ lastRms, lastSpm, registryMap, rmsRegMap, spmRegMap, thresholdsMap, setPage, setGraphAsset, syncState }) {
   const { T, s } = useTheme();
   const [activeSlice, setActiveSlice] = useState(null);
   const [line, setLine] = useState("");
@@ -198,6 +198,11 @@ export default function Dashboard({ lastRms, lastSpm, registryMap, rmsRegMap, sp
       {entries.length === 0 ? (
         <div style={{ ...s.card, textAlign: "center", color: T.textMuted, padding: 50 }}>
           No data yet — sync the app, then run <b>Backfill Last Readings</b> in Settings → System.
+          {syncState && (
+            <div style={{ marginTop: 10, fontSize: 11, color: T.textMuted, opacity: 0.8 }}>
+              Sync status: {syncState.status} — {syncState.message}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 10 }}>

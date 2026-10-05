@@ -490,6 +490,7 @@ export default function App({ navBridge } = {}) {
         thresholdsMap={thresholdsMap}
         setPage={setPage}
         setGraphAsset={setGraphAsset}
+        syncState={syncState}
       />
     );
   } else if (page === "newreading") {
