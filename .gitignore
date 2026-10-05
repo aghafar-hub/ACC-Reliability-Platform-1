@@ -5,6 +5,7 @@ service-account*.json
 .env
 .env.*
 !frontend/.env.example
+!api/.env.example
 .clasp.json
 .clasprc.json
 
