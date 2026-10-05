@@ -22,6 +22,13 @@
  * VIB ID Registry read (VibRegistry.js) — all three already confirmed
  * against the real, live Sheet, not just inferred from the client.
  *
+ * PERFORMANCE: readAll() stays as the full, do-everything sync (used by the
+ * app's "Sync" button). For the app's own first-load fetch, getStartupBundle
+ * returns everything EXCEPT 📥 RMS DATA/📥 SPM DATA (the two heaviest sheets,
+ * ~12,000 rows combined) — see that function's own comment in this file.
+ * getRmsSpmHistory returns just those two, fetched lazily only when a page
+ * that actually needs reading history is opened.
+ *
  * ── CONFIGURATION SHEET SETUP ──────────────────────────────────────────
  * Create a sheet tab named exactly:  Configuration
  * Row 1: headers → Key | Value
@@ -97,6 +104,8 @@ function dispatch(action, params) {
   if (action==='readLastActionNo')      return handleReadLastActionNo();
   if (action==='readConfig')            return handleReadConfig();
   if (action==='saveConfig')            return handleSaveConfig(params);
+  if (action==='getStartupBundle')      return getStartupBundle();
+  if (action==='getRmsSpmHistory')      return getRmsSpmHistory();
   return {error: 'Unknown action: ' + action};
 }
 
@@ -123,5 +132,42 @@ function readAll() {
     actions:     readActionsRaw(ss),
     config:      readConfigRaw(ss),
     vibPoints:   readVibRegistry(ss),
+  };
+}
+
+// PERFORMANCE: lightweight first-load bundle — everything readAll() returns
+// EXCEPT 📥 RMS DATA / 📥 SPM DATA, the two heaviest sheets by far (6,500+
+// and 5,700+ rows combined — roughly half of everything readAll() would
+// otherwise transmit). Of this app's 9 pages, only Graphs Dashboard and
+// Equipment Readings actually need that full reading history; Dashboard,
+// New Reading, Equipment Register, Compliance Tracker, Action Tracker, and
+// Limits Settings all work off the smaller sheets below alone. src/App.jsx
+// calls this instead of readAll() on first mount, then lazily fetches
+// getRmsSpmHistory() only the first time the user opens Graphs Dashboard or
+// Equipment Readings — so the common path (anything except those two pages)
+// never pays for reading or transmitting that history at all. The "Sync"
+// button still calls the original readAll() for an explicit full refresh.
+function getStartupBundle() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  try { handleMarkMissingCompliance(); } catch(e) {}
+  return {
+    compliance:  readCompliance(ss),
+    rmsRegister: readSheet(ss, SHEET_RMS_REG),
+    spmRegister: readSheet(ss, SHEET_SPM_REG),
+    lastRms:     readSheet(ss, SHEET_LAST_RMS),
+    lastSpm:     readSheet(ss, SHEET_LAST_SPM),
+    actions:     readActionsRaw(ss),
+    config:      readConfigRaw(ss),
+    vibPoints:   readVibRegistry(ss),
+  };
+}
+
+// The RMS/SPM DATA history getStartupBundle() leaves out — see that
+// function's own comment for why.
+function getRmsSpmHistory() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  return {
+    rms: readSheet(ss, SHEET_RMS),
+    spm: readSheet(ss, SHEET_SPM),
   };
 }

@@ -11,7 +11,7 @@ import { formatDisplayDate } from "../parsers";
 
 // Per-equipment log of every RMS/SPM reading ever recorded, grouped by
 // line, with inline Add/Edit/Delete — ported from the original's `Nm`.
-export default function EquipmentReadings({ registryList, rms, spm, rmsRegMap, spmRegMap, thresholdsMap, mutations }) {
+export default function EquipmentReadings({ registryList, rms, spm, rmsRegMap, spmRegMap, thresholdsMap, mutations, historyLoading }) {
   const { T, s } = useTheme();
   const [expanded, setExpanded] = useState(null);
   const [search, setSearch] = useState("");
@@ -109,6 +109,12 @@ export default function EquipmentReadings({ registryList, rms, spm, rmsRegMap, s
           <input style={{ ...s.input, paddingLeft: 30 }} placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
+
+      {historyLoading && (
+        <div style={{ ...s.card, textAlign: "center", color: T.textMuted, padding: 20, marginBottom: 14 }}>
+          Loading reading history…
+        </div>
+      )}
 
       {Object.keys(grouped)
         .sort()

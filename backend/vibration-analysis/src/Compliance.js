@@ -123,6 +123,15 @@ function handleUpdateCompliance(params) {
 // Scans all past month columns (strictly before the current month) for
 // every equipment. An empty cell gets "Missing" written in; anything with
 // a value already is left alone. Called automatically on every readAll().
+//
+// PERFORMANCE: the original version of this function called
+// sheet.getRange(row, col).setValue('Missing') individually, once per
+// blank cell — each call a separate Sheets API round trip (commonly
+// 100-300ms). With ~190 equipment and several past months that could mean
+// hundreds of calls, tens of seconds to minutes, blocking EVERY single
+// readAll() (this runs before every one). Fixed to mutate the already-
+// in-memory `data` array and write it all back in exactly one
+// setValues() call — same result, one round trip instead of hundreds.
 function handleMarkMissingCompliance() {
   var ss    = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_COMPLIANCE);
@@ -143,7 +152,8 @@ function handleMarkMissingCompliance() {
   // Read all headers (row 3)
   var headers = sheet.getRange(headerRow, 1, 1, lastCol).getValues()[0];
 
-  // Collect past month column indices (1-based) — only months strictly before current month
+  // Collect past month column indices (0-based, for direct array access) —
+  // only months strictly before current month
   var pastMonthCols = [];
   for (var h = 4; h < headers.length; h++) {
     var label = headers[h];
@@ -153,9 +163,7 @@ function handleMarkMissingCompliance() {
     } else {
       ms = parseLabelToYearMonth(String(label||'').trim());
     }
-    if (ms && ms < currentMonth) {
-      pastMonthCols.push({ col: h + 1, month: ms }); // 1-based col
-    }
+    if (ms && ms < currentMonth) pastMonthCols.push(h);
   }
   if (pastMonthCols.length === 0) return {status:'ok', marked:0};
 
@@ -164,20 +172,21 @@ function handleMarkMissingCompliance() {
   var data    = sheet.getRange(dataStart, 1, numRows, lastCol).getValues();
 
   var marked = 0;
+  var changed = false;
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
     if (!row[2]) continue; // skip rows without Asset ID
     for (var j = 0; j < pastMonthCols.length; j++) {
-      var colObj  = pastMonthCols[j];
-      var colIdx  = colObj.col - 1; // 0-based for array
-      var cellVal = String(row[colIdx]||'').trim();
-      if (cellVal === '') {
-        // Write "Missing" to empty past month cell
-        sheet.getRange(dataStart + i, colObj.col).setValue('Missing');
+      var colIdx = pastMonthCols[j];
+      if (String(row[colIdx]||'').trim() === '') {
+        row[colIdx] = 'Missing';
         marked++;
+        changed = true;
       }
     }
   }
+
+  if (changed) sheet.getRange(dataStart, 1, data.length, lastCol).setValues(data);
 
   return {status:'ok', action:'markMissingCompliance', marked:marked};
 }

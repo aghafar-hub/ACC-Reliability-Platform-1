@@ -115,10 +115,29 @@ function fireAndForget(webhookUrl, params) {
 // ── Reads ────────────────────────────────────────────────────────────────
 
 // The one big sync call — returns { rms, spm, compliance, rmsRegister,
-// spmRegister, lastRms, lastSpm, actions, config }. See
-// docs/API_CONTRACT.md for each field's shape.
+// spmRegister, lastRms, lastSpm, actions, config, vibPoints }. See
+// docs/API_CONTRACT.md for each field's shape. Used for the explicit
+// "Sync" button (a full, do-everything refresh) — the app's own first
+// mount uses getStartupBundle()/getRmsSpmHistory() below instead, see
+// those functions' own comments.
 export function readAll(webhookUrl) {
   return verifiedGet(webhookUrl, "readAll");
+}
+
+// PERFORMANCE: same shape as readAll() minus `rms`/`spm` — the two
+// heaviest fields by far (6,500+ and 5,700+ rows combined). Used for the
+// app's first-load fetch (see App.jsx's mount effect); `rms`/`spm` are
+// fetched lazily via getRmsSpmHistory() below, only the first time a page
+// that actually needs reading history (Graphs Dashboard, Equipment
+// Readings) is opened.
+export function getStartupBundle(webhookUrl) {
+  return verifiedGet(webhookUrl, "getStartupBundle");
+}
+
+// The `{ rms, spm }` getStartupBundle() leaves out — see that function's
+// own comment.
+export function getRmsSpmHistory(webhookUrl) {
+  return verifiedGet(webhookUrl, "getRmsSpmHistory");
 }
 
 // Settings → Configuration → "Test Connection". Expects { status: "ok",

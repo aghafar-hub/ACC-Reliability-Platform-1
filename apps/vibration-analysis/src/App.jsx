@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { appendRow, deleteLastRMS, deleteLastSPM, deleteRow, readAll, updateRow, upsertLastRMS, upsertLastSPM } from "./api";
+import {
+  appendRow,
+  deleteLastRMS,
+  deleteLastSPM,
+  deleteRow,
+  getRmsSpmHistory,
+  getStartupBundle,
+  readAll,
+  updateRow,
+  upsertLastRMS,
+  upsertLastSPM,
+} from "./api";
 import { configStore, DEFAULT_WEBHOOK_URL, loadThresholdOverrides, saveThresholdOverrides } from "./config";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
@@ -71,6 +82,20 @@ export default function App({ navBridge } = {}) {
   const [thresholdsMap, setThresholdsMap] = useState({});
   const [syncState, setSyncState] = useState({ status: "idle", message: "Not synced yet" });
 
+  // PERFORMANCE: `rms`/`spm` (RMS/SPM DATA — 6,500+/5,700+ rows) are loaded
+  // lazily, not as part of the app's first-load fetch — see getStartupBundle's
+  // own comment in the backend and loadRmsSpmHistory below. `startupLoaded`
+  // gates the lazy fetch so it never races the startup fetch itself against
+  // the same Apps Script Web App deployment (which doesn't reliably serve
+  // simultaneous GETs — see oil-lubrication's own App.jsx for the same
+  // constraint). `rmsSpmLoadedRef`/`loadingHistoryRef` make the lazy loader
+  // idempotent: loaded once (by either path) and never refetched just from
+  // re-visiting the same page, and never double-fired if already in flight.
+  const [startupLoaded, setStartupLoaded] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const rmsSpmLoadedRef = useRef(false);
+  const loadingHistoryRef = useRef(false);
+
   // Mirrors of webhookUrl/config kept in refs so async callbacks (sync,
   // per-reading upsert calls) always read the latest value without having
   // to be re-created on every keystroke in Settings — same pattern the
@@ -95,7 +120,7 @@ export default function App({ navBridge } = {}) {
     } catch {
       // localStorage unavailable — fall back to in-memory defaults already set above
     }
-    const timer = setTimeout(() => syncNow(), 800);
+    const timer = setTimeout(() => loadStartupBundle(), 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount, mirroring the original's mount-only effect
   }, []);
@@ -153,6 +178,11 @@ export default function App({ navBridge } = {}) {
       }
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setSyncState({ status: "ok", message: `✓ Synced — ${(data.rms || []).length} RMS · ${(data.spm || []).length} SPM — ${time}` });
+      // readAll() already included rms/spm above, so the lazy history loader
+      // below has nothing left to fetch — mark it done so it doesn't fire a
+      // redundant getRmsSpmHistory() call the next time a history page opens.
+      rmsSpmLoadedRef.current = true;
+      setStartupLoaded(true);
     } catch (err) {
       setSyncState({
         status: "error",
@@ -162,6 +192,89 @@ export default function App({ navBridge } = {}) {
       });
     }
   }, []);
+
+  // Lightweight first-load fetch: everything readAll() returns except
+  // rms/spm — see getStartupBundle's own comment in the backend. Used only
+  // on mount; the "Sync" button keeps calling the full readAll() above.
+  const loadStartupBundle = useCallback(async () => {
+    const url = configRef.current?.webhookUrl || webhookRef.current;
+    if (!url) {
+      setSyncState({ status: "error", message: "No webhook URL — go to Settings → Configuration" });
+      return;
+    }
+    setSyncState({ status: "loading", message: "Loading…" });
+    try {
+      const data = await getStartupBundle(url);
+      if (data.error) throw new Error(data.error);
+      setCompliance((data.compliance || []).map(rowToCompliance));
+      setRmsRegister((data.rmsRegister || []).map(rowToRmsRegister));
+      setSpmRegister((data.spmRegister || []).map(rowToSpmRegister));
+      setLastRms((data.lastRms || []).map(rowToLastRMS));
+      setLastSpm((data.lastSpm || []).map(rowToLastSPM));
+      setActions((data.actions || []).map(rowToAction));
+      setVibPoints((data.vibPoints || []).map(rowToVibPoint));
+      if (data.config && typeof data.config === "object") {
+        const merged = { ...configRef.current };
+        if (data.config.webhookUrl) merged.webhookUrl = data.config.webhookUrl;
+        if (data.config.googleSheetUrl) {
+          merged.googleSheetUrl = data.config.googleSheetUrl;
+          setSheetUrl(data.config.googleSheetUrl);
+        }
+        if (data.config.contractors) merged.contractors = data.config.contractors;
+        setConfig(merged);
+      }
+      const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setSyncState({ status: "ok", message: `✓ Loaded — ${time}` });
+    } catch (err) {
+      setSyncState({
+        status: "error",
+        message: String(err.message || err).includes("timed out")
+          ? "Sync timed out — check your webhook URL in Settings"
+          : String(err.message || err).slice(0, 80),
+      });
+    } finally {
+      setStartupLoaded(true);
+    }
+  }, []);
+
+  // Fetches rms/spm (the reading history getStartupBundle() leaves out) the
+  // first time a page that actually needs it — Graphs Dashboard or
+  // Equipment Readings — is opened. Guarded so it only ever runs once
+  // (rmsSpmLoadedRef) and never twice concurrently (loadingHistoryRef).
+  const loadRmsSpmHistory = useCallback(async () => {
+    if (rmsSpmLoadedRef.current || loadingHistoryRef.current) return;
+    const url = configRef.current?.webhookUrl || webhookRef.current;
+    if (!url) return;
+    loadingHistoryRef.current = true;
+    setHistoryLoading(true);
+    try {
+      const data = await getRmsSpmHistory(url);
+      if (data.error) throw new Error(data.error);
+      setRms((data.rms || []).map(rowToRMS));
+      setSpm((data.spm || []).map(rowToSPM));
+      rmsSpmLoadedRef.current = true;
+    } catch {
+      // Leave rmsSpmLoadedRef false so the next visit to a history page
+      // retries — same best-effort handling as the rest of this app's reads.
+    } finally {
+      loadingHistoryRef.current = false;
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  // PERFORMANCE: fetch rms/spm lazily, only the first time the user actually
+  // opens a page that needs reading history — never on first mount. Waits
+  // for startupLoaded so this never races loadStartupBundle() against the
+  // same Apps Script Web App deployment (see this file's rmsSpmLoadedRef
+  // comment above for why that matters). Has to sit after loadRmsSpmHistory's
+  // own declaration above — referencing it any earlier is a temporal-dead-
+  // zone ReferenceError at runtime (same constraint noted below for syncNow).
+  useEffect(() => {
+    if (!startupLoaded) return;
+    if (page !== "graphs" && page !== "registry") return;
+    if (rmsSpmLoadedRef.current || loadingHistoryRef.current) return;
+    loadRmsSpmHistory();
+  }, [page, startupLoaded, loadRmsSpmHistory]);
 
   // Mirrors apps/oil-analysis's own Patch 35 wiring — lets the shell's own
   // TopBar show this module's Sync button instead of this module
@@ -396,6 +509,7 @@ export default function App({ navBridge } = {}) {
         spmRegMap={spmRegMap}
         thresholdsMap={thresholdsMap}
         mutations={mutations}
+        historyLoading={historyLoading}
       />
     );
   } else if (page === "graphs") {
@@ -409,6 +523,7 @@ export default function App({ navBridge } = {}) {
         thresholdsMap={thresholdsMap}
         rmsRegMap={rmsRegMap}
         spmRegMap={spmRegMap}
+        historyLoading={historyLoading}
       />
     );
   } else if (page === "compliance") {

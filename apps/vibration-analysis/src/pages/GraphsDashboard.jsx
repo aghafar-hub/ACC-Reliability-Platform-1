@@ -7,7 +7,7 @@ import { resolveThresholds } from "../domain";
 // Horiz / Vert / Max, with dashed Good/Acceptable/Alarm threshold lines)
 // and one per SPM point (HDm / HDc, with dashed Normal/Caution lines), over
 // a selectable time range. Ported from the original's `Dm`.
-export default function GraphsDashboard({ registryList, rms, spm, graphAsset, setGraphAsset, thresholdsMap, rmsRegMap, spmRegMap }) {
+export default function GraphsDashboard({ registryList, rms, spm, graphAsset, setGraphAsset, thresholdsMap, rmsRegMap, spmRegMap, historyLoading }) {
   const { T, s } = useTheme();
   const [equipmentId, setEquipmentId] = useState(graphAsset || "");
   const [range, setRange] = useState("12");
@@ -168,7 +168,10 @@ export default function GraphsDashboard({ registryList, rms, spm, graphAsset, se
       {!equipmentId && (
         <div style={{ ...s.card, textAlign: "center", color: T.textMuted, padding: 60 }}>Select equipment to view trend charts.</div>
       )}
-      {equipmentId && rmsPointsWithData.length === 0 && spmPointsWithData.length === 0 && (
+      {equipmentId && historyLoading && (
+        <div style={{ ...s.card, textAlign: "center", color: T.textMuted, padding: 60 }}>Loading reading history…</div>
+      )}
+      {equipmentId && !historyLoading && rmsPointsWithData.length === 0 && spmPointsWithData.length === 0 && (
         <div style={{ ...s.card, textAlign: "center", color: T.textMuted, padding: 60 }}>
           No readings found for this equipment in the selected range.
         </div>
