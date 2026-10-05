@@ -1046,7 +1046,13 @@ export function exportMonthlyActivityCsv({ samples, oilChangeEvents, actions, eq
 // ═══════════════════════════════════════════════════════════════════════
 
 export const CONDITION_SCOPE = (eq) => String(eq?.oilAnalysisRequired || "").trim().toLowerCase() === "yes";
-export const TIME_SCOPE = (eq) => !!String(eq?.oilChangeInterval || "").trim();
+// Time Based is the COMPLEMENT of Condition Based, not "has an Oil Change
+// Interval filled in" — real Equipment Register rows don't always have
+// that text field populated even when they genuinely have a fixed-interval
+// oil change logged against them, which was silently dropping overdue
+// points out of every Time Based section. Every LP is one or the other,
+// never neither, so this guarantees nothing falls through the cracks.
+export const TIME_SCOPE = (eq) => !CONDITION_SCOPE(eq);
 
 function registryByCodeMap(equipmentRegistry) {
   const map = {};
@@ -1239,16 +1245,57 @@ function oilHealthRows({ trackerByEquip, equipmentRegistry, contractor }) {
   return rows;
 }
 
-function buildConditionOverdueChangesPdf(doc, { oilChanges, equipmentRegistry, contractor }, y) {
-  return renderOverdueChangesPdf(
-    doc,
-    {
-      title: "Overdue Oil Changes — Condition Based",
-      narrative: `Every condition-based lubrication point (Oil Analysis Required = Yes in the Equipment Register) whose oil change is currently overdue${contractor === "All" ? "" : `, scoped to ${contractor}`}.`,
-      oilChanges, equipmentRegistry, contractor, scopeFilter: CONDITION_SCOPE,
-    },
-    y
-  );
+// Condition Based "overdue oil change" is NOT the same due-date math the
+// Time Based section uses — confirmed directly by the user: a condition-
+// based point has no fixed calendar interval to be late against, so
+// "overdue" here instead means there's a genuinely overdue OPEN ACTION
+// (using Action Tracker's own >14-day aging threshold — see ageDays/
+// ActionTracker.jsx) whose Agreed Action calls for an oil change.
+// agreedAction/contractorAction can hold a comma-separated multi-select
+// list (see MultiSelectTags.jsx), so this checks membership, not equality.
+const ACTION_OVERDUE_DAYS = 14;
+function hasChangeOilAction(a) {
+  const inList = (text) => String(text || "").split(",").map((s) => s.trim()).includes("Change Oil");
+  return inList(a.agreedAction) || inList(a.contractorAction);
+}
+function scopedConditionOverdueActions({ actions, equipmentRegistry, contractor = "All" }) {
+  const regByCode = registryByCodeMap(equipmentRegistry);
+  const inScope = (code) => {
+    const reg = regByCode[code];
+    return reg && CONDITION_SCOPE(reg) && (contractor === "All" || reg.contractor === contractor);
+  };
+  const items = (actions || [])
+    .filter((a) => inScope(a.equipmentCode))
+    .filter((a) => FOCUS_STATUSES.includes(a.status))
+    .filter((a) => (daysSince(a.revisionDate) ?? 0) > ACTION_OVERDUE_DAYS)
+    .filter(hasChangeOilAction)
+    .sort((a, b) => (daysSince(b.revisionDate) ?? 0) - (daysSince(a.revisionDate) ?? 0));
+  return { items, regByCode };
+}
+
+function buildConditionOverdueChangesPdf(doc, { actions, equipmentRegistry, contractor }, y) {
+  const { items, regByCode } = scopedConditionOverdueActions({ actions, equipmentRegistry, contractor });
+  const narrative = `Every condition-based lubrication point (Oil Analysis Required = Yes in the Equipment Register) with an open action, more than ${ACTION_OVERDUE_DAYS} days old, whose Agreed Action is Change Oil${contractor === "All" ? "" : `, scoped to ${contractor}`}.`;
+  y = summaryParagraph(doc, narrative, y);
+  y = statStrip(doc, [{ value: items.length, label: "OVERDUE NOW", color: BRAND.danger }], y);
+  y += 10;
+  y = byAreaChart(doc, { list: items.map((a) => ({ equipmentCode: a.equipmentCode })), regByCode, y, color: BRAND.danger, title: "Overdue by Area" });
+  y = needsNewPage(doc, y, 130);
+  y = sectionTitle(doc, "Overdue Oil Changes — Condition Based", y);
+  const rows = items.map((a) => {
+    const reg = regByCode[a.equipmentCode];
+    return [a.equipmentCode, reg?.description || "—", reg?.area || "—", reg?.contractor || "—", `${daysSince(a.revisionDate)}d`, a.agreedAction || a.contractorAction || "—"];
+  });
+  autoTable(doc, {
+    startY: y,
+    head: [["Equipment", "Description", "Area", "Contractor", "Days Overdue", "Agreed Action"]],
+    body: rows.length ? rows : [["Nothing overdue in this scope right now", "", "", "", "", ""]],
+    theme: "striped",
+    headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    margin: { left: 36, right: 36 },
+  });
+  return doc.lastAutoTable.finalY + 24;
 }
 function buildConditionPerformancePdf(doc, { oilChanges, equipmentRegistry, actions, contractor }, y) {
   return renderPerformancePdf(
@@ -1269,7 +1316,7 @@ function buildTimeOverdueChangesPdf(doc, { oilChanges, equipmentRegistry, contra
     doc,
     {
       title: "Overdue LP Points — Time Based",
-      narrative: `Every time-based lubrication point (a fixed Oil Change Interval set in the Equipment Register) whose oil change is currently overdue${contractor === "All" ? "" : `, scoped to ${contractor}`}.`,
+      narrative: `Every time-based lubrication point (any point not flagged Oil Analysis Required = Yes in the Equipment Register) whose oil change is currently overdue${contractor === "All" ? "" : `, scoped to ${contractor}`}.`,
       oilChanges, equipmentRegistry, contractor, scopeFilter: TIME_SCOPE,
     },
     y
@@ -1342,8 +1389,9 @@ function buildOpenRoutinesPdf(doc, { routinesOverview, contractor }, y) {
 // Equipment Register the Overdue sections above use), NOT from Routines/
 // Route Templates — a first pass of this section used the latter by
 // mistake. "Coming soon" = not yet overdue, next due date within the next
-// 7 days (same Due Soon window the Routines tab itself uses).
-const COMING_SOON_DAYS = 7;
+// month (rolling 30 days, same "Due this month" window OilChangeLog.jsx's
+// own bucket uses — widened from an earlier 7-day pass per the user).
+const COMING_SOON_DAYS = 30;
 function scopedComingSoonChanges({ oilChanges, equipmentRegistry, contractor = "All", scopeFilter }) {
   const regByCode = registryByCodeMap(equipmentRegistry);
   const today = new Date();
@@ -1365,7 +1413,7 @@ function scopedComingSoonChanges({ oilChanges, equipmentRegistry, contractor = "
 
 function buildComingSoonPdf(doc, { oilChanges, equipmentRegistry, contractor }, y) {
   const { items, regByCode } = scopedComingSoonChanges({ oilChanges, equipmentRegistry, contractor, scopeFilter: TIME_SCOPE });
-  y = summaryParagraph(doc, `Time-based lubrication points due for an oil change in the next ${COMING_SOON_DAYS} days, from the Oil Change Log${contractor === "All" ? "" : ` for ${contractor}`} — plan ahead for lubricant and crew availability.`, y);
+  y = summaryParagraph(doc, `Time-based lubrication points due for an oil change in the next month, from the Oil Change Log${contractor === "All" ? "" : ` for ${contractor}`} — plan ahead for lubricant and crew availability.`, y);
   y = statStrip(doc, [{ value: items.length, label: "COMING SOON", color: BRAND.warning }], y);
   y += 10;
   y = byAreaChart(doc, { list: items, regByCode, y, color: BRAND.warning, title: "Coming Soon by Area" });
@@ -1637,6 +1685,16 @@ function excelOverdueChanges({ oilChanges, equipmentRegistry, contractor }, scop
     }),
   };
 }
+function excelConditionOverdueChanges({ actions, equipmentRegistry, contractor }) {
+  const { items, regByCode } = scopedConditionOverdueActions({ actions, equipmentRegistry, contractor });
+  return {
+    header: ["Equipment", "Description", "Area", "Contractor", "Days Overdue", "Agreed Action"],
+    rows: items.map((a) => {
+      const reg = regByCode[a.equipmentCode];
+      return [a.equipmentCode, reg?.description, reg?.area, reg?.contractor, daysSince(a.revisionDate), a.agreedAction || a.contractorAction];
+    }),
+  };
+}
 function excelPerformance({ oilChanges, equipmentRegistry, actions, contractor }, scopeFilter) {
   const { stats } = scopedOilChangeStats({ oilChanges, equipmentRegistry, actions, contractor, scopeFilter });
   return {
@@ -1716,7 +1774,7 @@ export const REPORT_SECTIONS = [
   { id: "condition-open-actions", group: "condition", label: "Open Actions", pdfTitle: "Open Actions", pdf: (doc, d, y) => buildActionSection(doc, d, y), excel: excelOpenActions },
   { id: "condition-samples", group: "condition", label: "Missing / Overdue Samples", pdfTitle: "Missing / Overdue Samples", pdf: (doc, d, y) => buildSampleSection(doc, d, y), excel: excelMissingOverdueSamples },
   { id: "condition-oil-health", group: "condition", label: "Oil Health (Lab Results)", pdfTitle: "Oil Health", pdf: buildOilHealthPdf, excel: excelOilHealth },
-  { id: "condition-overdue-changes", group: "condition", label: "Oil Overdue Changes", pdfTitle: "Overdue Oil Changes — Condition Based", pdf: buildConditionOverdueChangesPdf, excel: (d) => excelOverdueChanges(d, CONDITION_SCOPE) },
+  { id: "condition-overdue-changes", group: "condition", label: "Oil Overdue Changes", pdfTitle: "Overdue Oil Changes — Condition Based", pdf: buildConditionOverdueChangesPdf, excel: excelConditionOverdueChanges },
   { id: "condition-performance", group: "condition", label: "Contractor Performance", pdfTitle: "Condition Based Contractor Performance", pdf: buildConditionPerformancePdf, excel: (d) => excelPerformance(d, CONDITION_SCOPE) },
 
   { id: "time-overdue-lp", group: "time", label: "Overdue LP Points", pdfTitle: "Overdue LP Points — Time Based", pdf: buildTimeOverdueChangesPdf, excel: (d) => excelOverdueChanges(d, TIME_SCOPE) },

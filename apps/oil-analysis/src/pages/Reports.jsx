@@ -71,6 +71,41 @@ function ReportCard({
   );
 }
 
+// "+ New Report" used to be a page-header button; the user asked for it to
+// be a card like the other four instead, living in the same grid — so this
+// is styled the same way as ReportCard's own header (icon badge, title,
+// description) with a single CTA button taking its place of
+// contractor-select + stats + Download PDF.
+function NewReportCard({ T, s, onClick }) {
+  return (
+    <div style={{ ...s.card, display: "flex", flexDirection: "column", gap: 14, marginBottom: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            width: 38, height: 38, borderRadius: 10, background: T.accent + "22", color: T.accent,
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}
+        >
+          <i className="ti ti-plus" style={{ fontSize: 19 }} aria-hidden="true" />
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>New Report</div>
+          <div style={{ fontSize: 11.5, color: T.textSecondary }}>Combine any topics into one PDF or Excel workbook</div>
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: T.textSecondary, margin: 0 }}>
+        Pick any combination of sections across Condition Based Oil, Time Based Oil, Inventory Status, and Forecast, choose a contractor
+        (or both), then generate one PDF with charts or one data-only Excel workbook.
+      </p>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button style={s.btnPrimary} onClick={onClick}>
+          <i className="ti ti-arrow-right" aria-hidden="true" /> Build Report
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function currentMonth() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -180,19 +215,18 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+      <div style={{ marginBottom: 6 }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Reports</p>
-        <button style={s.btnPrimary} onClick={() => setView("new")}>
-          <i className="ti ti-plus" aria-hidden="true" /> New Report
-        </button>
       </div>
       <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 20px" }}>
         Generate a clean, printable PDF straight from current data — nothing is saved or sent anywhere. Choose one contractor or all of
-        them before generating, or use "New Report" to combine any topics across Condition Based Oil, Time Based Oil, Inventory, and
-        Forecast into one PDF or Excel workbook.
+        them before generating, or use the "New Report" card to combine any topics across Condition Based Oil, Time Based Oil,
+        Inventory, and Forecast into one PDF or Excel workbook.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 16 }}>
+        <NewReportCard T={T} s={s} onClick={() => setView("new")} />
+
         <ReportCard
           T={T} s={s} icon="ti-clipboard-list" iconColor="danger" title="Contractor Action Status"
           description="Open · In Progress · Waiting Stoppage"
