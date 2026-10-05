@@ -9,13 +9,15 @@ which is deliberately never touched — so it can actually be fixed.
 ## Files
 
 - **`vib-id-merge/`** — the kit that built the `VIB_ID` system now live in
-  production: `Migrate.gs` (the equipment-ID rename), the rebuilt Register
-  CSVs, and the original sandbox plan. Its own README still describes the
-  sandbox-stage plan (tab named `🔗 VIB Point Map`, spaced header text) —
-  superseded by what actually shipped: a tab named `VIB ID Registry` with
-  underscore-separated headers (`VIB_ID`, `Equipment_ID`, etc., one with a
-  stray trailing space). `Code.fixed.gs`'s `readVibRegistry()` (see below)
-  is what actually reads it now, not `Code.v2.gs`.
+  production: `Migrate.gs` (the equipment-ID rename), `BackfillVibIds.gs`
+  (fills the VIB ID column on existing RMS/SPM DATA rows from the
+  registry), the rebuilt Register CSVs, and the original sandbox plan. Its
+  own README still describes the sandbox-stage plan (tab named `🔗 VIB
+  Point Map`, spaced header text) — superseded by what actually shipped: a
+  tab named `VIB ID Registry` with underscore-separated headers (`VIB_ID`,
+  `Equipment_ID`, etc., one with a stray trailing space). `Code.fixed.gs`'s
+  `readVibRegistry()` (see below) is what actually reads it now, not
+  `Code.v2.gs`.
 - **`Code.gs`** — the script originally deployed behind the app's default
   webhook URL (`DEFAULT_WEBHOOK_URL` in `src/config.js`), reproduced
   verbatim as supplied, version "v3.1". One transcription artifact was

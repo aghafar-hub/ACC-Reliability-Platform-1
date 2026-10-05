@@ -77,9 +77,12 @@ guessed.
    give them proper names in the rebuilt Register before relying on them —
    not blocking, just cosmetic.
 6. **`Code.v2.gs`** (in the parent `apps-script/` folder, not this one) —
-   the backend addition that reads the new VIB Point Map tab into
-   `readAll()`. Paste into the sandbox project, Deploy → Manage
-   deployments → New version → Deploy.
+   superseded, see that folder's own README. `Code.fixed.gs` is the one
+   actually wired to the real "VIB ID Registry" tab now.
+7. **`BackfillVibIds.gs`** — once the real sheet is on this schema for
+   real: fills the (blank) VIB ID column on every existing RMS/SPM DATA
+   row by matching against "VIB ID Registry". See "Backfilling VIB ID on
+   existing RMS/SPM DATA rows" below.
 
 ## Post-migration audit
 
@@ -121,6 +124,53 @@ next to each point, and Equipment Register shows a VIB ID coverage column
 per equipment — but switching `DEFAULT_WEBHOOK_URL` over from production
 to this sandbox is still a decision for you to make explicitly, not
 something this kit does on its own.
+
+## Backfilling VIB ID on existing RMS/SPM DATA rows
+
+Now that the production `📥 RMS DATA`/`📥 SPM DATA` sheets have a real "VIB
+ID" column (see the main `apps-script/README.md`'s v3.2 notes) but it's
+blank on every pre-existing row, **`BackfillVibIds.gs`** fills it in by
+matching each row against "VIB ID Registry" — paste it as an additional
+file in the same Apps Script project as `Code.fixed.gs` (it calls that
+file's `readVibRegistry()` directly, so `Code.fixed.gs` must already be the
+deployed `Code.gs`), then run `backfillRmsVibIds()` and `backfillSpmVibIds()`
+as two separate Run clicks, same reasoning as `Migrate.gs` above.
+
+It only ever fills a blank VIB ID cell, never overwrites one that already
+has a value — safe to re-run any time, including after a partial run or
+after the registry itself gains new rows. It does **not** attempt the
+position-code-derivation guess the earlier `redesign_data_sheets.py`
+script used as a fallback — anything that doesn't exact-match the
+registry's own Point Description text (optionally with the SPM row's own
+"Type" column appended, e.g. "Compressor DE (5)", for positions with more
+than one physical sensor) stays blank rather than being guessed.
+
+Dry-run against the real exported data (same matching rule, run offline)
+before shipping this file: **5,539 / 6,552 RMS rows matched (84.6%)**,
+**3,391 / 4,741 SPM rows matched (71.5%)**. Every remaining miss traced
+back to a real data gap, not a matching bug:
+
+- A few equipment still carry an old-format, typo'd ID in `RMS`/`SPM
+  DATA` that was never corrected — `645.BL580`/`645.BL630`/`645.BL635`
+  should be `465.BL580`/`465.BL630`/`465.BL635` (the same correction
+  noted in the "Coverage" section above), but that rename was never added
+  to `Migrate.gs`'s own `EQUIPMENT_ID_MAP`, so those rows' Equipment ID
+  cells still don't match anything in the registry. Worth adding to
+  `EQUIPMENT_ID_MAP` and re-running the relevant `migrate*()` function if
+  you want these three equipment covered.
+- A handful of "inboard"/"outboard" wording mismatches between the live
+  sheet's point names and the registry's own description text (e.g. the
+  sheet says "Shaft 2 outboard NDE", the registry says "Shaft 2 inboard
+  NDE (SPM)" for the same physical sensor) — the same kind of
+  registry-internal inconsistency flagged in "Post-migration audit" above.
+- Equipment with no SPM points in the registry at all yet (e.g.
+  `644/645/646.FN952`) — needs the registry itself extended, not a
+  smarter matcher.
+- Every "Gs" (Peakvue/spectrum) row is deliberately left unmatched —
+  SPM DATA rows only ever match the registry's "SPM" family, never "Gs",
+  since the app's own data model treats a whole SPM point (HDm/HDc/Gs
+  together) as one lookup; "Gs" family registry rows exist for a channel
+  the app doesn't surface yet.
 
 ## RMS/SPM/GS data redesign (backfill for the new lean schema)
 
