@@ -6,7 +6,8 @@
 // This is the real, already-deployed backend behind apps/oil-analysis (the
 // embedded legacy Oil app) — not backend/oil-analysis (a separate,
 // Routine/LP_ID-based backend built earlier for a module that was never
-// linked into the sidebar; parked for possible later use, see docs/).
+// linked into the sidebar; deleted once this backend was confirmed as the
+// real one — see docs/).
 //
 // BACKWARD COMPATIBLE: readAll / append / updateRow / deleteRow all still work
 // exactly as before — existing app continues to function during migration.

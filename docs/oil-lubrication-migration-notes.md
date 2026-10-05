@@ -4,8 +4,9 @@ Tracks the redesign of `apps/oil-analysis` (the embedded legacy Oil
 Analysis app) and `backend/oil-lubrication/src/Code.js` (its real, deployed
 Apps Script backend) to match the live "Oil Lubrication Data Base" Google
 Sheet, tab by tab. `backend/oil-analysis/` (a separate, Routine/LP_ID-based
-backend built earlier for a module never linked into the sidebar) is not
-part of this — parked for possible later use.
+backend built earlier for a module never linked into the sidebar) was not
+part of this — parked for possible later use, then deleted once this
+module's own backend was confirmed as the real, deployed one.
 
 ## Step 1 — Equipment Registry (done)
 

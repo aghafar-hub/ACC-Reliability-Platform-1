@@ -90,7 +90,14 @@ temporary password in one pass, logged the same way. Works for any subset
 of the 7 too (e.g. if only one account's password got lost, it still
 re-logs all 7, so you don't have to remember which one).
 
-## 3. Oil Analysis project
+## 3. Oil Analysis project (obsolete — `backend/oil-analysis/` deleted)
+
+**This section is historical only.** `backend/oil-analysis/` — the parked,
+never-linked Routine/LP_ID-based project these steps describe — was
+deleted once `backend/oil-lubrication/` (see section 4b below) was
+confirmed as the real, deployed replacement actually behind
+`apps/oil-analysis`. Left in place for the record; don't follow these
+steps.
 
 Same steps, against the "Oil Lubrication Data Base" Sheet instead:
 
@@ -165,9 +172,10 @@ session couldn't verify directly.
 
 ## 4b. Live "Oil Lubrication" backend — enabling the shared-secret check
 
-The above (sections 2–4) documents the parked, never-linked
-Routine/LP_ID-based `backend/oil-analysis/` project. The app actually in
-production is `apps/oil-analysis`, backed by `backend/oil-lubrication/src/Code.js`
+Section 3 above documented the parked, never-linked Routine/LP_ID-based
+`backend/oil-analysis/` project, since deleted (see that section's own
+note). The app actually in production is `apps/oil-analysis`, backed by
+`backend/oil-lubrication/src/Code.js`
 deployed against the "Oil Lubrication Data Base" Sheet — see
 `docs/oil-lubrication-migration-notes.md` for that project's full history.
 

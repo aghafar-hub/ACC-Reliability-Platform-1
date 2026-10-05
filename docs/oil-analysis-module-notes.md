@@ -446,8 +446,10 @@ Both real backends were then built against the schema in
   signed token carrying `{uid, email, org, roles}`, captured at login so
   every module can verify locally with no callback. `requireAppAdmin_`
   wired to `USER_ROLES`.
-- Oil Analysis: full backend (`backend/oil-analysis/`) — LP register
-  read/query + App-Admin-only writes, the full Routine workflow
+- Oil Analysis: full backend (`backend/oil-analysis/`, later deleted once
+  `backend/oil-lubrication/` was confirmed as the real, deployed
+  replacement — see `docs/oil-lubrication-migration-notes.md`) — LP
+  register read/query + App-Admin-only writes, the full Routine workflow
   (create → technician executes items → submit → Contractor
   Engineer/Manager approves, writing `OA_CHANGE_LOG`/`OA_SAMPLES` only on
   approval → ACC comment, never blocking), and the due-date auto-flag
