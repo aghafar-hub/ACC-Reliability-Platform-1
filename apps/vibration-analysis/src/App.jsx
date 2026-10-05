@@ -204,8 +204,27 @@ export default function App({ navBridge } = {}) {
     }
     setSyncState({ status: "loading", message: "Loading…" });
     try {
-      const data = await getStartupBundle(url);
+      let data = await getStartupBundle(url);
       if (data.error) throw new Error(data.error);
+      // RELIABILITY: Apps Script Web Apps can intermittently come back with
+      // a valid-but-empty response on the very first hit after a redeploy or
+      // idle period (a cold-start quirk, not a real "this spreadsheet has no
+      // equipment yet" state) — the identical request has been observed to
+      // succeed with real data moments later with no code change. One
+      // silent retry (inline, so `finally` below still only fires once the
+      // retry itself has settled) covers this so the user never has to
+      // notice and click Sync manually to get a second attempt.
+      const isEmptyBundle = (d) =>
+        (d.compliance || []).length === 0 &&
+        (d.rmsRegister || []).length === 0 &&
+        (d.spmRegister || []).length === 0 &&
+        (d.lastRms || []).length === 0 &&
+        (d.lastSpm || []).length === 0;
+      if (isEmptyBundle(data)) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        data = await getStartupBundle(url);
+        if (data.error) throw new Error(data.error);
+      }
       setCompliance((data.compliance || []).map(rowToCompliance));
       setRmsRegister((data.rmsRegister || []).map(rowToRmsRegister));
       setSpmRegister((data.spmRegister || []).map(rowToSpmRegister));
