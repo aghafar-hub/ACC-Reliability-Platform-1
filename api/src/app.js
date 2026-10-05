@@ -9,6 +9,11 @@ import { routinesRouter, routineItemsRouter } from "./routes/routines.js";
 import { oilInventoryRouter } from "./routes/oilInventory.js";
 import { routeTemplatesRouter } from "./routes/routeTemplates.js";
 import { oilReferenceRouter } from "./routes/oilReference.js";
+import { vibPointsRouter } from "./routes/vibPoints.js";
+import { vibRegistersRouter } from "./routes/vibRegisters.js";
+import { vibReadingsRouter } from "./routes/vibReadings.js";
+import { vibComplianceRouter } from "./routes/vibCompliance.js";
+import { vibActionsRouter } from "./routes/vibActions.js";
 
 export const app = express();
 
@@ -27,6 +32,11 @@ app.use("/routine-items", routineItemsRouter);
 app.use("/oil-inventory", oilInventoryRouter);
 app.use("/route-templates", routeTemplatesRouter);
 app.use("/", oilReferenceRouter);
+app.use("/vib-points", vibPointsRouter);
+app.use("/", vibRegistersRouter);
+app.use("/", vibReadingsRouter);
+app.use("/compliance", vibComplianceRouter);
+app.use("/vib-actions", vibActionsRouter);
 
 // Centralized error handler — any route that throws (including a rejected
 // promise, since this project's routes are all async) lands here instead of
