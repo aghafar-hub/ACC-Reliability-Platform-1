@@ -27,3 +27,8 @@ dist-embed/
 # Logs
 *.log
 npm-debug.log*
+
+# Real exported production data — never commit, local migration testing only
+/data/
+*.xlsx
+*.xlsm
