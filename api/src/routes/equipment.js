@@ -7,6 +7,7 @@
 import { Router } from "express";
 import { pool } from "../db.js";
 import { requireAuth, requireRole } from "../auth.js";
+import { friendlyForeignKeyError } from "../dbErrors.js";
 
 export const equipmentRouter = Router();
 equipmentRouter.use(requireAuth);
@@ -95,6 +96,11 @@ equipmentRouter.post("/", requireRole("App Admin"), async (req, res) => {
     );
   } catch (err) {
     if (err.code === "ER_DUP_ENTRY") return res.status(409).json({ error: `Equipment ${equipmentId} already exists` });
+    const fkError = friendlyForeignKeyError(err, {
+      fk_equipment_org: `Organization ${orgId} does not exist`,
+      fk_equipment_parent: `Parent equipment ${parentEquipmentId} does not exist`,
+    });
+    if (fkError) return res.status(400).json({ error: fkError });
     throw err;
   }
   res.status(201).json({ equipmentId });
@@ -124,10 +130,19 @@ equipmentRouter.put("/:equipmentId", requireRole("App Admin"), async (req, res) 
   }
   if (sets.length === 0) return res.status(400).json({ error: "No updatable fields in request body" });
 
-  const [result] = await pool.query(`UPDATE equipment SET ${sets.join(", ")} WHERE equipment_id = ?`, [
-    ...params,
-    req.params.equipmentId,
-  ]);
-  if (result.affectedRows === 0) return res.status(404).json({ error: "Equipment not found" });
-  res.json({ status: "ok" });
+  try {
+    const [result] = await pool.query(`UPDATE equipment SET ${sets.join(", ")} WHERE equipment_id = ?`, [
+      ...params,
+      req.params.equipmentId,
+    ]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Equipment not found" });
+    res.json({ status: "ok" });
+  } catch (err) {
+    const fkError = friendlyForeignKeyError(err, {
+      fk_equipment_org: `Organization ${req.body.orgId} does not exist`,
+      fk_equipment_parent: `Parent equipment ${req.body.parentEquipmentId} does not exist`,
+    });
+    if (fkError) return res.status(400).json({ error: fkError });
+    throw err;
+  }
 });
