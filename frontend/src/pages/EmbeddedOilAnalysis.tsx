@@ -82,7 +82,10 @@ export default function EmbeddedOilAnalysis() {
     embeddedNav.register(MODULE_ID, navBridge);
     embeddedNav.setLoadState(MODULE_ID, 'loading');
 
-    const modulePath = `${import.meta.env.BASE_URL}apps/oil-analysis/embed.js`;
+    // ?v=<build sha> cache-busts the PWA service worker's runtime cache for
+    // this file — see EmbeddedVibrationAnalysis.tsx's identical comment and
+    // frontend/vite.config.ts's runtimeCaching entry for /apps/.
+    const modulePath = `${import.meta.env.BASE_URL}apps/oil-analysis/embed.js?v=${import.meta.env.VITE_BUILD_SHA || "dev"}`;
     import(/* @vite-ignore */ modulePath).then((mod: { mountOilAnalysis: MountFn }) => {
       embeddedNav.setLoadState(MODULE_ID, 'ready');
       if (!containerRef.current) return;

@@ -37,6 +37,14 @@ jobs:
         env:
           VITE_PLATFORM_CORE_URL: ${{ vars.VITE_PLATFORM_CORE_URL }}
           VITE_OIL_ANALYSIS_URL: ${{ vars.VITE_OIL_ANALYSIS_URL }}
+          # Cache-busts the two embedded modules' dynamically-imported
+          # embed.js (see EmbeddedOilAnalysis.tsx / EmbeddedVibrationAnalysis.tsx)
+          # — their filename never changes between builds, so without this
+          # the PWA service worker's StaleWhileRevalidate cache for /apps/
+          # (frontend/vite.config.ts) can keep serving an old build for up
+          # to 30 days after a real deploy, since nothing about the URL
+          # signals that a new version exists.
+          VITE_BUILD_SHA: ${{ github.sha }}
         run: npx vite build --base=/${{ github.event.repository.name }}/
 
       - name: Build Vibration Analysis standalone (still directly reachable too — no source changes)

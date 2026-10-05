@@ -40,7 +40,13 @@ export default function EmbeddedVibrationAnalysis() {
     embeddedNav.register(MODULE_ID, navBridge);
     embeddedNav.setLoadState(MODULE_ID, 'loading');
 
-    const modulePath = `${import.meta.env.BASE_URL}apps/vibration-analysis/embed.js`;
+    // ?v=<build sha> cache-busts the PWA service worker's runtime cache for
+    // this file (see frontend/vite.config.ts's runtimeCaching entry for
+    // /apps/ — StaleWhileRevalidate, 30-day maxAge) — embed.js's own
+    // filename never changes between builds, so without this a browser that
+    // already cached an old version could keep running it for up to 30 days
+    // after a real deploy, no matter how many times the page is reloaded.
+    const modulePath = `${import.meta.env.BASE_URL}apps/vibration-analysis/embed.js?v=${import.meta.env.VITE_BUILD_SHA || "dev"}`;
     import(/* @vite-ignore */ modulePath).then((mod: { mountVibrationAnalysis: MountFn }) => {
       embeddedNav.setLoadState(MODULE_ID, 'ready');
       if (!containerRef.current) return;
