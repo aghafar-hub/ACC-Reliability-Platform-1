@@ -61,15 +61,17 @@ reviving blind), and the separate `OL_MODULE_RESPONSIBILITIES`/
 with `organizations`/`user_roles` but don't map onto them 1:1 without a
 larger RBAC rework — flagged for a follow-up pass, not merged blind).
 
+## Status
+
+**Schema: done.** **API layer: done** — see `../api/README.md` for how to
+run it locally and what every endpoint covers. All of it tested end-to-end
+against a real local database before being committed.
+
 ## Not done yet (next steps, in order)
 
-1. **Your review** of this schema — table/column names, anything missing,
-   anything that should be modeled differently.
-2. API layer design (what runs on Cloud Run/Functions and talks to this
-   database — replaces each Apps Script backend's `doGet`/`doPost`).
-3. Real data migration (exporting the live Google Sheets data and loading it
+1. Real data migration (exporting the live Google Sheets data and loading it
    into these tables) — not started, and won't touch the live spreadsheets
    either way.
-4. Only after all of the above is proven working: an actual cutover plan for
-   moving the live app over, with the current system kept running in
-   parallel until it's confirmed safe to retire.
+2. Only after that's proven working: an actual cutover plan for moving the
+   live app over, with the current system kept running in parallel until
+   it's confirmed safe to retire.
