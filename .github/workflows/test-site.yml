@@ -1,0 +1,24 @@
+name: Redeploy with the test copy
+
+# A push to the test branch doesn't deploy anything by itself. It asks the
+# default (live) branch's own "Deploy to GitHub Pages" workflow to run again,
+# so every deploy still happens from the live branch exactly as before: the
+# live site is rebuilt unchanged from the live branch, and the test copy
+# from claude/test-site goes into /test/ (see deploy.yml's test-copy steps).
+
+on:
+  push:
+    branches:
+      - claude/test-site
+
+permissions:
+  actions: write
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the live branch's deploy workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml --repo "${{ github.repository }}" --ref "${{ github.event.repository.default_branch }}"
