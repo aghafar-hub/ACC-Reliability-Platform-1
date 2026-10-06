@@ -518,10 +518,18 @@ export async function addActionRegistryEntry(webhookUrl, label) {
 
 // ── Writes (each verified by a follow-up read) ──────────────────────────
 
+// Phase 2: action._submit = the Submit button (Draft → Open); Due Date and
+// Duration ride along as workflow fields — the server stores them only while
+// the action is a Draft (later changes go through rescheduleAction).
+function actionWorkflowFields(action) {
+  return { submit: !!action._submit, dueDate: action.dueDate || "", duration: action.duration ?? "" };
+}
+
 export async function saveAction(webhookUrl, action, { isNew }) {
   const row = actionToRow(action);
+  const workflow = actionWorkflowFields(action);
   if (isNew) {
-    await postBlind(webhookUrl, { action: "append", sheet: "Action Tracker", row, headers: ACTION_HEADERS });
+    await postBlind(webhookUrl, { action: "append", sheet: "Action Tracker", row, headers: ACTION_HEADERS, workflow });
   } else {
     const matchCols = action._matchCols || [0, 1];
     const matchValues = action._matchValues || [action.acNo || "", action.equipmentCode || action.unitId || ""];
@@ -529,7 +537,7 @@ export async function saveAction(webhookUrl, action, { isNew }) {
     // edit landed since this one started" apart from a normal write — see
     // Utils.js's hasConflict_. Only meaningful on an existing row; a new
     // action has no prior Last Modified to compare against.
-    await postBlind(webhookUrl, { action: "updateRow", sheet: "Action Tracker", matchCols, matchValues, row, expectedLastModified: action.lastModified || "" });
+    await postBlind(webhookUrl, { action: "updateRow", sheet: "Action Tracker", matchCols, matchValues, row, workflow, expectedLastModified: action.lastModified || "" });
   }
 
   const verify = await getEquipmentRows(webhookUrl, action.equipmentCode || action.unitId || "");
@@ -541,7 +549,9 @@ export async function saveAction(webhookUrl, action, { isNew }) {
     }
     logVerificationMismatch("saveAction", row, savedRow, ACTION_HEADERS);
     throw new SaveVerificationError(
-      `The action wasn't confirmed saved to the sheet. It may not have written — please check the Action Tracker tab and try again.`
+      action._submit
+        ? `The action wasn't submitted. Submit needs the Agreed Action, Assigned To, Due Date and Duration, and is done by an ACC Engineer or the contractor's engineer.`
+        : `The action wasn't confirmed saved to the sheet. It may not have written — please check the Action Tracker tab and try again.`
     );
   }
   return rowToAction(savedRow);
@@ -573,6 +583,14 @@ export function decideActionClosure(webhookUrl, action, decision, note) {
     webhookUrl, action, { action: "decideActionClosure", decision, note: note || "" },
     (a) => (decision === "Approve" ? a.closureDecision === "Approved" : a.closureDecision === "Rejected" && a.status === ACTION_STATUS.OPEN),
     "The decision wasn't confirmed — only an ACC Engineer can approve or reject a closure. Please try again."
+  );
+}
+
+export function rescheduleAction(webhookUrl, action, newDueDate, reason) {
+  return actionWorkflowStep(
+    webhookUrl, action, { action: "rescheduleAction", newDueDate, reason },
+    (a) => sameCalendarDay(a.dueDate, newDueDate) && a.rescheduleReason === reason,
+    "The new due date wasn't confirmed — only an ACC Engineer or the contractor's engineer can reschedule. Please try again."
   );
 }
 

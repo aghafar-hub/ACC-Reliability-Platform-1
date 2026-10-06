@@ -228,21 +228,20 @@ var AGING_ACTION_DAYS = 14; // matches ActionTracker.jsx's own ageColor threshol
 function sendAgingActionsDigest() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Action Tracker", true);
-  var cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - AGING_ACTION_DAYS);
 
   var byContractor = {}; // contractor -> { noOwner: [...], aging: [...] }
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    // Phase 2: only Open actions age (Waiting Stoppage is never overdue).
+    // Phase 2: overdue = Open and past Due Date + Duration + 5 days
+    // (Waiting Stoppage is never overdue) — see ActionWorkflow.js.
     var status = normActionStatus_(r[10]);
-    if (status !== ACTION_STATUS.OPEN) continue;
+    if (!isActionRowOverdue_(r)) continue;
     var d = r[5] instanceof Date ? r[5] : new Date(r[5]);
-    if (isNaN(d.getTime()) || d > cutoff) continue; // not old enough yet
+    var dueEnd = actionDueEnd_(r);
     var contractor = String(r[12] || "").trim();
     if (!contractor) continue;
     var assignedTo = String(r[19] || "").trim();
-    var entry = { acNo: String(r[0] || "").trim(), equipmentCode: String(r[1] || "").trim(), status: status, revisionDate: d, assignedTo: assignedTo };
+    var entry = { acNo: String(r[0] || "").trim(), equipmentCode: String(r[1] || "").trim(), status: status, revisionDate: d, dueEnd: dueEnd, assignedTo: assignedTo };
     if (!byContractor[contractor]) byContractor[contractor] = { noOwner: [], aging: [] };
     if (assignedTo) byContractor[contractor].aging.push(entry);
     else byContractor[contractor].noOwner.push(entry);
@@ -254,29 +253,29 @@ function sendAgingActionsDigest() {
     var reviewers = getNotifyReviewers_(contractor);
     if (reviewers.length === 0) return;
 
-    var lines = ["Actions open " + AGING_ACTION_DAYS + "+ days for " + contractor + ":", ""];
+    var lines = ["Overdue actions for " + contractor + ":", ""];
     if (bucket.noOwner.length) {
       lines.push(bucket.noOwner.length + " with NO OWNER assigned:");
       bucket.noOwner.forEach(function (e) {
-        lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (" + e.status + ", opened " + formatDateForEmail_(e.revisionDate) + ")");
+        lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (overdue since " + formatDateForEmail_(e.dueEnd) + ")");
       });
       lines.push("");
     }
     if (bucket.aging.length) {
       lines.push(bucket.aging.length + " assigned but still aging:");
       bucket.aging.forEach(function (e) {
-        lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (" + e.status + ", assigned to " + e.assignedTo + ", opened " + formatDateForEmail_(e.revisionDate) + ")");
+        lines.push("  - " + e.acNo + " / " + e.equipmentCode + " (assigned to " + e.assignedTo + ", overdue since " + formatDateForEmail_(e.dueEnd) + ")");
       });
     }
     var agingCount = bucket.noOwner.length + bucket.aging.length;
     recordInAppNotificationForEach_(
       ss, reviewers, "aging-actions",
-      agingCount + " action(s) open " + AGING_ACTION_DAYS + "+ days for " + contractor,
+      agingCount + " overdue action(s) for " + contractor,
       contractor, "actions", ""
     );
     sendNotificationEmail_({
       to: reviewers.join(","),
-      subject: "Oil Lubrication: " + agingCount + " aging action(s) — " + contractor,
+      subject: "Oil Lubrication: " + agingCount + " overdue action(s) — " + contractor,
       body: lines.join("\n"),
     });
   });

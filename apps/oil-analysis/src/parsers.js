@@ -454,19 +454,52 @@ export function normActionStatus(status) {
   const s = String(status || "").trim();
   return s === "In Progress" ? ACTION_STATUS.OPEN : s;
 }
-// Overdue: an Open action not closed 14 days after its Revision Date.
-// Waiting Stoppage (and every other status) is never overdue.
-export const ACTION_OVERDUE_DAYS = 14;
+// Overdue: an Open action past Due Date + Duration + 5 days (same rule as
+// the server's isActionRowOverdue_). Waiting Stoppage and the other
+// statuses are never overdue. Actions from before due dates existed use
+// Revision Date + 14 days as their due date.
+export const ACTION_OVERDUE_GRACE_DAYS = 5;
+export const ACTION_DRAFT_DUE_DAYS = 7;
+const ACTION_LEGACY_DUE_DAYS = 14;
 export function actionAgeDays(a) {
   if (!a?.revisionDate) return null;
   const d = new Date(a.revisionDate);
   if (Number.isNaN(d.getTime())) return null;
   return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
+function dayStart(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+// The effective due date (Due Date, or Revision Date + 14 for old rows).
+export function actionDueDate(a) {
+  const due = dayStart(a?.dueDate);
+  if (due) return due;
+  const rev = dayStart(a?.revisionDate);
+  return rev ? new Date(rev.getFullYear(), rev.getMonth(), rev.getDate() + ACTION_LEGACY_DUE_DAYS) : null;
+}
+// Last day before it counts as overdue.
+export function actionDueEnd(a) {
+  const due = actionDueDate(a);
+  if (!due) return null;
+  return new Date(due.getFullYear(), due.getMonth(), due.getDate() + (Number(a.duration) || 0) + ACTION_OVERDUE_GRACE_DAYS);
+}
+export function actionDaysOverdue(a) {
+  const end = actionDueEnd(a);
+  if (!end) return null;
+  return Math.floor((Date.now() - end.getTime()) / 86400000);
+}
 export function isActionOverdue(a) {
   if (normActionStatus(a?.status) !== ACTION_STATUS.OPEN) return false;
-  const days = actionAgeDays(a);
-  return days != null && days > ACTION_OVERDUE_DAYS;
+  const days = actionDaysOverdue(a);
+  return days != null && days >= 1;
+}
+function isoDay(v) {
+  const d = dayStart(v);
+  if (!d) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function rowToAction(row) {
@@ -523,6 +556,14 @@ export function rowToAction(row) {
     closureDecisionDate: formatDate(row[25]),
     closureDecisionNote: row[26] || "",
     createdByRule: row[27] || "",
+    // Due Date as YYYY-MM-DD (for the date picker) and Duration in days.
+    dueDate: isoDay(row[29]),
+    duration: row[30] === "" || row[30] == null ? "" : Number(row[30]),
+    closureFrom: row[31] || "",
+    originalDueDate: formatDate(row[32]),
+    rescheduleReason: row[33] || "",
+    rescheduledBy: row[34] || "",
+    rescheduledDate: formatDate(row[35]),
     _id: `${equipmentCode}_${acNo}_${revisionDate}`,
     _matchCols: [0, 1],
     _matchValues: [acNo, equipmentCode],
@@ -541,8 +582,7 @@ export function actionToRow(a) {
     a.sampleResult || "",
     a.sampleAnalysis || "",
     a.lastChange || "",
-    // A Draft becomes Open once it has an Agreed Action (same rule the server applies).
-    normActionStatus(a.status) === ACTION_STATUS.DRAFT && String(a.agreedAction || "").trim() ? ACTION_STATUS.OPEN : a.status || "",
+    a.status || "",
     a.contractorAction || "",
     a.contractor || "",
     a.completedDate || "",

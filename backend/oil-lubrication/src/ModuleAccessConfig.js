@@ -98,6 +98,7 @@ var MA_CONFIG = {
     requestActionClosure: ["actions"],
     decideActionClosure: ["actions"],
     closeAction: ["actions"],
+    rescheduleAction: ["actions"],
     rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
     submitRoutineItem: ["routines", "mywork"],

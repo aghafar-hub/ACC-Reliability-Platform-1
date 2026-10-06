@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSession, useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
-import { nextAcNo, formatDate, ACTION_STATUS, isActionOverdue, actionAgeDays } from "../parsers";
+import { nextAcNo, formatDate, ACTION_STATUS, ACTION_DRAFT_DUE_DAYS, isActionOverdue, actionDaysOverdue, actionDueEnd } from "../parsers";
 import { useActionWorkflow } from "../ActionWorkflowContext";
 import { toISODate, latestOilChangeFor, autofillFromEquipment } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
@@ -90,6 +90,12 @@ export default function EditActionModal({
     // today's date, still freely editable afterward like every other date
     // field here.
     if (isNew && !base.revisionDate) base.revisionDate = toISODate(new Date());
+    // Phase 2: a new action starts as a Draft due in 7 days (editable).
+    if (isNew) {
+      base.status = ACTION_STATUS.DRAFT;
+      if (!base.dueDate) base.dueDate = toISODate(new Date(Date.now() + ACTION_DRAFT_DUE_DAYS * 86400000));
+      if (base.duration === undefined || base.duration === "") base.duration = 0;
+    }
     base.lastChange = toISODate(base.lastChange);
     base.completedDate = toISODate(base.completedDate);
     if (scopedContractor && !base.contractor) base.contractor = scopedContractor;
@@ -143,15 +149,41 @@ export default function EditActionModal({
   }
 
   const isClosed = (form.status || "Open") === ACTION_STATUS.CLOSED;
-  const isDraft = form.status === ACTION_STATUS.DRAFT;
-  const statusLocked = form.status === ACTION_STATUS.CLOSURE_REQUESTED || isClosed;
+  const isDraft = isNew || form.status === ACTION_STATUS.DRAFT;
+  // Waiting Stoppage is one-way: it goes on to closure, never back to Open.
+  const statusLocked = form.status === ACTION_STATUS.CLOSURE_REQUESTED || isClosed || form.status === ACTION_STATUS.WAITING;
+  const actionContractor = form.contractor || equipmentRegistry?.find((r) => r.code === equipCode)?.contractor || "";
+  const isContractorEngineerFor = useIsRouteEngineerFor(actionContractor);
+  const isAccEngineerHere = useIsAccEngineer();
+  const canSubmit = isContractorEngineerFor || isAccEngineerHere;
+  const [submitError, setSubmitError] = useState("");
 
-  function handleSave() {
+  function missingForSubmit() {
+    const missing = [];
+    if (!String(form.agreedAction || "").trim()) missing.push("Agreed Action");
+    if (!String(form.assignedTo || "").trim()) missing.push("Assigned To");
+    if (!form.dueDate) missing.push("Due Date");
+    if (form.duration === "" || form.duration == null || Number.isNaN(Number(form.duration)) || Number(form.duration) < 0) missing.push("Duration");
+    if (!equipCode) missing.push("Equipment");
+    return missing;
+  }
+
+  function handleSave(submit = false) {
+    if (submit) {
+      const missing = missingForSubmit();
+      if (missing.length) {
+        setSubmitError(`To submit, fill in: ${missing.join(", ")}.`);
+        return;
+      }
+    }
     const acNo = isNew ? nextAcNo(allActions || []) : form.acNo;
     const payload = {
       ...form,
       acNo,
       equipmentCode: equipCode,
+      status: submit ? ACTION_STATUS.OPEN : isNew ? ACTION_STATUS.DRAFT : form.status,
+      duration: form.duration === "" ? "" : Number(form.duration),
+      _submit: submit,
       closingComment: isClosed ? form.closingComment || "" : "",
       _matchCols: isNew ? undefined : form._matchCols || [0, 1],
       _matchValues: isNew ? undefined : form._matchValues || [form.acNo, equipCode],
@@ -187,7 +219,7 @@ export default function EditActionModal({
     // calls api.createRoutine() with this, the same "compute a signal here,
     // execute it after save confirms up in App.jsx" pattern _oilChangeTarget
     // above already uses.
-    if (isContractorEngineer) {
+    if (isContractorEngineer && payload.status !== ACTION_STATUS.DRAFT) {
       const originalChips = chipsOf(action.agreedAction, actionRegistry);
       const newChips = chipsOf(form.agreedAction, actionRegistry);
       const newlyAdded = ROUTE_TRIGGER_PHRASES.filter(
@@ -388,12 +420,14 @@ export default function EditActionModal({
         {isDraft && (
           <div style={{ border: `1px solid ${T.danger}`, borderRadius: 8, padding: "10px 12px", marginBottom: 16, fontSize: 12.5 }}>
             <strong style={{ color: T.danger }}>Draft{action.createdByRule ? ` — created automatically (${action.createdByRule})` : ""}.</strong>{" "}
-            Add the contractor and ACC recommendations and the Agreed Action, then Save — it becomes Open.
+            Fill in the recommendations, Agreed Action, Assigned To, Due Date and Duration, then press Submit — it becomes Open.
+            Save as Draft keeps your changes without submitting.
           </div>
         )}
         {isActionOverdue(form) && (
           <div style={{ border: `1px solid ${T.danger}`, borderRadius: 8, padding: "8px 12px", marginBottom: 16, fontSize: 12.5, color: T.danger }}>
-            Overdue — open for {actionAgeDays(form)} days (more than 14).
+            Overdue by {actionDaysOverdue(form)} day{actionDaysOverdue(form) === 1 ? "" : "s"} (due date + duration + 5 days ended{" "}
+            {actionDueEnd(form)?.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}).
           </div>
         )}
 
@@ -417,7 +451,40 @@ export default function EditActionModal({
                 ))}
               </select>
             )}
-            {isDraft && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Becomes Open when the Agreed Action is saved</p>}
+            {isDraft && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Press Submit to make it Open</p>}
+          </div>
+          <div>
+            <label style={{ ...s.label, fontSize: 11 }}>Due Date</label>
+            {isDraft ? (
+              <input style={{ ...s.input, fontSize: 13 }} type="date" aria-label="Due Date" value={form.dueDate || ""} onChange={(e) => set("dueDate", e.target.value)} />
+            ) : (
+              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+                {form.dueDate ? formatDate(form.dueDate) : "—"}
+              </div>
+            )}
+            {!isDraft && form.originalDueDate && (
+              <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>
+                First due {form.originalDueDate}. Rescheduled{form.rescheduledBy ? ` by ${form.rescheduledBy}` : ""}: {form.rescheduleReason}
+              </p>
+            )}
+          </div>
+          <div>
+            <label style={{ ...s.label, fontSize: 11 }}>Duration (days)</label>
+            {isDraft ? (
+              <input
+                style={{ ...s.input, fontSize: 13 }}
+                type="number"
+                min="0"
+                aria-label="Duration (days)"
+                value={form.duration ?? ""}
+                onChange={(e) => set("duration", e.target.value)}
+              />
+            ) : (
+              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+                {form.duration === "" || form.duration == null ? "—" : form.duration}
+              </div>
+            )}
+            <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Overdue after Due Date + Duration + 5 days</p>
           </div>
           <div>
             <label style={{ ...s.label, fontSize: 11 }}>Completed Date</label>
@@ -472,15 +539,30 @@ export default function EditActionModal({
           {isClosed && <div style={{ gridColumn: "1 / -1" }}>{lockedTextarea("Closing Comment", "closingComment")}</div>}
         </div>
 
-        {!isNew && <ClosureSection action={action} onDone={onClose} />}
+        {!isNew && !isDraft && <RescheduleSection action={action} contractor={actionContractor} onDone={onClose} />}
+        {!isNew && <ClosureSection action={action} contractor={actionContractor} onDone={onClose} />}
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        {submitError && <p style={{ fontSize: 12.5, color: T.danger, margin: "0 0 10px", textAlign: "right" }}>{submitError}</p>}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
           <button style={s.btn} onClick={onClose}>
             Cancel
           </button>
-          <button style={s.btnPrimary} onClick={handleSave}>
-            Save
-          </button>
+          {isDraft ? (
+            <>
+              <button style={s.btn} onClick={() => handleSave(false)}>
+                Save as Draft
+              </button>
+              {canSubmit && (
+                <button style={s.btnPrimary} onClick={() => handleSave(true)}>
+                  Submit
+                </button>
+              )}
+            </>
+          ) : (
+            <button style={s.btnPrimary} onClick={() => handleSave(false)}>
+              Save
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -490,10 +572,9 @@ export default function EditActionModal({
 // Phase 2 — closure: the Contractor Engineer requests it with a comment, an
 // ACC Engineer approves (or rejects back to Open with a reason), then the
 // Contractor Engineer closes it.
-function ClosureSection({ action, onDone }) {
+function ClosureSection({ action, contractor, onDone }) {
   const { T, s } = useTheme();
   const run = useActionWorkflow();
-  const contractor = action.contractor || "";
   const isContractorEngineer = useIsRouteEngineerFor(contractor);
   const isAcc = useIsAccEngineer();
   // Only the closing comment (after ACC approval) starts from the request
@@ -618,6 +699,69 @@ function ClosureSection({ action, onDone }) {
       )}
 
       {error && <p style={{ ...muted, color: T.danger }}>{error}</p>}
+    </div>
+  );
+}
+
+// Phase 2 — after Submit, the due date moves only with a reason (either
+// engineer); the first due date and the latest reason are kept.
+function RescheduleSection({ action, contractor, onDone }) {
+  const { T, s } = useTheme();
+  const run = useActionWorkflow();
+  const isContractorSide = useIsRouteEngineerFor(contractor);
+  const isAccSide = useIsAccEngineer();
+  const canReschedule = isContractorSide || isAccSide;
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!run || !canReschedule) return null;
+  if (action.status !== ACTION_STATUS.OPEN && action.status !== ACTION_STATUS.WAITING) return null;
+
+  async function save() {
+    if (!date || !reason.trim()) {
+      setError("Choose the new due date and write the reason.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await run("reschedule", action, reason.trim(), date);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <button style={s.btn} onClick={() => setOpen(true)}>
+          <i className="ti ti-calendar-repeat" aria-hidden="true" /> Reschedule
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", marginBottom: 18, fontSize: 13 }}>
+      <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 8px" }}>Reschedule</p>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div>
+          <label style={{ ...s.label, fontSize: 11 }}>New due date</label>
+          <input style={{ ...s.input, fontSize: 13 }} type="date" aria-label="New due date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <label style={{ ...s.label, fontSize: 11 }}>Reason</label>
+          <input style={{ ...s.input, fontSize: 13 }} aria-label="Reschedule reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+        <button style={s.btnPrimary} disabled={busy} onClick={save}>
+          {busy ? "…" : "Save new date"}
+        </button>
+      </div>
+      {error && <p style={{ fontSize: 12, color: T.danger, margin: "6px 0 0" }}>{error}</p>}
     </div>
   );
 }

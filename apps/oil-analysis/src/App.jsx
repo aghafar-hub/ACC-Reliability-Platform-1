@@ -645,10 +645,11 @@ function AppShell({ config, setConfig, navBridge }) {
   // "reject" (reason), "close" (closing comment). The server checks who may
   // do each one; the saved row replaces the one in the list.
   const runActionWorkflow = useCallback(
-    async (kind, action, text) => {
+    async (kind, action, text, newDueDate) => {
       const url = config.webhookUrl;
       const saved =
-        kind === "request" ? await api.requestActionClosure(url, action, text)
+        kind === "reschedule" ? await api.rescheduleAction(url, action, newDueDate, text)
+        : kind === "request" ? await api.requestActionClosure(url, action, text)
         : kind === "approve" ? await api.decideActionClosure(url, action, "Approve", text)
         : kind === "reject" ? await api.decideActionClosure(url, action, "Reject", text)
         : await api.closeAction(url, action, text);
@@ -663,6 +664,7 @@ function AppShell({ config, setConfig, navBridge }) {
         approve: "Closure approved — the contractor engineer can close it now.",
         reject: "Closure rejected — the action is Open again.",
         close: "Action closed.",
+        reschedule: "Action rescheduled.",
       };
       pushToast(text2[kind] || "Saved.", "success");
       return saved;

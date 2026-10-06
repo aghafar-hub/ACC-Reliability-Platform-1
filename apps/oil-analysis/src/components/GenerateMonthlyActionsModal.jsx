@@ -41,7 +41,11 @@ function computeCandidates(samples, actions, equipmentRegistry, oilChanges) {
         revisionDate: toISODate(new Date()),
         sampleDate: sm.sampledDate,
         sampleResult: (sm.reportStatus || "").toUpperCase(),
-        status: "Open",
+        // Phase 2: generated actions start as Draft (due in 7 days) —
+        // complete them and press Submit.
+        status: "Draft",
+        dueDate: toISODate(new Date(Date.now() + 7 * 86400000)),
+        duration: 0,
       };
     })
     .sort((a, b) => a.equipmentCode.localeCompare(b.equipmentCode));

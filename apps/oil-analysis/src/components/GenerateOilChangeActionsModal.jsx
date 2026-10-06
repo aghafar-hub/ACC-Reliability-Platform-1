@@ -68,7 +68,11 @@ export default function GenerateOilChangeActionsModal({ oilChanges, actions, equ
         sampleResult: "",
         sampleAnalysis: "",
         lastChange: c.lastChange,
-        status: "Open",
+        // Phase 2: generated actions start as Draft (due in 7 days) —
+        // complete them and press Submit.
+        status: "Draft",
+        dueDate: toISODate(new Date(Date.now() + 7 * 86400000)),
+        duration: 0,
         contractorAction: "Change Oil",
         contractor: c.contractor,
         completedDate: "",

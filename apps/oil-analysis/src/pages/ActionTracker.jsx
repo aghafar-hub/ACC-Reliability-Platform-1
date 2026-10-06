@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue } from "../parsers";
+import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue, actionDaysOverdue, actionDueDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditActionModal from "../components/EditActionModal";
 import GenerateMonthlyActionsModal from "../components/GenerateMonthlyActionsModal";
@@ -11,9 +11,8 @@ import useIsMobile from "../hooks/useIsMobile";
 // Phase 2 statuses (old "In Progress" rows are read as Open).
 const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
 const COLUMNS = ACTION_STATUSES;
-// Dragging only moves between these; the rest go through the action's
-// Closure section (request → ACC approval → close).
-const DRAG_STATUSES = [ACTION_STATUS.OPEN, ACTION_STATUS.WAITING];
+// Dragging only does Open → Waiting Stoppage (one-way). Everything else —
+// Submit, closure, reschedule — happens inside the action.
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const AGE_BUCKETS = ["0–7d", "8–14d", "15–30d", "30d+"];
 const AGE_BUCKET_COLOR_KEY = { "0–7d": "success", "8–14d": "warning", "15–30d": "danger", "30d+": "danger" };
@@ -293,11 +292,15 @@ export default function ActionTracker({
                 fontWeight: 700,
                 padding: "2px 8px",
                 borderRadius: 20,
-                background: (isActionOverdue(a) ? T.danger : status === ACTION_STATUS.OPEN ? ageColor(T, days) : T.textMuted) + "22",
-                color: isActionOverdue(a) ? T.danger : status === ACTION_STATUS.OPEN ? ageColor(T, days) : T.textMuted,
+                background: (isActionOverdue(a) ? T.danger : T.textMuted) + "22",
+                color: isActionOverdue(a) ? T.danger : T.textSecondary,
               }}
             >
-              {isActionOverdue(a) ? `⚠ ${days}d overdue` : days == null ? "—" : `${days}d open`}
+              {isActionOverdue(a)
+                ? `⚠ ${actionDaysOverdue(a)}d overdue`
+                : actionDueDate(a)
+                  ? `Due ${actionDueDate(a).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}${Number(a.duration) ? ` +${a.duration}d` : ""}`
+                  : days == null ? "—" : `${days}d open`}
             </span>
           )}
           <span style={{ fontSize: 10.5, fontFamily: "monospace", color: T.textMuted }}>{a.acNo}</span>
@@ -329,9 +332,9 @@ export default function ActionTracker({
     const action = actions.find((a) => a._id === draggedId);
     setDraggedId(null);
     if (!action || action.status === newStatus) return;
-    // Phase 2: closure and Draft → Open happen inside the action itself.
-    const draftWithoutAgreed = action.status === ACTION_STATUS.DRAFT && !String(action.agreedAction || "").trim();
-    if (!DRAG_STATUSES.includes(newStatus) || !(DRAG_STATUSES.includes(action.status) || action.status === ACTION_STATUS.DRAFT) || draftWithoutAgreed) {
+    // Phase 2: only Open → Waiting Stoppage by dragging; Submit, closure and
+    // everything else open the action instead.
+    if (!(action.status === ACTION_STATUS.OPEN && newStatus === ACTION_STATUS.WAITING)) {
       setEditing({ action, isNew: false });
       return;
     }

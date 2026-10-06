@@ -5,43 +5,60 @@
 Action statuses become **Draft → Open → Waiting Stoppage → Closure
 Requested → Closed**. Old **In Progress** actions read as **Open**.
 
-- **Draft:** created automatically, never by hand:
-  - **Lab Caution or Alert:** when a sample with a Caution/Alert result
-    is saved, a Draft action is created for that point with the report's
-    recommendations in *Sample Analysis*. Only samples taken in the last
-    45 days count (so importing old reports doesn't flood the tracker).
-    If the point already has an
+- **Save as Draft / Submit:** a new action (and every Draft) has two
+  buttons:
+  - **Save as Draft:** keeps whatever is filled in; the action stays
+    Draft.
+  - **Submit:** needs Agreed Action, Assigned To, Due Date and Duration.
+    It makes the action **Open**. Submit is available to ACC Engineers,
+    that contractor's engineer and the App Owner. The server checks all
+    of this too.
+- **Due Date and Duration** are set while the action is a Draft. New
+  actions and automatic Drafts default to due in 7 days.
+- **Overdue:** an Open action past **Due Date + Duration + 5 days**.
+  Waiting Stoppage is never overdue. The daily overdue email uses the
+  same rule.
+- **Reschedule:** after Submit, the Due Date changes only with
+  **Reschedule** and a reason. Either the ACC Engineer or the
+  contractor's engineer can do it. The first due date is kept, and every
+  reschedule is in the Activity log.
+- **Waiting Stoppage is one-way:** it never goes back to Open. It moves on
+  to closure. The status picker and dragging only allow Open → Waiting
+  Stoppage.
+- **Automatic Drafts:**
+  - **Lab Caution or Alert:** a sample with a Caution/Alert result taken
+    in the last 45 days creates a Draft for that point, with the report's
+    recommendations in *Sample Analysis*. If the point already has an
     action that isn't Closed, no new one is made; both engineers are told
     about the new result instead.
   - **Leakage rule:** the 3rd top-up on the same point within 30 days
     creates a Draft "Check oil leakage — 3 top-ups in 30 days (dates)".
     Only one open leakage action per point.
-  - Both the ACC and that contractor's responsible engineers (Module
-    Access) get a bell notification to edit it.
-- **Open:** a Draft becomes Open as soon as its **Agreed Action** is saved.
-- **Overdue:** an Open action not closed 14 days after its Revision Date
-  (same rule as today). Waiting Stoppage is never overdue. The daily
-  aging digest now only lists Open actions.
+  - Both the ACC and that contractor's responsible engineers get a bell
+    notification to complete and submit it.
+  - **Generate Monthly Actions** and **Generate Oil Change Actions** now
+    create Drafts too.
 - **Closure:**
-  1. The Contractor Engineer presses **Request closure** with a comment.
-     ACC Engineers are notified.
+  1. The Contractor Engineer presses **Request closure** with a comment
+     (from Open or Waiting Stoppage). ACC Engineers are notified.
   2. An ACC Engineer presses **Approve closure** or **Reject** (a reason
-     is required). Reject puts the action back to Open, and the reason is
-     shown on it.
+     is required). Reject returns the action to the status it was in
+     before the request, Open or Waiting Stoppage, with the reason shown.
   3. After approval, the Contractor Engineer presses **Close action**.
      Completed Date is set automatically.
-- The status picker only moves between Open and Waiting Stoppage. Dragging
-  a card to Closure Requested or Closed opens the action instead. The
-  server refuses any other status jump.
-- Nine new columns are added at the end of `Action Tracker` (U–AC):
-  Closure Request, Closure Requested By, Closure Requested Date, Closure
-  Decision, Closure Decision By, Closure Decision Date, Closure Decision
-  Note, Created By Rule, Rule Reference. They're added automatically the
-  first time they're needed. If something is already in those columns,
-  the app stops and says which column, rather than overwrite it.
+- Sixteen new columns are added at the end of `Action Tracker` (U–AJ):
+  the closure columns, Created By Rule, Rule Reference, Due Date,
+  Duration (days), Closure Requested From, Original Due Date, Reschedule
+  Reason, Rescheduled By, Rescheduled Date. They're added automatically.
+  If something is already in those columns, the app stops and says which
+  column, rather than overwrite it.
+- **At release**, the migration also gives every action that isn't Closed
+  a Due Date of Revision Date + 14 days (Duration 0). Actions overdue
+  today stay overdue; with the 5-day grace they turn overdue 5 days later
+  than under the old rule.
 
-Saving an Agreed Action still creates routes as it does today. That
-changes to Suggestions in Phase 3.
+Saving an Agreed Action still creates routes as it does today (only on
+Submit or for non-Draft actions). That changes to Suggestions in Phase 3.
 
 ## Test copy
 

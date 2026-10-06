@@ -393,12 +393,14 @@ function doPost(e) {
         if (appendLpCol !== undefined && data.row) {
           requireLpContractorMatch_(auth.session, appendLpId);
         }
-        // Phase 2: a new action can only start as Draft/Open/Waiting Stoppage.
+        // Phase 2: a new action is saved as Draft or Submitted (→ Open).
+        var appendGuard = null;
         if (data.sheet === "Action Tracker") {
-          var appendGuard = guardActionTrackerSave_(auth.session, null, -1, data.row);
-          if (appendGuard) return jsonOut({status: "error", message: appendGuard});
+          appendGuard = guardActionTrackerSave_(auth.session, null, -1, data.row, data.workflow);
+          if (appendGuard.error) return jsonOut({status: "error", message: appendGuard.error});
         }
         appendRow(ss, data.sheet, data.row, data.headers);
+        if (appendGuard && appendGuard.dueEditable) writeActionDueFields_(ss, data.row, data.workflow);
         invalidateDashboardCache();
         logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
         // Phase 2: a lab Caution/Alert result creates a Draft action.
@@ -642,6 +644,23 @@ function doPost(e) {
         return jsonOut(closureResult.error ? {status: "error", message: closureResult.error} : {status: "ok"});
       }
 
+      // Phase 2: move an Open / Waiting Stoppage action's due date, with a reason.
+      if (data.action === "rescheduleAction") {
+        var rescheduleActionContractor = getActionContractor_(ss, data.acNo, data.equipmentCode);
+        if (!isActionEngineer_(auth.session, rescheduleActionContractor)) {
+          throw new Error("Only an ACC Engineer or this contractor's engineer can reschedule an action.");
+        }
+        data.actingUser = actingUser;
+        var rescheduleActionResult = rescheduleAction(ss, data);
+        if (!rescheduleActionResult.error) invalidateDashboardCache();
+        logError("doPost:rescheduleAction", rescheduleActionResult.error || "ok", {acNo: data.acNo, actingUser: actingUser});
+        if (!rescheduleActionResult.error) {
+          recordAudit_(ss, "Action Tracker", data.equipmentCode, "update", actingUser, rescheduleActionContractor,
+            "Rescheduled action " + data.acNo + " from " + rescheduleActionResult.oldDueDate + " to " + rescheduleActionResult.newDueDate + ": " + rescheduleActionResult.reason);
+        }
+        return jsonOut(rescheduleActionResult.error ? {status: "error", message: rescheduleActionResult.error} : {status: "ok"});
+      }
+
       if (data.action === "decideActionClosure") {
         requireAccEngineer_(auth.session);
         var decideContractor = getActionContractor_(ss, data.acNo, data.equipmentCode);
@@ -718,14 +737,16 @@ function doPost(e) {
           return jsonOut({status: "conflict"});
         }
         // Phase 2: status changes on an action follow the workflow rules.
+        var updateGuard = null;
         if (data.sheet === "Action Tracker" && updateRowIdx !== -1) {
-          var updateGuard = guardActionTrackerSave_(auth.session, updateSheetObj, updateRowIdx, data.row);
-          if (updateGuard) {
-            logError("doPost:updateRow:actionGuard", updateGuard, {matchValues: data.matchValues, actingUser: actingUser});
-            return jsonOut({status: "error", message: updateGuard});
+          updateGuard = guardActionTrackerSave_(auth.session, updateSheetObj, updateRowIdx, data.row, data.workflow);
+          if (updateGuard.error) {
+            logError("doPost:updateRow:actionGuard", updateGuard.error, {matchValues: data.matchValues, actingUser: actingUser});
+            return jsonOut({status: "error", message: updateGuard.error});
           }
         }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
+        if (ok1 && updateGuard && updateGuard.dueEditable) writeActionDueFields_(ss, data.row, data.workflow);
         invalidateDashboardCache();
         if (ok1 && data.sheet === "Data_Entry") {
           try { applyLabResultRule_(ss, data.row); } catch (labErr2) { logError("applyLabResultRule_", labErr2, {sheet: data.sheet}); }

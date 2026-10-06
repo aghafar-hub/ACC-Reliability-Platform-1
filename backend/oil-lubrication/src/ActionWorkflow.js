@@ -1,14 +1,22 @@
 // Phase 2 — action workflow.
 //
-// Statuses: Draft → Open → Waiting Stoppage → Closure Requested → Closed
-// (Overdue is computed: an Open action not closed 14 days after its
-// Revision Date). Old "In Progress" rows read as Open everywhere until
+// Statuses: Draft → Open → Waiting Stoppage → Closure Requested → Closed.
+// Old "In Progress" rows read as Open everywhere until
 // migrateActionStatusesPhase2 rewrites the column.
 //
+//  - Save as Draft / Submit: an action stays Draft until someone presses
+//    Submit, which needs the Agreed Action, Assigned To, Due Date and
+//    Duration and is allowed for ACC Engineers, the contractor's engineer
+//    and the App Owner. Submit makes it Open.
+//  - Overdue: an Open action past Due Date + Duration + 5 days. Waiting
+//    Stoppage is never overdue and never goes back to Open (it goes on to
+//    closure). Rows without a Due Date use Revision Date + 14 days.
+//  - After Submit the Due Date only changes through Reschedule (either
+//    engineer, with a reason); the first due date is kept.
+//
 //  - Draft: created automatically by a lab Caution/Alert result or by the
-//    leakage rule (3 top-ups on one point within 30 days). Both engineers
-//    are notified to edit it. It becomes Open when its Agreed Action is
-//    saved.
+//    leakage rule (3 top-ups on one point within 30 days), due in 7 days.
+//    Both engineers are notified to complete and submit it.
 //  - Closure: the Contractor Engineer requests closure with a comment, an
 //    ACC Engineer approves (or rejects back to Open with a reason), then
 //    the Contractor Engineer closes it. These steps only happen through the
@@ -19,6 +27,9 @@
 //   23 Closure Decision (Approved/Rejected)   24 Closure Decision By
 //   25 Closure Decision Date   26 Closure Decision Note
 //   27 Created By Rule ("Lab Caution", "Lab Alert", "Leakage")   28 Rule Reference
+//   29 Due Date   30 Duration (days)   31 Closure Requested From (status
+//   before the request — a rejection returns there)   32 Original Due Date
+//   33 Reschedule Reason   34 Rescheduled By   35 Rescheduled Date
 // The app's own row save only ever writes columns A–T, so these are never
 // overwritten by an edit.
 
@@ -37,14 +48,21 @@ var ACTION_COL = {
   LAST_MODIFIED: 18, ASSIGNED: 19,
   CLOSURE_COMMENT: 20, CLOSURE_BY: 21, CLOSURE_DATE: 22,
   DECISION: 23, DECISION_BY: 24, DECISION_DATE: 25, DECISION_NOTE: 26,
-  RULE: 27, RULE_REF: 28
+  RULE: 27, RULE_REF: 28,
+  DUE_DATE: 29, DURATION: 30, CLOSURE_FROM: 31,
+  ORIGINAL_DUE: 32, RESCHEDULE_REASON: 33, RESCHEDULED_BY: 34, RESCHEDULED_DATE: 35
 };
 var ACTION_APP_COLS = 20; // A–T: what the app's own row save writes
 var ACTION_WORKFLOW_HEADERS = [
   "Closure Request", "Closure Requested By", "Closure Requested Date",
   "Closure Decision", "Closure Decision By", "Closure Decision Date", "Closure Decision Note",
-  "Created By Rule", "Rule Reference"
+  "Created By Rule", "Rule Reference",
+  "Due Date", "Duration (days)", "Closure Requested From",
+  "Original Due Date", "Reschedule Reason", "Rescheduled By", "Rescheduled Date"
 ];
+var ACTION_OVERDUE_GRACE_DAYS = 5;
+var ACTION_DRAFT_DUE_DAYS = 7;
+var ACTION_LEGACY_DUE_DAYS = 14; // rows from before due dates existed
 var ACTION_HEADER_ROW = 5; // Action Tracker: rows 1-4 title, row 5 header, data from 6
 var LAB_DRAFT_STATUSES = { "Caution": "Lab Caution", "Warning": "Lab Caution", "Alert": "Lab Alert" };
 // Only recent lab results make a Draft — importing old reports in bulk
@@ -75,6 +93,36 @@ function ensureActionWorkflowHeaders_(sheet) {
   if (needsWrite) range.setValues([ACTION_WORKFLOW_HEADERS]);
 }
 
+function asDate_(v) {
+  if (!v) return null;
+  var d = v instanceof Date ? v : new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Last day before an Open action counts as overdue.
+function actionDueEnd_(row) {
+  var due = asDate_(row[ACTION_COL.DUE_DATE]);
+  if (!due) {
+    var rev = asDate_(row[ACTION_COL.REVISION]);
+    if (!rev) return null;
+    due = new Date(rev.getTime() + ACTION_LEGACY_DUE_DAYS * 86400000);
+  }
+  var days = (parseInt(row[ACTION_COL.DURATION], 10) || 0) + ACTION_OVERDUE_GRACE_DAYS;
+  return new Date(due.getTime() + days * 86400000);
+}
+
+function isActionRowOverdue_(row, now) {
+  if (normActionStatus_(row[ACTION_COL.STATUS]) !== ACTION_STATUS.OPEN) return false;
+  var end = actionDueEnd_(row);
+  return !!end && (now || new Date()).getTime() > end.getTime() + 86400000 - 1;
+}
+
+// Submit and Reschedule: ACC Engineers, the action's own contractor's
+// engineer, and the App Owner.
+function isActionEngineer_(session, contractor) {
+  return isAccEngineer_(session) || isRouteEngineerFor_(session, contractor);
+}
+
 function columnLetter_(n) {
   var s = "";
   while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
@@ -91,37 +139,97 @@ function actionContractor_(row) {
 
 // ── Guard for the app's own row save (generic append/updateRow) ─────────
 //
-// Returns an error message, or null when the save may go ahead. May adjust
-// `row` in place: a Draft with an Agreed Action saved becomes Open, and
-// anything past column T is dropped (server-owned).
-function guardActionTrackerSave_(session, sheet, rowIdx, row) {
-  if (!row) return null;
+// wf = the request's workflow fields: { submit, dueDate, duration }.
+// Returns { error, dueEditable }. May adjust `row` in place: Submit sets it
+// Open, and anything past column T is dropped (server-owned).
+function guardActionTrackerSave_(session, sheet, rowIdx, row, wf) {
+  wf = wf || {};
+  if (!row) return { error: null, dueEditable: false };
   if (row.length > ACTION_APP_COLS) row.length = ACTION_APP_COLS;
-  var agreed = String(row[ACTION_COL.AGREED] || "").trim();
-  var next = normActionStatus_(row[ACTION_COL.STATUS]) || ACTION_STATUS.OPEN;
-  if (next === ACTION_STATUS.DRAFT && agreed) {
-    next = ACTION_STATUS.OPEN;
-    row[ACTION_COL.STATUS] = ACTION_STATUS.OPEN;
-  }
   var isAdmin = ((session && session.roles) || []).indexOf("ROLE-ADMIN") !== -1;
-  if (isAdmin) return null;
+  var current = rowIdx === -1 ? null : (normActionStatus_(sheet.getRange(rowIdx, ACTION_COL.STATUS + 1).getValue()) || ACTION_STATUS.OPEN);
+  var next = normActionStatus_(row[ACTION_COL.STATUS]) || ACTION_STATUS.DRAFT;
+  var dueEditable = current === null || current === ACTION_STATUS.DRAFT;
+  var fail = function (msg) { return { error: msg, dueEditable: false }; };
 
-  var editable = [ACTION_STATUS.DRAFT, ACTION_STATUS.OPEN, ACTION_STATUS.WAITING];
-  if (rowIdx === -1) {
-    // New action
-    if (editable.indexOf(next) === -1) return "A new action can only be Draft, Open or Waiting Stoppage.";
-    return null;
+  if (wf.submit) {
+    if (current !== null && current !== ACTION_STATUS.DRAFT) return fail("Only a Draft can be submitted.");
+    var missing = [];
+    if (!String(row[ACTION_COL.AGREED] || "").trim()) missing.push("Agreed Action");
+    if (!String(row[ACTION_COL.ASSIGNED] || "").trim()) missing.push("Assigned To");
+    if (!asDate_(wf.dueDate)) missing.push("Due Date");
+    if (wf.duration === undefined || wf.duration === null || String(wf.duration).trim() === "" || isNaN(Number(wf.duration)) || Number(wf.duration) < 0) missing.push("Duration");
+    if (missing.length) return fail("To submit, fill in: " + missing.join(", ") + ".");
+    var contractor = String(row[ACTION_COL.CONTRACTOR] || "").trim() || resolveLpContractor_(row[ACTION_COL.LP]);
+    if (!isAdmin && !isActionEngineer_(session, contractor)) return fail("Only an ACC Engineer or this contractor's engineer can submit an action.");
+    row[ACTION_COL.STATUS] = ACTION_STATUS.OPEN;
+    return { error: null, dueEditable: true };
   }
-  var current = normActionStatus_(sheet.getRange(rowIdx, ACTION_COL.STATUS + 1).getValue()) || ACTION_STATUS.OPEN;
-  if (next === current) return null;
-  if (editable.indexOf(current) !== -1 && editable.indexOf(next) !== -1) {
-    if (current === ACTION_STATUS.DRAFT && !agreed) return "Save the Agreed Action first — a Draft becomes Open once it has one.";
-    return null;
+  if (isAdmin) return { error: null, dueEditable: dueEditable };
+
+  if (current === null) {
+    if (next !== ACTION_STATUS.DRAFT) return fail("Save a new action as Draft, or Submit it.");
+    return { error: null, dueEditable: true };
+  }
+  if (next === current) return { error: null, dueEditable: dueEditable };
+  if (current === ACTION_STATUS.OPEN && next === ACTION_STATUS.WAITING) return { error: null, dueEditable: false };
+  if (current === ACTION_STATUS.DRAFT && next === ACTION_STATUS.OPEN) {
+    return fail("Use Submit — it needs the Agreed Action, Assigned To, Due Date and Duration.");
+  }
+  if (current === ACTION_STATUS.WAITING && next === ACTION_STATUS.OPEN) {
+    return fail("Waiting Stoppage doesn't go back to Open — request closure when the work is done.");
   }
   if (next === ACTION_STATUS.CLOSURE_REQUESTED || next === ACTION_STATUS.CLOSED) {
-    return "Use Request closure — an ACC Engineer approves it, then the Contractor Engineer closes it.";
+    return fail("Use Request closure — an ACC Engineer approves it, then the Contractor Engineer closes it.");
   }
-  return "This action is " + current + "; its status can't be changed here.";
+  return fail("This action is " + current + "; its status can't be changed here.");
+}
+
+// After the row save: Due Date / Duration, only while it's Draft (or being
+// submitted). Later changes go through rescheduleAction.
+function writeActionDueFields_(ss, row, wf) {
+  wf = wf || {};
+  if (wf.dueDate === undefined && wf.duration === undefined) return;
+  var sheet = ss.getSheetByName("Action Tracker");
+  if (!sheet) return;
+  var rowIdx = findRowIndex(sheet, [ACTION_COL.AC_NO, ACTION_COL.LP], [row[ACTION_COL.AC_NO], row[ACTION_COL.LP]], dataStartRowFor("Action Tracker"));
+  if (rowIdx === -1) return;
+  ensureActionWorkflowHeaders_(sheet);
+  var due = asDate_(wf.dueDate);
+  var duration = String(wf.duration === undefined || wf.duration === null ? "" : wf.duration).trim();
+  sheet.getRange(rowIdx, ACTION_COL.DUE_DATE + 1, 1, 2).setValues([[due || "", duration === "" || isNaN(Number(duration)) ? "" : Math.max(0, parseInt(duration, 10) || 0)]]);
+}
+
+// Reschedule an Open / Waiting Stoppage action: either engineer, with a
+// reason. The very first due date is kept in Original Due Date.
+function rescheduleAction(ss, data) {
+  var reason = String(data.reason || "").trim();
+  if (!reason) return { error: "A reason is required to reschedule" };
+  var newDue = asDate_(data.newDueDate);
+  if (!newDue) return { error: "A valid new due date is required" };
+  var found = findActionRow_(ss, data.acNo, data.equipmentCode);
+  if (found.error) return found;
+  var status = normActionStatus_(found.row[ACTION_COL.STATUS]);
+  if (status !== ACTION_STATUS.OPEN && status !== ACTION_STATUS.WAITING) {
+    return { error: "Only an Open or Waiting Stoppage action can be rescheduled (edit a Draft's due date directly)." };
+  }
+  ensureActionWorkflowHeaders_(found.sheet);
+  var oldDue = asDate_(found.row[ACTION_COL.DUE_DATE]);
+  if (!oldDue) {
+    var rev = asDate_(found.row[ACTION_COL.REVISION]);
+    oldDue = rev ? new Date(rev.getTime() + ACTION_LEGACY_DUE_DAYS * 86400000) : null;
+  }
+  var cells = {};
+  if (!asDate_(found.row[ACTION_COL.ORIGINAL_DUE]) && oldDue) cells[ACTION_COL.ORIGINAL_DUE] = oldDue;
+  cells[ACTION_COL.DUE_DATE] = newDue;
+  if (data.duration !== undefined && String(data.duration).trim() !== "" && !isNaN(Number(data.duration))) {
+    cells[ACTION_COL.DURATION] = Math.max(0, parseInt(data.duration, 10) || 0);
+  }
+  cells[ACTION_COL.RESCHEDULE_REASON] = reason;
+  cells[ACTION_COL.RESCHEDULED_BY] = data.actingUser || "";
+  cells[ACTION_COL.RESCHEDULED_DATE] = new Date();
+  setActionCells_(found.sheet, found.rowIdx, cells);
+  return { status: "ok", oldDueDate: oldDue ? formatDateForEmail_(oldDue) : "(none)", newDueDate: formatDateForEmail_(newDue), reason: reason };
 }
 
 // ── Closure: request → ACC decision → close ──────────────────────────────
@@ -165,6 +273,7 @@ function requestActionClosure(ss, data) {
   ensureActionWorkflowHeaders_(found.sheet);
   var cells = {};
   cells[ACTION_COL.STATUS] = ACTION_STATUS.CLOSURE_REQUESTED;
+  cells[ACTION_COL.CLOSURE_FROM] = status;
   cells[ACTION_COL.CLOSURE_COMMENT] = comment;
   cells[ACTION_COL.CLOSURE_BY] = data.actingUser || "";
   cells[ACTION_COL.CLOSURE_DATE] = new Date();
@@ -205,7 +314,9 @@ function decideActionClosure(ss, data) {
   cells[ACTION_COL.DECISION_BY] = data.actingUser || "";
   cells[ACTION_COL.DECISION_DATE] = new Date();
   cells[ACTION_COL.DECISION_NOTE] = note;
-  if (decision === "Reject") cells[ACTION_COL.STATUS] = ACTION_STATUS.OPEN;
+  // A rejection goes back to where the request came from (Open or Waiting Stoppage).
+  var backTo = normActionStatus_(found.row[ACTION_COL.CLOSURE_FROM]) === ACTION_STATUS.WAITING ? ACTION_STATUS.WAITING : ACTION_STATUS.OPEN;
+  if (decision === "Reject") cells[ACTION_COL.STATUS] = backTo;
   setActionCells_(found.sheet, found.rowIdx, cells);
 
   try {
@@ -213,7 +324,7 @@ function decideActionClosure(ss, data) {
     var engineers = contractor ? maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor) : [];
     var msg = decision === "Approve"
       ? "Closure of action " + actionKeyLabel_(found.row) + " was approved by " + (data.actingUser || "ACC") + " — you can close it now." + (note ? " Note: " + note : "")
-      : "Closure of action " + actionKeyLabel_(found.row) + " was rejected by " + (data.actingUser || "ACC") + ": " + note + ". It's Open again.";
+      : "Closure of action " + actionKeyLabel_(found.row) + " was rejected by " + (data.actingUser || "ACC") + ": " + note + ". It's " + backTo + " again.";
     recordInAppNotificationForEach_(ss, engineers, decision === "Approve" ? "action-closure-approved" : "action-closure-rejected", msg, contractor, "actions", found.row[ACTION_COL.AC_NO]);
     if (engineers.length) {
       sendNotificationEmail_({ to: engineers.join(","), subject: "Oil Lubrication: closure " + (decision === "Approve" ? "approved" : "rejected") + " — " + actionKeyLabel_(found.row), body: msg });
@@ -286,7 +397,7 @@ function createDraftAction_(ss, opts) {
   var contractor = reg ? reg.contractor || "" : resolveLpContractor_(lpId);
   var acNo = nextActionAcNo_(ss);
   var row = [];
-  for (var c = 0; c <= ACTION_COL.RULE_REF; c++) row.push("");
+  for (var c = 0; c <= ACTION_COL.RESCHEDULED_DATE; c++) row.push("");
   row[ACTION_COL.AC_NO] = acNo;
   row[ACTION_COL.LP] = lpId;
   row[ACTION_COL.REPORT_EQ] = opts.reportEquipmentId || "";
@@ -301,13 +412,15 @@ function createDraftAction_(ss, opts) {
   row[ACTION_COL.CONTRACTOR] = contractor;
   row[ACTION_COL.RULE] = opts.rule || "";
   row[ACTION_COL.RULE_REF] = opts.ruleRef || "";
+  row[ACTION_COL.DUE_DATE] = new Date(Date.now() + ACTION_DRAFT_DUE_DAYS * 86400000);
+  row[ACTION_COL.DURATION] = 0;
   appendRow(ss, "Action Tracker", row);
   invalidateDashboardCache();
   recordAudit_(ss, "Action Tracker", lpId, "create", "System (" + (opts.rule || "rule") + ")", contractor, "Draft action " + acNo + " created: " + (opts.analysis || ""));
 
   try {
     var people = getNotifyReviewers_(contractor);
-    var msg = "Draft action " + acNo + " on " + lpId + " (" + (opts.rule || "rule") + "): " + (opts.analysis || "") + " — please add your recommendation and the agreed action.";
+    var msg = "Draft action " + acNo + " on " + lpId + " (" + (opts.rule || "rule") + "): " + (opts.analysis || "") + " — please complete it and Submit.";
     recordInAppNotificationForEach_(ss, people, "action-draft", msg, contractor, "actions", acNo);
     if (people.length) {
       sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: new Draft action " + acNo + " — " + lpId, body: msg + "\n\nOpen Oil Actions in the ACC Reliability Platform to edit it." });
@@ -409,11 +522,27 @@ function migrateActionStatusesPhase2(dryRun) {
     }
     if (!dryRun && changed) range.setValues(vals);
   }
-  if (!dryRun) {
-    ensureActionWorkflowHeaders_(sheet);
-    invalidateDashboardCache();
+  // Open actions get a Due Date (Revision Date + 14 days, Duration 0) so
+  // what's overdue today stays overdue.
+  var dueSet = 0;
+  if (!dryRun) ensureActionWorkflowHeaders_(sheet);
+  if (last >= start) {
+    var rows = sheet.getRange(start, 1, last - start + 1, ACTION_COL.DURATION + 1).getValues();
+    var dueRange = sheet.getRange(start, ACTION_COL.DUE_DATE + 1, last - start + 1, 2);
+    var dueVals = dueRange.getValues();
+    for (var j = 0; j < rows.length; j++) {
+      if (!String(rows[j][ACTION_COL.AC_NO] || "").trim()) continue;
+      if (normActionStatus_(rows[j][ACTION_COL.STATUS]) === ACTION_STATUS.CLOSED) continue;
+      if (asDate_(dueVals[j][0])) continue;
+      var rev = asDate_(rows[j][ACTION_COL.REVISION]);
+      if (!rev) continue;
+      dueVals[j] = [new Date(rev.getTime() + ACTION_LEGACY_DUE_DAYS * 86400000), dueVals[j][1] === "" ? 0 : dueVals[j][1]];
+      dueSet++;
+    }
+    if (!dryRun && dueSet) dueRange.setValues(dueVals);
   }
-  var result = { status: "ok", dryRun: !!dryRun, changed: changed };
+  if (!dryRun) invalidateDashboardCache();
+  var result = { status: "ok", dryRun: !!dryRun, changed: changed, dueDatesSet: dueSet };
   Logger.log(JSON.stringify(result));
   return result;
 }
