@@ -211,7 +211,7 @@ function computeDueLpIds_(routeType, area, oilType, contractor, registry, sample
   // 11 Contractor Action, 16 Agreed Action.
   var openResampleLp = {};
   for (var a = 0; a < actionRows.length; a++) {
-    if (String(actionRows[a][10] || "").trim() === "Closed") continue;
+    if (normActionStatus_(actionRows[a][10]) === ACTION_STATUS.CLOSED) continue;
     var agreedAction = String(actionRows[a][16] || "").trim();
     var contractorAction = String(actionRows[a][11] || "").trim();
     if (agreedAction === "Resample Oil" || contractorAction === "Resample Oil") {

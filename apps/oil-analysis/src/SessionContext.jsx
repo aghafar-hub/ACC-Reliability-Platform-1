@@ -66,3 +66,14 @@ export function useIsRouteEngineerFor(contractor) {
   const mine = ORG_TO_CONTRACTOR[session?.claims?.orgId] || "";
   return !!mine && mine === contractor && roles.some((r) => r === "ROLE-CENG" || r === "ROLE-MGR");
 }
+
+// Phase 2: approving or rejecting an action's closure belongs to ACC
+// Engineers (ACC org, ROLE-RENG/ROLE-MGR) and the App Owner — same rule as
+// Rbac.js's isAccEngineer_ on the server.
+export function useIsAccEngineer() {
+  const session = useSession();
+  if (!session) return true;
+  const roles = session?.claims?.roles || [];
+  if (roles.includes("ROLE-ADMIN")) return true;
+  return session?.claims?.orgId === "ORG-ACC" && roles.some((r) => r === "ROLE-RENG" || r === "ROLE-MGR");
+}

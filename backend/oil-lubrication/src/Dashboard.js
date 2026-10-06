@@ -131,8 +131,8 @@ function getDashboard(scope) {
   var pendingActions = 0;
   for (var k = 0; k < actRows.length; k++) {
     if (!inScope(actRows[k][1])) continue;
-    var astatus = (actRows[k][10] || "").toString().trim();
-    if (astatus === "Open" || astatus === "In Progress" || astatus === "Waiting Stoppage") pendingActions++;
+    var astatus = normActionStatus_(actRows[k][10]);
+    if (astatus && astatus !== ACTION_STATUS.CLOSED) pendingActions++;
   }
 
   var scopedSampleCount = scope ? sampleRows.filter(function (r) { return inScope(r[0]); }).length : sampleRows.length;

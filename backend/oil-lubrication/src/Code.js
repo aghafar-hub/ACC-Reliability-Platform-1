@@ -393,9 +393,18 @@ function doPost(e) {
         if (appendLpCol !== undefined && data.row) {
           requireLpContractorMatch_(auth.session, appendLpId);
         }
+        // Phase 2: a new action can only start as Draft/Open/Waiting Stoppage.
+        if (data.sheet === "Action Tracker") {
+          var appendGuard = guardActionTrackerSave_(auth.session, null, -1, data.row);
+          if (appendGuard) return jsonOut({status: "error", message: appendGuard});
+        }
         appendRow(ss, data.sheet, data.row, data.headers);
         invalidateDashboardCache();
         logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
+        // Phase 2: a lab Caution/Alert result creates a Draft action.
+        if (data.sheet === "Data_Entry") {
+          try { applyLabResultRule_(ss, data.row); } catch (labErr) { logError("applyLabResultRule_", labErr, {sheet: data.sheet}); }
+        }
         recordAudit_(ss, data.sheet, appendLpId, "create", actingUser, scope || resolveLpContractor_(appendLpId), "New " + data.sheet + " entry added");
         return jsonOut({status:"ok"});
       }
@@ -618,6 +627,35 @@ function doPost(e) {
         });
       }
 
+      // ── Phase 2: action closure — request → ACC decision → close ─────
+      if (data.action === "requestActionClosure" || data.action === "closeAction") {
+        var closureContractor = getActionContractor_(ss, data.acNo, data.equipmentCode);
+        requireRouteEngineer_(auth.session, closureContractor, data.action === "closeAction" ? "close this action" : "request closure");
+        data.actingUser = actingUser;
+        var closureResult = data.action === "closeAction" ? closeAction(ss, data) : requestActionClosure(ss, data);
+        if (!closureResult.error) invalidateDashboardCache();
+        logError("doPost:" + data.action, closureResult.error || "ok", {acNo: data.acNo, actingUser: actingUser});
+        if (!closureResult.error && !closureResult.unchanged) {
+          recordAudit_(ss, "Action Tracker", data.equipmentCode, "update", actingUser, closureContractor,
+            data.action === "closeAction" ? "Closed action " + data.acNo : "Requested closure of action " + data.acNo + ": " + String(data.comment || "").trim());
+        }
+        return jsonOut(closureResult.error ? {status: "error", message: closureResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "decideActionClosure") {
+        requireAccEngineer_(auth.session);
+        var decideContractor = getActionContractor_(ss, data.acNo, data.equipmentCode);
+        data.actingUser = actingUser;
+        var decideResult = decideActionClosure(ss, data);
+        if (!decideResult.error) invalidateDashboardCache();
+        logError("doPost:decideActionClosure", decideResult.error || "ok", {acNo: data.acNo, decision: data.decision, actingUser: actingUser});
+        if (!decideResult.error && !decideResult.unchanged) {
+          recordAudit_(ss, "Action Tracker", data.equipmentCode, "update", actingUser, decideContractor,
+            (data.decision === "Approve" ? "Approved closure of action " : "Rejected closure of action ") + data.acNo + (data.note ? ": " + String(data.note).trim() : ""));
+        }
+        return jsonOut(decideResult.error ? {status: "error", message: decideResult.error} : {status: "ok"});
+      }
+
       if (data.action === "logOilTopUp") {
         requirePermission_(auth.session, "Edit");
         requireLpContractorMatch_(auth.session, data.lpId);
@@ -625,6 +663,10 @@ function doPost(e) {
         invalidateDashboardCache();
         logError("doPost:logOilTopUp", topUpResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
         if (!topUpResult.error) recordAudit_(ss, "Oil Top Up LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil top-up: " + (data.reason || ""));
+        // Phase 2: 3 top-ups on one point within 30 days → Draft "Check oil leakage".
+        if (!topUpResult.error) {
+          try { applyLeakageRule_(ss, data.lpId, data.eventDate ? new Date(data.eventDate) : new Date()); } catch (leakErr) { logError("applyLeakageRule_", leakErr, {lpId: data.lpId}); }
+        }
         return jsonOut(topUpResult.error ? {status: "error", message: topUpResult.error} : {
           status: "ok",
           topUpId: topUpResult.topUpId,
@@ -675,8 +717,19 @@ function doPost(e) {
           logError("doPost:updateRow:conflict", "Row changed since client loaded it — write skipped", {sheet: data.sheet, matchValues: data.matchValues, actingUser: actingUser});
           return jsonOut({status: "conflict"});
         }
+        // Phase 2: status changes on an action follow the workflow rules.
+        if (data.sheet === "Action Tracker" && updateRowIdx !== -1) {
+          var updateGuard = guardActionTrackerSave_(auth.session, updateSheetObj, updateRowIdx, data.row);
+          if (updateGuard) {
+            logError("doPost:updateRow:actionGuard", updateGuard, {matchValues: data.matchValues, actingUser: actingUser});
+            return jsonOut({status: "error", message: updateGuard});
+          }
+        }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         invalidateDashboardCache();
+        if (ok1 && data.sheet === "Data_Entry") {
+          try { applyLabResultRule_(ss, data.row); } catch (labErr2) { logError("applyLabResultRule_", labErr2, {sheet: data.sheet}); }
+        }
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId), "Updated " + data.sheet + " entry");
         return jsonOut({status: ok1 ? "ok" : "row_not_found"});

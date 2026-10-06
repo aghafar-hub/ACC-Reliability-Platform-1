@@ -8,7 +8,7 @@ import EditSampleModal from "../components/EditSampleModal";
 import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 
-const STATUS_ACTION_COLOR = { Open: "danger", "In Progress": "warning", "Waiting Stoppage": "accent", Closed: "success" };
+const STATUS_ACTION_COLOR = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
 // Shared by the single-LP "Oil Condition Trend" chart and the equipment-/
 // point-level Criticality badges — Normal < Caution < Alert, same severity
 // order criticalityFor below already uses.

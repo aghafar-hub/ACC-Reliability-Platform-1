@@ -24,8 +24,9 @@ const BRAND = {
 };
 
 const ACTION_STATUS_COLOR = {
+  Draft: BRAND.warning,
   Open: BRAND.danger,
-  "In Progress": BRAND.warning,
+  "Closure Requested": BRAND.navy,
   "Waiting Stoppage": BRAND.accent,
   Closed: BRAND.success,
 };
@@ -367,10 +368,10 @@ function chartLegend(doc, items, x, y) {
 }
 
 // ── Section 1: Contractor Action Status ─────────────────────────────────
-// Focused on the three active statuses — Open, In Progress, Waiting
-// Stoppage — since Closed actions are history, not something a contractor
-// needs to act on.
-const FOCUS_STATUSES = ["Open", "In Progress", "Waiting Stoppage"];
+// Focused on the active statuses — Draft, Open, Waiting Stoppage, Closure
+// Requested (Phase 2) — since Closed actions are history, not something a
+// contractor needs to act on.
+const FOCUS_STATUSES = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 
 function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All" }, y) {
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -388,8 +389,8 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
   const oldestOverall = active.reduce((m, a) => Math.max(m, daysSince(a.revisionDate) ?? 0), 0);
   const narrative =
     contractor === "All"
-      ? `This report covers every Open, In Progress, and Waiting Stoppage action across all contractors as of ${formatDate(new Date().toISOString())}. Closed actions are excluded — they no longer need contractor attention.`
-      : `This report covers every Open, In Progress, and Waiting Stoppage action assigned to ${contractor} as of ${formatDate(new Date().toISOString())}. Closed actions are excluded — they no longer need contractor attention.`;
+      ? `This report covers every Draft, Open, Waiting Stoppage and Closure Requested action across all contractors as of ${formatDate(new Date().toISOString())}. Closed actions are excluded — they no longer need contractor attention.`
+      : `This report covers every Draft, Open, Waiting Stoppage and Closure Requested action assigned to ${contractor} as of ${formatDate(new Date().toISOString())}. Closed actions are excluded — they no longer need contractor attention.`;
   y = summaryParagraph(doc, narrative, y);
 
   y = statStrip(
@@ -397,8 +398,9 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
     [
       { value: active.length, label: "TOTAL ACTIONS", color: BRAND.navy },
       { value: active.filter((a) => a.status === "Open").length, label: "OPEN", color: BRAND.danger },
-      { value: active.filter((a) => a.status === "In Progress").length, label: "IN PROGRESS", color: BRAND.warning },
+      { value: active.filter((a) => a.status === "Draft").length, label: "DRAFT", color: BRAND.warning },
       { value: active.filter((a) => a.status === "Waiting Stoppage").length, label: "WAITING STOPPAGE", color: BRAND.accent },
+      { value: active.filter((a) => a.status === "Closure Requested").length, label: "CLOSURE REQ.", color: BRAND.navy },
       { value: `${oldestOverall}d`, label: "OLDEST OPEN", color: BRAND.navy },
     ],
     y
@@ -410,8 +412,9 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
       label: c,
       segments: [
         { value: byContractor[c].filter((a) => a.status === "Open").length, color: BRAND.danger },
-        { value: byContractor[c].filter((a) => a.status === "In Progress").length, color: BRAND.warning },
+        { value: byContractor[c].filter((a) => a.status === "Draft").length, color: BRAND.warning },
         { value: byContractor[c].filter((a) => a.status === "Waiting Stoppage").length, color: BRAND.accent },
+        { value: byContractor[c].filter((a) => a.status === "Closure Requested").length, color: BRAND.navy },
       ],
     }));
     y = needsNewPage(doc, y, chartRows.length * 28 + 60);
@@ -420,8 +423,9 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
       doc,
       [
         { label: "Open", color: BRAND.danger },
-        { label: "In Progress", color: BRAND.warning },
+        { label: "Draft", color: BRAND.warning },
         { label: "Waiting Stoppage", color: BRAND.accent },
+        { label: "Closure Requested", color: BRAND.navy },
       ],
       36,
       y
@@ -440,16 +444,17 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
       return [
         c,
         list.filter((a) => a.status === "Open").length,
-        list.filter((a) => a.status === "In Progress").length,
+        list.filter((a) => a.status === "Draft").length,
         list.filter((a) => a.status === "Waiting Stoppage").length,
+        list.filter((a) => a.status === "Closure Requested").length,
         list.length,
         `${oldest}d`,
       ];
     });
     autoTable(doc, {
       startY: y,
-      head: [["Contractor", "Open", "In Progress", "Waiting Stoppage", "Total", "Oldest Open"]],
-      body: summaryRows.length ? summaryRows : [["No active actions right now", "", "", "", "", ""]],
+      head: [["Contractor", "Open", "Draft", "Waiting Stoppage", "Closure Requested", "Total", "Oldest Open"]],
+      body: summaryRows.length ? summaryRows : [["No active actions right now", "", "", "", "", "", ""]],
       theme: "grid",
       headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 9 },
       styles: { fontSize: 9, cellPadding: 5, lineColor: BRAND.border, lineWidth: 0.5 },
@@ -465,7 +470,7 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
       doc,
       contractor === "All"
         ? `${c} — ${byContractor[c].length} action${byContractor[c].length === 1 ? "" : "s"}`
-        : "Open / In Progress / Waiting Stoppage Actions",
+        : "Active Actions (Draft / Open / Waiting Stoppage / Closure Requested)",
       y
     );
     const rows = [...byContractor[c]]
@@ -502,7 +507,7 @@ function buildActionSection(doc, { actions, equipmentRegistry, contractor = "All
   if (contractors.length === 0) {
     doc.setFontSize(10);
     doc.setTextColor(...BRAND.muted);
-    doc.text("Nothing to report — no Open, In Progress, or Waiting Stoppage actions on record.", 36, y);
+    doc.text("Nothing to report — no active actions on record.", 36, y);
     doc.setTextColor(20, 26, 33);
     y += 20;
   }

@@ -19,6 +19,7 @@ import SampleTracker from "./pages/SampleTracker";
 import HowToUse from "./pages/HowToUse";
 import Settings from "./pages/Settings";
 import { SessionProvider } from "./SessionContext";
+import { ActionWorkflowProvider } from "./ActionWorkflowContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
@@ -640,6 +641,35 @@ function AppShell({ config, setConfig, navBridge }) {
     [config.webhookUrl, pushToast, applyOilChangeSideEffect, applyAutoRouteSideEffect]
   );
 
+  // Phase 2 — closure steps on an action: "request" (comment), "approve",
+  // "reject" (reason), "close" (closing comment). The server checks who may
+  // do each one; the saved row replaces the one in the list.
+  const runActionWorkflow = useCallback(
+    async (kind, action, text) => {
+      const url = config.webhookUrl;
+      const saved =
+        kind === "request" ? await api.requestActionClosure(url, action, text)
+        : kind === "approve" ? await api.decideActionClosure(url, action, "Approve", text)
+        : kind === "reject" ? await api.decideActionClosure(url, action, "Reject", text)
+        : await api.closeAction(url, action, text);
+      const code = (a) => a.equipmentCode || a.unitId || "";
+      setActions((prev) => {
+        const next = prev.map((a) => (a.acNo === saved.acNo && code(a) === code(saved) ? saved : a));
+        writeCache("actions", next);
+        return next;
+      });
+      const text2 = {
+        request: "Closure requested — waiting for an ACC Engineer.",
+        approve: "Closure approved — the contractor engineer can close it now.",
+        reject: "Closure rejected — the action is Open again.",
+        close: "Action closed.",
+      };
+      pushToast(text2[kind] || "Saved.", "success");
+      return saved;
+    },
+    [config.webhookUrl, pushToast]
+  );
+
   const onDeleteAction = useCallback(
     async (action) => {
       let removedAction;
@@ -1029,7 +1059,7 @@ function AppShell({ config, setConfig, navBridge }) {
   );
 
   const alertCount = useMemo(() => samples.filter((sm) => sm.reportStatus === "Alert").length, [samples]);
-  const openActionsCount = useMemo(() => actions.filter((a) => a.status === "Open" || a.status === "In Progress").length, [actions]);
+  const openActionsCount = useMemo(() => actions.filter((a) => a.status === "Draft" || a.status === "Open").length, [actions]);
 
   function goToReport(sample, origin = "dashboard") {
     setSelectedEquipment(sample);
@@ -1072,6 +1102,7 @@ function AppShell({ config, setConfig, navBridge }) {
   const cacheInfo = readCache("samples");
 
   return (
+    <ActionWorkflowProvider value={runActionWorkflow}>
     <div
       style={{
         display: "flex",
@@ -1368,5 +1399,6 @@ function AppShell({ config, setConfig, navBridge }) {
       </div>
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
+    </ActionWorkflowProvider>
   );
 }

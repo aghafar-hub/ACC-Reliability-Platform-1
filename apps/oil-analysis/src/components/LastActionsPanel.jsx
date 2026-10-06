@@ -21,7 +21,7 @@ export default function LastActionsPanel({
   actionRegistry,
 }) {
   const { T, s } = useTheme();
-  const STATUS_COLOR = { Open: T.danger, "In Progress": T.warning, Closed: T.success, "Waiting Stoppage": T.accent };
+  const STATUS_COLOR = { Draft: T.warning, Open: T.danger, "Closure Requested": T.info, Closed: T.success, "Waiting Stoppage": T.accent };
   const RESULT_COLOR = {
     ALERT: T.danger,
     CAUTION: T.warning,

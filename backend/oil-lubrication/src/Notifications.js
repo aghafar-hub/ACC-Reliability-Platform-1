@@ -234,8 +234,9 @@ function sendAgingActionsDigest() {
   var byContractor = {}; // contractor -> { noOwner: [...], aging: [...] }
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
-    var status = String(r[10] || "").trim();
-    if (status !== "Open" && status !== "In Progress" && status !== "Waiting Stoppage") continue;
+    // Phase 2: only Open actions age (Waiting Stoppage is never overdue).
+    var status = normActionStatus_(r[10]);
+    if (status !== ACTION_STATUS.OPEN) continue;
     var d = r[5] instanceof Date ? r[5] : new Date(r[5]);
     if (isNaN(d.getTime()) || d > cutoff) continue; // not old enough yet
     var contractor = String(r[12] || "").trim();

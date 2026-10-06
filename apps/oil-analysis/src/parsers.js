@@ -441,6 +441,34 @@ export const ACTION_HEADERS = [
   "Assigned To",
 ];
 
+// Phase 2 action statuses. Old "In Progress" rows read as Open.
+export const ACTION_STATUS = {
+  DRAFT: "Draft",
+  OPEN: "Open",
+  WAITING: "Waiting Stoppage",
+  CLOSURE_REQUESTED: "Closure Requested",
+  CLOSED: "Closed",
+};
+export const ACTION_STATUSES = [ACTION_STATUS.DRAFT, ACTION_STATUS.OPEN, ACTION_STATUS.WAITING, ACTION_STATUS.CLOSURE_REQUESTED, ACTION_STATUS.CLOSED];
+export function normActionStatus(status) {
+  const s = String(status || "").trim();
+  return s === "In Progress" ? ACTION_STATUS.OPEN : s;
+}
+// Overdue: an Open action not closed 14 days after its Revision Date.
+// Waiting Stoppage (and every other status) is never overdue.
+export const ACTION_OVERDUE_DAYS = 14;
+export function actionAgeDays(a) {
+  if (!a?.revisionDate) return null;
+  const d = new Date(a.revisionDate);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+export function isActionOverdue(a) {
+  if (normActionStatus(a?.status) !== ACTION_STATUS.OPEN) return false;
+  const days = actionAgeDays(a);
+  return days != null && days > ACTION_OVERDUE_DAYS;
+}
+
 export function rowToAction(row) {
   const [
     acNo,
@@ -476,7 +504,7 @@ export function rowToAction(row) {
     sampleResult,
     sampleAnalysis,
     lastChange: formatDate(lastChange),
-    status,
+    status: normActionStatus(status),
     contractorAction,
     contractor,
     completedDate: formatDate(completedDate),
@@ -486,6 +514,15 @@ export function rowToAction(row) {
     closingComment,
     lastModified,
     assignedTo: assignedTo || "",
+    // Phase 2 — written by the server only (columns U–AC), never by actionToRow.
+    closureComment: row[20] || "",
+    closureRequestedBy: row[21] || "",
+    closureRequestedDate: formatDate(row[22]),
+    closureDecision: row[23] || "",
+    closureDecisionBy: row[24] || "",
+    closureDecisionDate: formatDate(row[25]),
+    closureDecisionNote: row[26] || "",
+    createdByRule: row[27] || "",
     _id: `${equipmentCode}_${acNo}_${revisionDate}`,
     _matchCols: [0, 1],
     _matchValues: [acNo, equipmentCode],
@@ -504,7 +541,8 @@ export function actionToRow(a) {
     a.sampleResult || "",
     a.sampleAnalysis || "",
     a.lastChange || "",
-    a.status || "",
+    // A Draft becomes Open once it has an Agreed Action (same rule the server applies).
+    normActionStatus(a.status) === ACTION_STATUS.DRAFT && String(a.agreedAction || "").trim() ? ACTION_STATUS.OPEN : a.status || "",
     a.contractorAction || "",
     a.contractor || "",
     a.completedDate || "",

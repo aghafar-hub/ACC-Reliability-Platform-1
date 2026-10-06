@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { useSession, useSessionContractor } from "../SessionContext";
-import { nextAcNo, formatDate } from "../parsers";
+import { useSession, useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
+import { nextAcNo, formatDate, ACTION_STATUS, isActionOverdue, actionAgeDays } from "../parsers";
+import { useActionWorkflow } from "../ActionWorkflowContext";
 import { toISODate, latestOilChangeFor, autofillFromEquipment } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
 import MultiSelectTags from "./MultiSelectTags";
 import TechnicianPicker from "./TechnicianPicker";
 
-const STATUS_OPTIONS = ["Open", "In Progress", "Closed", "Waiting Stoppage"];
+// Phase 2: the status picker only moves between these; Closure Requested
+// and Closed are reached through the Closure section below.
+const STATUS_OPTIONS = [ACTION_STATUS.OPEN, ACTION_STATUS.WAITING];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 
 // A newly-agreed phrase from this fixed list auto-creates a route for the
@@ -139,7 +142,9 @@ export default function EditActionModal({
     }));
   }
 
-  const isClosed = (form.status || "Open") === "Closed";
+  const isClosed = (form.status || "Open") === ACTION_STATUS.CLOSED;
+  const isDraft = form.status === ACTION_STATUS.DRAFT;
+  const statusLocked = form.status === ACTION_STATUS.CLOSURE_REQUESTED || isClosed;
 
   function handleSave() {
     const acNo = isNew ? nextAcNo(allActions || []) : form.acNo;
@@ -380,30 +385,46 @@ export default function EditActionModal({
           )}
         </div>
 
+        {isDraft && (
+          <div style={{ border: `1px solid ${T.danger}`, borderRadius: 8, padding: "10px 12px", marginBottom: 16, fontSize: 12.5 }}>
+            <strong style={{ color: T.danger }}>Draft{action.createdByRule ? ` — created automatically (${action.createdByRule})` : ""}.</strong>{" "}
+            Add the contractor and ACC recommendations and the Agreed Action, then Save — it becomes Open.
+          </div>
+        )}
+        {isActionOverdue(form) && (
+          <div style={{ border: `1px solid ${T.danger}`, borderRadius: 8, padding: "8px 12px", marginBottom: 16, fontSize: 12.5, color: T.danger }}>
+            Overdue — open for {actionAgeDays(form)} days (more than 14).
+          </div>
+        )}
+
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Status &amp; Action</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
           <div>
             <label style={{ ...s.label, fontSize: 11 }}>Status</label>
-            <select
-              style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
-              value={form.status || "Open"}
-              onChange={(e) => set("status", e.target.value)}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
+            {isDraft || statusLocked ? (
+              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+                {form.status}
+              </div>
+            ) : (
+              <select
+                style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
+                value={form.status || ACTION_STATUS.OPEN}
+                onChange={(e) => set("status", e.target.value)}
+                aria-label="Status"
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            )}
+            {isDraft && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Becomes Open when the Agreed Action is saved</p>}
           </div>
           <div>
             <label style={{ ...s.label, fontSize: 11 }}>Completed Date</label>
-            <input
-              style={{ ...s.input, fontSize: 13, opacity: isClosed ? 1 : 0.4, cursor: isClosed ? "auto" : "not-allowed" }}
-              type="date"
-              disabled={!isClosed}
-              value={form.completedDate || ""}
-              onChange={(e) => set("completedDate", e.target.value)}
-            />
-            {!isClosed && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Available when status is Closed</p>}
+            <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
+              {isClosed ? form.completedDate || "—" : "—"}
+            </div>
+            {!isClosed && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Set when the action is closed</p>}
           </div>
           <div>
             <label style={{ ...s.label, fontSize: 11 }}>Contractor</label>
@@ -448,8 +469,10 @@ export default function EditActionModal({
           {lockedTextarea("Prev. Month Agreed Action", "prevMonthAgreedAction")}
           <MultiSelectTags label="ACC Action" value={form.accAction} onChange={(v) => set("accAction", v)} options={actionRegistry} />
           <MultiSelectTags label="Agreed Action" value={form.agreedAction} onChange={(v) => set("agreedAction", v)} options={actionRegistry} />
-          {isClosed && <div style={{ gridColumn: "1 / -1" }}>{textarea("Closing Comment", "closingComment")}</div>}
+          {isClosed && <div style={{ gridColumn: "1 / -1" }}>{lockedTextarea("Closing Comment", "closingComment")}</div>}
         </div>
+
+        {!isNew && <ClosureSection action={action} onDone={onClose} />}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button style={s.btn} onClick={onClose}>
@@ -460,6 +483,141 @@ export default function EditActionModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Phase 2 — closure: the Contractor Engineer requests it with a comment, an
+// ACC Engineer approves (or rejects back to Open with a reason), then the
+// Contractor Engineer closes it.
+function ClosureSection({ action, onDone }) {
+  const { T, s } = useTheme();
+  const run = useActionWorkflow();
+  const contractor = action.contractor || "";
+  const isContractorEngineer = useIsRouteEngineerFor(contractor);
+  const isAcc = useIsAccEngineer();
+  // Only the closing comment (after ACC approval) starts from the request
+  // comment; the request and the ACC decision note always start empty.
+  const [text, setText] = useState(
+    action.status === ACTION_STATUS.CLOSURE_REQUESTED && action.closureDecision === "Approved" ? action.closureComment || "" : ""
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!run) return null;
+
+  const st = action.status;
+  const approved = st === ACTION_STATUS.CLOSURE_REQUESTED && action.closureDecision === "Approved";
+  const waitingDecision = st === ACTION_STATUS.CLOSURE_REQUESTED && !approved;
+  const rejectedBefore = action.closureDecision === "Rejected" && (st === ACTION_STATUS.OPEN || st === ACTION_STATUS.WAITING);
+
+  async function go(kind, needsText, message) {
+    if (needsText && !text.trim()) {
+      setError(message);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await run(kind, action, text.trim());
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const box = { border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", marginBottom: 18, fontSize: 13 };
+  const muted = { fontSize: 12, color: T.textSecondary, margin: "4px 0 0" };
+  const input = (placeholder, label) => (
+    <textarea
+      style={{ ...s.input, fontSize: 13, minHeight: 50, resize: "vertical", margin: "8px 0" }}
+      value={text}
+      placeholder={placeholder}
+      aria-label={label}
+      onChange={(e) => setText(e.target.value)}
+    />
+  );
+
+  if (st === ACTION_STATUS.DRAFT) return null;
+  if (st === ACTION_STATUS.CLOSED) {
+    return (
+      <div style={box}>
+        <strong>Closed</strong>
+        {action.closureDecisionBy && <p style={muted}>Closure approved by {action.closureDecisionBy} ({action.closureDecisionDate}).</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ ...box, borderColor: approved ? T.success : waitingDecision ? T.warning : T.border }}>
+      <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: 0 }}>Closure</p>
+
+      {rejectedBefore && (
+        <p style={{ ...muted, color: T.danger }}>
+          Last closure request was rejected by {action.closureDecisionBy}: {action.closureDecisionNote}
+        </p>
+      )}
+
+      {(st === ACTION_STATUS.OPEN || st === ACTION_STATUS.WAITING) &&
+        (isContractorEngineer ? (
+          <>
+            <p style={muted}>When the work is done, request closure. An ACC Engineer approves it, then you close it.</p>
+            {input("What was done", "Closure comment")}
+            <button style={s.btnPrimary} disabled={busy} onClick={() => go("request", true, "Write what was done.")}>
+              {busy ? "…" : "Request closure"}
+            </button>
+          </>
+        ) : (
+          <p style={muted}>{contractor || "The contractor"}'s Contractor Engineer requests closure when the work is done.</p>
+        ))}
+
+      {st === ACTION_STATUS.CLOSURE_REQUESTED && (
+        <p style={muted}>
+          Requested by {action.closureRequestedBy || "—"} ({action.closureRequestedDate || "—"}): "{action.closureComment}"
+        </p>
+      )}
+
+      {waitingDecision &&
+        (isAcc ? (
+          <>
+            {input("Note (required to reject)", "Decision note")}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button style={s.btnPrimary} disabled={busy} onClick={() => go("approve", false)}>
+                {busy ? "…" : "Approve closure"}
+              </button>
+              <button
+                style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
+                disabled={busy}
+                onClick={() => go("reject", true, "Write why the closure is rejected.")}
+              >
+                Reject
+              </button>
+            </div>
+          </>
+        ) : (
+          <p style={muted}>Waiting for an ACC Engineer to approve or reject.</p>
+        ))}
+
+      {approved && (
+        <>
+          <p style={{ ...muted, color: T.success }}>
+            Approved by {action.closureDecisionBy} ({action.closureDecisionDate}){action.closureDecisionNote ? `: ${action.closureDecisionNote}` : ""}.
+          </p>
+          {isContractorEngineer ? (
+            <>
+              {input("Closing comment", "Closing comment")}
+              <button style={s.btnPrimary} disabled={busy} onClick={() => go("close", false)}>
+                {busy ? "…" : "Close action"}
+              </button>
+            </>
+          ) : (
+            <p style={muted}>Waiting for {contractor || "the contractor"}'s Contractor Engineer to close it.</p>
+          )}
+        </>
+      )}
+
+      {error && <p style={{ ...muted, color: T.danger }}>{error}</p>}
     </div>
   );
 }

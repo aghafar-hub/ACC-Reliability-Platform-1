@@ -716,6 +716,7 @@ export function buildStyles(T) {
         "Waiting Approval": T.accent,
         Confirmed: T.success,
         Returned: T.danger,
+        "Closure Requested": T.info,
         Overdue: T.danger,
         Active: T.success,
         Paused: T.textMuted,

@@ -11,7 +11,7 @@ import {
   monthlyActivityPreview,
 } from "../reportGenerators";
 
-const FOCUS_STATUSES = ["Open", "In Progress", "Waiting Stoppage"];
+const FOCUS_STATUSES = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 const ALL = "All";
 
 function ReportCard({
@@ -148,8 +148,9 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
     if (contractor !== ALL) active = active.filter((a) => contractorOf(a) === contractor);
     return {
       open: active.filter((a) => a.status === "Open").length,
-      inProgress: active.filter((a) => a.status === "In Progress").length,
+      draft: active.filter((a) => a.status === "Draft").length,
       waiting: active.filter((a) => a.status === "Waiting Stoppage").length,
+      closure: active.filter((a) => a.status === "Closure Requested").length,
     };
   }
   function oilChangeCounts(contractor) {
@@ -229,12 +230,13 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
 
         <ReportCard
           T={T} s={s} icon="ti-clipboard-list" iconColor="danger" title="Contractor Action Status"
-          description="Open · In Progress · Waiting Stoppage"
+          description="Draft · Open · Waiting Stoppage · Closure Requested"
           contractor={actionContractor} onContractorChange={setActionContractor} contractorList={contractorList}
           stats={[
             { value: actionPreview.open, label: "Open", color: "danger" },
-            { value: actionPreview.inProgress, label: "In Progress", color: "warning" },
+            { value: actionPreview.draft, label: "Draft", color: "warning" },
             { value: actionPreview.waiting, label: "Waiting Stoppage", color: "accent" },
+            { value: actionPreview.closure, label: "Closure Requested", color: "info" },
           ]}
           busy={generating === "action"}
           onGenerate={() => handleGenerate("action")}

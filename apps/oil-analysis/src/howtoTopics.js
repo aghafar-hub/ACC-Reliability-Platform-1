@@ -71,7 +71,7 @@ export const HOWTO_TOPICS = [
       },
       {
         title: "Filtering Actions",
-        desc: "Click the status count chips (Open / In Progress / Waiting Stoppage / Closed) to filter. Use the Equipment dropdown to show one equipment only. Month and Year filters show actions by their Revision Date. All filters work together.",
+        desc: "Click the status count chips (Draft / Open / Waiting Stoppage / Closure Requested / Closed) to filter. Use the Equipment dropdown to show one equipment only. Month and Year filters show actions by their Revision Date. All filters work together.",
       },
     ],
   },

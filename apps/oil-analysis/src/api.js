@@ -20,6 +20,7 @@
 import {
   rowToAction,
   actionToRow,
+  ACTION_STATUS,
   ACTION_HEADERS,
   rowToOilChangeEvent,
   rowToTopUpEvent,
@@ -533,7 +534,8 @@ export async function saveAction(webhookUrl, action, { isNew }) {
 
   const verify = await getEquipmentRows(webhookUrl, action.equipmentCode || action.unitId || "");
   const savedRow = (verify.actions || []).find((r) => String(r[0]).trim() === String(row[0]).trim());
-  if (!savedRow || !rowsEqual(savedRow, row, { skipIndices: [ACTION_LAST_MODIFIED_COL], dateIndices: ACTION_DATE_COLS })) {
+  // Phase 2: columns after the app's own 20 belong to the server (closure workflow).
+  if (!savedRow || !rowsEqual(savedRow.slice(0, row.length), row, { skipIndices: [ACTION_LAST_MODIFIED_COL], dateIndices: ACTION_DATE_COLS })) {
     if (!isNew && detectConflict(action.lastModified, savedRow, ACTION_LAST_MODIFIED_COL)) {
       throw new ConflictError(`Someone else changed this action while you were editing it. Reload and reapply your changes.`);
     }
@@ -543,6 +545,43 @@ export async function saveAction(webhookUrl, action, { isNew }) {
     );
   }
   return rowToAction(savedRow);
+}
+
+// ── Phase 2: action closure — request → ACC decision → close ────────────
+// Blind POSTs like every write here; the verify read is what tells us it
+// landed (and, when the server refused, that it didn't).
+async function actionWorkflowStep(webhookUrl, action, body, check, failText) {
+  const equipmentCode = action.equipmentCode || action.unitId || "";
+  await postBlind(webhookUrl, { ...body, acNo: action.acNo, equipmentCode });
+  const verify = await getEquipmentRows(webhookUrl, equipmentCode);
+  const savedRow = (verify.actions || []).find((r) => String(r[0]).trim() === String(action.acNo).trim());
+  const saved = savedRow ? rowToAction(savedRow) : null;
+  if (!saved || !check(saved)) throw new SaveVerificationError(failText);
+  return saved;
+}
+
+export function requestActionClosure(webhookUrl, action, comment) {
+  return actionWorkflowStep(
+    webhookUrl, action, { action: "requestActionClosure", comment },
+    (a) => a.status === ACTION_STATUS.CLOSURE_REQUESTED && a.closureComment === comment,
+    "The closure request wasn't confirmed — only this contractor's engineer can request it. Please try again."
+  );
+}
+
+export function decideActionClosure(webhookUrl, action, decision, note) {
+  return actionWorkflowStep(
+    webhookUrl, action, { action: "decideActionClosure", decision, note: note || "" },
+    (a) => (decision === "Approve" ? a.closureDecision === "Approved" : a.closureDecision === "Rejected" && a.status === ACTION_STATUS.OPEN),
+    "The decision wasn't confirmed — only an ACC Engineer can approve or reject a closure. Please try again."
+  );
+}
+
+export function closeAction(webhookUrl, action, closingComment) {
+  return actionWorkflowStep(
+    webhookUrl, action, { action: "closeAction", closingComment: closingComment || "" },
+    (a) => a.status === ACTION_STATUS.CLOSED,
+    "The action wasn't confirmed closed — the closure must be approved by ACC first. Please try again."
+  );
 }
 
 export async function deleteAction(webhookUrl, action) {

@@ -1,15 +1,19 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { formatDate } from "../parsers";
+import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditActionModal from "../components/EditActionModal";
 import GenerateMonthlyActionsModal from "../components/GenerateMonthlyActionsModal";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 
-const STATUS_COLOR_KEY = { Open: "danger", "In Progress": "warning", "Waiting Stoppage": "accent", Closed: "success" };
-const COLUMNS = ["Open", "In Progress", "Waiting Stoppage", "Closed"];
+// Phase 2 statuses (old "In Progress" rows are read as Open).
+const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
+const COLUMNS = ACTION_STATUSES;
+// Dragging only moves between these; the rest go through the action's
+// Closure section (request → ACC approval → close).
+const DRAG_STATUSES = [ACTION_STATUS.OPEN, ACTION_STATUS.WAITING];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const AGE_BUCKETS = ["0–7d", "8–14d", "15–30d", "30d+"];
 const AGE_BUCKET_COLOR_KEY = { "0–7d": "success", "8–14d": "warning", "15–30d": "danger", "30d+": "danger" };
@@ -153,7 +157,7 @@ export default function ActionTracker({
     return { st, path };
   });
 
-  const unassignedCount = useMemo(() => visible.filter((a) => a.status !== "Closed" && !a.assignedTo).length, [visible]);
+  const unassignedCount = useMemo(() => visible.filter((a) => a.status !== ACTION_STATUS.CLOSED && !a.assignedTo).length, [visible]);
 
   const ageData = useMemo(() => {
     const counts = { "0–7d": 0, "8–14d": 0, "15–30d": 0, "30d+": 0 };
@@ -253,8 +257,19 @@ export default function ActionTracker({
             overflow: "hidden",
           }}
         >
-          {a.agreedAction || "—"}
+          {a.agreedAction || (status === ACTION_STATUS.DRAFT ? a.sampleAnalysis || "—" : "—")}
         </div>
+        {status === ACTION_STATUS.DRAFT && (
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: T.warning, marginTop: 6 }}>
+            <i className="ti ti-pencil" aria-hidden="true" style={{ marginRight: 3 }} />
+            Needs the agreed action{a.createdByRule ? ` · ${a.createdByRule}` : ""}
+          </div>
+        )}
+        {status === ACTION_STATUS.CLOSURE_REQUESTED && (
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: a.closureDecision === "Approved" ? T.success : T.info, marginTop: 6 }}>
+            {a.closureDecision === "Approved" ? "✓ Approved — ready to close" : "Waiting for ACC approval"}
+          </div>
+        )}
         {status !== "Closed" && (
           <div style={{ marginTop: 6 }}>
             {a.assignedTo ? (
@@ -278,11 +293,11 @@ export default function ActionTracker({
                 fontWeight: 700,
                 padding: "2px 8px",
                 borderRadius: 20,
-                background: ageColor(T, days) + "22",
-                color: ageColor(T, days),
+                background: (isActionOverdue(a) ? T.danger : status === ACTION_STATUS.OPEN ? ageColor(T, days) : T.textMuted) + "22",
+                color: isActionOverdue(a) ? T.danger : status === ACTION_STATUS.OPEN ? ageColor(T, days) : T.textMuted,
               }}
             >
-              {days != null && days > 14 ? `⚠ ${days}d overdue` : days == null ? "—" : `${days}d open`}
+              {isActionOverdue(a) ? `⚠ ${days}d overdue` : days == null ? "—" : `${days}d open`}
             </span>
           )}
           <span style={{ fontSize: 10.5, fontFamily: "monospace", color: T.textMuted }}>{a.acNo}</span>
@@ -314,6 +329,12 @@ export default function ActionTracker({
     const action = actions.find((a) => a._id === draggedId);
     setDraggedId(null);
     if (!action || action.status === newStatus) return;
+    // Phase 2: closure and Draft → Open happen inside the action itself.
+    const draftWithoutAgreed = action.status === ACTION_STATUS.DRAFT && !String(action.agreedAction || "").trim();
+    if (!DRAG_STATUSES.includes(newStatus) || !(DRAG_STATUSES.includes(action.status) || action.status === ACTION_STATUS.DRAFT) || draftWithoutAgreed) {
+      setEditing({ action, isNew: false });
+      return;
+    }
     const equipCodeVal = action.equipmentCode || action.unitId || "";
     const payload = {
       ...action,
@@ -529,7 +550,7 @@ export default function ActionTracker({
           audit's own finding) — a status tab row plus one full-width
           column at a time instead; status still changes the same way any
           other field does, by tapping a card into the edit modal. */}
-      <div className="dash-table-desktop" style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(230px,1fr))", gap: 14, overflowX: "auto" }}>
+      <div className="dash-table-desktop" style={{ display: "grid", gridTemplateColumns: "repeat(5,minmax(210px,1fr))", gap: 14, overflowX: "auto" }}>
         {COLUMNS.map((status) => {
           const items = columnItems(status);
           const isDragOver = dragOverCol === status;
