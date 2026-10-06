@@ -1,15 +1,21 @@
 # Test copy — setup, testing Phase 0, and releasing it
 
-The test copy is a full second set of the platform: copies of the three
-Google Sheets, each with its own copy of its Apps Script, and the website
-running on your own computer. Nothing you do in it touches the live site or
-live data. Every screen shows an orange **TEST COPY** label so it can't be
-mistaken for live.
+The test copy is a full second copy of the platform on GitHub, at
+**https://aghafar-hub.github.io/ACC-Reliability-Platform-1/test/**. It is
+built and published by the same GitHub Actions deploy as the live site, and
+connects only to copies of the three Google Sheets. Nothing you do in it
+touches the live site or live data:
 
-You need: a Windows (or Mac) computer with **Node.js 20 or newer**
-(nodejs.org, "LTS") and **Git** (git-scm.com).
+- every screen shows an orange **TEST COPY** label;
+- it keeps its own saved browser data (login, settings, offline queue)
+  apart from the live site's, even in the same browser;
+- the deploy refuses to build it if it's ever pointed at a live backend.
 
----
+How it's published: code for testing goes on the **`claude/test-site`**
+branch. A push there asks the live branch's deploy workflow to run again,
+which rebuilds the live site unchanged from the live branch and puts the
+test copy from `claude/test-site` under `/test/`. The `main` branch stays
+untouched as the backup.
 
 ## Part A — Make the copies (one time, about 20 minutes)
 
@@ -21,9 +27,9 @@ Lubrication Data Base** and **Vibration**.
    Script inside it.
 2. Open the **copy** → **Extensions → Apps Script**. Check the files are
    there.
-3. Replace the script files with this branch's versions (open each file in
-   GitHub, copy all, paste over the file of the same name; use **+ → Script**
-   for a file that doesn't exist yet):
+3. Replace the script files with the versions on the **`claude/test-site`**
+   branch (open each file on GitHub, copy all, paste over the file of the
+   same name; use **+ → Script** for a file that doesn't exist yet):
    - **Oil test copy:** `backend/oil-lubrication/src/` — `ModuleAccess.js`
      (new), `ModuleAccessConfig.js` (new), `Code.js`, `Notifications.js`,
      `SampleOverdue.js`
@@ -48,35 +54,26 @@ Lubrication Data Base** and **Vibration**.
 
 You now have three test URLs.
 
-## Part B — Run the test website on your computer
+## Part B — Connect the test site (one time, 2 minutes)
 
-1. Open **Command Prompt** (or PowerShell) and run:
+1. On GitHub, open the repository → **Settings → Secrets and variables →
+   Actions → Variables tab → New repository variable**. Add three:
 
-   ```
-   git clone https://github.com/aghafar-hub/ACC-Reliability-Platform-1.git
-   cd ACC-Reliability-Platform-1
-   git checkout claude/oil-phase-0
-   ```
+   | Name | Value |
+   |---|---|
+   | `TEST_PLATFORM_CORE_URL` | Platform Core **test** web app URL |
+   | `TEST_OIL_ANALYSIS_URL` | Oil **test** web app URL |
+   | `TEST_VIBRATION_ANALYSIS_URL` | Vibration **test** web app URL |
 
-2. In the folder `tools\test-site`, copy `test-site.env.example` to
-   `test-site.env`, open it in Notepad, and paste the three test URLs.
-   The script refuses to start if any of them is a live address.
-3. Run:
-
-   ```
-   node tools/test-site/test-site.mjs
-   ```
-
-   The first run installs and builds everything (a few minutes). Then it
-   prints the addresses:
-   - **On this computer:** `http://localhost:4173/`
-   - **On your phone (same Wi-Fi):** the second address it prints. If
-     Windows asks about the firewall, allow **private networks**.
-4. Log in with your normal email and password — the accounts were copied
+2. Tell me when they're saved, and I'll start a deploy. You can also start
+   one yourself: **Actions → Deploy to GitHub Pages → Run workflow**.
+3. Open **https://aghafar-hub.github.io/ACC-Reliability-Platform-1/test/**
+   and log in with your normal email and password. The accounts were copied
    with the Platform Core sheet.
 
-Next time, `node tools/test-site/test-site.mjs --serve` starts it again
-without rebuilding. After pulling new code, run it without `--serve`.
+If the test site ever opens without the orange label, open the live site
+once and reload it, then go back to `/test/`. That lets your browser pick up
+the live site's updated offline settings.
 
 To sign in as someone else (a technician, a contractor engineer), reset
 their password in **Settings → General → Users** on the test site. This
@@ -113,7 +110,8 @@ Do this at a quiet time; it takes about 15 minutes.
 
 1. **Back up:** File → Make a copy of each live spreadsheet, named
    `BACKUP before Phase 0 <date>`.
-2. **Website first.** It's safe on its own: until a backend is updated,
+2. **Website first:** merge the tested branch into the live branch; GitHub
+   Actions publishes it. It's safe on its own: until a backend is updated,
    the website treats every module as fully open, exactly as today.
 3. **Oil live script:**
    - Paste the same files as in Part A step 3.
@@ -138,7 +136,7 @@ Do this at a quiet time; it takes about 15 minutes.
 **If something goes wrong:**
 - Apps Script → Manage deployments → ✏ edit → choose the previous version
   → Deploy.
-- The website can be returned to the `main` backup.
+- The website can be returned to the `main` backup branch.
 - The new access sheets (`OL_MODULE_PEOPLE`, `OL_TAB_ACCESS`,
   `VIB_MODULE_PEOPLE`, `VIB_TAB_ACCESS`) can stay. The old code simply
   ignores them.
