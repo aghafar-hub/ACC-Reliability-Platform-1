@@ -19,6 +19,7 @@ var MA_CONFIG = {
     { id: "ROLE-CENG", label: "Contractor Engineer" },
     { id: "ROLE-RENG", label: "ACC Engineer" },
     { id: "ROLE-MGR", label: "Manager" },
+    { id: "ROLE-CMGR", label: "Contractor Manager" },
   ],
 
   // Matches what each role could do before Phase 0: technician-only
@@ -28,6 +29,7 @@ var MA_CONFIG = {
     "ROLE-CENG": { "*": "Edit" },
     "ROLE-RENG": { "*": "Edit" },
     "ROLE-MGR": { "*": "Edit" },
+    "ROLE-CMGR": { "*": "Edit" },
   },
 
   orgToContractor: { "ORG-RHI": "RHI", "ORG-ASEC": "ASEC" },

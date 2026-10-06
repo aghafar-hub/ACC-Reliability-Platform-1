@@ -7,7 +7,7 @@ import { ROLE } from '../../auth/session';
 import { useOrgUsers } from '../../hooks/useOrgUsers';
 import './shared.css';
 
-const ROUTINE_CREATOR_ROLES: string[] = [ROLE.CONTRACTOR_ENGINEER, ROLE.MANAGER, ROLE.ADMIN];
+const ROUTINE_CREATOR_ROLES: string[] = [ROLE.CONTRACTOR_ENGINEER, ROLE.CONTRACTOR_MANAGER, ROLE.MANAGER, ROLE.ADMIN];
 
 export default function RoutinesListPage() {
   const { sessionToken, claims } = useAuth();

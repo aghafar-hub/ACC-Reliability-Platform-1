@@ -15,6 +15,7 @@ import Routines from "./pages/Routines";
 import OilInventory from "./pages/OilInventory";
 import Activity from "./pages/Activity";
 import Reports from "./pages/Reports";
+import TeamWorkload from "./pages/TeamWorkload";
 import SampleTracker from "./pages/SampleTracker";
 import HowToUse from "./pages/HowToUse";
 import Settings from "./pages/Settings";
@@ -1333,6 +1334,11 @@ function AppShell({ config, setConfig, navBridge }) {
           {visitedPages.has("inventory") && (
             <div style={{ display: page === "inventory" ? undefined : "none" }}>
               <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
+            </div>
+          )}
+          {visitedPages.has("team") && (
+            <div style={{ display: page === "team" ? undefined : "none" }}>
+              <TeamWorkload webhookUrl={config.webhookUrl} />
             </div>
           )}
           {visitedPages.has("reports") && (

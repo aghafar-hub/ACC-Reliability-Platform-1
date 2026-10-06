@@ -29,6 +29,8 @@ const RESP = {
   CONTRACTOR: 'Contractor Responsible Engineer',
   TECH: 'Technician',
   MEMBER: 'Member',
+  ACC_MANAGER: 'ACC Manager',
+  CONTRACTOR_MANAGER: 'Contractor Manager',
 } as const;
 const CONTRACTORS = [
   { id: 'ASEC', orgId: 'ORG-ASEC' },
@@ -220,6 +222,15 @@ function PeopleCard({ config, users, onSave }: { config: Config; users: OrgUser[
       title: `${c.id} technicians`,
       hint: 'Can be assigned work.',
       responsibility: RESP.TECH,
+      contractor: c.id,
+      orgId: c.orgId,
+    })),
+    // Phase 7 — escalation when a route or action is still overdue 10 days later.
+    { title: 'ACC managers', hint: 'Get escalations for every contractor.', responsibility: RESP.ACC_MANAGER, contractor: 'ACC', orgId: 'ORG-ACC' },
+    ...CONTRACTORS.map((c) => ({
+      title: `${c.id} managers`,
+      hint: `Get ${c.id}'s escalations.`,
+      responsibility: RESP.CONTRACTOR_MANAGER,
       contractor: c.id,
       orgId: c.orgId,
     })),

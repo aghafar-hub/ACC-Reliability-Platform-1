@@ -62,6 +62,7 @@ export const OIL_SUB_TABS: SubTab[] = [
   { id: 'tracker', label: 'Oil Sampling Log', icon: 'ti-timeline' },
   { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Oil Reports', icon: 'ti-report' },
+  { id: 'team', label: 'Team Workload', icon: 'ti-users-group' },
   { id: 'activity', label: 'Activity', icon: 'ti-history' },
   // No "Settings" entry here on purpose — same reasoning as
   // VIBRATION_SUB_TABS above: it's the identical embedded page the

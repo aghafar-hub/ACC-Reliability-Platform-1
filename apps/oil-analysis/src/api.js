@@ -858,6 +858,13 @@ export async function getSuggestions(webhookUrl) {
   return json.suggestions || [];
 }
 
+// Phase 7 — per-contractor workload (routes per technician, actions, lab
+// reports, suggestions, low stock), scoped to the caller's contractor.
+export async function getTeamWorkload(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getTeamWorkload" });
+  return { contractors: json.contractors || [], generatedAt: json.generatedAt || "" };
+}
+
 export async function getRoutineItems(webhookUrl, routineId) {
   const json = await getJSON(webhookUrl, { action: "getRoutineItems", routineId });
   return (json.items || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutineItem);

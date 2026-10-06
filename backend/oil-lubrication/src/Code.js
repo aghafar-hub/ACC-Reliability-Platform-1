@@ -264,6 +264,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getTeamWorkload":
+        result = getTeamWorkload(scope);
+        break;
       case "getSuggestions":
         result = getSuggestions(scope, e.parameter.all === "1");
         break;

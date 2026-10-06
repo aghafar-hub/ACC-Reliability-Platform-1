@@ -23,8 +23,11 @@ var MA_RESP = {
   CONTRACTOR: "Contractor Responsible Engineer",
   TECH: "Technician",
   MEMBER: "Member",
+  // Phase 7 — who gets the "still overdue 10 days later" escalation.
+  ACC_MANAGER: "ACC Manager",
+  CONTRACTOR_MANAGER: "Contractor Manager",
 };
-var MA_RESPONSIBILITIES = [MA_RESP.ACC, MA_RESP.CONTRACTOR, MA_RESP.TECH, MA_RESP.MEMBER];
+var MA_RESPONSIBILITIES = [MA_RESP.ACC, MA_RESP.CONTRACTOR, MA_RESP.TECH, MA_RESP.MEMBER, MA_RESP.ACC_MANAGER, MA_RESP.CONTRACTOR_MANAGER];
 var MA_STATUSES = ["Active", "Maintenance", "Off"];
 var MA_PEOPLE_HEADERS = ["Email", "DisplayName", "Contractor", "Responsibility", "Modified_Date"];
 var MA_TAB_HEADERS = ["Kind", "Key", "TabId", "Level", "Modified_Date"];
@@ -161,6 +164,16 @@ function maLoadConfig_() {
       var email = maNormEmail_(key);
       (userOverrides[email] = userOverrides[email] || {})[tabId] = level;
     }
+  });
+  // A role or tab added after the first setup (e.g. the Contractor Manager
+  // role, or a new tab) has no saved row yet — it starts at the module's
+  // default until the App Owner changes it.
+  (MA_CONFIG.roles || []).forEach(function (role) {
+    var defs = (MA_CONFIG.defaultRoleLevels || {})[role.id] || {};
+    MA_CONFIG.tabs.forEach(function (tabId) {
+      var row = (roleDefaults[role.id] = roleDefaults[role.id] || {});
+      if (!row[tabId]) row[tabId] = defs[tabId] || defs["*"] || "Hidden";
+    });
   });
   var cfg = { people: people, roleDefaults: roleDefaults, userOverrides: userOverrides };
   try { cache.put(maCacheKey_(), JSON.stringify(cfg), MA_CACHE_SECONDS); } catch (e) { /* too large to cache — fine */ }

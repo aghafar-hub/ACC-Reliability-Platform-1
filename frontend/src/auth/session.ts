@@ -41,6 +41,9 @@ export const ROLE = {
   CONTRACTOR_ENGINEER: 'ROLE-CENG',
   RELIABILITY_ENGINEER: 'ROLE-RENG',
   MANAGER: 'ROLE-MGR',
+  // Phase 7 — Contractor Engineer rights for their own contractor, plus the
+  // team view and overdue escalations.
+  CONTRACTOR_MANAGER: 'ROLE-CMGR',
 } as const;
 
 /**

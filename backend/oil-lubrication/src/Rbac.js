@@ -21,6 +21,10 @@ var ROLE_GRANTS = {
   'ROLE-CENG': ['View', 'Create', 'Edit', 'Approve'],
   'ROLE-RENG': ['View', 'Create', 'Edit', 'Approve'],
   'ROLE-MGR': ['View', 'Create', 'Edit', 'Approve'],
+  // Phase 7 — Contractor Manager: everything a Contractor Engineer can do
+  // (contractor scope from the user's own org), plus the team view and
+  // overdue escalations.
+  'ROLE-CMGR': ['View', 'Create', 'Edit', 'Approve'],
   // ROLE-ADMIN isn't listed — handled as a wildcard below, matching
   // Platform Core's own ROLE-ADMIN "*" grant row.
 };

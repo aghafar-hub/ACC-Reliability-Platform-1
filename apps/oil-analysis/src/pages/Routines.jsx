@@ -210,7 +210,7 @@ export default function Routines({
   const canCreateRoutines = useMemo(() => {
     const roles = session?.claims?.roles;
     if (!session) return true; // no session to check against — standalone build
-    return (roles || []).some((r) => r === "ROLE-ADMIN" || r === "ROLE-CENG" || r === "ROLE-RENG" || r === "ROLE-MGR");
+    return (roles || []).some((r) => r === "ROLE-ADMIN" || r === "ROLE-CENG" || r === "ROLE-CMGR" || r === "ROLE-RENG" || r === "ROLE-MGR");
   }, [session]);
   // Hard-delete (as opposed to Cancel, which keeps the record) is Admin-
   // only — see backend/oil-lubrication/src/Routines.js's deleteRoutine

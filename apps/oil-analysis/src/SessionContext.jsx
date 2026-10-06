@@ -64,7 +64,7 @@ export function useIsRouteEngineerFor(contractor) {
   const roles = session?.claims?.roles || [];
   if (roles.includes("ROLE-ADMIN")) return true;
   const mine = ORG_TO_CONTRACTOR[session?.claims?.orgId] || "";
-  return !!mine && mine === contractor && roles.some((r) => r === "ROLE-CENG" || r === "ROLE-MGR");
+  return !!mine && mine === contractor && roles.some((r) => r === "ROLE-CENG" || r === "ROLE-CMGR" || r === "ROLE-MGR");
 }
 
 // Phase 2: approving or rejecting an action's closure belongs to ACC

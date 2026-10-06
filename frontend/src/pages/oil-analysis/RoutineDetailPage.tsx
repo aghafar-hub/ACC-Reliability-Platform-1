@@ -75,7 +75,7 @@ export default function RoutineDetailPage() {
   const canSubmitRoutine = canEditItems && allItemsSaved;
   const canApprove =
     routine.Status === 'Submitted' &&
-    (isAppAdmin || (isSameContractor && (roles.includes(ROLE.CONTRACTOR_ENGINEER) || roles.includes(ROLE.MANAGER))));
+    (isAppAdmin || (isSameContractor && (roles.includes(ROLE.CONTRACTOR_ENGINEER) || roles.includes(ROLE.CONTRACTOR_MANAGER) || roles.includes(ROLE.MANAGER))));
   const canComment = isAppAdmin || (isAcc && (roles.includes(ROLE.RELIABILITY_ENGINEER) || roles.includes(ROLE.MANAGER)));
 
   function updateDraft(itemId: string, patch: Partial<ItemDraft>) {

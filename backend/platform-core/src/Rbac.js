@@ -162,3 +162,32 @@ function runSeedRolePermissions() {
   Logger.log(result);
   return result;
 }
+
+/**
+ * Phase 7 — the Contractor Manager role. Run addContractorManagerRole once
+ * from the Apps Script editor's Run dropdown. It adds ROLE-CMGR
+ * ("Contractor Manager") to ROLES and gives it the same grants as a
+ * Contractor Engineer — its contractor scope comes from the user's own
+ * organisation, like every other role. Safe to run again: it doesn't
+ * duplicate the role or its grants.
+ */
+function addContractorManagerRole() {
+  var roles = getSheet_(SHEET_NAMES.ROLES);
+  var hasRole = readSheetAsObjects_(roles).some(function (r) { return r.RoleId === 'ROLE-CMGR'; });
+  if (!hasRole) appendRow_(roles, { RoleId: 'ROLE-CMGR', RoleName: 'Contractor Manager' });
+
+  var perms = getSheet_(SHEET_NAMES.ROLE_PERMISSION);
+  deleteRowsByColumn_(perms, 'RoleId', 'ROLE-CMGR');
+  [
+    ['ROLE-CMGR', 'oil-analysis', 'View'],
+    ['ROLE-CMGR', 'oil-analysis', 'Create'],
+    ['ROLE-CMGR', 'oil-analysis', 'Edit'],
+    ['ROLE-CMGR', 'oil-analysis', 'Approve'],
+    ['ROLE-CMGR', 'platform-core', 'View'],
+  ].forEach(function (g) {
+    appendRow_(perms, { RoleId: g[0], ModuleId: g[1], ActionCode: g[2], Allowed: true });
+  });
+  var result = { status: 'ok', roleAdded: !hasRole };
+  Logger.log(result);
+  return result;
+}

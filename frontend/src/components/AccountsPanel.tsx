@@ -24,6 +24,7 @@ const ROLE_OPTIONS = [
   { id: ROLE.ADMIN, label: 'App Admin' },
   { id: ROLE.RELIABILITY_ENGINEER, label: 'ACC Engineer' },
   { id: ROLE.MANAGER, label: 'Manager' },
+  { id: ROLE.CONTRACTOR_MANAGER, label: 'Contractor Manager' },
   { id: ROLE.CONTRACTOR_ENGINEER, label: 'Contractor Engineer' },
   { id: ROLE.TECHNICIAN, label: 'Technician' },
 ];

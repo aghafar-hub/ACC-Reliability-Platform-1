@@ -5,7 +5,7 @@
 
 var MA_ALL_OIL_TABS = [
   "dashboard", "equipment", "routines", "oilreport", "upload", "actions",
-  "oilchange", "tracker", "inventory", "reports", "activity", "settings", "mywork",
+  "oilchange", "tracker", "inventory", "reports", "activity", "settings", "mywork", "team",
 ];
 
 // Tabs whose data every part of the app leans on (equipment names, LP ids)
@@ -24,6 +24,7 @@ var MA_CONFIG = {
     { id: "ROLE-CENG", label: "Contractor Engineer" },
     { id: "ROLE-RENG", label: "ACC Engineer" },
     { id: "ROLE-MGR", label: "Manager" },
+    { id: "ROLE-CMGR", label: "Contractor Manager" },
   ],
 
   // Starting point when the module's access sheet is first created: matches
@@ -34,6 +35,7 @@ var MA_CONFIG = {
     "ROLE-CENG": { "*": "Edit" },
     "ROLE-RENG": { "*": "Edit" },
     "ROLE-MGR": { "*": "Edit" },
+    "ROLE-CMGR": { "*": "Edit" },
   },
 
   orgToContractor: { "ORG-RHI": "RHI", "ORG-ASEC": "ASEC" },
@@ -58,6 +60,7 @@ var MA_CONFIG = {
     getRoutineItems: ["routines", "mywork", "dashboard", "equipment"],
     getRouteTemplates: ["routines", "dashboard", "reports"],
     getSuggestions: ["routines", "actions"],
+    getTeamWorkload: ["team"],
     getRoutinesOverview: ["routines", "dashboard", "reports"],
     getRoutineCompletionTrend: ["routines", "dashboard", "reports"],
     getOilInventory: ["inventory", "dashboard", "reports"],
