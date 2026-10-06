@@ -368,3 +368,13 @@
   font-size: 0.82rem;
   color: var(--shell-text-secondary, #a9b3c6);
 }
+
+.mywork-card-cta {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 600;
+}
+
+.mywork-returned .mywork-btn {
+  margin-top: 0.6rem;
+}

@@ -49,7 +49,12 @@ function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void
           </span>
         </span>
       </div>
-      {returned && routine.returnReason && <div className="mywork-card-returned">Fix: {routine.returnReason}</div>}
+      {returned && (
+        <div className="mywork-card-returned">
+          {routine.returnReason ? `Fix: ${routine.returnReason}` : 'Returned for correction'}
+          <span className="mywork-card-cta">Tap to correct and resubmit →</span>
+        </div>
+      )}
       <div className="mywork-card-meta">
         {routine.routeType || '—'} · {routine.contractor || '—'}
         {routine.dueDate ? ` · due ${routine.dueDate}` : ''}
@@ -263,7 +268,17 @@ function RoutineDetail({
           <strong>Returned for correction</strong>
           {routine.returnReason ? `: ${routine.returnReason}` : ''}
           {routine.returnedBy ? ` — ${routine.returnedBy}` : ''}
-          <div>Correct the points below and submit again.</div>
+          <div>Correct the points below if needed, then resubmit.</div>
+          {canSubmit && !loading && items.length > 0 && (
+            <button
+              type="button"
+              className="mywork-btn mywork-btn-primary tap-scale"
+              onClick={handleSubmitRoutine}
+              disabled={submitting}
+            >
+              {submitting ? 'Submitting…' : 'Resubmit for approval'}
+            </button>
+          )}
         </div>
       )}
 

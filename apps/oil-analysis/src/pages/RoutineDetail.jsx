@@ -596,7 +596,12 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
           <p style={{ fontSize: 13, margin: 0 }}>
             "{routine.returnReason}" — {routine.returnedBy || "—"} ({routine.returnedDate || "—"})
           </p>
-          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "6px 0 0" }}>Correct the checklist below and submit again.</p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "6px 0 0" }}>Correct the checklist below if needed, then resubmit.</p>
+          {canSubmit && (
+            <button style={{ ...s.btnPrimary, marginTop: 10 }} onClick={handleSubmitRoutine} disabled={working}>
+              {working ? "Submitting…" : "Resubmit for approval"}
+            </button>
+          )}
         </div>
       )}
 
