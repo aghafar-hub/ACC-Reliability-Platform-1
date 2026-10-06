@@ -150,6 +150,9 @@
 //   Notifications.js      — best-effort email on Routine assigned/submitted/approved
 //   InAppNotifications.js — in-app notification bell feed (same 5 events as Notifications.js)
 //   AuditLog.js           — "who changed what, when" feed (recordAudit_/getAuditTrail)
+//   ModuleAccess.js       — Phase 0: who may open this module, tab levels, status
+//                            (identical copy in every module backend)
+//   ModuleAccessConfig.js — Oil Lubrication's tabs + which tabs each request needs
 // Apps Script shares one global scope across every file in a project, so this
 // split changes nothing about how the code runs — same deployment, same URL,
 // same single global scope every function in every file already shared.
@@ -174,12 +177,26 @@ function doGet(e) {
     // getContractorScope_ for what null vs. a contractor label means.
     var scope = getContractorScope_(auth.session);
 
+    var accessDenial = maCheckRead_(auth.session, action);
+    if (accessDenial) {
+      return outputResult_({ error: accessDenial, accessDenied: true }, callback);
+    }
+
     switch (action) {
+      case "getMyAccess":
+        result = getMyAccess_(auth.session);
+        break;
+      case "getModuleAccessConfig":
+        result = getModuleAccessConfig_();
+        break;
+      case "getModuleTechnicians":
+        result = { technicians: maTechnicians_(scope || e.parameter.contractor || "") };
+        break;
       case "readAll":
-        result = readAll(scope);
+        result = maFilterSections_(auth.session, readAll(scope));
         break;
       case "getStartupBundle":
-        result = getStartupBundle(scope);
+        result = maFilterSections_(auth.session, getStartupBundle(scope));
         break;
       case "getDashboard":
         result = getDashboard(scope);
@@ -209,7 +226,7 @@ function doGet(e) {
         result = getPaginated("Data_Entry", e.parameter.page, e.parameter.limit, true, scope, 0); // newest first
         break;
       case "getChanges":
-        result = getChanges(e.parameter.since || "", scope);
+        result = maFilterSections_(auth.session, getChanges(e.parameter.since || "", scope));
         break;
       case "readEquipmentRegistry":
         result = readEquipmentRegistry();
@@ -347,6 +364,20 @@ function doPost(e) {
     }
 
     try {
+      var writeDenial = maCheckWrite_(auth.session, data);
+      if (writeDenial) {
+        logError("doPost:access-denied", writeDenial, {action: data.action, actingUser: actingUser});
+        return jsonOut({status: "error", message: writeDenial, accessDenied: true});
+      }
+
+      if (data.action === "maSetStatus" || data.action === "maAddPeople" || data.action === "maRemovePerson" || data.action === "maSetTabLevel") {
+        requireAdmin_(auth.session);
+        var maResult = maHandleAdminPost_(data, actingUser);
+        logError("doPost:" + data.action, maResult.error || "ok", {actingUser: actingUser});
+        if (!maResult.error) recordAudit_(ss, MA_CONFIG.peopleSheet, MA_CONFIG.moduleId, "update", actingUser, "", "Module access: " + data.action);
+        return jsonOut(maResult.error ? {status: "error", message: maResult.error} : maResult);
+      }
+
       if (data.action === "append") {
         requirePermission_(auth.session, "Create");
         if (GENERIC_WRITE_ALLOWLIST.append.indexOf(data.sheet) === -1) {

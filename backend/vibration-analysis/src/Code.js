@@ -60,12 +60,16 @@
  *   BackfillLastReadings.js  recomputes both Last Reading sheets from
  *                         scratch off RMS/SPM DATA + the Registers
  *   Triggers.js           onEdit (Action Tracker year/month row filter)
+ *   Auth.js               Phase 0: verifies the login token from Platform Core
+ *   ModuleAccess.js       Phase 0: who may open this module, tab levels, status
+ *                         (identical copy in every module backend)
+ *   ModuleAccessConfig.js Phase 0: this module's tabs + which tabs each request needs
  */
 
 function doGet(e) {
   try {
     var action = e.parameter.action || 'readAll';
-    var result = dispatch(action, e.parameter);
+    var result = dispatchWithAccess_(action, e.parameter);
     return jsonOut(e, result);
   } catch(err) { return jsonOut(e, {error: String(err)}); }
 }
@@ -77,9 +81,41 @@ function doPost(e) {
       try { body = JSON.parse(e.postData.contents); } catch(x) { body = e.parameter; }
     } else { body = e.parameter; }
     var action = body.action || 'readAll';
-    var result = dispatch(action, body);
+    var result = dispatchWithAccess_(action, body);
     return jsonOut(e, result);
   } catch(err) { return jsonOut(e, {error: String(err)}); }
+}
+
+// Phase 0: every request passes the Module Access check (ModuleAccess.js)
+// before it reaches dispatch(). This backend takes writes through doGet as
+// well as doPost, so reads and writes are told apart by action name
+// (VIB_WRITE_ACTIONS in ModuleAccessConfig.js), not by HTTP method.
+function dispatchWithAccess_(action, params) {
+  var session = getSessionOrNull_(params.sessionToken);
+  var request = { action: action };
+  for (var k in params) { if (k !== 'action') request[k] = params[k]; }
+  var denial = VIB_WRITE_ACTIONS.indexOf(action) !== -1
+    ? maCheckWrite_(session, request)
+    : maCheckRead_(session, action);
+  if (denial) return { status: 'error', error: denial, accessDenied: true };
+
+  if (action === 'getMyAccess') return getMyAccess_(session);
+  if (action === 'getModuleAccessConfig') return getModuleAccessConfig_();
+  if (action === 'maSetStatus' || action === 'maAddPeople' || action === 'maRemovePerson' || action === 'maSetTabLevel') {
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(30000)) return { status: 'error', error: 'Server is busy — please try again.' };
+    try {
+      return maHandleAdminPost_(request, session ? session.email : '');
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+  var result = dispatch(action, params);
+  if (action === 'readAll' || action === 'getStartupBundle' || action === 'getRmsSpmHistory') {
+    result = maFilterSections_(session, result);
+  }
+  return result;
 }
 
 function dispatch(action, params) {

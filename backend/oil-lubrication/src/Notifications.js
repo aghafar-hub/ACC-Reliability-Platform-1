@@ -72,28 +72,17 @@ function sendNotificationEmail_(options) {
   MailApp.sendEmail(payload);
 }
 
-// Reviewer distribution list lives in its own sheet
-// ("OL_NOTIFY_REVIEWERS", columns: Contractor, Email) rather than calling
-// Platform Core's account directory live — same reasoning Rbac.js's
-// ROLE_GRANTS duplication already gives: this backend has no session or
-// credential of its own to call Platform Core with, and a live
-// cross-project fetch on every submit would add a new network call and
-// failure mode to a write path for every single submission. A row with
-// Contractor="ACC" gets every routine's "submitted for review" email
-// regardless of which contractor it belongs to (ACC oversees both); a row
-// with Contractor="RHI"/"ASEC" only gets that contractor's routines.
-// Maintained by hand by whoever administers each contractor's accounts —
-// same maintenance pattern OL_ACTION_PHRASES already uses. Missing sheet
-// or no matching rows just means no email, not an error.
+// Who gets "submitted for review" alerts and the two digests: every ACC
+// responsible engineer, plus the routine's own contractor's responsible
+// engineers — both lists kept in Settings > Module Access (ModuleAccess.js).
+// The old OL_NOTIFY_REVIEWERS sheet was imported into those lists the first
+// time they were read, and is no longer used. Nobody listed = no alert.
 function getNotifyReviewers_(contractor) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var rows = readSheet(ss, "OL_NOTIFY_REVIEWERS", true);
-  var emails = [];
-  for (var i = 0; i < rows.length; i++) {
-    var rowContractor = String(rows[i][0] || "").trim();
-    var email = String(rows[i][1] || "").trim();
-    if (!email) continue;
-    if (rowContractor === "ACC" || rowContractor === contractor) emails.push(email);
+  var emails = maResponsibleEmails_(MA_RESP.ACC, "");
+  if (contractor && contractor !== "ACC") {
+    maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor).forEach(function (e) {
+      if (emails.indexOf(e) === -1) emails.push(e);
+    });
   }
   return emails;
 }

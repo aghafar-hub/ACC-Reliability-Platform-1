@@ -182,8 +182,8 @@ function checkSampleOverdueAndNotify() {
     if (overdue.length === 0 && upcoming.length === 0) return;
     if (sampleDigestAlreadySentThisMonth_(ss, contractor, monthKey)) return;
 
-    var recipientEmail = getModuleResponsibleEmail_("Oil Lubrication", contractor, "Contractor Engineer");
-    if (!recipientEmail) return; // nobody assigned yet — nothing to notify, not an error
+    var recipients = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
+    if (!recipients.length) return; // nobody listed yet — nothing to notify, not an error
 
     var lines = [];
     if (overdue.length) {
@@ -202,7 +202,7 @@ function checkSampleOverdueAndNotify() {
 
     recordInAppNotificationForEach_(
       ss,
-      [recipientEmail],
+      recipients,
       "sample-overdue",
       overdue.length + " overdue / " + upcoming.length + " upcoming sample(s) — " + contractor,
       contractor,
@@ -210,7 +210,7 @@ function checkSampleOverdueAndNotify() {
       ""
     );
     sendNotificationEmail_({
-      to: recipientEmail,
+      to: recipients.join(","),
       subject: "Oil Lubrication: Sample Tracker — " + contractor + " (" + monthKey + ")",
       body: lines.join("\n"),
     });
