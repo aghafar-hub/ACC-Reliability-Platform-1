@@ -79,6 +79,63 @@ jobs:
           cp -r apps/vibration-analysis/dist-embed/. site/apps/vibration-analysis/
           cp -r apps/oil-analysis/dist-embed/. site/apps/oil-analysis/
 
+      # ── Test copy ───────────────────────────────────────────────────────
+      # A second, separate copy of the whole platform, built from the
+      # claude/test-site branch and served at …/ACC-Reliability-Platform-1/test/.
+      # It talks ONLY to the test copies of the Google Sheets (repository
+      # variables TEST_PLATFORM_CORE_URL, TEST_OIL_ANALYSIS_URL,
+      # TEST_VIBRATION_ANALYSIS_URL) and keeps its saved browser data apart
+      # from the live site's (frontend/src/storagePrefix.ts). Skipped until
+      # all three variables exist, and a problem here never blocks the live
+      # deploy (continue-on-error). See docs/test-copy-setup.md.
+      - name: Check out the test branch
+        id: test_checkout
+        if: vars.TEST_PLATFORM_CORE_URL != '' && vars.TEST_OIL_ANALYSIS_URL != '' && vars.TEST_VIBRATION_ANALYSIS_URL != ''
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: claude/test-site
+          path: test-copy
+
+      - name: Build the test copy into /test/
+        if: steps.test_checkout.outcome == 'success'
+        continue-on-error: true
+        env:
+          VITE_PLATFORM_CORE_URL: ${{ vars.TEST_PLATFORM_CORE_URL }}
+          VITE_OIL_ANALYSIS_URL: ${{ vars.TEST_OIL_ANALYSIS_URL }}
+          VITE_VIBRATION_ANALYSIS_URL: ${{ vars.TEST_VIBRATION_ANALYSIS_URL }}
+          LIVE_PLATFORM_CORE_URL: ${{ vars.VITE_PLATFORM_CORE_URL }}
+          LIVE_OIL_ANALYSIS_URL: ${{ vars.VITE_OIL_ANALYSIS_URL }}
+          VITE_ENV_LABEL: TEST COPY
+          VITE_STORAGE_PREFIX: 'acc-test:'
+          VITE_BUILD_SHA: test-${{ github.sha }}
+        run: |
+          set -e
+          # Never let the test copy point at a live backend.
+          for u in "$VITE_PLATFORM_CORE_URL" "$VITE_OIL_ANALYSIS_URL" "$VITE_VIBRATION_ANALYSIS_URL"; do
+            if [ "$u" = "$LIVE_PLATFORM_CORE_URL" ] || [ "$u" = "$LIVE_OIL_ANALYSIS_URL" ] \
+              || [ "$u" = "https://script.google.com/macros/s/AKfycbx3GDHY_1njtZ5wO5684BuYyslzuzB7GvAchJQtnBCynVOCLxfJ0ZnNm9oXWhqk36Lt/exec" ] \
+              || [ "$u" = "https://script.google.com/macros/s/AKfycbzBSXj7ugvqgd_KnTPOXpISmTDeQ4aB3CcIaMAg4RUnbJ6fZO03uOCqS8ekxlxLPaW9Kw/exec" ]; then
+              echo "::error::A TEST_* variable points at a LIVE backend — the test copy was not built."
+              exit 1
+            fi
+          done
+          # Without this file the test site would share the live site's saved data.
+          if [ ! -f test-copy/frontend/src/storagePrefix.ts ]; then
+            echo "::error::The test branch has no frontend/src/storagePrefix.ts — the test copy was not built."
+            exit 1
+          fi
+          npm install --prefix test-copy/frontend
+          npm install --prefix test-copy/apps/oil-analysis
+          npm install --prefix test-copy/apps/vibration-analysis
+          (cd test-copy/frontend && npx vite build --base=/${{ github.event.repository.name }}/test/)
+          (cd test-copy/apps/oil-analysis && npm run build:embed)
+          (cd test-copy/apps/vibration-analysis && npm run build:embed)
+          mkdir -p site/test/apps/oil-analysis site/test/apps/vibration-analysis
+          cp -r test-copy/frontend/dist/. site/test/
+          cp -r test-copy/apps/oil-analysis/dist-embed/. site/test/apps/oil-analysis/
+          cp -r test-copy/apps/vibration-analysis/dist-embed/. site/test/apps/vibration-analysis/
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

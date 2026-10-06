@@ -40,7 +40,11 @@ export default defineConfig({
         // Default globPatterns (JS/CSS/HTML/fonts) already cover the
         // shell's own built output; icons/manifest are picked up via
         // includeAssets above.
-        navigateFallbackDenylist: [/^\/apps\//],
+        // /test/ is the test copy's own site (see .github/workflows/
+        // deploy.yml) — the live site's offline layer must not answer its
+        // page requests with the live app. Test builds (VITE_ENV_LABEL set)
+        // leave this out so the test site's own offline layer still works.
+        navigateFallbackDenylist: process.env.VITE_ENV_LABEL ? [/^\/apps\//] : [/^\/apps\//, /\/test(\/|$)/],
         runtimeCaching: [
           {
             // Both modules' embed bundles (apps/oil-analysis/embed.js,
