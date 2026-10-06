@@ -204,7 +204,7 @@ export default function LastActionsPanel({
               ["Agreed Action", viewing.agreedAction],
               ["Contractor", viewing.contractor],
               ["Contractor Action", viewing.contractorAction],
-              ["Prev. Month Agreed Action", viewing.prevMonthAgreedAction],
+              ["Last Previous Action", viewing.prevMonthAgreedAction],
               ["ACC Action", viewing.accAction],
               ["Completed Date", formatDate(viewing.completedDate)],
             ].map(([label, value]) => (

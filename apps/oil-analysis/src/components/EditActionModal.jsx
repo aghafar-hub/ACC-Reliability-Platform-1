@@ -3,7 +3,7 @@ import { useTheme } from "../ThemeContext";
 import { useSession, useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
 import { nextAcNo, formatDate, ACTION_STATUS, ACTION_DRAFT_DUE_DAYS, isActionOverdue, actionDaysOverdue, actionDueEnd } from "../parsers";
 import { useActionWorkflow } from "../ActionWorkflowContext";
-import { toISODate, latestOilChangeFor, autofillFromEquipment } from "../actionAutofill";
+import { toISODate, latestOilChangeFor, autofillFromEquipment, lastAgreedActionFor } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
 import MultiSelectTags from "./MultiSelectTags";
 import TechnicianPicker from "./TechnicianPicker";
@@ -96,15 +96,25 @@ export default function EditActionModal({
       if (!base.dueDate) base.dueDate = toISODate(new Date(Date.now() + ACTION_DRAFT_DUE_DAYS * 86400000));
       if (base.duration === undefined || base.duration === "") base.duration = 0;
     }
-    base.lastChange = toISODate(base.lastChange);
     base.completedDate = toISODate(base.completedDate);
     if (scopedContractor && !base.contractor) base.contractor = scopedContractor;
-    if (isNew && (base.equipmentCode || base.unitId)) {
-      const filled = autofillFromEquipment(base.equipmentCode || base.unitId, deps);
+    const code0 = base.equipmentCode || base.unitId;
+    if (isNew && code0) {
+      const filled = autofillFromEquipment(code0, { ...deps, revisionDate: base.revisionDate });
       return { ...base, ...filled };
+    }
+    // Last Change always comes from the Oil Change Log, and Last Previous
+    // Action from the point's earlier actions — both read-only.
+    if (code0) {
+      const latest = latestOilChangeFor(oilChanges, code0);
+      base.lastChange = latest ? toISODate(latest.changeDate) : toISODate(base.lastChange);
+      base.prevMonthAgreedAction = lastAgreedActionFor(allActions, code0, action._id, base.revisionDate) || base.prevMonthAgreedAction || "";
+    } else {
+      base.lastChange = toISODate(base.lastChange);
     }
     return base;
   });
+  // (kept for the oil-change point display below)
   // Bug-hunt pass: this used to return null unconditionally for an
   // EXISTING action (isNew false), with nothing ever re-syncing it
   // afterward unless the user touched "Update Lubrication Point" — which
@@ -127,7 +137,7 @@ export default function EditActionModal({
     setForm((f) => ({ ...f, [field]: value }));
   }
   function selectEquipment(code) {
-    setForm((f) => ({ ...f, ...autofillFromEquipment(code, deps) }));
+    setForm((f) => ({ ...f, ...autofillFromEquipment(code, { ...deps, revisionDate: f.revisionDate }) }));
     const latest = latestOilChangeFor(oilChanges, code);
     setLubPointId(latest ? latest._id : null);
   }
@@ -199,18 +209,11 @@ export default function EditActionModal({
     // edited in place — see api.js's logOilChangeEvent). If Last Change is
     // left blank but a linked oil-change record exists, inherit its date
     // instead of writing anything new.
-    if (oilChangesForEquip.length > 0) {
-      const target = oilChangesForEquip.length === 1 ? oilChangesForEquip[0] : oilChangesForEquip.find((o) => o._id === lubPointId);
-      if (form.lastChange && target) {
-        const existingDate = target.changeDate ? new Date(target.changeDate) : null;
-        const newDate = new Date(form.lastChange);
-        if (!isNaN(newDate) && (!existingDate || newDate > existingDate)) {
-          payload._oilChangeTarget = target;
-        }
-      } else if (!form.lastChange && target) {
-        payload.lastChange = formatDate(target.changeDate);
-      }
-    }
+    // Last Change comes from the Oil Change Log only (confirmed oil-change
+    // routes update it) — never typed here, so saving an action no longer
+    // writes Oil Change Log entries.
+    const latestChange = latestOilChangeFor(oilChanges, equipCode);
+    payload.lastChange = latestChange ? formatDate(latestChange.changeDate) : form.lastChange ? formatDate(form.lastChange) : "";
 
     // A newly-agreed "Change Oil"/"Top Up the Oil" (present now, wasn't on
     // the action's own last-saved Agreed Action) auto-creates a route for
@@ -372,46 +375,20 @@ export default function EditActionModal({
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Oil Change</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
           <div>
-            {field("Last Change Date", "lastChange", "date")}
+            <label style={{ ...s.label, fontSize: 11 }}>Last Change Date</label>
+            <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 }}>
+              {form.lastChange ? formatDate(form.lastChange) : "—"}
+            </div>
             <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0", lineHeight: 1.5 }}>
-              {form.lastChange
-                ? "Will also update this equipment's Oil Change Log entry."
-                : oilChangesForEquip.length > 0
-                  ? "Leave blank to inherit from Oil Change Log."
-                  : "No oil change data for this equipment."}
+              {oilChangesForEquip.length > 0 ? "From the Oil Change Log (updated when an oil-change route is confirmed)." : "No oil change logged for this equipment yet."}
             </p>
           </div>
-          {form.lastChange && oilChangesForEquip.length > 1 && (
-            <div>
-              <label style={{ ...s.label, fontSize: 11 }}>Update Lubrication Point</label>
-              <select
-                style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
-                value={lubPointId || ""}
-                onChange={(e) => setLubPointId(e.target.value)}
-              >
-                <option value="">— Select point —</option>
-                {oilChangesForEquip.map((o) => (
-                  <option key={o._id} value={o._id}>
-                    {o.lubricationPoint} — {o.oilType}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {form.lastChange && oilChangesForEquip.length === 1 && (
+          {oilChangesForEquip.length > 0 && (
             <div>
               <label style={{ ...s.label, fontSize: 11 }}>Lubrication Point</label>
-              <div
-                style={{
-                  ...s.input,
-                  background: T.cardSubBg,
-                  color: T.textSecondary,
-                  display: "flex",
-                  alignItems: "center",
-                  minHeight: 34,
-                }}
-              >
-                {oilChangesForEquip[0].lubricationPoint} — {oilChangesForEquip[0].oilType}
+              <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 }}>
+                {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).lubricationPoint} —{" "}
+                {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).oilType}
               </div>
             </div>
           )}
@@ -533,7 +510,7 @@ export default function EditActionModal({
             onChange={(v) => set("contractorAction", v)}
             options={actionRegistry}
           />
-          {lockedTextarea("Prev. Month Agreed Action", "prevMonthAgreedAction")}
+          {lockedTextarea("Last Previous Action", "prevMonthAgreedAction")}
           <MultiSelectTags label="ACC Action" value={form.accAction} onChange={(v) => set("accAction", v)} options={actionRegistry} />
           <MultiSelectTags label="Agreed Action" value={form.agreedAction} onChange={(v) => set("agreedAction", v)} options={actionRegistry} />
           {isClosed && <div style={{ gridColumn: "1 / -1" }}>{lockedTextarea("Closing Comment", "closingComment")}</div>}

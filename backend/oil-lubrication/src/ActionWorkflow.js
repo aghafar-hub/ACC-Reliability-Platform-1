@@ -408,6 +408,7 @@ function createDraftAction_(ss, opts) {
   row[ACTION_COL.SAMPLE_RESULT] = opts.sampleResult || "";
   row[ACTION_COL.SAMPLE_ANALYSIS] = opts.analysis || "";
   row[ACTION_COL.LAST_CHANGE] = latestOilChangeDate_(ss, lpId) || "";
+  row[ACTION_COL.PREV_AGREED] = lastAgreedActionForLp_(ss, lpId);
   row[ACTION_COL.STATUS] = ACTION_STATUS.DRAFT;
   row[ACTION_COL.CONTRACTOR] = contractor;
   row[ACTION_COL.RULE] = opts.rule || "";
@@ -429,6 +430,20 @@ function createDraftAction_(ss, opts) {
     logError("createDraftAction_:notify", e, { acNo: acNo });
   }
   return acNo;
+}
+
+// "Last Previous Action": the Agreed Action of the point's most recent
+// earlier action.
+function lastAgreedActionForLp_(ss, lpId) {
+  var best = null;
+  readSheet(ss, "Action Tracker", true).forEach(function (r) {
+    if (String(r[ACTION_COL.LP] || "").trim() !== lpId) return;
+    var agreed = String(r[ACTION_COL.AGREED] || "").trim();
+    if (!agreed) return;
+    var d = asDate_(r[ACTION_COL.REVISION]) || new Date(0);
+    if (!best || d.getTime() >= best.d.getTime()) best = { d: d, agreed: agreed };
+  });
+  return best ? best.agreed : "";
 }
 
 function openActionsForLp_(ss, lpId) {

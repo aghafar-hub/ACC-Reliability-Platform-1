@@ -25,12 +25,18 @@ export function latestOilChangeFor(oilChanges, equipmentCode) {
   return rows.reduce((a, b) => (new Date(a.changeDate) > new Date(b.changeDate) ? a : b));
 }
 
-// Most recent PRIOR action for an equipment (excluding the action being
-// edited itself, when there is one) — its Agreed Action becomes the new
-// action's starting "Prev. Month Agreed Action", so a reviewer can see
-// whether last time's agreed action was actually followed up on.
-export function lastAgreedActionFor(allActions, equipmentCode, excludeId) {
-  const rows = (allActions || []).filter((a) => a.equipmentCode === equipmentCode && a._id !== excludeId && a.agreedAction);
+// "Last Previous Action": the Agreed Action of the most recent EARLIER
+// action on the same point (excluding the action being edited itself, and
+// anything revised after it), so a reviewer can see whether last time's
+// agreed action was actually followed up on. Always computed, never typed.
+export function lastAgreedActionFor(allActions, equipmentCode, excludeId, beforeDate) {
+  const limit = beforeDate ? new Date(beforeDate) : null;
+  const rows = (allActions || []).filter((a) => {
+    if (a.equipmentCode !== equipmentCode || a._id === excludeId || !a.agreedAction) return false;
+    if (!limit || Number.isNaN(limit.getTime())) return true;
+    const d = new Date(a.revisionDate || a.sampleDate || 0);
+    return Number.isNaN(d.getTime()) || d.getTime() <= limit.getTime();
+  });
   if (rows.length === 0) return "";
   const latest = rows.reduce((a, b) =>
     new Date(a.revisionDate || a.sampleDate || 0) > new Date(b.revisionDate || b.sampleDate || 0) ? a : b
@@ -51,10 +57,11 @@ export function latestSampleFor(samples, equipmentCode) {
 // Equipment Registry -> action-field autofill: Description, Oil Type
 // (Lubricant Grade), Contractor, and Report Equipment ID come straight from
 // the registry row; Last Change Date is inherited from that equipment's Oil
-// Change Log entry; Prev. Month Agreed Action is inherited from this
-// equipment's last action; Sample Date/Result/Analysis are inherited from
+// Change Log (never typed — the log is updated by confirmed oil-change
+// routes); Last Previous Action is this equipment's last earlier agreed
+// action; Sample Date/Result/Analysis are inherited from
 // this equipment's own most recent sample.
-export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, allActions, samples, excludeId }) {
+export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, allActions, samples, excludeId, revisionDate }) {
   const reg = (equipmentRegistry || []).find((r) => r.code === code);
   const latest = latestOilChangeFor(oilChanges, code);
   const latestSample = latestSampleFor(samples, code);
@@ -65,7 +72,7 @@ export function autofillFromEquipment(code, { equipmentRegistry, oilChanges, all
     oilType: reg?.lubricant || "",
     contractor: reg?.contractor || "",
     lastChange: latest ? toISODate(latest.changeDate) : "",
-    prevMonthAgreedAction: lastAgreedActionFor(allActions, code, excludeId),
+    prevMonthAgreedAction: lastAgreedActionFor(allActions, code, excludeId, revisionDate),
     sampleDate: latestSample?.sampledDate || "",
     sampleResult: (latestSample?.reportStatus || "").toUpperCase(),
     sampleAnalysis: (latestSample?.recommendations || []).join("; "),
