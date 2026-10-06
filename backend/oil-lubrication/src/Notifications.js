@@ -122,8 +122,10 @@ function notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate) {
   sendNotificationEmail_({ to: assignedTo, subject: subject, body: body });
 }
 
+// Phase 6: a submitted route goes to that contractor's engineers (the ones
+// who confirm or return it). ACC engineers are told when it's confirmed.
 function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) {
-  var reviewers = getNotifyReviewers_(contractor);
+  var reviewers = contractor && contractor !== "ACC" ? maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor) : getNotifyReviewers_(contractor);
   if (reviewers.length === 0) return;
   var label = routeName || routineId;
   recordInAppNotificationForEach_(
@@ -184,9 +186,18 @@ function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
   var label = routeName || routineId;
   recordInAppNotification_(
     SpreadsheetApp.getActiveSpreadsheet(), assignedTo, "routine-approved",
-    "Routine " + label + " was approved" + (approvedBy ? " by " + approvedBy : ""),
+    "Route " + label + " was confirmed" + (approvedBy ? " by " + approvedBy : ""),
     "", "routines", routineId
   );
+  // Phase 6: ACC engineers informed.
+  try {
+    recordInAppNotificationForEach_(
+      SpreadsheetApp.getActiveSpreadsheet(), maResponsibleEmails_(MA_RESP.ACC, ""), "routine-confirmed",
+      "Route " + label + " was confirmed" + (approvedBy ? " by " + approvedBy : ""), "", "routines", routineId
+    );
+  } catch (e) {
+    logError("notifyRoutineApproved_:acc", e, { routineId: routineId });
+  }
   if (!looksLikeEmail_(assignedTo)) return;
   var subject = "Oil Lubrication: routine approved — " + label;
   var body =
