@@ -11,3 +11,13 @@ export const ActionWorkflowProvider = ActionWorkflowContext.Provider;
 export function useActionWorkflow() {
   return useContext(ActionWorkflowContext);
 }
+
+// Phase 4 — lab report review steps ("validate" / "return"), provided by
+// App.jsx the same way.
+const LabWorkflowContext = createContext(null);
+
+export const LabWorkflowProvider = LabWorkflowContext.Provider;
+
+export function useLabWorkflow() {
+  return useContext(LabWorkflowContext);
+}

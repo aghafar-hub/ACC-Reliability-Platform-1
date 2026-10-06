@@ -1,4 +1,5 @@
 import { useState } from "react";
+import LabReviewPanel from "../components/LabReviewPanel";
 import { useTheme } from "../ThemeContext";
 import { formatDate, sampleTriggerReadings, sampleTrackerStatus } from "../parsers";
 import { trackerStatusChip } from "../theme";
@@ -146,6 +147,7 @@ export default function OilReportSearch({
 
   return (
     <div>
+      <LabReviewPanel samples={samples} equipmentRegistry={equipmentRegistry} />
       <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div style={{ flex: 1, minWidth: 280, position: "relative" }}>

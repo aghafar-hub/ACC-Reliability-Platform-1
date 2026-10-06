@@ -316,7 +316,7 @@ export function sampleTrackerStatus(lastDateStr, intervalText) {
 }
 
 // Classifies a tracker/sample cell's status text into one of three real
-// lab-result grades — "Missing"/"Pending" aren't lab results (nothing was
+// lab-result grades — "Missing"/"Pending"/"Awaiting Lab Report" aren't lab results (nothing was
 // analyzed yet), so they're excluded here rather than forced into Normal
 // or Alert. Same prefix matching as theme.js's trackerStatusChip,
 // collapsed to 3 buckets. Shared by Oil Sampling Log's own Condition
@@ -812,6 +812,16 @@ export function rowToSample(row) {
     flaggedReadings: parseFlaggedParams(flaggedParamsRaw),
     sampleUid: sampleUid || "",
     lastModified: lastModified || "", // Patch 10 — see api.js's detectConflict/updateSample
+    // Phase 4 — lab report review (server-owned columns 40–47). Blank on
+    // reports from before Phase 4, which count as validated.
+    validationStatus: row[40] || "",
+    uploadedBy: row[41] || "",
+    uploadedDate: formatDate(row[42]),
+    validatedBy: row[43] || "",
+    validatedDate: formatDate(row[44]),
+    returnReason: row[45] || "",
+    returnedBy: row[46] || "",
+    returnedDate: formatDate(row[47]),
     _id: sampleUid ? `uid_${sampleUid}` : `${unitId}_${sampleId}_${sampledDate}`,
     // Patch 6: a sample created after the Sample_UID column existed gets
     // matched by that alone — always unique, no ambiguity possible. A

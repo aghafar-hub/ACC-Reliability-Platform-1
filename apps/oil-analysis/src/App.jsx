@@ -19,7 +19,7 @@ import SampleTracker from "./pages/SampleTracker";
 import HowToUse from "./pages/HowToUse";
 import Settings from "./pages/Settings";
 import { SessionProvider } from "./SessionContext";
-import { ActionWorkflowProvider } from "./ActionWorkflowContext";
+import { ActionWorkflowProvider, LabWorkflowProvider } from "./ActionWorkflowContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
@@ -635,6 +635,24 @@ function AppShell({ config, setConfig, navBridge }) {
     [config.webhookUrl, pushToast]
   );
 
+  // Phase 4 — lab report review: "validate" (contractor engineer) or
+  // "return" (ACC, with a reason). Validating a Caution/Alert result makes a
+  // Draft action on the server, so a sync follows.
+  const runLabStep = useCallback(
+    async (kind, sample, text) => {
+      const saved = kind === "validate" ? await api.validateLabReport(config.webhookUrl, sample) : await api.returnLabReport(config.webhookUrl, sample, text);
+      setSamples((prev) => {
+        const next = prev.map((sm) => (sm._id === sample._id ? saved : sm));
+        writeCache("samples", next);
+        return next;
+      });
+      pushToast(kind === "validate" ? "Lab report validated." : "Lab report returned for correction.", "success");
+      if (kind === "validate") runSync().catch(() => {});
+      return saved;
+    },
+    [config.webhookUrl, pushToast, runSync]
+  );
+
   const onDeleteAction = useCallback(
     async (action) => {
       let removedAction;
@@ -1067,6 +1085,7 @@ function AppShell({ config, setConfig, navBridge }) {
 
   return (
     <ActionWorkflowProvider value={runActionWorkflow}>
+    <LabWorkflowProvider value={runLabStep}>
     <div
       style={{
         display: "flex",
@@ -1363,6 +1382,7 @@ function AppShell({ config, setConfig, navBridge }) {
       </div>
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
+    </LabWorkflowProvider>
     </ActionWorkflowProvider>
   );
 }

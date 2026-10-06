@@ -602,6 +602,34 @@ export function closeAction(webhookUrl, action, closingComment) {
   );
 }
 
+// ── Phase 4: lab report review — validate (contractor engineer) / return (ACC)
+async function labReviewStep(webhookUrl, sample, body, check, failText) {
+  await postBlind(webhookUrl, { ...body, sampleUid: sample.sampleUid || "", equipmentCode: sample.unitId || "", sampleId: sample.sampleId || "" });
+  const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
+  const savedRow = sample.sampleUid
+    ? findRowByMatch(verify.samples, [SAMPLE_UID_COL], [sample.sampleUid])
+    : findRowByMatch(verify.samples, [0, 3], [sample.unitId || "", sample.sampleId || ""]);
+  const saved = savedRow ? rowToSample(savedRow) : null;
+  if (!saved || !check(saved)) throw new SaveVerificationError(failText);
+  return saved;
+}
+
+export function validateLabReport(webhookUrl, sample) {
+  return labReviewStep(
+    webhookUrl, sample, { action: "validateLabReport" },
+    (sm) => sm.validationStatus === "Validated",
+    "The validation wasn't confirmed — only this contractor's engineer can validate. Please try again."
+  );
+}
+
+export function returnLabReport(webhookUrl, sample, reason) {
+  return labReviewStep(
+    webhookUrl, sample, { action: "returnLabReport", reason },
+    (sm) => sm.validationStatus === "Returned" && sm.returnReason === reason,
+    "The return wasn't confirmed — only an ACC Engineer can return a report. Please try again."
+  );
+}
+
 export async function deleteAction(webhookUrl, action) {
   const matchCols = action._matchCols || [0, 1];
   const matchValues = action._matchValues || [action.acNo || "", action.equipmentCode || action.unitId || ""];
@@ -748,7 +776,8 @@ export async function updateSample(webhookUrl, sample) {
   // verification could never pass, since the freshly-stamped real
   // timestamp can never equal what the client sent (nothing, at that
   // position). See SAMPLE_LAST_MODIFIED_COL's own comment above.
-  if (!savedRow || !rowsEqual(savedRow, row, { skipIndices: [SAMPLE_LAST_MODIFIED_COL], dateIndices: [SAMPLE_DATE_COL] })) {
+  // Phase 4: columns after the app's own 40 belong to the server (lab review).
+  if (!savedRow || !rowsEqual(savedRow.slice(0, row.length), row, { skipIndices: [SAMPLE_LAST_MODIFIED_COL], dateIndices: [SAMPLE_DATE_COL] })) {
     if (detectConflict(sample.lastModified, savedRow, SAMPLE_LAST_MODIFIED_COL)) {
       throw new ConflictError(`Someone else changed this sample while you were editing it. Reload and reapply your changes.`);
     }

@@ -312,7 +312,9 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
             contractor: approvedRoutine.contractor,
           });
         }
-        return api.updateSampleTracker(webhookUrl, { equipmentCode: item.lpId, sampleDate: eventDate, status: "Pending" });
+        // Phase 4: the sample log shows "Awaiting Lab Report" until the
+        // lab report is uploaded (overlaySamplesOnTracker then shows the result).
+        return api.updateSampleTracker(webhookUrl, { equipmentCode: item.lpId, sampleDate: eventDate, status: "Awaiting Lab Report" });
       })
     );
     const failed = results.filter((r) => r.status === "rejected");

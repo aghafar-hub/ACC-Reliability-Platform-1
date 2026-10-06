@@ -717,6 +717,9 @@ export function buildStyles(T) {
         Confirmed: T.success,
         Returned: T.danger,
         "Closure Requested": T.info,
+        // Phase 4 — lab report review
+        "Pending Validation": T.warning,
+        Validated: T.success,
         Overdue: T.danger,
         Active: T.success,
         Paused: T.textMuted,
@@ -773,7 +776,7 @@ export function trackerStatusChip(status) {
   // overlaySamplesOnTracker (parsers.js) already overwrites this with the
   // real result the moment a matching Data_Entry sample exists for the
   // same LP_ID + month, so this never needs to be cleared by hand.
-  if (d.startsWith("PEND") || d === "P") return { label: "P", color: "#3A86FF" };
+  if (d.startsWith("PEND") || d.startsWith("AWAIT") || d === "P") return { label: "P", color: "#3A86FF" };
   if (d.startsWith("SATIS") || d === "S") return { label: "S", color: "#2DC653" };
   if (d.startsWith("UNSAT") || d === "U") return { label: "U", color: "#E63946" };
   return { label: d[0] || "?", color: "#6B8CAE" };

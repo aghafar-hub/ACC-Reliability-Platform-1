@@ -100,6 +100,8 @@ var MA_CONFIG = {
     decideActionClosure: ["actions"],
     closeAction: ["actions"],
     rescheduleAction: ["actions"],
+    validateLabReport: ["oilreport", "upload", "tracker"],
+    returnLabReport: ["oilreport", "upload", "tracker"],
     rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
     submitRoutineItem: ["routines", "mywork"],

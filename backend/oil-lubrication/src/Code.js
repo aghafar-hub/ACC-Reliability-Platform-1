@@ -409,9 +409,10 @@ function doPost(e) {
         }
         invalidateDashboardCache();
         logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
-        // Phase 2: a lab Caution/Alert result creates a Draft action.
+        // Phase 4: a new lab report waits for the contractor engineer's
+        // validation (the Caution/Alert Draft action comes at validation).
         if (data.sheet === "Data_Entry") {
-          try { applyLabResultRule_(ss, data.row); } catch (labErr) { logError("applyLabResultRule_", labErr, {sheet: data.sheet}); }
+          try { onLabReportSaved_(ss, data.row, actingUser, true); } catch (labErr) { logError("onLabReportSaved_", labErr, {sheet: data.sheet}); }
         }
         recordAudit_(ss, data.sheet, appendLpId, "create", actingUser, scope || resolveLpContractor_(appendLpId), "New " + data.sheet + " entry added");
         return jsonOut({status:"ok"});
@@ -670,6 +671,22 @@ function doPost(e) {
         return jsonOut(rescheduleActionResult.error ? {status: "error", message: rescheduleActionResult.error} : {status: "ok"});
       }
 
+      // ── Phase 4: lab report — contractor engineer validates, ACC returns ─
+      if (data.action === "validateLabReport" || data.action === "returnLabReport") {
+        var labContractor = getSampleContractor_(ss, data);
+        if (data.action === "validateLabReport") requireRouteEngineer_(auth.session, labContractor, "validate this lab report");
+        else requireAccEngineer_(auth.session);
+        data.actingUser = actingUser;
+        var labResult = data.action === "validateLabReport" ? validateLabReport(ss, data) : returnLabReport(ss, data);
+        if (!labResult.error) invalidateDashboardCache();
+        logError("doPost:" + data.action, labResult.error || "ok", {sampleUid: data.sampleUid, actingUser: actingUser});
+        if (!labResult.error && !labResult.unchanged) {
+          recordAudit_(ss, "Data_Entry", data.equipmentCode || "", "update", actingUser, labContractor,
+            data.action === "validateLabReport" ? "Validated lab report" : "Returned lab report for correction: " + String(data.reason || "").trim());
+        }
+        return jsonOut(labResult.error ? {status: "error", message: labResult.error} : {status: "ok"});
+      }
+
       if (data.action === "decideActionClosure") {
         requireAccEngineer_(auth.session);
         var decideContractor = getActionContractor_(ss, data.acNo, data.equipmentCode);
@@ -764,7 +781,7 @@ function doPost(e) {
         }
         invalidateDashboardCache();
         if (ok1 && data.sheet === "Data_Entry") {
-          try { applyLabResultRule_(ss, data.row); } catch (labErr2) { logError("applyLabResultRule_", labErr2, {sheet: data.sheet}); }
+          try { onLabReportSaved_(ss, data.row, actingUser, false); } catch (labErr2) { logError("onLabReportSaved_", labErr2, {sheet: data.sheet}); }
         }
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId), "Updated " + data.sheet + " entry");
