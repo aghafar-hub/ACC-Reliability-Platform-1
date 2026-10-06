@@ -68,9 +68,47 @@ function jsonpRequest(webhookUrl, params) {
   });
 }
 
+// ─── Phase 0: login token + Module Access ───────────────────────────────────
+// When embedded, the platform shell passes the login token at mount (see
+// embed.jsx) and publishes this person's access on window.__accModuleAccess
+// (frontend/src/moduleAccess.tsx). Every request carries the token so the
+// backend can apply Module Access; a save the backend would refuse anyway
+// (Maintenance, or a view-only page) isn't sent at all. Standalone builds
+// have neither, and behave exactly as before.
+let sessionToken = null;
+export function setSessionToken(token) {
+  sessionToken = token || null;
+}
+
+let currentPage = null;
+export function setCurrentPage(page) {
+  currentPage = page || null;
+}
+
+function withToken(params) {
+  return sessionToken ? { ...params, sessionToken } : params;
+}
+
+// Returns a message when this save must not be sent, otherwise "".
+function blockedReason() {
+  const a = typeof window !== "undefined" && window.__accModuleAccess ? window.__accModuleAccess.get("vibration-analysis") : undefined;
+  if (!a || a.admin || !a.enforced) return "";
+  if (a.status === "Maintenance") return "Vibration Analysis is being updated — changes can't be saved right now.";
+  if (currentPage && a.tabs && a.tabs[currentPage] === "View") return "This page is view only for you — changes can't be saved.";
+  return "";
+}
+
+// The shell shows this message (see frontend/src/components/SaveBlockedToast.tsx).
+function reportBlocked(message) {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("acc-save-blocked", { detail: { message } }));
+}
+
+const WRITE_ACTIONS = new Set(["backfillLastReadings", "appendAction", "updateAction", "deleteAction", "sendActionEmail", "saveConfig"]);
+
 // fetch() attempt with a 90s abort timeout; falls back to JSONP for any
 // non-timeout failure (network error, non-ok status, CORS rejection).
 async function fetchThenJsonp(webhookUrl, action, params) {
+  params = withToken(params);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 90_000);
   try {
@@ -90,6 +128,10 @@ async function fetchThenJsonp(webhookUrl, action, params) {
 // fetch attempt itself hit the 90s timeout.
 export async function verifiedGet(webhookUrl, action = "readAll", params = {}) {
   if (!webhookUrl) throw new Error("No webhook URL");
+  if (WRITE_ACTIONS.has(action)) {
+    const reason = blockedReason();
+    if (reason) throw new Error(reason);
+  }
   try {
     return await fetchThenJsonp(webhookUrl, action, params);
   } catch (err) {
@@ -108,7 +150,12 @@ export async function verifiedGet(webhookUrl, action = "readAll", params = {}) {
 // deliberately ignored). Used for every raw-sheet write.
 function fireAndForget(webhookUrl, params) {
   if (!webhookUrl) return;
-  const query = new URLSearchParams(params).toString();
+  const reason = blockedReason();
+  if (reason) {
+    reportBlocked(reason);
+    return;
+  }
+  const query = new URLSearchParams(withToken(params)).toString();
   fetch(`${webhookUrl}?${query}`, { method: "GET", mode: "no-cors" }).catch(() => {});
 }
 

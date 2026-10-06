@@ -147,6 +147,9 @@ export default function App({ navBridge, session } = {}) {
 function AppShell({ config, setConfig, navBridge }) {
   const { T } = useTheme();
   const [page, setPage] = useState("dashboard");
+  useEffect(() => {
+    api.setCurrentPage(page);
+  }, [page]);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [reportOrigin, setReportOrigin] = useState("dashboard"); // where "Back" on the Oil Analysis Report returns to
   const [equipmentSelectedCode, setEquipmentSelectedCode] = useState(""); // sticky so Equipment restores the same equipment after Back
@@ -843,6 +846,16 @@ function AppShell({ config, setConfig, navBridge }) {
     }
 
     async function flushQueueOnce() {
+      if (getOfflineQueue().length === 0) return;
+      // Phase 0: never replay queued work into a maintenance window — the
+      // server would refuse it, and anything refused here gets dropped
+      // below. Checked fresh from the server, not the shell's cached copy.
+      try {
+        const access = await api.getMyAccess(config.webhookUrl);
+        if (access && access.enforced && !access.admin && access.status === "Maintenance") return;
+      } catch {
+        return; // can't reach the server — still offline, try again later
+      }
       for (const item of getOfflineQueue()) {
         try {
           let saved;
@@ -888,6 +901,7 @@ function AppShell({ config, setConfig, navBridge }) {
           pushToast(`A queued ${item.kind === "oilChange" ? "oil change" : item.kind} synced.`, "success");
         } catch (err) {
           if (err instanceof api.NetworkError) break; // still offline — try the rest next time
+          if (err instanceof api.AccessBlockedError) break; // paused (maintenance) — keep it queued
           removeFromOfflineQueue(item.id);
           setPendingSyncCount(offlineQueueCount());
           if (item.kind === "sample") {

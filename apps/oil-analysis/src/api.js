@@ -156,7 +156,55 @@ async function getJSON(webhookUrl, params) {
   throw lastErr;
 }
 
+// ─── Phase 0: Module Access ─────────────────────────────────────────────────
+// When embedded, the platform shell publishes this person's access to every
+// module on window.__accModuleAccess (frontend/src/moduleAccess.tsx). A save
+// the server would refuse anyway (module in Maintenance, or a view-only
+// page) is stopped here with a clear message instead of failing silently —
+// these POSTs are blind, so the server's own refusal can't be read back.
+// Standalone (no shell) there's nothing published and nothing is stopped.
+export class AccessBlockedError extends Error {}
+
+let currentPage = null;
+export function setCurrentPage(page) {
+  currentPage = page || null;
+}
+
+function shellAccess() {
+  return typeof window !== "undefined" && window.__accModuleAccess ? window.__accModuleAccess.get("oil-analysis") : undefined;
+}
+
+export function isSavingPaused() {
+  const a = shellAccess();
+  return !!(a && a.enforced && !a.admin && a.status === "Maintenance");
+}
+
+function guardWrite(body) {
+  const a = shellAccess();
+  if (!a || a.admin || !a.enforced) return;
+  if (body.action === "markNotificationRead" || body.action === "markAllNotificationsRead") return;
+  if (a.status === "Maintenance") throw new AccessBlockedError("Oil Lubrication is being updated — changes can't be saved right now.");
+  if (currentPage && a.tabs && a.tabs[currentPage] === "View") {
+    throw new AccessBlockedError("This page is view only for you — changes can't be saved.");
+  }
+}
+
+// Fresh from the server (not the shell's copy, which can be up to two
+// minutes old) — used before replaying the offline queue, so queued work
+// is never sent into a maintenance window and lost.
+export async function getMyAccess(webhookUrl) {
+  return getJSON(webhookUrl, { action: "getMyAccess" });
+}
+
+// Technicians the App Owner listed for this module (and contractor) in
+// Module Access. null from a backend without Phase 0 yet.
+export async function getModuleTechnicians(webhookUrl, contractor) {
+  const json = await getJSON(webhookUrl, { action: "getModuleTechnicians", contractor: contractor || "" });
+  return Array.isArray(json.technicians) ? json.technicians : null;
+}
+
 async function postBlind(webhookUrl, body) {
+  guardWrite(body);
   try {
     const payload = { ...body, secret: API_SECRET };
     if (currentSessionToken) payload.sessionToken = currentSessionToken;

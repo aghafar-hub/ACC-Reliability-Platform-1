@@ -1,11 +1,13 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
+import SaveBlockedToast from './components/SaveBlockedToast';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
 import { isTechnicianOnly } from './auth/session';
 import { EmbeddedNavProvider } from './embeddedNav';
+import { ModuleAccessProvider } from './moduleAccess';
 import ChangePassword from './pages/ChangePassword';
 import ComingSoon from './pages/ComingSoon';
 import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
@@ -105,6 +107,7 @@ function ShellRoot() {
             it's a sibling of <main>, not nested inside it. */}
         <BottomNav onOpenMore={() => setMobileNavOpen(true)} />
       </div>
+      <SaveBlockedToast />
     </div>
   );
 }
@@ -128,10 +131,11 @@ function AppShell() {
 // changes mid-session via a fresh login.
 function AuthenticatedShell() {
   const { claims } = useAuth();
-  if (claims && isTechnicianOnly(claims.roles)) {
-    return <TechnicianShell />;
-  }
-  return <AppShell />;
+  return (
+    <ModuleAccessProvider>
+      {claims && isTechnicianOnly(claims.roles) ? <TechnicianShell /> : <AppShell />}
+    </ModuleAccessProvider>
+  );
 }
 
 function App() {

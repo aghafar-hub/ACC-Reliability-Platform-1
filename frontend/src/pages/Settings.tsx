@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
+import ModuleAccessPanel from '../components/ModuleAccessPanel';
+import { useAuth } from '../auth/AuthContext';
+import { ROLE } from '../auth/session';
+import { tabLevel, useModuleAccess } from '../moduleAccess';
 import ThemePicker from '../components/ThemePicker';
 import { useEmbeddedNav } from '../embeddedNav';
 import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'users';
+type GeneralSubTabId = 'appearance' | 'users' | 'module-access';
 
 const TABS: { id: SettingsTabId; label: string; icon: string }[] = [
   { id: 'general', label: 'General', icon: 'settings' },
@@ -24,6 +28,8 @@ const TABS: { id: SettingsTabId; label: string; icon: string }[] = [
 const GENERAL_SUB_TABS: { id: GeneralSubTabId; label: string; icon: string }[] = [
   { id: 'appearance', label: 'Appearance', icon: 'settings' },
   { id: 'users', label: 'Users', icon: 'action' },
+  // Phase 0 — App Owner only (filtered below).
+  { id: 'module-access', label: 'Module Access', icon: 'compliance' },
 ];
 
 // Platform-level Settings (Patch 29) — one page with tabs for each module
@@ -44,6 +50,13 @@ export default function Settings() {
   const embeddedNav = useEmbeddedNav();
   const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
   const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>('appearance');
+  const { claims } = useAuth();
+  const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
+  const { access } = useModuleAccess();
+  // A module's own settings page is a tab like any other (Phase 0): hidden
+  // here for anyone whose access hides it.
+  const tabs = TABS.filter((t) => t.id === 'general' || tabLevel(access[t.id], 'settings') !== 'Hidden');
+  const generalSubTabs = GENERAL_SUB_TABS.filter((t) => t.id !== 'module-access' || isAppOwner);
 
   function selectTab(tabId: SettingsTabId) {
     if (tabId === 'general') {
@@ -63,7 +76,7 @@ export default function Settings() {
       <h1>Settings</h1>
 
       <div className="settings-tabs" role="tablist" aria-label="Settings sections">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -81,7 +94,7 @@ export default function Settings() {
       {activeTab === 'general' && (
         <div className="settings-panel">
           <div className="settings-subtabs" role="tablist" aria-label="General settings sections">
-            {GENERAL_SUB_TABS.map((tab) => (
+            {generalSubTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -105,6 +118,7 @@ export default function Settings() {
             </>
           )}
           {generalSubTab === 'users' && <AccountsPanel />}
+          {generalSubTab === 'module-access' && isAppOwner && <ModuleAccessPanel />}
         </div>
       )}
       {/* For a module tab, nothing else renders here on purpose — that

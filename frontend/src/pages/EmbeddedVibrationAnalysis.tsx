@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { useModuleNotice } from '../components/ModuleAccessNotice';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
+import { canOpenModule, useModuleAccess } from '../moduleAccess';
 
-type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge }) => () => void;
+// session: Phase 0 — the login token this module now sends on every request
+// so its backend can apply Module Access (see apps/vibration-analysis/src/api.js).
+type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge; session?: { token: string } }) => () => void;
 
 const MODULE_ID = 'vibration-analysis';
 const BASE_ROUTE = '/vibration-analysis';
@@ -25,9 +30,15 @@ export default function EmbeddedVibrationAnalysis() {
   // "Vibration Analysis" side tab (?module=vibration-analysis on
   // /settings) — see EmbeddedOilAnalysis.tsx for the full rationale.
   const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
+  const { sessionToken } = useAuth();
+  const { access, settled } = useModuleAccess();
+  const moduleAccess = access[MODULE_ID];
+  const allowedToMount = (settled || !!moduleAccess) && canOpenModule(moduleAccess);
+  const { blocked, notice } = useModuleNotice(MODULE_ID, 'Vibration Analysis');
 
   useEffect(() => {
     if (startedRef.current) return;
+    if (!sessionToken || !allowedToMount) return;
     startedRef.current = true;
 
     const navBridge: NavBridge = {
@@ -50,15 +61,20 @@ export default function EmbeddedVibrationAnalysis() {
     import(/* @vite-ignore */ modulePath).then((mod: { mountVibrationAnalysis: MountFn }) => {
       embeddedNav.setLoadState(MODULE_ID, 'ready');
       if (!containerRef.current) return;
-      mod.mountVibrationAnalysis(containerRef.current, { navBridge });
+      mod.mountVibrationAnalysis(containerRef.current, { navBridge, session: { token: sessionToken } });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once on mount; embeddedNav's identity is stable enough for this one-shot read
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, as soon as access allows it; embeddedNav's identity is stable enough for this one-shot read
+  }, [sessionToken, allowedToMount]);
 
   useEffect(() => {
     return () => embeddedNav.unregister(MODULE_ID);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally empty: only runs on true unmount (e.g. logout), see EmbeddedOilAnalysis.tsx
   }, []);
 
-  return <div ref={containerRef} className="app-content--embedded" style={visible ? undefined : { display: 'none' }} />;
+  return (
+    <>
+      {visible && notice}
+      <div ref={containerRef} className="app-content--embedded" style={visible && !blocked ? undefined : { display: 'none' }} />
+    </>
+  );
 }

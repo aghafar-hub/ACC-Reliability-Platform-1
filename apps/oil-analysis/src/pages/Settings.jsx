@@ -4,7 +4,6 @@ import * as api from "../api";
 import { saveEquipmentRegistry } from "../equipmentRegistry";
 import { saveActionRegistry } from "../actionRegistry";
 import { useSession } from "../SessionContext";
-import TechnicianPicker from "../components/TechnicianPicker";
 
 const SETTINGS_SUB_TABS = [
   { id: "connection", label: "Connection", icon: "ti-plug" },
@@ -308,120 +307,6 @@ function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
               </button>
             </div>
           )}
-          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
-        </>
-      )}
-    </div>
-  );
-}
-
-const MODULE_RESP_CONTRACTORS = ["RHI", "ASEC"];
-const MODULE_NAME = "Oil Lubrication";
-const CENG_ROLE = "ROLE-CENG";
-
-// Who the monthly sample-overdue digest (backend's SampleOverdue.js)
-// notifies, per contractor — picked from Platform Core's real account
-// directory via the same TechnicianPicker used for "Assign Technician",
-// narrowed to Contractor Engineers (ROLE-CENG) since that's who this
-// digest is for. Admin-only to change (setModuleResponsibility is
-// requireAdmin_-gated server-side), readable by anyone — same split as
-// NotificationSettingsCard above.
-function ModuleResponsibilitiesCard({ T, s, webhookUrl, isAdmin }) {
-  const [rows, setRows] = useState(null); // null while loading
-  const [draft, setDraft] = useState({}); // contractor -> email
-  const [saving, setSaving] = useState(null); // contractor currently saving, or null
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!webhookUrl) return;
-    api.getModuleResponsibilities(webhookUrl).then((loaded) => {
-      if (cancelled) return;
-      setRows(loaded);
-      const next = {};
-      MODULE_RESP_CONTRACTORS.forEach((c) => {
-        const match = loaded.find((r) => r.module === MODULE_NAME && r.contractor === c && r.role === CENG_ROLE);
-        next[c] = match ? match.email : "";
-      });
-      setDraft(next);
-    }).catch((err) => {
-      if (!cancelled) setMsg(`❌ Couldn't load module responsibilities: ${err.message}`);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [webhookUrl]);
-
-  async function handleSave(contractor) {
-    setSaving(contractor);
-    setMsg("");
-    try {
-      const saved = await api.setModuleResponsibility(webhookUrl, {
-        module: MODULE_NAME,
-        contractor,
-        role: CENG_ROLE,
-        email: draft[contractor] || "",
-      });
-      setRows(saved);
-      setMsg(`✓ Saved for ${contractor}`);
-    } catch (err) {
-      setMsg(`❌ ${err.message}`);
-    } finally {
-      setSaving(null);
-      setTimeout(() => setMsg(""), 6000);
-    }
-  }
-
-  return (
-    <div style={{ ...s.card, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <i className="ti ti-user-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
-        <div>
-          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Module Responsibilities</p>
-          <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
-            Who gets the monthly overdue/upcoming sample digest for each contractor. Admin-only — applies to everyone, not just
-            this device.
-          </p>
-        </div>
-      </div>
-
-      {!webhookUrl ? (
-        <p style={{ fontSize: 12, color: T.textMuted }}>Configure the Webhook URL above first.</p>
-      ) : rows === null ? (
-        <p style={{ fontSize: 12, color: T.textMuted }}>Loading…</p>
-      ) : (
-        <>
-          {!isAdmin && (
-            <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
-              <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can change these — shown here read-only.
-            </p>
-          )}
-          {MODULE_RESP_CONTRACTORS.map((contractor) => (
-            <div key={contractor} style={{ marginBottom: 14 }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: T.textPrimary, marginBottom: 6 }}>
-                {contractor} — Contractor Engineer
-              </label>
-              <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                <div style={{ flex: 1 }}>
-                  <fieldset disabled={!isAdmin} style={{ border: "none", padding: 0, margin: 0, opacity: isAdmin ? 1 : 0.6 }}>
-                    <TechnicianPicker
-                      contractor={contractor}
-                      value={draft[contractor] || ""}
-                      onChange={(v) => setDraft((d) => ({ ...d, [contractor]: v }))}
-                      roleFilter={CENG_ROLE}
-                      placeholder="Contractor Engineer email"
-                    />
-                  </fieldset>
-                </div>
-                {isAdmin && (
-                  <button style={s.btnPrimary} onClick={() => handleSave(contractor)} disabled={saving === contractor}>
-                    <i className={`ti ${saving === contractor ? "ti-loader" : "ti-device-floppy"}`} aria-hidden="true" />{" "}
-                    {saving === contractor ? "Saving…" : "Save"}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
           {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
         </>
       )}
@@ -740,7 +625,12 @@ export default function Settings({
       {subTab === "notifications" && (
         <>
           <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
-          <ModuleResponsibilitiesCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
+          <div style={{ ...s.card, marginBottom: 20 }}>
+            <p style={{ margin: "0 0 6px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Who gets alerts</p>
+            <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
+              Alerts go to the responsible engineers listed in Settings → General → Module Access (App Owner only).
+            </p>
+          </div>
         </>
       )}
 

@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEmbeddedNav } from '../embeddedNav';
 import { Icon, TablerIcon } from '../icons';
-import { NAV_ITEMS, type SubTab } from '../navigation';
+import { type SubTab } from '../navigation';
+import { useVisibleNav } from '../hooks/useVisibleNav';
+import { tabLevel, useModuleAccess } from '../moduleAccess';
 import './Sidebar.css';
 
 function SubTabIcon({ icon, size }: { icon: string; size: number }) {
@@ -84,6 +86,8 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: { mobileO
   const location = useLocation();
   const embeddedNav = useEmbeddedNav();
   const closeMobile = onCloseMobile ?? (() => {});
+  const navItems = useVisibleNav();
+  const { access } = useModuleAccess();
 
   // A module's sub-tab list used to show unconditionally the whole time its
   // route was active, with no way to close it short of leaving the module
@@ -121,7 +125,7 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: { mobileO
           </div>
 
           <ul className="sidebar-nav">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
               const showSubTabs = isActive && !!item.subTabs?.length && collapsedModuleTo !== item.to;
 
@@ -149,6 +153,14 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }: { mobileO
                           if (collapsing) embeddedNav.navigateTo(item.moduleId!, item.subTabs![0].id);
                           return collapsing ? item.to : null;
                         });
+                      } else if (item.moduleId && item.subTabs?.length) {
+                        // Phase 0: don't open a module on a page this person
+                        // can't see (e.g. its Dashboard) — start them on the
+                        // first one they can.
+                        const current = embeddedNav.activePageFor(item.moduleId) || item.subTabs[0].id;
+                        if (tabLevel(access[item.moduleId], current) === 'Hidden') {
+                          embeddedNav.navigateTo(item.moduleId, item.subTabs[0].id);
+                        }
                       }
                       closeMobile();
                     }}

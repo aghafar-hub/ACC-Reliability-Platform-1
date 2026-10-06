@@ -7,6 +7,7 @@ import {
   getRmsSpmHistory,
   getStartupBundle,
   readAll,
+  setCurrentPage,
   updateRow,
   upsertLastRMS,
   upsertLastSPM,
@@ -63,6 +64,9 @@ const SPM_SHEET = "📥 SPM DATA"; // original `bi`
 export default function App({ navBridge } = {}) {
   const { themeName } = useTheme();
   const [page, setPage] = useState("dashboard");
+  useEffect(() => {
+    setCurrentPage(page);
+  }, [page]);
   const [graphAsset, setGraphAsset] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");

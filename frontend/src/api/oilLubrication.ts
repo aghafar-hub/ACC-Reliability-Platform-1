@@ -14,7 +14,7 @@ import { OIL_ANALYSIS_URL } from '../config';
 // not a real security boundary either way (documented there): it just
 // raises the bar from "anyone who's ever seen the URL" to "anyone with the
 // URL and this value," rotatable independently per app if it ever leaks.
-const OIL_API_SECRET = '5RfANz0fp5kycVaABAYrKZ9eWBJxXOBaghBKRM9o';
+export const OIL_API_SECRET = '5RfANz0fp5kycVaABAYrKZ9eWBJxXOBaghBKRM9o';
 
 export type Routine = {
   routineId: string;
@@ -137,6 +137,14 @@ async function getJSON(sessionToken: string, params: Record<string, string>): Pr
 }
 
 async function postBlind(sessionToken: string, body: Record<string, unknown>): Promise<void> {
+  // Phase 0: don't send a save the server is going to refuse anyway (see
+  // moduleAccess.tsx) — say why instead. Mark-as-read is always allowed.
+  const access = window.__accModuleAccess?.get('oil-analysis');
+  const action = String(body.action || '');
+  if (access && !access.admin && access.enforced && !action.startsWith('mark')) {
+    if (access.status === 'Maintenance') throw new Error("Oil Lubrication is being updated — changes can't be saved right now.");
+    if (access.tabs.mywork !== 'Edit') throw new Error("You don't have permission to change this.");
+  }
   try {
     const payload: Record<string, unknown> = { ...body, secret: OIL_API_SECRET };
     if (sessionToken) payload.sessionToken = sessionToken;

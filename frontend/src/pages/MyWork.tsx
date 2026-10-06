@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { tabLevel, useModuleAccess } from '../moduleAccess';
+import '../components/ModuleAccessNotice.css';
 import { describeError } from '../api/client';
 import {
   getRoutineItems,
@@ -323,6 +325,11 @@ export default function MyWork({
   onInitialRoutineConsumed?: () => void;
 }) {
   const { sessionToken, claims } = useAuth();
+  const { access } = useModuleAccess();
+  const oilAccess = access['oil-analysis'];
+  // Phase 0: My Work is Oil Lubrication's "mywork" tab.
+  const canSeeOilWork = tabLevel(oilAccess, 'mywork') !== 'Hidden';
+  const oilMaintenance = !!oilAccess?.enforced && oilAccess.status === 'Maintenance';
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -338,14 +345,14 @@ export default function MyWork({
   }, [initialRoutineId, onInitialRoutineConsumed]);
 
   const load = useCallback(async () => {
-    if (!sessionToken) return;
+    if (!sessionToken || !canSeeOilWork) return;
     setError(null);
     try {
       setRoutines(await getRoutines(sessionToken));
     } catch (err) {
       setError(describeError(err, 'Could not load your work.'));
     }
-  }, [sessionToken]);
+  }, [sessionToken, canSeeOilWork]);
 
   useEffect(() => {
     load();
@@ -368,9 +375,25 @@ export default function MyWork({
 
   const selected = selectedId ? mine.find((r) => r.routineId === selectedId) || null : null;
 
+  if (!canSeeOilWork) {
+    return (
+      <div className="mywork">
+        {showHeading && <h1>My Work</h1>}
+        <p className="settings-intro">You don't have any modules with assigned work. Ask the App Owner if this is wrong.</p>
+      </div>
+    );
+  }
+
+  const maintenanceBanner = oilMaintenance && (
+    <div className="module-notice module-notice--maintenance" role="status">
+      <strong>Oil Lubrication is being updated.</strong> You can see your work, but you can't submit anything right now.
+    </div>
+  );
+
   if (selected && sessionToken) {
     return (
       <div className="mywork">
+        {maintenanceBanner}
         <RoutineDetail
           routine={selected}
           sessionToken={sessionToken}
@@ -392,6 +415,7 @@ export default function MyWork({
           <p className="settings-intro">Routines assigned to you.</p>
         </>
       )}
+      {maintenanceBanner}
       {error && <p className="mywork-error">{error}</p>}
       {routines === null && !error && <SkeletonCards count={4} />}
       {routines !== null && todo.length === 0 && awaiting.length === 0 && (

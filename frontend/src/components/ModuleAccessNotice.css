@@ -1,0 +1,72 @@
+.module-notice {
+  border-radius: 8px;
+  border: 1px solid var(--shell-border, #d0d7e2);
+  background: var(--shell-card-bg, #fff);
+  color: var(--shell-text, #1d2433);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.module-notice--maintenance,
+.module-notice--viewonly {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+}
+
+.module-notice--maintenance {
+  border-color: #e0a100;
+  background: color-mix(in srgb, #f5b400 14%, var(--shell-card-bg, #fff));
+}
+
+.module-notice--viewonly {
+  color: var(--shell-text-secondary, #5b6475);
+}
+
+.module-notice-version {
+  color: var(--shell-text-secondary, #5b6475);
+}
+
+.module-notice--full {
+  max-width: 560px;
+  margin: 48px auto;
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.module-notice--full h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.module-notice--full p {
+  margin: 0;
+  color: var(--shell-text-secondary, #5b6475);
+}
+
+.save-blocked-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 12px 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #e0a100;
+  background: color-mix(in srgb, #f5b400 16%, var(--shell-card-bg, #fff));
+  color: var(--shell-text, #1d2433);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  font-size: 14px;
+}
+
+.save-blocked-toast button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}

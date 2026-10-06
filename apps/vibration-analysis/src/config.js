@@ -14,7 +14,10 @@ export const THRESHOLDS_KEY = "vib_thresholds_v3"; // per-equipment RMS/SPM limi
 // The production Google Apps Script Web App URL — used as the default
 // `webhookUrl` until Settings → Configuration overrides it, and as the
 // placeholder text in that field.
+// VITE_VIBRATION_ANALYSIS_URL (optional) points a test build at a test copy
+// of the backend; normal builds keep the live URL.
 export const DEFAULT_WEBHOOK_URL =
+  import.meta.env.VITE_VIBRATION_ANALYSIS_URL ||
   "https://script.google.com/macros/s/AKfycbzBSXj7ugvqgd_KnTPOXpISmTDeQ4aB3CcIaMAg4RUnbJ6fZO03uOCqS8ekxlxLPaW9Kw/exec";
 
 // The production Google Sheet this webhook reads/writes — used as the

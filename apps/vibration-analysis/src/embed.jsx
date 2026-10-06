@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { setSessionToken } from "./api";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
 
@@ -15,7 +16,11 @@ import { ThemeProvider } from "./ThemeContext";
 // full rationale — a plain object, not React state, used to drive/observe
 // this app's page navigation from the embedding shell across the React
 // 18/19 root boundary.
-export function mountVibrationAnalysis(container, { navBridge } = {}) {
+//
+// session (optional, Phase 0): { token } — the shell's login token, sent with
+// every request so this module's backend can apply Module Access.
+export function mountVibrationAnalysis(container, { navBridge, session } = {}) {
+  setSessionToken(session?.token);
   const root = ReactDOM.createRoot(container);
   root.render(
     <React.StrictMode>

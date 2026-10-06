@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { tapHaptic } from '../haptics';
 import { Icon } from '../icons';
+import { canOpenModule, useModuleAccess } from '../moduleAccess';
 import './BottomNav.css';
 
 // App-like bottom tab bar (Patch 34) — the primary navigation surface on a
@@ -20,32 +21,35 @@ import './BottomNav.css';
 // — also the user's own call: no second navigation UI to design/build.
 const PRIMARY_ITEMS = [
   { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
-  { to: '/oil-analysis', label: 'Oil Lub.', icon: 'droplet', end: false },
-  { to: '/vibration-analysis', label: 'Vibration', icon: 'graphs', end: false },
+  { to: '/oil-analysis', label: 'Oil Lub.', icon: 'droplet', end: false, moduleId: 'oil-analysis' },
+  { to: '/vibration-analysis', label: 'Vibration', icon: 'graphs', end: false, moduleId: 'vibration-analysis' },
   { to: '/my-work', label: 'My Work', icon: 'action', end: false },
 ] as const;
 
 export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   const location = useLocation();
+  const { access } = useModuleAccess();
+  // Phase 0: a module this person can't open has no slot at all.
+  const items = PRIMARY_ITEMS.filter((item) => !('moduleId' in item) || canOpenModule(access[item.moduleId]));
   // "More" highlights whenever the active route isn't one of the 4 primary
   // tabs, so the bar always shows where you are, even for a page (Settings,
   // Equipment, Reliability Measures, Compressors) that only lives behind it.
-  const primaryIndex = PRIMARY_ITEMS.findIndex((item) =>
+  const primaryIndex = items.findIndex((item) =>
     item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
   );
   // 5 equal-width slots (4 primary + More) — the sliding indicator just
   // needs to know which one of the 5 to sit under; -1 (no primary tab
   // active) means "More" owns it, slot index 4.
-  const activeSlot = primaryIndex === -1 ? PRIMARY_ITEMS.length : primaryIndex;
+  const activeSlot = primaryIndex === -1 ? items.length : primaryIndex;
 
   return (
     <nav className="bottom-nav" aria-label="Primary">
       <span
         className="bottom-nav-indicator"
-        style={{ transform: `translateX(${activeSlot * 100}%)` }}
+        style={{ transform: `translateX(${activeSlot * 100}%)`, width: `${100 / (items.length + 1)}%` }}
         aria-hidden="true"
       />
-      {PRIMARY_ITEMS.map((item) => (
+      {items.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSession } from "../SessionContext";
 import * as api from "../api";
+import { loadConfig } from "../config";
 
 const CONTRACTOR_TO_ORG_ID = { RHI: "ORG-RHI", ASEC: "ORG-ASEC" };
 const ROLE_TECHNICIAN = "ROLE-TECH";
@@ -41,6 +42,31 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
   // reload/re-login. retryNonce gives "Retry" below a way to re-run this
   // effect on demand instead.
   const [retryNonce, setRetryNonce] = useState(0);
+  // Phase 0: when Module Access is switched on, only technicians the App
+  // Owner listed for this module and contractor can be assigned. null =
+  // no list to apply (backend without Phase 0, or rules not switched on).
+  const [moduleTechEmails, setModuleTechEmails] = useState(null);
+
+  useEffect(() => {
+    if (roleFilter !== ROLE_TECHNICIAN) return;
+    const access = typeof window !== "undefined" && window.__accModuleAccess ? window.__accModuleAccess.get("oil-analysis") : null;
+    if (!access || !access.enforced) {
+      setModuleTechEmails(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getModuleTechnicians(loadConfig().webhookUrl, contractor)
+      .then((list) => {
+        if (!cancelled) setModuleTechEmails(list ? list.map((t) => String(t.email).toLowerCase()) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleTechEmails(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roleFilter, contractor, retryNonce]);
 
   useEffect(() => {
     const platformCoreUrl = session?.platformCoreUrl;
@@ -68,7 +94,12 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
   }, [session?.platformCoreUrl, session?.token, retryNonce]);
 
   const orgId = CONTRACTOR_TO_ORG_ID[contractor];
-  const matches = (users || []).filter((u) => u.orgId === orgId && (!roleFilter || u.roles.includes(roleFilter)));
+  const matches = (users || []).filter(
+    (u) =>
+      u.orgId === orgId &&
+      (!roleFilter || u.roles.includes(roleFilter)) &&
+      (!moduleTechEmails || moduleTechEmails.includes(String(u.email).toLowerCase())),
+  );
 
   // Still loading, or nothing usable to pick from — free text, same as
   // before this component existed.

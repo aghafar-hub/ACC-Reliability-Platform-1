@@ -21,3 +21,10 @@ function requireEnv(key: string): string {
 
 export const PLATFORM_CORE_URL = requireEnv('VITE_PLATFORM_CORE_URL');
 export const OIL_ANALYSIS_URL = requireEnv('VITE_OIL_ANALYSIS_URL');
+
+// Optional: only needed to point a test build at a test copy of the
+// Vibration backend. Without it, the live URL baked into
+// apps/vibration-analysis/src/config.js is used, same as before Phase 0.
+export const VIBRATION_ANALYSIS_URL: string =
+  import.meta.env.VITE_VIBRATION_ANALYSIS_URL ||
+  'https://script.google.com/macros/s/AKfycbzBSXj7ugvqgd_KnTPOXpISmTDeQ4aB3CcIaMAg4RUnbJ6fZO03uOCqS8ekxlxLPaW9Kw/exec';

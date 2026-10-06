@@ -3,6 +3,8 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { PLATFORM_CORE_URL } from '../config';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
+import { useModuleNotice } from '../components/ModuleAccessNotice';
+import { canOpenModule, useModuleAccess } from '../moduleAccess';
 
 // platformCoreUrl lets this embedded app call Platform Core's own actions
 // directly (listOrgUsers, so far) — see apps/oil-analysis/src/api.js's
@@ -62,9 +64,17 @@ export default function EmbeddedOilAnalysis() {
   // Equipment, not this module's own LOW-level ones — see App.tsx.)
   const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
   const { sessionToken, claims } = useAuth();
+  const { access, settled } = useModuleAccess();
+  const moduleAccess = access[MODULE_ID];
+  // Phase 0: wait until we know whether this person may open the module at
+  // all (cached from last time, or the first answer after login), and never
+  // load it for someone who may not.
+  const allowedToMount = (settled || !!moduleAccess) && canOpenModule(moduleAccess);
+  const { blocked, notice } = useModuleNotice(MODULE_ID, 'Oil Lubrication');
 
   useEffect(() => {
     if (startedRef.current) return;
+    if (!allowedToMount) return;
     // This whole tree sits behind RequireAuth, so sessionToken is already
     // populated by the time a user can reach here — but guard anyway
     // rather than mount with a half-formed session on some future routing
@@ -94,8 +104,8 @@ export default function EmbeddedOilAnalysis() {
         session: { token: sessionToken, claims, platformCoreUrl: PLATFORM_CORE_URL },
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, as soon as sessionToken is available; embeddedNav's identity is stable enough for this one-shot read
-  }, [sessionToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- starts once, as soon as sessionToken is available and access allows it; embeddedNav's identity is stable enough for this one-shot read
+  }, [sessionToken, allowedToMount]);
 
   // Only ever runs its cleanup when this component is truly removed from
   // the tree (e.g. logout unmounting the whole authenticated shell) — never
@@ -105,5 +115,10 @@ export default function EmbeddedOilAnalysis() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally empty: see comment above
   }, []);
 
-  return <div ref={containerRef} className="app-content--embedded" style={visible ? undefined : { display: 'none' }} />;
+  return (
+    <>
+      {visible && notice}
+      <div ref={containerRef} className="app-content--embedded" style={visible && !blocked ? undefined : { display: 'none' }} />
+    </>
+  );
 }
