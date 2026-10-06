@@ -94,14 +94,16 @@ function dispatchWithAccess_(action, params) {
   var session = getSessionOrNull_(params.sessionToken);
   var request = { action: action };
   for (var k in params) { if (k !== 'action') request[k] = params[k]; }
-  var denial = VIB_WRITE_ACTIONS.indexOf(action) !== -1
+  var isAdminAction = MA_ADMIN_ACTIONS.indexOf(action) !== -1;
+  var denial = (isAdminAction || VIB_WRITE_ACTIONS.indexOf(action) !== -1)
     ? maCheckWrite_(session, request)
     : maCheckRead_(session, action);
   if (denial) return { status: 'error', error: denial, accessDenied: true };
 
   if (action === 'getMyAccess') return getMyAccess_(session);
   if (action === 'getModuleAccessConfig') return getModuleAccessConfig_();
-  if (action === 'maSetStatus' || action === 'maAddPeople' || action === 'maRemovePerson' || action === 'maSetTabLevel') {
+  if (isAdminAction) {
+    if (!maIsAdmin_(session)) return { status: 'error', error: 'Only the App Owner can change this.', accessDenied: true };
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) return { status: 'error', error: 'Server is busy — please try again.' };
     try {

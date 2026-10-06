@@ -255,7 +255,7 @@ function maCheckRead_(session, action) {
 // Returns "" when the POST may run, otherwise the message to send back.
 function maCheckWrite_(session, data) {
   var action = data.action;
-  var rule = MA_CONFIG.writeRules[action];
+  var rule = MA_ADMIN_ACTIONS.indexOf(action) !== -1 ? "admin" : MA_CONFIG.writeRules[action];
   if (typeof rule === "function") rule = rule(data);
   if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the App Owner can change this.";
   if (rule === "open" || !maIsEnforced_() || maIsAdmin_(session)) return "";
@@ -366,34 +366,73 @@ function maRemovePerson_(data) {
   return removed ? { status: "ok" } : { error: "Not found" };
 }
 
-// level "" clears a person's override (role defaults can't be cleared, only
-// set — every role always has a level for every tab).
-function maSetTabLevel_(data) {
-  var kind = data.kind === "User" ? "User" : data.kind === "Role" ? "Role" : "";
-  var key = kind === "User" ? maNormEmail_(data.key) : String(data.key || "").trim();
-  var tabId = String(data.tabId || "").trim();
-  var level = String(data.level || "").trim();
+// Admin-only POST actions, handled by maHandleAdminPost_. Listed once here
+// so each backend's router and access rules pick up new ones automatically.
+var MA_ADMIN_ACTIONS = ["maSetStatus", "maAddPeople", "maRemovePerson", "maSetTabLevel", "maSetTabLevels"];
+
+function maNormTabChange_(c) {
+  var kind = c.kind === "User" ? "User" : c.kind === "Role" ? "Role" : "";
+  var key = kind === "User" ? maNormEmail_(c.key) : String(c.key || "").trim();
+  var tabId = String(c.tabId || "").trim();
+  var level = String(c.level || "").trim();
   if (!kind || !key) return { error: "kind and key are required" };
   if (MA_CONFIG.tabs.indexOf(tabId) === -1) return { error: "Unknown tab: " + tabId };
   if (level && MA_LEVELS[level] === undefined) return { error: "Level must be Hidden, View or Edit." };
   if (!level && kind === "Role") return { error: "A role always needs a level." };
+  return { kind: kind, key: key, tabId: tabId, level: level };
+}
+
+// Applies many tab-level changes in one go (the Settings screen's "Save
+// changes"): one read and one write of the sheet, whatever the count. All
+// changes are checked first; if any is invalid, nothing is saved. A User
+// change with level "" removes that person's exception (role defaults can
+// only be changed, never removed).
+function maSetTabLevels_(changes) {
+  var list = [];
+  for (var c = 0; c < (changes || []).length; c++) {
+    var n = maNormTabChange_(changes[c]);
+    if (n.error) return n;
+    list.push(n);
+  }
+  if (!list.length) return { status: "ok", changed: 0 };
 
   maEnsureSetup_();
   var sheet = maEnsureSheet_(MA_CONFIG.tabAccessSheet, MA_TAB_HEADERS).sheet;
-  var vals = sheet.getDataRange().getValues();
+  var lastRow = sheet.getLastRow();
+  var rows = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, MA_TAB_HEADERS.length).getValues() : [];
+  var rowKey = function (kind, key, tabId) { return kind + "|" + key + "|" + tabId; };
+  var index = {};
+  rows.forEach(function (r, i) {
+    var kind = String(r[0] || "").trim();
+    var key = kind === "User" ? maNormEmail_(r[1]) : String(r[1] || "").trim();
+    index[rowKey(kind, key, String(r[2] || "").trim())] = i;
+  });
   var now = new Date().toISOString();
-  for (var i = vals.length - 1; i >= 1; i--) {
-    var rowKey = kind === "User" ? maNormEmail_(vals[i][1]) : String(vals[i][1] || "").trim();
-    if (String(vals[i][0] || "").trim() === kind && rowKey === key && String(vals[i][2] || "").trim() === tabId) {
-      if (level) sheet.getRange(i + 1, 4, 1, 2).setValues([[level, now]]);
-      else sheet.deleteRow(i + 1);
-      maInvalidate_();
-      return { status: "ok" };
+  list.forEach(function (ch) {
+    var k = rowKey(ch.kind, ch.key, ch.tabId);
+    var i = index[k];
+    if (ch.level) {
+      if (i !== undefined && rows[i]) {
+        rows[i][3] = ch.level;
+        rows[i][4] = now;
+      } else {
+        index[k] = rows.length;
+        rows.push([ch.kind, ch.key, ch.tabId, ch.level, now]);
+      }
+    } else if (i !== undefined) {
+      rows[i] = null;
+      delete index[k];
     }
-  }
-  if (level) sheet.appendRow([kind, key, tabId, level, now]);
+  });
+  var kept = rows.filter(function (r) { return r; });
+  if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, MA_TAB_HEADERS.length).clearContent();
+  if (kept.length) sheet.getRange(2, 1, kept.length, MA_TAB_HEADERS.length).setValues(kept);
   maInvalidate_();
-  return { status: "ok" };
+  return { status: "ok", changed: list.length };
+}
+
+function maSetTabLevel_(data) {
+  return maSetTabLevels_([data]);
 }
 
 // Email lists for notifications. contractor "" with MA_RESP.ACC returns
@@ -424,6 +463,7 @@ function maHandleAdminPost_(data, actingUser) {
     case "maAddPeople": return maAddPeople_(data.people || []);
     case "maRemovePerson": return maRemovePerson_(data);
     case "maSetTabLevel": return maSetTabLevel_(data);
+    case "maSetTabLevels": return maSetTabLevels_(data.changes || []);
     default: return null;
   }
 }

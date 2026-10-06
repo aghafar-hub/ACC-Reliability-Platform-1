@@ -263,3 +263,117 @@
 .ma-panel select.ma-level--edit {
   font-weight: 600;
 }
+
+.ma-savebar {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--shell-accent, #2563eb);
+  background: var(--shell-card-bg, #fff);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+  font-size: 13.5px;
+}
+
+.ma-savebar span {
+  margin-right: auto;
+  font-weight: 600;
+}
+
+.ma-table td.ma-changed {
+  background: color-mix(in srgb, var(--shell-accent, #2563eb) 14%, transparent);
+}
+
+.ma-exception-list {
+  margin-bottom: 14px;
+  font-size: 13.5px;
+}
+
+.ma-exception-list ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.ma-exception-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--shell-border, #d0d7e2);
+}
+
+.ma-exception-list .ma-muted {
+  margin: 0;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.ma-exception-who {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ma-exception-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ma-exception-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .ma-exception-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ma-people-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13.5px;
+}
+
+.ma-people-pick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ma-people-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--shell-border, #d0d7e2);
+  border-radius: 6px;
+}
+
+.ma-people-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.ma-panel .ma-people-list input[type='checkbox'] {
+  padding: 0;
+  flex: none;
+}

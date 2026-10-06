@@ -62,6 +62,7 @@ export default function ModuleAccessPanel() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [loadCount, setLoadCount] = useState(0);
 
   const load = useCallback(async () => {
     if (!sessionToken) return;
@@ -71,6 +72,7 @@ export default function ModuleAccessPanel() {
       if (json.error) throw new Error(json.error);
       if (json.moduleId !== moduleId) throw new Error("This module's server hasn't been updated for Module Access yet.");
       setConfig(json as Config);
+      setLoadCount((n) => n + 1);
     } catch (err) {
       setConfig(null);
       setMessage({ kind: 'error', text: (err as Error).message || 'Could not load the settings.' });
@@ -141,8 +143,8 @@ export default function ModuleAccessPanel() {
             onSave={save}
           />
           <PeopleCard config={config} users={users} onSave={save} />
-          <RoleDefaultsCard config={config} onSave={save} />
-          <OverridesCard config={config} onSave={save} />
+          <RoleDefaultsCard key={`roles-${loadCount}`} config={config} onSave={save} />
+          <OverridesCard key={`exceptions-${loadCount}`} config={config} onSave={save} />
         </fieldset>
       )}
     </div>
@@ -170,7 +172,7 @@ function StatusCard({ config, onSave }: { config: Config; onSave: SaveFn }) {
             <span>
               {s === 'Active' && 'Normal use.'}
               {s === 'Maintenance' && 'Everyone can look, nobody but you can save.'}
-              {s === 'Off' && 'Hidden from everyone but you.'}
+              {s === 'Off' && 'Hidden from everyone, you included. Turn it back on here.'}
             </span>
           </label>
         ))}
@@ -350,11 +352,57 @@ function PeopleGroup({
   );
 }
 
+function cellKey(a: string, b: string) {
+  return `${a}|${b}`;
+}
+
+function SaveBar({ count, onSave, onDiscard, label }: { count: number; onSave: () => void; onDiscard: () => void; label?: string }) {
+  if (count === 0) return null;
+  return (
+    <div className="ma-savebar">
+      <span>
+        {count} unsaved change{count === 1 ? '' : 's'}
+      </span>
+      <button type="button" onClick={onDiscard}>
+        Discard
+      </button>
+      <button type="button" className="ma-primary" onClick={onSave}>
+        {label || 'Save changes'}
+      </button>
+    </div>
+  );
+}
+
+// Edits collect here and are saved together with one "Save changes".
 function RoleDefaultsCard({ config, onSave }: { config: Config; onSave: SaveFn }) {
+  const [draft, setDraft] = useState<Record<string, TabLevel>>({});
+  const saved = (roleId: string, tabId: string): TabLevel => config.roleDefaults[roleId]?.[tabId] || 'Hidden';
+
+  function change(roleId: string, tabId: string, level: TabLevel) {
+    setDraft((d) => {
+      const next = { ...d };
+      if (level === saved(roleId, tabId)) delete next[cellKey(roleId, tabId)];
+      else next[cellKey(roleId, tabId)] = level;
+      return next;
+    });
+  }
+
+  function saveAll() {
+    const changes = Object.entries(draft).map(([k, level]) => {
+      const [key, tabId] = k.split('|');
+      return { kind: 'Role', key, tabId, level };
+    });
+    void onSave({ action: 'maSetTabLevels', changes }, `Saved ${changes.length} change${changes.length === 1 ? '' : 's'} to role access.`);
+  }
+
+  const count = Object.keys(draft).length;
   return (
     <section className="ma-card">
       <h3>Tab access by role</h3>
-      <p className="ma-muted">What each role sees once added to this module. Hidden tabs disappear from the menu.</p>
+      <p className="ma-muted">
+        What each role sees once added to this module. Hidden tabs disappear from the menu. Make all your changes, then
+        press Save changes.
+      </p>
       <div className="ma-table-wrap">
         <table className="ma-table">
           <thead>
@@ -370,19 +418,11 @@ function RoleDefaultsCard({ config, onSave }: { config: Config; onSave: SaveFn }
               <tr key={tabId}>
                 <td>{tabLabel(config.moduleId, tabId)}</td>
                 {config.roles.map((r) => {
-                  const level = config.roleDefaults[r.id]?.[tabId] || 'Hidden';
+                  const k = cellKey(r.id, tabId);
+                  const value = draft[k] || saved(r.id, tabId);
                   return (
-                    <td key={r.id}>
-                      <LevelSelect
-                        value={level}
-                        label={`${r.label} — ${tabLabel(config.moduleId, tabId)}`}
-                        onChange={(next) =>
-                          onSave(
-                            { action: 'maSetTabLevel', kind: 'Role', key: r.id, tabId, level: next },
-                            `${r.label}: ${tabLabel(config.moduleId, tabId)} is now ${next}.`,
-                          )
-                        }
-                      />
+                    <td key={r.id} className={draft[k] ? 'ma-changed' : undefined}>
+                      <LevelSelect value={value} label={`${r.label} — ${tabLabel(config.moduleId, tabId)}`} onChange={(next) => change(r.id, tabId, next)} />
                     </td>
                   );
                 })}
@@ -391,73 +431,153 @@ function RoleDefaultsCard({ config, onSave }: { config: Config; onSave: SaveFn }
           </tbody>
         </table>
       </div>
+      <SaveBar count={count} onSave={saveAll} onDiscard={() => setDraft({})} />
     </section>
   );
 }
 
+type ExceptionChoice = '' | 'role' | TabLevel;
+
+// Exceptions: pick any number of people, choose levels for the tabs that
+// should differ from their role, save once — applied to everyone picked.
 function OverridesCard({ config, onSave }: { config: Config; onSave: SaveFn }) {
   const emails = useMemo(() => Array.from(new Set(config.people.map((p) => p.email))).sort(), [config.people]);
-  const [email, setEmail] = useState('');
-  const overrides = (email && config.userOverrides[email]) || {};
-  const peopleWithOverrides = Object.keys(config.userOverrides).filter((e) => Object.keys(config.userOverrides[e]).length > 0);
+  const withExceptions = Object.keys(config.userOverrides).filter((e) => Object.keys(config.userOverrides[e]).length > 0).sort();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [choices, setChoices] = useState<Record<string, ExceptionChoice>>({});
+  const [filter, setFilter] = useState('');
+
+  const shown = emails.filter((e) => e.includes(filter.trim().toLowerCase()));
+  const single = selected.length === 1 ? selected[0] : null;
+  const changedTabs = Object.entries(choices).filter(([, c]) => c !== '');
+  const changeCount = changedTabs.length * selected.length;
+
+  function toggle(email: string) {
+    setSelected((cur) => (cur.includes(email) ? cur.filter((e) => e !== email) : [...cur, email]));
+  }
+
+  function describe(email: string) {
+    return Object.entries(config.userOverrides[email] || {})
+      .map(([tabId, level]) => `${tabLabel(config.moduleId, tabId)}: ${level}`)
+      .join(' · ');
+  }
+
+  function saveAll() {
+    const changes = selected.flatMap((email) =>
+      changedTabs.map(([tabId, c]) => ({ kind: 'User', key: email, tabId, level: c === 'role' ? '' : c })),
+    );
+    void onSave(
+      { action: 'maSetTabLevels', changes },
+      `Saved exceptions for ${selected.length} ${selected.length === 1 ? 'person' : 'people'}.`,
+    );
+  }
+
+  function removeAll(email: string) {
+    const changes = Object.keys(config.userOverrides[email] || {}).map((tabId) => ({ kind: 'User', key: email, tabId, level: '' }));
+    void onSave({ action: 'maSetTabLevels', changes }, `${email} now follows their role again.`);
+  }
 
   return (
     <section className="ma-card">
-      <h3>Exceptions for one person</h3>
-      <p className="ma-muted">Give one person a different level than their role's on any tab.</p>
-      <div className="ma-inline">
-        <label>
-          Person
-          <select value={email} onChange={(e) => setEmail(e.target.value)}>
-            <option value="">Choose a person…</option>
-            {emails.map((e) => (
-              <option key={e} value={e}>
-                {e}
-                {peopleWithOverrides.includes(e) ? ' (has exceptions)' : ''}
-              </option>
+      <h3>Exceptions</h3>
+      <p className="ma-muted">
+        Give one or more people a different level than their role's on some tabs. Pick the people, set only the tabs that
+        should differ, then save — it applies to everyone you picked.
+      </p>
+
+      {withExceptions.length > 0 && (
+        <div className="ma-exception-list">
+          <strong>People with exceptions now</strong>
+          <ul>
+            {withExceptions.map((email) => (
+              <li key={email}>
+                <span className="ma-exception-who">{email}</span>
+                <span className="ma-muted">{describe(email)}</span>
+                <span className="ma-exception-actions">
+                  <button type="button" onClick={() => setSelected([email])}>
+                    Edit
+                  </button>
+                  <button type="button" onClick={() => removeAll(email)}>
+                    Remove all
+                  </button>
+                </span>
+              </li>
             ))}
-          </select>
-        </label>
-      </div>
-      {email && (
+          </ul>
+        </div>
+      )}
+
+      <div className="ma-exception-editor">
+        <div className="ma-people-pick">
+          <div className="ma-people-pick-head">
+            <strong>People ({selected.length} picked)</strong>
+            {selected.length > 0 && (
+              <button type="button" onClick={() => setSelected([])}>
+                Clear
+              </button>
+            )}
+          </div>
+          <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search…" aria-label="Search people" />
+          <ul className="ma-people-list">
+            {shown.length === 0 && <li className="ma-muted">Nobody added to this module yet.</li>}
+            {shown.map((email) => (
+              <li key={email}>
+                <label>
+                  <input type="checkbox" checked={selected.includes(email)} onChange={() => toggle(email)} />
+                  <span>{email}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <div className="ma-table-wrap">
           <table className="ma-table">
             <thead>
               <tr>
                 <th>Tab</th>
-                <th>For this person</th>
+                {single && <th>Now</th>}
+                <th>Change to</th>
               </tr>
             </thead>
             <tbody>
-              {config.tabs.map((tabId) => (
-                <tr key={tabId}>
-                  <td>{tabLabel(config.moduleId, tabId)}</td>
-                  <td>
-                    <select
-                      value={overrides[tabId] || ''}
-                      aria-label={`${email} — ${tabLabel(config.moduleId, tabId)}`}
-                      onChange={(e) =>
-                        onSave(
-                          { action: 'maSetTabLevel', kind: 'User', key: email, tabId, level: e.target.value },
-                          e.target.value
-                            ? `${email}: ${tabLabel(config.moduleId, tabId)} is now ${e.target.value}.`
-                            : `${email}: ${tabLabel(config.moduleId, tabId)} follows their role again.`,
-                        )
-                      }
-                    >
-                      <option value="">Same as their role</option>
-                      {LEVELS.map((l) => (
-                        <option key={l} value={l}>
-                          {l}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {config.tabs.map((tabId) => {
+                const current = single ? config.userOverrides[single]?.[tabId] : undefined;
+                return (
+                  <tr key={tabId}>
+                    <td>{tabLabel(config.moduleId, tabId)}</td>
+                    {single && <td className="ma-muted">{current ? `${current} (exception)` : 'Same as role'}</td>}
+                    <td className={choices[tabId] ? 'ma-changed' : undefined}>
+                      <select
+                        value={choices[tabId] || ''}
+                        aria-label={`Exception — ${tabLabel(config.moduleId, tabId)}`}
+                        onChange={(e) => setChoices((c) => ({ ...c, [tabId]: e.target.value as ExceptionChoice }))}
+                      >
+                        <option value="">No change</option>
+                        <option value="role">Same as their role</option>
+                        {LEVELS.map((l) => (
+                          <option key={l} value={l}>
+                            {l}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      </div>
+      {selected.length > 0 ? (
+        <SaveBar
+          count={changeCount}
+          onSave={saveAll}
+          onDiscard={() => setChoices({})}
+          label={`Save for ${selected.length} ${selected.length === 1 ? 'person' : 'people'}`}
+        />
+      ) : (
+        changedTabs.length > 0 && <p className="ma-muted">Pick at least one person to save these exceptions for.</p>
       )}
     </section>
   );

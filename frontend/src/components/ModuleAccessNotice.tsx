@@ -21,7 +21,13 @@ export function useModuleNotice(moduleId: string, moduleName: string) {
       notice: (
         <div className="module-notice module-notice--full" role="status">
           <h2>{off ? `${moduleName} is switched off` : `You don't have access to ${moduleName}`}</h2>
-          <p>{off ? 'The App Owner has switched this module off for now.' : 'Ask the App Owner to add you to this module in Settings.'}</p>
+          <p>
+            {off
+              ? a?.admin
+                ? 'Switch it back on in Settings → General → Module Access.'
+                : 'The App Owner has switched this module off for now.'
+              : 'Ask the App Owner to add you to this module in Settings.'}
+          </p>
         </div>
       ),
     };

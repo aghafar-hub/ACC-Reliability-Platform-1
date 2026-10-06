@@ -370,7 +370,7 @@ function doPost(e) {
         return jsonOut({status: "error", message: writeDenial, accessDenied: true});
       }
 
-      if (data.action === "maSetStatus" || data.action === "maAddPeople" || data.action === "maRemovePerson" || data.action === "maSetTabLevel") {
+      if (MA_ADMIN_ACTIONS.indexOf(data.action) !== -1) {
         requireAdmin_(auth.session);
         var maResult = maHandleAdminPost_(data, actingUser);
         logError("doPost:" + data.action, maResult.error || "ok", {actingUser: actingUser});

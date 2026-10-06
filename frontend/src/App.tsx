@@ -7,7 +7,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
 import { isTechnicianOnly } from './auth/session';
 import { EmbeddedNavProvider } from './embeddedNav';
-import { ModuleAccessProvider } from './moduleAccess';
+import { hasModuleTabsBeyondMyWork, MODULE_BACKENDS, ModuleAccessProvider, useModuleAccess } from './moduleAccess';
 import ChangePassword from './pages/ChangePassword';
 import ComingSoon from './pages/ComingSoon';
 import EmbeddedOilAnalysis from './pages/EmbeddedOilAnalysis';
@@ -129,11 +129,22 @@ function AppShell() {
 // full routing. This check runs on every route change (not just once at
 // login) so it also takes effect immediately if the user's own role ever
 // changes mid-session via a fresh login.
-function AuthenticatedShell() {
+// A technician-only account normally gets the single-screen My Work view.
+// Once the App Owner gives them any other tab in a module (Settings >
+// General > Module Access), they get the normal shell with its menu instead,
+// so that access actually shows up for them.
+function ShellForUser() {
   const { claims } = useAuth();
+  const { access } = useModuleAccess();
+  const techOnly = !!claims && isTechnicianOnly(claims.roles);
+  const hasMoreThanMyWork = MODULE_BACKENDS.some((m) => hasModuleTabsBeyondMyWork(access[m.id]));
+  return techOnly && !hasMoreThanMyWork ? <TechnicianShell /> : <AppShell />;
+}
+
+function AuthenticatedShell() {
   return (
     <ModuleAccessProvider>
-      {claims && isTechnicianOnly(claims.roles) ? <TechnicianShell /> : <AppShell />}
+      <ShellForUser />
     </ModuleAccessProvider>
   );
 }
