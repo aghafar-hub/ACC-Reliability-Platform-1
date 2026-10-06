@@ -138,9 +138,23 @@ function AuthenticatedShell() {
   );
 }
 
+// Test builds (tools/test-site) set VITE_ENV_LABEL so a test copy can never
+// be mistaken for the live site — shown on every screen, login included.
+function EnvRibbon() {
+  const label = import.meta.env.VITE_ENV_LABEL;
+  if (!label) return null;
+  return (
+    <div className="env-ribbon">
+      {label}
+      <span className="env-ribbon-extra"> — not live data</span>
+    </div>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <EnvRibbon />
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />

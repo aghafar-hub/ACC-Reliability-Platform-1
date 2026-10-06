@@ -70,3 +70,10 @@
   line-height: 1;
   cursor: pointer;
 }
+
+/* The embedded module normally pulls itself up by -2rem to sit flush under
+   the top bar (App.css .app-content--embedded); with a banner above it, that
+   would slide over the banner. */
+.module-notice + .app-content--embedded {
+  margin-top: 0;
+}

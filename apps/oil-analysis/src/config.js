@@ -3,7 +3,10 @@ const KEY = "acc_oilapp_config";
 // The production Google Apps Script Web App URL and the Google Sheet it
 // reads/writes — used as defaults until Settings → Configuration overrides
 // them, same pattern as apps/vibration-analysis/src/config.js.
+// VITE_OIL_ANALYSIS_URL (optional) points a test build at a test copy of
+// the backend; normal builds keep the live URL.
 export const DEFAULT_WEBHOOK_URL =
+  import.meta.env.VITE_OIL_ANALYSIS_URL ||
   "https://script.google.com/macros/s/AKfycbx3GDHY_1njtZ5wO5684BuYyslzuzB7GvAchJQtnBCynVOCLxfJ0ZnNm9oXWhqk36Lt/exec";
 export const DEFAULT_SHEET_URL = "https://docs.google.com/spreadsheets/d/1ckDYD5vjRIyFc7vBK1cqHJHhlI8KuwmRtucgtrfZXto/edit";
 

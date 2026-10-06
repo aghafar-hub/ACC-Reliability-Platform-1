@@ -192,3 +192,31 @@
     width: calc(100% / 0.9);
   }
 }
+
+.env-ribbon {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  padding: 2px 14px;
+  border-radius: 0 0 8px 8px;
+  background: #c2410c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (max-width: 860px) {
+  .env-ribbon {
+    font-size: 10.5px;
+    padding: 1px 10px;
+  }
+
+  .env-ribbon-extra {
+    display: none;
+  }
+}

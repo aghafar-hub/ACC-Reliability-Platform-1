@@ -133,7 +133,12 @@
   max-width: 100%;
 }
 
-.ma-panel button {
+.ma-panel > .settings-subtabs {
+  align-self: flex-start;
+  margin: 0;
+}
+
+.ma-panel button:not(.settings-subtab) {
   font: inherit;
   font-size: 13.5px;
   padding: 7px 12px;
@@ -144,7 +149,7 @@
   cursor: pointer;
 }
 
-.ma-panel button:disabled {
+.ma-panel button:not(.settings-subtab):disabled {
   opacity: 0.5;
   cursor: default;
 }
