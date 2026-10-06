@@ -399,7 +399,7 @@ export function suggestedRoutinePoints(routeType, contractor, registry, samples,
 // to different urgency tiers rather than three separately-computed lists.
 export const SUGGESTION_PRESETS = [
   { id: "recommended", label: "Recommended", filter: () => true },
-  { id: "highPriority", label: "High Priority", filter: (r) => r.suggestionReason.kind === "resample" || r.suggestionReason.kind === "missing" },
+  { id: "highPriority", label: "High Priority", filter: (r) => ["resample", "missing", "action"].includes(r.suggestionReason.kind) },
   { id: "overdue", label: "Overdue LPs", filter: (r) => r.suggestionReason.kind === "overdue" || r.suggestionReason.kind === "missing" },
 ];
 

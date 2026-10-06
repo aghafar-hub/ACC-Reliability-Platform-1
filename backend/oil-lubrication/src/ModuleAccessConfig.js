@@ -57,6 +57,7 @@ var MA_CONFIG = {
     getRoutine: ["routines", "mywork", "dashboard", "equipment"],
     getRoutineItems: ["routines", "mywork", "dashboard", "equipment"],
     getRouteTemplates: ["routines", "dashboard", "reports"],
+    getSuggestions: ["routines", "actions"],
     getRoutinesOverview: ["routines", "dashboard", "reports"],
     getRoutineCompletionTrend: ["routines", "dashboard", "reports"],
     getOilInventory: ["inventory", "dashboard", "reports"],

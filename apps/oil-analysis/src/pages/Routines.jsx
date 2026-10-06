@@ -238,7 +238,20 @@ export default function Routines({
   // list) is now the landing view, replacing the old "list" (every
   // instance, flat). "templateDetail" drills into one recurring template's
   // own generated instances — see openOverviewItem below.
-  const [view, setView] = useState("overview"); // "overview" | "templateDetail" | "detail" | "new"
+  const [view, setView] = useState("overview"); // "overview" | "templateDetail" | "detail" | "new" | "suggestions"
+  // Phase 3: saved Suggestions (sub-tab) and the one picked to start a route from.
+  const [suggestions, setSuggestions] = useState(null);
+  const [fromSuggestion, setFromSuggestion] = useState(null);
+  const refreshSuggestions = useCallback(async () => {
+    try {
+      setSuggestions(await api.getSuggestions(webhookUrl));
+    } catch {
+      setSuggestions((prev) => prev || []);
+    }
+  }, [webhookUrl]);
+  useEffect(() => {
+    refreshSuggestions();
+  }, [refreshSuggestions]);
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null); // the overview item being drilled into
 
@@ -544,6 +557,7 @@ export default function Routines({
   if (view === "new") {
     return (
       <NewRoutine
+        initialSuggestion={fromSuggestion}
         webhookUrl={webhookUrl}
         equipmentRegistry={equipmentRegistry}
         samples={samples}
@@ -552,7 +566,9 @@ export default function Routines({
         pushToast={pushToast}
         onCreated={(routineId, templateId) => {
           setView("overview");
+          setFromSuggestion(null);
           refreshOverview();
+          refreshSuggestions();
           if (routineId) {
             setSelectedRoutineId(routineId);
             setView("detail");
@@ -561,6 +577,78 @@ export default function Routines({
         }}
         onCancel={() => setView(selectedTemplate ? "templateDetail" : "overview")}
       />
+    );
+  }
+
+  if (view === "suggestions") {
+    const regByCode = {};
+    (equipmentRegistry || []).forEach((r) => (regByCode[r.code] = r));
+    const list = (suggestions || []).filter((sg) => contractorFilter === "All" || sg.contractor === contractorFilter);
+    return (
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+          <button style={s.btn} onClick={() => setView("overview")}>
+            <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
+          </button>
+          <button style={s.btn} onClick={refreshSuggestions}>
+            <i className="ti ti-refresh" aria-hidden="true" /> Refresh
+          </button>
+        </div>
+        <p style={{ ...s.sectionTitle, margin: "0 0 4px" }}>Suggestions</p>
+        <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "0 0 14px" }}>
+          Made from submitted actions whose Agreed Action asks for an oil change, a top-up or a sample. Pick one to create its route — it's
+          then marked as converted and linked to that route.
+        </p>
+        {suggestions === null ? (
+          <p style={{ color: T.textSecondary }}>Loading…</p>
+        ) : list.length === 0 ? (
+          <p style={{ color: T.textSecondary }}>No open suggestions.</p>
+        ) : (
+          <div style={{ ...s.card, padding: 0, overflowX: "auto" }}>
+            <table style={s.table}>
+              <thead>
+                <tr>
+                  <th style={s.th}>Lubrication point</th>
+                  <th style={s.th}>Work</th>
+                  <th style={s.th}>Why</th>
+                  <th style={s.th}>Source action</th>
+                  <th style={s.th}>Required by</th>
+                  <th style={s.th}>Contractor</th>
+                  <th style={s.th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((sg) => (
+                  <tr key={sg.suggestionId}>
+                    <td style={s.td}>
+                      <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{sg.lpId}</div>
+                      <div style={{ fontSize: 11.5, color: T.textSecondary }}>{regByCode[sg.lpId]?.lubricationPoint || regByCode[sg.lpId]?.description || ""}</div>
+                    </td>
+                    <td style={s.td}>{sg.workType}</td>
+                    <td style={s.td}>{sg.reason}</td>
+                    <td style={s.td}>{sg.sourceAcNo}</td>
+                    <td style={s.td}>{formatDateShort(sg.requiredDate)}</td>
+                    <td style={s.td}>{sg.contractor || "—"}</td>
+                    <td style={s.td}>
+                      {canCreateRoutines && (
+                        <button
+                          style={s.btnPrimary}
+                          onClick={() => {
+                            setFromSuggestion(sg);
+                            setView("new");
+                          }}
+                        >
+                          Create route
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -751,7 +839,7 @@ export default function Routines({
             </select>
           )}
           {canCreateRoutines && (
-            <button style={s.btnPrimary} onClick={() => setView("new")}>
+            <button style={s.btnPrimary} onClick={() => { setFromSuggestion(null); setView("new"); }}>
               <i className="ti ti-plus" aria-hidden="true" /> Create Route
             </button>
           )}
@@ -773,6 +861,15 @@ export default function Routines({
             <i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label} ({routeTypeCounts[t.key] ?? 0})
           </button>
         ))}
+        <button
+          style={{ ...s.btn, color: T.info || T.accent, borderColor: T.info || T.accent }}
+          onClick={() => {
+            refreshSuggestions();
+            setView("suggestions");
+          }}
+        >
+          <i className="ti ti-bulb" aria-hidden="true" /> Suggestions ({(suggestions || []).length})
+        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>

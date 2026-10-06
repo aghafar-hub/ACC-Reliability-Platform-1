@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail, useSessionContractor } from "../SessionContext";
 import TechnicianPicker from "../components/TechnicianPicker";
@@ -25,7 +25,7 @@ const ROUTE_TYPES = [
 ];
 const FREQUENCIES = ["One-time", "Weekly", "Monthly", "Quarterly"];
 
-const REASON_COLOR = { resample: "danger", overdue: "warning", missing: "danger", due: "accent" };
+const REASON_COLOR = { resample: "danger", overdue: "warning", missing: "danger", due: "accent", action: "info" };
 
 function ReasonBadge({ T, reason }) {
   if (!reason) return null;
@@ -49,7 +49,9 @@ function ReasonBadge({ T, reason }) {
   );
 }
 
-export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onCreated, onCancel }) {
+// initialSuggestion (Phase 3): a saved Suggestion picked on the Suggestions
+// tab — the form opens on its route type with just that point selected.
+export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onCreated, onCancel, initialSuggestion }) {
   const { T, s } = useTheme();
   const createdBy = useSessionEmail();
   // Patch 16: a logged-in RHI/ASEC account can only ever create a routine
@@ -61,10 +63,10 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   // still picks between both via the dropdown below.
   const scopedContractor = useSessionContractor();
 
-  const [routeType, setRouteType] = useState("Sampling");
-  const [routeName, setRouteName] = useState("");
+  const [routeType, setRouteType] = useState(initialSuggestion?.routeType || "Sampling");
+  const [routeName, setRouteName] = useState(initialSuggestion ? `${initialSuggestion.workType} - ${initialSuggestion.lpId}` : "");
   const [frequency, setFrequency] = useState("One-time");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(initialSuggestion?.requiredDate ? initialSuggestion.requiredDate.slice(0, 10) : "");
   // Grace period (days) after dueDate before a one-time routine counts as
   // Overdue — confirmed directly by the user. Not shown/sent for a
   // recurring template, which has no single due date of its own to apply
@@ -73,14 +75,28 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   // Patch 19: "" for an ACC/unscoped account until they pick their first
   // piece of equipment — see toggleRow/selectAllShown, which derive and
   // lock it from there instead of a manual dropdown.
-  const [contractor, setContractor] = useState(scopedContractor || "");
+  const [contractor, setContractor] = useState(scopedContractor || initialSuggestion?.contractor || "");
   const [assignedTo, setAssignedTo] = useState("");
   const [area, setArea] = useState("All");
   const [oilType, setOilType] = useState("All");
   const [presetId, setPresetId] = useState("recommended");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]); // [{ lpId, label, equipmentId, oilType, suggestionReason? }]
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(initialSuggestion?.routeType === "Emergency Top Up" ? initialSuggestion.reason || "" : "");
+  // Phase 3: saved Suggestions (from submitted actions) — shown in the same
+  // suggestion list as the computed ones, with the action as the reason.
+  const [savedSuggestions, setSavedSuggestions] = useState([]);
+  const keepInitialPick = useRef(!!initialSuggestion);
+  useEffect(() => {
+    let alive = true;
+    api
+      .getSuggestions(webhookUrl)
+      .then((list) => alive && setSavedSuggestions(list))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [webhookUrl]);
   const [submitting, setSubmitting] = useState(false);
 
   const isEmergencyTopUp = routeType === "Emergency Top Up";
@@ -109,21 +125,57 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   // tagged with why (see parsers.js's suggestedRoutinePoints). Recomputed
   // whenever the type/contractor changes — the basis for both the preset
   // dropdown (One-time) and the live "due today" preview (Recurring).
-  const allSuggested = useMemo(
-    () => suggestedRoutinePoints(routeType, contractor, equipmentRegistry, samples, actions, oilChanges),
-    [routeType, contractor, equipmentRegistry, samples, actions, oilChanges]
-  );
+  const savedByLp = useMemo(() => {
+    const map = {};
+    for (const sg of savedSuggestions) {
+      if (sg.routeType !== routeType) continue;
+      if (contractor && sg.contractor && sg.contractor !== contractor) continue;
+      map[sg.lpId] = sg;
+    }
+    return map;
+  }, [savedSuggestions, routeType, contractor]);
+
+  const allSuggested = useMemo(() => {
+    const byLp = new Map(suggestedRoutinePoints(routeType, contractor, equipmentRegistry, samples, actions, oilChanges).map((r) => [r.code, r]));
+    for (const sg of Object.values(savedByLp)) {
+      const reg = (equipmentRegistry || []).find((r) => r.code === sg.lpId);
+      if (!reg) continue;
+      byLp.set(sg.lpId, { ...reg, suggestionReason: { kind: "action", label: sg.reason }, suggestionId: sg.suggestionId });
+    }
+    return [...byLp.values()];
+  }, [routeType, contractor, equipmentRegistry, samples, actions, oilChanges, savedByLp]);
 
   function toChipRow(r) {
+    const saved = savedByLp[r.code];
     return {
       lpId: r.code,
       label: `${r.code} — ${r.lubricationPoint || r.description}`,
       equipmentId: r.equipmentId,
       oilType: r.lubricant,
       area: r.area,
-      suggestionReason: r.suggestionReason,
+      suggestionReason: saved ? { kind: "action", label: saved.reason } : r.suggestionReason,
+      suggestionId: saved ? saved.suggestionId : r.suggestionId,
     };
   }
+
+  // Opened from the Suggestions tab: start with just that point picked.
+  useEffect(() => {
+    if (!initialSuggestion) return;
+    const reg = (equipmentRegistry || []).find((r) => r.code === initialSuggestion.lpId);
+    if (!reg) return;
+    setSelected([
+      {
+        lpId: reg.code,
+        label: `${reg.code} — ${reg.lubricationPoint || reg.description}`,
+        equipmentId: reg.equipmentId,
+        oilType: reg.lubricant,
+        area: reg.area,
+        suggestionReason: { kind: "action", label: initialSuggestion.reason },
+        suggestionId: initialSuggestion.suggestionId,
+      },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when opened from a suggestion
+  }, []);
 
   // Applying a suggestion preset replaces the current selection outright
   // (matches the reference: picking a suggestion is an explicit action,
@@ -131,6 +183,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   // route, since a recurring template doesn't persist a fixed LP list at
   // all (see the recurring-preview note near the bottom of this file).
   function applyPreset(id) {
+    keepInitialPick.current = false;
     setPresetId(id);
     const preset = SUGGESTION_PRESETS.find((p) => p.id === id);
     if (!preset) return;
@@ -157,6 +210,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     // rejects a multi-equipment Emergency Top Up outright, so this
     // surfaced as a confusing, unconnected error on save.
     if (isEmergencyTopUp) return;
+    if (keepInitialPick.current) return; // opened from a suggestion — keep that pick
     applyPreset(presetId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a route type swap should reset the pick; re-running on presetId here would fight the dropdown's own onChange
   }, [routeType, equipmentRegistry, samples, actions, oilChanges]);
@@ -298,7 +352,12 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
         onCreated(null, saved.templateId);
       } else {
         const routineId = newId("RT");
-        const items = selected.map((sel) => ({ routineItemId: newId("RI"), lpId: sel.lpId, requiredOilType: sel.oilType || "" }));
+        const items = selected.map((sel) => ({
+          routineItemId: newId("RI"),
+          lpId: sel.lpId,
+          requiredOilType: sel.oilType || "",
+          suggestionId: sel.suggestionId || "", // Phase 3: marks that saved Suggestion "Converted"
+        }));
         // Routines tab improvement pass: a one-time route's Area was never
         // sent at all before (only the recurring-template path had one) —
         // see Routines.js's own Area column comment. Emergency Top Up has
@@ -385,7 +444,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
             {ROUTE_TYPES.map((rt) => (
               <button
                 key={rt.id}
-                onClick={() => setRouteType(rt.id)}
+                onClick={() => { keepInitialPick.current = false; setRouteType(rt.id); }}
                 style={{
                   flex: 1,
                   display: "flex",

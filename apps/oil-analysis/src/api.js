@@ -820,6 +820,12 @@ export async function getRoutineCompletionTrend(webhookUrl, months = 6) {
   };
 }
 
+// Phase 3 — saved Suggestions (open ones), see backend Suggestions.js.
+export async function getSuggestions(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getSuggestions" });
+  return json.suggestions || [];
+}
+
 export async function getRoutineItems(webhookUrl, routineId) {
   const json = await getJSON(webhookUrl, { action: "getRoutineItems", routineId });
   return (json.items || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutineItem);

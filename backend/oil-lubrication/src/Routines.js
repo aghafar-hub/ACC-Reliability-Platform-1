@@ -328,6 +328,15 @@ function createRoutine(ss, data) {
     appendRow(ss, "OA_ROUTINE_ITEMS", itemRow);
   }
 
+  // Phase 3: the saved Suggestions this route was built from become
+  // "Converted", linked to this route.
+  var suggestionIds = (data.suggestionIds || []).concat(items.map(function (it) { return it.suggestionId; }));
+  try {
+    convertSuggestions_(ss, suggestionIds, routineId, items.map(function (it) { return String(it.lpId || "").trim(); }));
+  } catch (e) {
+    logError("convertSuggestions_", e, { routineId: routineId });
+  }
+
   if (assignedTo) {
     try {
       notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate);
@@ -511,6 +520,10 @@ function setRoutineStatus(ss, data) {
   }
 
   sheet.getRange(rowIdx, 6).setValue(status);
+  // Phase 3: a cancelled route gives its suggestions back.
+  if (status === ROUTE_STATUS.CANCELLED) {
+    try { reopenSuggestionsForRoutine_(ss, routineId); } catch (e) { logError("reopenSuggestionsForRoutine_", e, { routineId: routineId }); }
+  }
   return { status: "ok" };
 }
 
@@ -536,6 +549,7 @@ function deleteRoutine(ss, data) {
   var rowIdx = findRowIndex(routineSheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
   routineSheet.deleteRow(rowIdx);
+  try { reopenSuggestionsForRoutine_(ss, routineId); } catch (e) { logError("reopenSuggestionsForRoutine_", e, { routineId: routineId }); }
 
   var itemsSheet = ss.getSheetByName("OA_ROUTINE_ITEMS");
   if (itemsSheet) {

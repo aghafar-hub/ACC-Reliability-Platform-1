@@ -23,7 +23,7 @@ import { ActionWorkflowProvider } from "./ActionWorkflowContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
-import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, newId, todayISO } from "./parsers";
+import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges } from "./parsers";
 import * as api from "./api";
 import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
@@ -497,41 +497,6 @@ function AppShell({ config, setConfig, navBridge }) {
     [config.webhookUrl, pushToast]
   );
 
-  // EditActionModal's handleSave computes _autoRouteTriggers (one entry per
-  // newly-agreed "Change Oil"/"Top Up the Oil" phrase — see that file's own
-  // ROUTE_TRIGGER_PHRASES comment) the same way it computes
-  // _oilChangeTarget above; this is what actually creates each route, as a
-  // best-effort side effect of the action save having already succeeded —
-  // a failure here doesn't roll back the action itself, same pattern
-  // applyOilChangeSideEffect uses. Routines.jsx fetches its own list
-  // independently on mount (not fed from this component's state), so
-  // nothing here needs to update any routine list directly.
-  const applyAutoRouteSideEffect = useCallback(
-    async (action) => {
-      const triggers = action._autoRouteTriggers;
-      if (!triggers || triggers.length === 0) return;
-      for (const t of triggers) {
-        try {
-          await api.createRoutine(config.webhookUrl, {
-            routineId: newId("RT"),
-            routeName: t.routeName,
-            routeType: t.routeType,
-            dueDate: todayISO(),
-            assignedTo: t.assignedTo,
-            contractor: t.contractor,
-            createdBy: t.createdBy,
-            items: [{ routineItemId: newId("RI"), lpId: t.equipmentCode }],
-            reason: t.reason,
-          });
-          pushToast(`"${t.routeName}" route created and assigned to ${t.assignedTo}.`, "success");
-        } catch (err) {
-          pushToast(`Action saved, but the auto-created "${t.routeType}" route wasn't: ${err.message}`, "error");
-        }
-      }
-    },
-    [config.webhookUrl, pushToast]
-  );
-
   // Keeps the Oil Sample Tracker sheet in sync with new samples automatically
   // — same best-effort side-effect pattern as applyOilChangeSideEffect: the
   // sample save itself already succeeded, so a failure here is surfaced as
@@ -571,7 +536,6 @@ function AppShell({ config, setConfig, navBridge }) {
           return next;
         });
         await applyOilChangeSideEffect(action);
-        await applyAutoRouteSideEffect(action);
         return saved;
       } catch (err) {
         // Patch 11: the request never reached the server at all (see
@@ -600,7 +564,7 @@ function AppShell({ config, setConfig, navBridge }) {
         throw err;
       }
     },
-    [config.webhookUrl, pushToast, applyOilChangeSideEffect, applyAutoRouteSideEffect]
+    [config.webhookUrl, pushToast, applyOilChangeSideEffect]
   );
 
   const onUpdateAction = useCallback(
@@ -626,7 +590,6 @@ function AppShell({ config, setConfig, navBridge }) {
           return next;
         });
         await applyOilChangeSideEffect(action);
-        await applyAutoRouteSideEffect(action);
         return saved;
       } catch (err) {
         setActions((prev) => {
@@ -638,7 +601,7 @@ function AppShell({ config, setConfig, navBridge }) {
         throw err;
       }
     },
-    [config.webhookUrl, pushToast, applyOilChangeSideEffect, applyAutoRouteSideEffect]
+    [config.webhookUrl, pushToast, applyOilChangeSideEffect]
   );
 
   // Phase 2 — closure steps on an action: "request" (comment), "approve",
@@ -922,7 +885,6 @@ function AppShell({ config, setConfig, navBridge }) {
             // but a queued Action replayed here never got it, so an
             // auto-route agreed while offline silently never got created
             // once the action itself synced back up.
-            applyAutoRouteSideEffect(item.payload.action).catch(() => {});
           } else if (item.kind === "oilChange") {
             setOilChangeEvents((prev) => {
               const next = prev.map((e) => (e.eventId === item.id ? saved : e));
@@ -959,7 +921,7 @@ function AppShell({ config, setConfig, navBridge }) {
         }
       }
     }
-  }, [config.webhookUrl, pushToast, applySampleTrackerSideEffect, applyOilChangeSideEffect, applyAutoRouteSideEffect]);
+  }, [config.webhookUrl, pushToast, applySampleTrackerSideEffect, applyOilChangeSideEffect]);
 
   // Tries once right away (covers "reopened the app/tab and connectivity
   // is already back"), again on the browser's own 'online' event, and

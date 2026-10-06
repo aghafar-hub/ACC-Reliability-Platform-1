@@ -264,6 +264,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getSuggestions":
+        result = getSuggestions(scope, e.parameter.all === "1");
+        break;
       case "getRoutinesOverview":
         result = getRoutinesOverview(scope);
         break;
@@ -401,6 +404,9 @@ function doPost(e) {
         }
         appendRow(ss, data.sheet, data.row, data.headers);
         if (appendGuard && appendGuard.dueEditable) writeActionDueFields_(ss, data.row, data.workflow);
+        if (data.sheet === "Action Tracker") {
+          try { syncSuggestionsForAction_(ss, data.row[0], data.row[1], actingUser); } catch (sgErr) { logError("syncSuggestionsForAction_", sgErr, {}); }
+        }
         invalidateDashboardCache();
         logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
         // Phase 2: a lab Caution/Alert result creates a Draft action.
@@ -636,6 +642,9 @@ function doPost(e) {
         data.actingUser = actingUser;
         var closureResult = data.action === "closeAction" ? closeAction(ss, data) : requestActionClosure(ss, data);
         if (!closureResult.error) invalidateDashboardCache();
+        if (!closureResult.error) {
+          try { syncSuggestionsForAction_(ss, data.acNo, data.equipmentCode, actingUser); } catch (sgErr3) { logError("syncSuggestionsForAction_", sgErr3, {}); }
+        }
         logError("doPost:" + data.action, closureResult.error || "ok", {acNo: data.acNo, actingUser: actingUser});
         if (!closureResult.error && !closureResult.unchanged) {
           recordAudit_(ss, "Action Tracker", data.equipmentCode, "update", actingUser, closureContractor,
@@ -667,6 +676,9 @@ function doPost(e) {
         data.actingUser = actingUser;
         var decideResult = decideActionClosure(ss, data);
         if (!decideResult.error) invalidateDashboardCache();
+        if (!decideResult.error) {
+          try { syncSuggestionsForAction_(ss, data.acNo, data.equipmentCode, actingUser); } catch (sgErr4) { logError("syncSuggestionsForAction_", sgErr4, {}); }
+        }
         logError("doPost:decideActionClosure", decideResult.error || "ok", {acNo: data.acNo, decision: data.decision, actingUser: actingUser});
         if (!decideResult.error && !decideResult.unchanged) {
           recordAudit_(ss, "Action Tracker", data.equipmentCode, "update", actingUser, decideContractor,
@@ -747,6 +759,9 @@ function doPost(e) {
         }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         if (ok1 && updateGuard && updateGuard.dueEditable) writeActionDueFields_(ss, data.row, data.workflow);
+        if (ok1 && data.sheet === "Action Tracker") {
+          try { syncSuggestionsForAction_(ss, data.row[0], data.row[1], actingUser); } catch (sgErr2) { logError("syncSuggestionsForAction_", sgErr2, {}); }
+        }
         invalidateDashboardCache();
         if (ok1 && data.sheet === "Data_Entry") {
           try { applyLabResultRule_(ss, data.row); } catch (labErr2) { logError("applyLabResultRule_", labErr2, {sheet: data.sheet}); }

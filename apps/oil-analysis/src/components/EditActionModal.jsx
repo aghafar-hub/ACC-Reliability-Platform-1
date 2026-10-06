@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { useSession, useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
+import { useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
 import { nextAcNo, formatDate, ACTION_STATUS, ACTION_DRAFT_DUE_DAYS, isActionOverdue, actionDaysOverdue, actionDueEnd } from "../parsers";
 import { useActionWorkflow } from "../ActionWorkflowContext";
 import { toISODate, latestOilChangeFor, autofillFromEquipment, lastAgreedActionFor } from "../actionAutofill";
@@ -12,38 +12,6 @@ import TechnicianPicker from "./TechnicianPicker";
 // and Closed are reached through the Closure section below.
 const STATUS_OPTIONS = [ACTION_STATUS.OPEN, ACTION_STATUS.WAITING];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
-
-// A newly-agreed phrase from this fixed list auto-creates a route for the
-// equipment (see handleSave's _autoRouteTriggers) — "newly" meaning it
-// wasn't already on the action's own previously-saved Agreed Action, so
-// resaving an action that already agreed to change the oil doesn't create
-// a fresh route every time. Only fires when a Contractor Engineer is the
-// one saving (see isContractorEngineer below) — the route is assigned
-// straight to them, matching "the contractor engineer that reviewed the
-// action." Oil Change needs no Reason (NewRoutine.jsx's own server-side
-// rule only requires one for Emergency Top Up); Top Up is routed as an
-// Emergency Top Up specifically so it carries the urgency that phrase
-// implies, with its required Reason auto-filled from the Agreed Action
-// text itself.
-const ROUTE_TRIGGER_PHRASES = [
-  { phrase: "Change Oil", routeType: "Oil Change" },
-  { phrase: "Top Up the Oil", routeType: "Emergency Top Up" },
-];
-
-// Bug-hunt pass: mirrors MultiSelectTags.jsx's own parseChips fix exactly
-// (same file, not imported, to avoid pulling a display component into this
-// comparison-only helper) — a legacy free-text Agreed Action containing a
-// literal comma must parse the SAME way here as it's shown in the form
-// itself, or this trigger-detection comparison could disagree with what
-// the user actually sees as chips.
-function chipsOf(value, options) {
-  const raw = String(value || "");
-  const segments = raw.split(",").map((s) => s.trim()).filter(Boolean);
-  if (segments.length <= 1 || !options || options.length === 0) return segments;
-  const known = new Set(options.map((o) => o.toLowerCase()));
-  const allKnown = segments.every((seg) => known.has(seg.toLowerCase()));
-  return allKnown ? segments : [raw.trim()].filter(Boolean);
-}
 
 export default function EditActionModal({
   action,
@@ -67,8 +35,6 @@ export default function EditActionModal({
   // (scopedContractor === "") still gets the manual dropdown, since an
   // action genuinely can belong to either contractor for them.
   const scopedContractor = useSessionContractor();
-  const session = useSession();
-  const isContractorEngineer = (session?.claims?.roles || []).includes("ROLE-CENG");
   const deps = { equipmentRegistry, oilChanges, allActions, samples, excludeId: action._id };
   // New actions opened with an equipment code already known (e.g. from
   // inside an Oil Analysis Report) get their dependent fields autofilled
@@ -215,33 +181,9 @@ export default function EditActionModal({
     const latestChange = latestOilChangeFor(oilChanges, equipCode);
     payload.lastChange = latestChange ? formatDate(latestChange.changeDate) : form.lastChange ? formatDate(form.lastChange) : "";
 
-    // A newly-agreed "Change Oil"/"Top Up the Oil" (present now, wasn't on
-    // the action's own last-saved Agreed Action) auto-creates a route for
-    // this equipment — see ROUTE_TRIGGER_PHRASES' own comment above for the
-    // full rationale. App.jsx's applyAutoRouteSideEffect is what actually
-    // calls api.createRoutine() with this, the same "compute a signal here,
-    // execute it after save confirms up in App.jsx" pattern _oilChangeTarget
-    // above already uses.
-    if (isContractorEngineer && payload.status !== ACTION_STATUS.DRAFT) {
-      const originalChips = chipsOf(action.agreedAction, actionRegistry);
-      const newChips = chipsOf(form.agreedAction, actionRegistry);
-      const newlyAdded = ROUTE_TRIGGER_PHRASES.filter(
-        ({ phrase }) =>
-          newChips.some((c) => c.toLowerCase() === phrase.toLowerCase()) &&
-          !originalChips.some((c) => c.toLowerCase() === phrase.toLowerCase())
-      );
-      if (newlyAdded.length > 0) {
-        payload._autoRouteTriggers = newlyAdded.map(({ routeType }) => ({
-          routeType,
-          equipmentCode: equipCode,
-          contractor: form.contractor,
-          assignedTo: session.claims.email,
-          createdBy: session.claims.email,
-          routeName: `${routeType} - ${equipCode}`,
-          reason: routeType === "Emergency Top Up" ? `Auto-created from Action ${acNo}: ${form.agreedAction}` : "",
-        }));
-      }
-    }
+    // Phase 3: routes are no longer created from here. Once the action is
+    // submitted, the server turns Change Oil / Top Up / Sample / Resample in
+    // the Agreed Action into saved Suggestions, picked when creating a route.
 
     onSave(payload);
   }
