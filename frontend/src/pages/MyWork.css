@@ -337,3 +337,34 @@
     display: none;
   }
 }
+
+/* Phase 1 — a route sent back for correction. */
+.mywork-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem;
+}
+
+.mywork-card-returned {
+  font-size: 0.8rem;
+  color: #ef4444;
+  margin: -0.2rem 0 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.mywork-returned {
+  border: 1px solid #ef4444;
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.8rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.mywork-returned div {
+  margin-top: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--shell-text-secondary, #a9b3c6);
+}

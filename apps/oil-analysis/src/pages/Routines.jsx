@@ -16,13 +16,14 @@ import {
 import { useTheme } from "../ThemeContext";
 import { useSession, useSessionContractor } from "../SessionContext";
 import * as api from "../api";
+import { ROUTE_STATUS, isRouteOverdue, isRouteReturned } from "../parsers";
 import RoutineDetail from "./RoutineDetail";
 import NewRoutine from "./NewRoutine";
 import ProgressBar from "../components/ProgressBar";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 
-const STATUS_FILTERS = ["All", "Unassigned", "Assigned", "InProgress", "Submitted", "Approved"];
+const STATUS_FILTERS = ["All", ROUTE_STATUS.DRAFT, ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.WAITING, ROUTE_STATUS.CONFIRMED];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
 
 // Route-type tab: "All Routines" keeps every route type in one unified
@@ -81,8 +82,8 @@ function ChartTooltip({ T, active, payload, label }) {
 // See RouteTemplates.js's getRoutinesOverview for exactly how each is
 // computed (a template's own NextGenerateDate vs. today, or a standalone
 // routine's DueDate vs. today / already Approved).
-const DUE_STATUS_FILTERS = ["All", "Overdue", "Due Soon", "On Schedule", "Paused", "Completed"];
-const DUE_STATUS_COLOR = { Overdue: "danger", "Due Soon": "warning", "On Schedule": "success", Paused: "textMuted", Completed: "success", Unknown: "textMuted" };
+const DUE_STATUS_FILTERS = ["All", "Overdue", "Due Soon", "On Schedule", "Waiting Approval", "Paused", "Completed"];
+const DUE_STATUS_COLOR = { Overdue: "danger", "Due Soon": "warning", "On Schedule": "success", "Waiting Approval": "accent", Paused: "textMuted", Completed: "success", Unknown: "textMuted" };
 
 // Same 3 icons NewRoutine.jsx's own ROUTE_TYPES uses, so a route's type
 // reads the same icon whether you're creating it or looking at the list.
@@ -98,9 +99,9 @@ function RouteTypeBadge({ T, routeType }) {
   );
 }
 
-function DueStatusBadge({ T, status }) {
+function DueStatusBadge({ T, status, returned }) {
   const color = T[DUE_STATUS_COLOR[status]] || T.textSecondary;
-  return (
+  const badge = (
     <span
       style={{
         display: "inline-block",
@@ -114,6 +115,16 @@ function DueStatusBadge({ T, status }) {
       }}
     >
       {status}
+    </span>
+  );
+  if (!returned) return badge;
+  // Phase 1: sent back to the technician for correction.
+  return (
+    <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+      {badge}
+      <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger, background: T.danger + "22", borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap" }}>
+        Returned
+      </span>
     </span>
   );
 }
@@ -150,7 +161,7 @@ function formatDateShort(iso) {
 // touched it, or an auto-generated one nobody's assigned yet) is visible
 // without opening it.
 function agingLabel(createdDate, status) {
-  if (!createdDate || status === "Submitted" || status === "Approved") return null;
+  if (!createdDate || status === ROUTE_STATUS.WAITING || status === ROUTE_STATUS.CONFIRMED || status === ROUTE_STATUS.CANCELLED) return null;
   const created = new Date(createdDate);
   if (isNaN(created)) return null;
   const days = Math.floor((Date.now() - created.getTime()) / 86400000);
@@ -158,15 +169,10 @@ function agingLabel(createdDate, status) {
   return `${days} day${days !== 1 ? "s" : ""} ago`;
 }
 
-// A routine instance's own due-passed check — distinct from its workflow
-// status (Unassigned/Assigned/.../Approved), since a route can be
-// "Assigned" and still be sitting past its due date. Submitted/Approved
-// routines are done with, so they don't count as overdue even past their
-// due date.
+// Phase 1: Overdue once not submitted by due date + duration + 1 week
+// (see parsers.js's isRouteOverdue). Waiting Approval / Confirmed never are.
 function isOverdue(r, now) {
-  if (!r.dueDate || r.status === "Submitted" || r.status === "Approved") return false;
-  const d = new Date(r.dueDate);
-  return !isNaN(d) && d.getTime() < now;
+  return isRouteOverdue(r, new Date(now));
 }
 
 // No login system exists in this app (see parsers.js's Routines section) —
@@ -560,7 +566,7 @@ export default function Routines({
 
   if (view === "templateDetail" && selectedTemplate) {
     const overdueCount = templateInstances.filter((r) => isOverdue(r, now)).length;
-    const unassignedCount = templateInstances.filter((r) => r.status === "Unassigned").length;
+    const unassignedCount = templateInstances.filter((r) => r.status === ROUTE_STATUS.DRAFT).length;
     return (
       <div>
         <button style={{ ...s.btn, marginBottom: 14 }} onClick={() => { setView("overview"); setSelectedTemplate(null); refreshOverview(); }}>
@@ -589,7 +595,7 @@ export default function Routines({
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, margin: "16px 0 20px" }}>
           {[
             { label: "Instances Generated", value: templateInstances.length, color: "accent" },
-            { label: "Unassigned", value: unassignedCount, color: "danger" },
+            { label: "Draft (no technician)", value: unassignedCount, color: "danger" },
             { label: "Overdue", value: overdueCount, color: "warning" },
             { label: "Next Due", value: formatDateShort(selectedTemplate.nextDueDate), color: "textPrimary", isText: true },
           ].map((m) => (
@@ -670,9 +676,10 @@ export default function Routines({
                         onClick={() => openRoutine(r.routineId)}
                       >
                         <td style={s.td}>{r.routeName || "—"}</td>
-                        <td style={s.td}>{r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}</td>
+                        <td style={s.td}>{r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Not assigned</span>}</td>
                         <td style={s.td}>
                           <span style={s.badge(r.status)}>{r.status}</span>
+                          {isRouteReturned(r) && <span style={{ ...s.badge("Returned"), marginLeft: 4 }}>Returned</span>}
                         </td>
                         <td style={s.td}>
                           <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
@@ -702,9 +709,10 @@ export default function Routines({
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                       <span style={{ fontWeight: 700, fontSize: 13.5 }}>{r.routeName || "—"}</span>
                       <span style={s.badge(r.status)}>{r.status}</span>
+                          {isRouteReturned(r) && <span style={{ ...s.badge("Returned"), marginLeft: 4 }}>Returned</span>}
                     </div>
                     <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
-                      {r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Unassigned</span>}
+                      {r.assignedTo || <span style={{ color: T.danger, fontWeight: 700 }}>Not assigned</span>}
                     </div>
                     <div style={{ margin: "8px 0" }}>
                       <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
@@ -893,7 +901,7 @@ export default function Routines({
                           <td style={s.td}>{item.frequency}</td>
                           <td style={s.td}>{formatDateShort(item.nextDueDate)}</td>
                           <td style={s.td}>
-                            <DueStatusBadge T={T} status={item.dueStatus} />
+                            <DueStatusBadge T={T} status={item.dueStatus} returned={item.returned} />
                           </td>
                           <td style={s.td}>
                             {item.completionPct === null || item.completionPct === undefined ? (
@@ -924,7 +932,7 @@ export default function Routines({
                         {item.kind === "template" && <i className="ti ti-repeat" style={{ marginRight: 6, color: T.textMuted }} aria-hidden="true" title="Recurring" />}
                         {item.routeName || item.id}
                       </span>
-                      <DueStatusBadge T={T} status={item.dueStatus} />
+                      <DueStatusBadge T={T} status={item.dueStatus} returned={item.returned} />
                     </div>
                     <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
                       <RouteTypeBadge T={T} routeType={item.routeType} /> · {item.equipmentCount} equipment{item.frequency ? ` · ${item.frequency}` : ""}
@@ -961,7 +969,7 @@ export default function Routines({
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 12.5, fontWeight: 700 }}>{item.routeName || item.id}</span>
-                      <DueStatusBadge T={T} status={item.dueStatus} />
+                      <DueStatusBadge T={T} status={item.dueStatus} returned={item.returned} />
                     </div>
                     <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
                       {formatDateShort(item.nextDueDate)}

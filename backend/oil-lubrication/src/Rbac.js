@@ -71,6 +71,23 @@ function requireAdmin_(session) {
   }
 }
 
+// Phase 1 — confirming, returning and rescheduling a route belong to that
+// route's own contractor's engineer (also for routes an ACC Engineer
+// created), and to the App Owner. ACC Engineers can no longer confirm.
+function isRouteEngineerFor_(session, contractor) {
+  var roles = (session && session.roles) || [];
+  if (roles.indexOf('ROLE-ADMIN') !== -1) return true;
+  if (!hasPermission_(session, 'Approve')) return false;
+  var scope = getContractorScope_(session);
+  return !!scope && !!contractor && scope === contractor;
+}
+
+function requireRouteEngineer_(session, contractor, what) {
+  if (!isRouteEngineerFor_(session, contractor)) {
+    throw new Error('Only ' + (contractor ? contractor + "'s" : "the contractor's") + ' Contractor Engineer can ' + (what || 'do that') + '.');
+  }
+}
+
 // Same ORG-ACC id Platform Core's own Config.js uses.
 var ORG_ACC = 'ORG-ACC';
 

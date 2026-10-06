@@ -27,7 +27,6 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
   }, [equipmentRegistry]);
   const [routeName, setRouteName] = useState(routine.routeName || "");
   const [assignedTo, setAssignedTo] = useState(routine.assignedTo || "");
-  const [dueDate, setDueDate] = useState(routine.dueDate || "");
   const [duration, setDuration] = useState(routine.duration || "");
   const [area, setArea] = useState(routine.area || "All");
   const [reason, setReason] = useState(routine.reason || "");
@@ -40,14 +39,13 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
 
   async function handleSave() {
     if (!routeName.trim()) return;
-    if (!assignedTo.trim()) return;
+    if (!assignedTo.trim() && routine.status !== "Draft") return;
     if (isEmergencyTopUp && !reason.trim()) return;
     setSaving(true);
     try {
       await onSave({
         routeName: routeName.trim(),
         assignedTo: assignedTo.trim(),
-        dueDate: dueDate || "",
         duration: duration ? Number(duration) : 0,
         area: area === "All" ? "" : area,
         reason: isEmergencyTopUp ? reason.trim() : "",
@@ -101,7 +99,9 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div>
               <label style={s.label}>Due Date</label>
-              <input style={s.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              {/* Phase 1: the date is changed with Reschedule, which records the reason. */}
+              <div style={{ ...s.input, background: "transparent", color: s.input?.color }}>{routine.dueDate || "—"}</div>
+              <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>Use Reschedule to change it.</div>
             </div>
             <div>
               <label style={s.label}>Area</label>

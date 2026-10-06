@@ -53,3 +53,16 @@ export function useSessionContractor() {
   const session = useSession();
   return ORG_TO_CONTRACTOR[session?.claims?.orgId] || "";
 }
+
+// Phase 1: confirming, returning and rescheduling a route belong to that
+// route's own contractor's engineer, and the App Owner — same rule as
+// Rbac.js's isRouteEngineerFor_ on the server. A standalone build (no
+// session) keeps every button, as before.
+export function useIsRouteEngineerFor(contractor) {
+  const session = useSession();
+  if (!session) return true;
+  const roles = session?.claims?.roles || [];
+  if (roles.includes("ROLE-ADMIN")) return true;
+  const mine = ORG_TO_CONTRACTOR[session?.claims?.orgId] || "";
+  return !!mine && mine === contractor && roles.some((r) => r === "ROLE-CENG" || r === "ROLE-MGR");
+}

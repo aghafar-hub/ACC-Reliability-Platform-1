@@ -808,14 +808,56 @@ export function sampleToRow(s) {
 // sheet columns — computed server-side from OA_ROUTINE_ITEMS in the same
 // call, so the list doesn't need an extra fetch per routine):
 // 16 ItemsTotal, 17 ItemsDone.
+// Phase 1 route statuses. Old names (rows written before the Phase 1
+// release, or an older backend) are mapped so every screen only ever
+// sees the new ones.
+export const ROUTE_STATUS = {
+  DRAFT: "Draft",
+  ASSIGNED: "Assigned",
+  IN_PROGRESS: "In Progress",
+  WAITING: "Waiting Approval",
+  CONFIRMED: "Confirmed",
+  PAUSED: "Paused",
+  CANCELLED: "Cancelled",
+};
+const LEGACY_ROUTE_STATUS = { Unassigned: "Draft", InProgress: "In Progress", Submitted: "Waiting Approval", Approved: "Confirmed" };
+export function normRouteStatus(status) {
+  const s = String(status || "").trim();
+  return LEGACY_ROUTE_STATUS[s] || s;
+}
+// A route is Overdue once it isn't submitted by due date + duration + 1 week.
+export const ROUTE_OVERDUE_GRACE_DAYS = 7;
+export function isRouteOverdue(r, now = new Date()) {
+  if (!r || !r.dueDate) return false;
+  if (r.status !== ROUTE_STATUS.DRAFT && r.status !== ROUTE_STATUS.ASSIGNED && r.status !== ROUTE_STATUS.IN_PROGRESS) return false;
+  const due = new Date(r.dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+  const end = new Date(due.getFullYear(), due.getMonth(), due.getDate() + (Number(r.duration) || 0) + ROUTE_OVERDUE_GRACE_DAYS + 1);
+  return now.getTime() >= end.getTime();
+}
+// Returned for correction and not yet resubmitted.
+export function isRouteReturned(r) {
+  if (!r || !r.returnedDate) return false;
+  if (r.status !== ROUTE_STATUS.IN_PROGRESS && r.status !== ROUTE_STATUS.ASSIGNED && r.status !== ROUTE_STATUS.PAUSED) return false;
+  if (!r.submittedDate) return true;
+  const returned = new Date(r.returnedDate).getTime();
+  const submitted = new Date(r.submittedDate).getTime();
+  return Number.isNaN(returned) || Number.isNaN(submitted) || returned >= submitted;
+}
+
+// ROUTINES row as sent by the backend: 26 columns (see Routines.js), then
+// ItemsTotal and ItemsDone from getRoutines(). An older backend sent 19
+// columns before the two counts.
+const ROUTINE_COLS = 26;
 export function rowToRoutine(row) {
+  const wide = row.length >= ROUTINE_COLS;
   return {
     routineId: row[0] || "",
     createdBy: row[1] || "",
     assignedTo: row[2] || "",
     contractor: row[3] || "",
     createdDate: formatDate(row[4]),
-    status: row[5] || "Assigned",
+    status: normRouteStatus(row[5]) || ROUTE_STATUS.ASSIGNED,
     submittedDate: formatDate(row[6]),
     approvedBy: row[7] || "",
     approvedDate: formatDate(row[8]),
@@ -829,14 +871,19 @@ export function rowToRoutine(row) {
     reason: row[16] || "", // Patch 18 — required for routeType "Emergency Top Up" only
     area: row[17] || "", // Routines tab improvement pass — see Routines.js's own column comment
     duration: Number(row[18]) || 0, // grace-period days after dueDate — see Routines.js's own column comment
-    // itemsTotal/itemsDone are NOT raw sheet columns — getRoutines() (Routines.js)
-    // appends them after the real row, so their index always trails one past
-    // the sheet's own last real column (currently 18, Duration).
-    itemsTotal: Number(row[19]) || 0,
-    itemsDone: Number(row[20]) || 0,
+    returnReason: wide ? row[19] || "" : "",
+    returnedBy: wide ? row[20] || "" : "",
+    returnedDate: wide ? formatDate(row[21]) : "",
+    originalDueDate: wide ? formatDate(row[22]) : "",
+    rescheduleReason: wide ? row[23] || "" : "",
+    rescheduledBy: wide ? row[24] || "" : "",
+    rescheduledDate: wide ? formatDate(row[25]) : "",
+    // itemsTotal/itemsDone are NOT raw sheet columns — getRoutines() appends
+    // them after the row.
+    itemsTotal: Number(row[wide ? ROUTINE_COLS : 19]) || 0,
+    itemsDone: Number(row[wide ? ROUTINE_COLS + 1 : 20]) || 0,
   };
 }
-
 // ROUTINE_TEMPLATES columns: 0 TemplateId, 1 RouteName, 2 RouteType,
 // 3 Contractor, 4 Area, 5 OilType, 6 Frequency, 7 NextGenerateDate,
 // 8 Status ("Active"|"Paused"), 9 CreatedBy, 10 CreatedDate,

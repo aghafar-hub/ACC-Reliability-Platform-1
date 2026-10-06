@@ -710,6 +710,13 @@ export function buildStyles(T) {
         InProgress: T.warning,
         Submitted: T.accent,
         Approved: T.success,
+        // Phase 1 route statuses (old names above kept for older data).
+        Draft: T.danger,
+        "In Progress": T.warning,
+        "Waiting Approval": T.accent,
+        Confirmed: T.success,
+        Returned: T.danger,
+        Overdue: T.danger,
         Active: T.success,
         Paused: T.textMuted,
         Cancelled: T.danger,

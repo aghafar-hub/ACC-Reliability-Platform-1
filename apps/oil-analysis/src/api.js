@@ -28,6 +28,7 @@ import {
   sameCalendarDay,
   rowToRoutine,
   rowToRoutineItem,
+  ROUTE_STATUS,
   rowToRouteTemplate,
   rowToOilProduct,
   rowToOilMovement,
@@ -805,7 +806,7 @@ export async function assignRoutineTechnician(webhookUrl, routineId, assignedTo)
   await postBlind(webhookUrl, { action: "assignRoutineTechnician", routineId, assignedTo });
 
   const saved = await getRoutine(webhookUrl, routineId);
-  if (!saved || saved.status !== "Assigned") {
+  if (!saved || saved.status !== ROUTE_STATUS.ASSIGNED) {
     throw new SaveVerificationError(`The assignment wasn't confirmed saved — please try again.`);
   }
   return saved;
@@ -814,13 +815,13 @@ export async function assignRoutineTechnician(webhookUrl, routineId, assignedTo)
 // Routines tab improvement pass: the one field-edit path a routine never
 // had — RouteType and its item list are deliberately NOT editable here
 // (see Routines.js's own updateRoutine comment).
-export async function updateRoutine(webhookUrl, routineId, { routeName, assignedTo, dueDate, duration, area, reason }) {
+// Phase 1: the due date is changed only with rescheduleRoutine (below).
+export async function updateRoutine(webhookUrl, routineId, { routeName, assignedTo, duration, area, reason }) {
   await postBlind(webhookUrl, {
     action: "updateRoutine",
     routineId,
     routeName,
     assignedTo,
-    dueDate: dueDate || "",
     duration: duration || 0,
     area: area || "",
     reason: reason || "",
@@ -840,8 +841,31 @@ export async function setRoutineStatus(webhookUrl, routineId, status) {
   await postBlind(webhookUrl, { action: "setRoutineStatus", routineId, status });
 
   const saved = await getRoutine(webhookUrl, routineId);
-  if (!saved || saved.status !== status) {
+  // Resuming a route with no technician puts it back to Draft.
+  const expected = status === ROUTE_STATUS.ASSIGNED && saved && !saved.assignedTo ? ROUTE_STATUS.DRAFT : status;
+  if (!saved || saved.status !== expected) {
     throw new SaveVerificationError(`The status change wasn't confirmed saved — please try again.`);
+  }
+  return saved;
+}
+
+// Phase 1 — the contractor's engineer moves the due date; the reason, the
+// original date and who did it are recorded.
+export async function rescheduleRoutine(webhookUrl, routineId, newDueDate, reason) {
+  await postBlind(webhookUrl, { action: "rescheduleRoutine", routineId, newDueDate, reason });
+  const saved = await getRoutine(webhookUrl, routineId);
+  if (!saved || !sameCalendarDay(saved.dueDate, newDueDate)) {
+    throw new SaveVerificationError(`The new date wasn't confirmed saved — only the contractor's engineer can reschedule. Please try again.`);
+  }
+  return saved;
+}
+
+// Phase 1 — send submitted work back to the technician with a reason.
+export async function returnRoutine(webhookUrl, routineId, reason) {
+  await postBlind(webhookUrl, { action: "returnRoutine", routineId, reason });
+  const saved = await getRoutine(webhookUrl, routineId);
+  if (!saved || saved.status !== ROUTE_STATUS.IN_PROGRESS || saved.returnReason !== reason) {
+    throw new SaveVerificationError(`The return wasn't confirmed saved — please try again.`);
   }
   return saved;
 }
@@ -935,7 +959,7 @@ export async function submitRoutine(webhookUrl, routineId) {
   await postBlind(webhookUrl, { action: "submitRoutine", routineId });
 
   const saved = await getRoutine(webhookUrl, routineId);
-  if (!saved || saved.status !== "Submitted") {
+  if (!saved || (saved.status !== ROUTE_STATUS.WAITING && saved.status !== ROUTE_STATUS.CONFIRMED)) {
     throw new SaveVerificationError(`The routine wasn't confirmed submitted — please try again.`);
   }
   return saved;
@@ -945,8 +969,8 @@ export async function approveRoutine(webhookUrl, routineId, approvedBy) {
   await postBlind(webhookUrl, { action: "approveRoutine", routineId, approvedBy: approvedBy || "" });
 
   const saved = await getRoutine(webhookUrl, routineId);
-  if (!saved || saved.status !== "Approved") {
-    throw new SaveVerificationError(`The routine wasn't confirmed approved — please try again.`);
+  if (!saved || saved.status !== ROUTE_STATUS.CONFIRMED) {
+    throw new SaveVerificationError(`The route wasn't confirmed — only the contractor's engineer can confirm it. Please try again.`);
   }
   return saved;
 }

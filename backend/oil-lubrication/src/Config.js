@@ -30,7 +30,7 @@ var DASHBOARD_CACHE_SECONDS = 300; // 5 minutes
 // Same cache-per-contractor-scope pattern as DASHBOARD_CACHE_KEY above;
 // see invalidateRoutinesOverviewCache's own comment in Utils.js for where
 // it's cleared.
-var ROUTINES_OVERVIEW_CACHE_KEY = "routines_overview_v1";
+var ROUTINES_OVERVIEW_CACHE_KEY = "routines_overview_v2";
 
 var ROUTINES_OVERVIEW_CACHE_SECONDS = 300; // 5 minutes
 

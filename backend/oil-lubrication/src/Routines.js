@@ -54,6 +54,122 @@
 // of guessing "the newest matching routine", which isn't safe if two get
 // created around the same time.
 
+// ─── Phase 1: route statuses ─────────────────────────────────────────────
+//
+// Draft → Assigned → In Progress → Waiting Approval → Confirmed, with
+// Paused and Cancelled alongside (Overdue is computed, never stored).
+// Rows written before Phase 1 carry the old names; normRouteStatus_ maps
+// them on every read and every comparison, so old rows and old offline
+// work keep working until migrateRouteStatusesPhase1 rewrites the column.
+var ROUTE_STATUS = {
+  DRAFT: "Draft",
+  ASSIGNED: "Assigned",
+  IN_PROGRESS: "In Progress",
+  WAITING: "Waiting Approval",
+  CONFIRMED: "Confirmed",
+  PAUSED: "Paused",
+  CANCELLED: "Cancelled"
+};
+var LEGACY_ROUTE_STATUS = {
+  "Unassigned": "Draft",
+  "InProgress": "In Progress",
+  "Submitted": "Waiting Approval",
+  "Approved": "Confirmed"
+};
+// A route is Overdue once it isn't submitted by DueDate + Duration + this.
+var ROUTE_OVERDUE_GRACE_DAYS = 7;
+
+// Phase 1 columns (0-based), after 18 Duration:
+//   19 ReturnReason, 20 ReturnedBy, 21 ReturnedDate — last "return for
+//      correction"; the Returned badge shows while ReturnedDate is on or
+//      after SubmittedDate and the route is back with the technician.
+//   22 OriginalDueDate (set by the first reschedule only), 23 RescheduleReason,
+//   24 RescheduledBy, 25 RescheduledDate — the latest reschedule; every
+//      reschedule is also written to the Activity log with both dates.
+var ROUTINE_COLS = 26;
+var ROUTINE_PHASE1_HEADERS = ["ReturnReason", "ReturnedBy", "ReturnedDate", "OriginalDueDate", "RescheduleReason", "RescheduledBy", "RescheduledDate"];
+
+function normRouteStatus_(status) {
+  var s = String(status || "").trim();
+  return LEGACY_ROUTE_STATUS[s] || s;
+}
+
+// Same width for every row, status in its new name — the client parsers
+// read fixed positions (ItemsTotal/ItemsDone sit right after this width).
+function normRoutineRow_(row) {
+  var out = row.slice(0, ROUTINE_COLS);
+  while (out.length < ROUTINE_COLS) out.push("");
+  out[5] = normRouteStatus_(out[5]);
+  return out;
+}
+
+function ensureRoutinePhase1Headers_(sheet) {
+  var range = sheet.getRange(1, 20, 1, ROUTINE_PHASE1_HEADERS.length);
+  var current = range.getValues()[0];
+  var missing = current.some(function (v) { return !String(v || "").trim(); });
+  if (missing) range.setValues([ROUTINE_PHASE1_HEADERS]);
+}
+
+// Returned for correction and not yet resubmitted (ReturnedDate on/after
+// SubmittedDate, route back with the technician).
+function isRouteReturnedRow_(row, status) {
+  var returned = row[21] ? new Date(row[21]) : null;
+  if (!returned || isNaN(returned.getTime())) return false;
+  if ([ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.PAUSED].indexOf(status) === -1) return false;
+  var submitted = row[6] ? new Date(row[6]) : null;
+  return !submitted || isNaN(submitted.getTime()) || returned.getTime() >= submitted.getTime();
+}
+
+function routineStatusAt_(sheet, rowIdx) {
+  return normRouteStatus_(sheet.getRange(rowIdx, 6).getValue());
+}
+
+function sameDay_(a, b) {
+  if (!a || !b) return false;
+  var x = new Date(a), y = new Date(b);
+  if (isNaN(x.getTime()) || isNaN(y.getTime())) return false;
+  return x.getFullYear() === y.getFullYear() && x.getMonth() === y.getMonth() && x.getDate() === y.getDate();
+}
+
+// Run once from the Apps Script editor when Phase 1 is released (after the
+// sheet backup): rewrites old status names in ROUTINES to the new ones and
+// adds the new column headers. Safe to run again — already-converted rows
+// are left as they are. Pass true to only count what would change.
+function migrateRouteStatusesPhase1(dryRun) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("ROUTINES");
+  if (!sheet) return { status: "error", message: "ROUTINES sheet not found" };
+  var last = sheet.getLastRow();
+  var counts = {};
+  var changed = 0;
+  if (last >= 2) {
+    var range = sheet.getRange(2, 6, last - 1, 1);
+    var vals = range.getValues();
+    for (var i = 0; i < vals.length; i++) {
+      var from = String(vals[i][0] || "").trim();
+      var to = normRouteStatus_(from);
+      if (to !== from) {
+        counts[from + " → " + to] = (counts[from + " → " + to] || 0) + 1;
+        vals[i][0] = to;
+        changed++;
+      }
+    }
+    if (!dryRun && changed) range.setValues(vals);
+  }
+  if (!dryRun) {
+    ensureRoutinePhase1Headers_(sheet);
+    invalidateRoutinesOverviewCache();
+  }
+  var result = { status: "ok", dryRun: !!dryRun, changed: changed, counts: counts };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+function migrateRouteStatusesPhase1DryRun() {
+  return migrateRouteStatusesPhase1(true);
+}
+
+
 // Progress (items done / total) per routine, so the list can show it
 // without an N+1 fetch (one getRoutineItems call per routine) — reads
 // OA_ROUTINE_ITEMS once here and appends two columns (ItemsTotal,
@@ -72,7 +188,7 @@ function getRoutines() {
   }
   var enriched = rows.map(function(r) {
     var c = counts[String(r[0] || "").trim()] || { total: 0, done: 0 };
-    return r.concat([c.total, c.done]);
+    return normRoutineRow_(r).concat([c.total, c.done]);
   });
   return { routines: enriched, count: enriched.length };
 }
@@ -95,7 +211,7 @@ function getRoutine(routineId, scope) {
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][0] || "").trim() !== id) continue;
     if (scope && String(rows[i][3] || "").trim() !== scope) return { error: "Routine not found" };
-    return { routine: rows[i] };
+    return { routine: normRoutineRow_(rows[i]) };
   }
   return { error: "Routine not found" };
 }
@@ -147,8 +263,8 @@ function getRoutineItems(routineId) {
 function createRoutine(ss, data) {
   var routineId = String(data.routineId || "").trim();
   if (!routineId) return { error: "routineId is required" };
+  // Phase 1: no technician yet = Draft (assigned later).
   var assignedTo = String(data.assignedTo || "").trim();
-  if (!assignedTo) return { error: "assignedTo is required" };
   var routeType = String(data.routeType || "").trim();
   if (routeType !== "Oil Change" && routeType !== "Sampling" && routeType !== "Emergency Top Up") {
     return { error: "routeType must be 'Oil Change', 'Sampling', or 'Emergency Top Up'" };
@@ -173,7 +289,7 @@ function createRoutine(ss, data) {
     assignedTo,
     data.contractor || "",
     now,
-    "Assigned",
+    assignedTo ? ROUTE_STATUS.ASSIGNED : ROUTE_STATUS.DRAFT,
     "", // SubmittedDate
     "", // ApprovedBy
     "", // ApprovedDate
@@ -212,13 +328,24 @@ function createRoutine(ss, data) {
     appendRow(ss, "OA_ROUTINE_ITEMS", itemRow);
   }
 
-  try {
-    notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate);
-  } catch (e) {
-    logError("notifyRoutineAssigned_:createRoutine", e, { routineId: routineId });
+  if (assignedTo) {
+    try {
+      notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate);
+    } catch (e) {
+      logError("notifyRoutineAssigned_:createRoutine", e, { routineId: routineId });
+    }
+    // Phase 1: an ACC Engineer's route goes straight to the technician;
+    // the contractor's responsible engineers are informed.
+    if (data.createdByAcc) {
+      try {
+        notifyRoutineCreatedByAcc_(routineId, routeName, data.contractor || "", assignedTo, data.actingUser || data.createdBy || "", dueDate);
+      } catch (e) {
+        logError("notifyRoutineCreatedByAcc_", e, { routineId: routineId });
+      }
+    }
   }
 
-  return { status: "ok", routineId: routineId };
+  return { status: "ok", routineId: routineId, routineStatus: assignedTo ? ROUTE_STATUS.ASSIGNED : ROUTE_STATUS.DRAFT };
 }
 
 
@@ -235,10 +362,10 @@ function assignRoutineTechnician(ss, data) {
   if (!sheet) return { error: "ROUTINES sheet not found" };
   var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
-  var currentStatus = String(sheet.getRange(rowIdx, 6).getValue() || "").trim();
-  if (currentStatus !== "Unassigned") return { error: "Only an Unassigned routine can be assigned this way" };
+  var currentStatus = routineStatusAt_(sheet, rowIdx);
+  if (currentStatus !== ROUTE_STATUS.DRAFT) return { error: "Only a Draft route can be assigned this way" };
   sheet.getRange(rowIdx, 3).setValue(assignedTo);
-  sheet.getRange(rowIdx, 6).setValue("Assigned");
+  sheet.getRange(rowIdx, 6).setValue(ROUTE_STATUS.ASSIGNED);
 
   try {
     var routeName = sheet.getRange(rowIdx, 13).getValue();
@@ -262,6 +389,11 @@ function assignRoutineTechnician(ss, data) {
 // different, riskier feature than a straightforward field edit. Locked
 // once Approved, same as everything else about a routine at that point —
 // it's the final sign-off, not a draft.
+//
+// Phase 1: the due date is changed only through Reschedule (recorded with
+// a reason). An edit that still sends a dueDate — an older app version or
+// queued offline work — is accepted only when the date is unchanged.
+// Giving a Draft route a technician here moves it to Assigned.
 function updateRoutine(ss, data) {
   var routineId = String(data.routineId || "").trim();
   if (!routineId) return { error: "routineId is required" };
@@ -269,27 +401,78 @@ function updateRoutine(ss, data) {
   if (!sheet) return { error: "ROUTINES sheet not found" };
   var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
-  var currentStatus = String(sheet.getRange(rowIdx, 6).getValue() || "").trim();
-  if (currentStatus === "Approved") return { error: "Cannot edit an approved routine" };
+  var currentStatus = routineStatusAt_(sheet, rowIdx);
+  if (currentStatus === ROUTE_STATUS.CONFIRMED) return { error: "Cannot edit a confirmed route" };
 
   var routeName = String(data.routeName || "").trim();
   if (!routeName) return { error: "routeName is required" };
   var assignedTo = String(data.assignedTo || "").trim();
-  if (!assignedTo) return { error: "assignedTo is required" };
+  if (!assignedTo && currentStatus !== ROUTE_STATUS.DRAFT) return { error: "assignedTo is required" };
   var routeType = String(sheet.getRange(rowIdx, 14).getValue() || "").trim();
   var reason = String(data.reason || "").trim();
   if (routeType === "Emergency Top Up" && !reason) return { error: "A reason is required for an Emergency Top Up" };
 
-  var dueDate = data.dueDate ? new Date(data.dueDate) : "";
-  if (dueDate && isNaN(dueDate.getTime())) dueDate = "";
+  if (data.dueDate !== undefined && data.dueDate !== null && String(data.dueDate) !== "") {
+    var currentDue = sheet.getRange(rowIdx, 15).getValue();
+    if (!sameDay_(currentDue, data.dueDate)) {
+      return { error: "Use Reschedule to change the due date, so the reason is recorded." };
+    }
+  }
 
+  var previousAssignee = String(sheet.getRange(rowIdx, 3).getValue() || "").trim();
   sheet.getRange(rowIdx, 3).setValue(assignedTo);   // AssignedTo
   sheet.getRange(rowIdx, 13).setValue(routeName);   // RouteName
-  sheet.getRange(rowIdx, 15).setValue(dueDate);     // DueDate
   sheet.getRange(rowIdx, 17).setValue(reason);      // Reason
   sheet.getRange(rowIdx, 18).setValue(String(data.area || "").trim()); // Area
   sheet.getRange(rowIdx, 19).setValue(Math.max(0, parseInt(data.duration, 10) || 0)); // Duration
+
+  if (currentStatus === ROUTE_STATUS.DRAFT && assignedTo) {
+    sheet.getRange(rowIdx, 6).setValue(ROUTE_STATUS.ASSIGNED);
+  }
+  if (assignedTo && assignedTo !== previousAssignee) {
+    try {
+      notifyRoutineAssigned_(routineId, routeName, assignedTo, sheet.getRange(rowIdx, 15).getValue());
+    } catch (e) {
+      logError("notifyRoutineAssigned_:updateRoutine", e, { routineId: routineId });
+    }
+  }
   return { status: "ok" };
+}
+
+
+// Phase 1 — Reschedule: the contractor's engineer moves the due date, no
+// approval needed. Keeps the very first due date (OriginalDueDate) and
+// the latest reason/who/when on the row; Code.js writes each reschedule
+// to the Activity log with both dates.
+function rescheduleRoutine(ss, data) {
+  var routineId = String(data.routineId || "").trim();
+  if (!routineId) return { error: "routineId is required" };
+  var reason = String(data.reason || "").trim();
+  if (!reason) return { error: "A reason is required to reschedule" };
+  var newDue = data.newDueDate ? new Date(data.newDueDate) : null;
+  if (!newDue || isNaN(newDue.getTime())) return { error: "A valid new due date is required" };
+  var sheet = ss.getSheetByName("ROUTINES");
+  if (!sheet) return { error: "ROUTINES sheet not found" };
+  var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
+  if (rowIdx === -1) return { error: "Routine not found" };
+  var status = routineStatusAt_(sheet, rowIdx);
+  if ([ROUTE_STATUS.CONFIRMED, ROUTE_STATUS.CANCELLED, ROUTE_STATUS.WAITING].indexOf(status) !== -1) {
+    return { error: "A route that is " + status + " can't be rescheduled" };
+  }
+  var oldDue = sheet.getRange(rowIdx, 15).getValue();
+  if (sameDay_(oldDue, newDue)) return { error: "The new date is the same as the current due date" };
+
+  ensureRoutinePhase1Headers_(sheet);
+  var original = sheet.getRange(rowIdx, 23).getValue();
+  if (!original) sheet.getRange(rowIdx, 23).setValue(oldDue || "");
+  sheet.getRange(rowIdx, 15).setValue(newDue);
+  sheet.getRange(rowIdx, 24, 1, 3).setValues([[reason, data.actingUser || "", new Date()]]);
+  return {
+    status: "ok",
+    oldDueDate: oldDue ? formatDateForEmail_(oldDue) : "(none)",
+    newDueDate: formatDateForEmail_(newDue),
+    reason: reason
+  };
 }
 
 
@@ -311,16 +494,20 @@ function setRoutineStatus(ss, data) {
   if (!sheet) return { error: "ROUTINES sheet not found" };
   var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
-  var currentStatus = String(sheet.getRange(rowIdx, 6).getValue() || "").trim();
+  var currentStatus = routineStatusAt_(sheet, rowIdx);
 
-  if (status === "Paused" && currentStatus !== "Assigned" && currentStatus !== "InProgress") {
-    return { error: "Only an Assigned or InProgress routine can be paused" };
+  if (status === "Paused" && currentStatus !== ROUTE_STATUS.ASSIGNED && currentStatus !== ROUTE_STATUS.IN_PROGRESS) {
+    return { error: "Only an Assigned or In Progress route can be paused" };
   }
-  if (status === "Assigned" && currentStatus !== "Paused") {
-    return { error: "Only a Paused routine can be resumed" };
+  if (status === "Assigned" && currentStatus !== ROUTE_STATUS.PAUSED) {
+    return { error: "Only a Paused route can be resumed" };
   }
-  if (status === "Cancelled" && (currentStatus === "Approved" || currentStatus === "Cancelled")) {
-    return { error: "An approved or already-cancelled routine cannot be cancelled" };
+  if (status === "Cancelled" && (currentStatus === ROUTE_STATUS.CONFIRMED || currentStatus === ROUTE_STATUS.CANCELLED)) {
+    return { error: "A confirmed or already-cancelled route cannot be cancelled" };
+  }
+  // Resuming a route that never had a technician puts it back to Draft.
+  if (status === "Assigned" && !String(sheet.getRange(rowIdx, 3).getValue() || "").trim()) {
+    status = ROUTE_STATUS.DRAFT;
   }
 
   sheet.getRange(rowIdx, 6).setValue(status);
@@ -372,6 +559,18 @@ function submitRoutineItem(ss, data) {
   var rowIdx = findRowIndex(sheet, [0], [routineItemId], dataStartRowFor("OA_ROUTINE_ITEMS"));
   if (rowIdx === -1) return { error: "Routine item not found" };
 
+  // Phase 1: the checklist is open only while the route is with the
+  // technician (Assigned / In Progress, including after a return).
+  var parentId = String(sheet.getRange(rowIdx, 2).getValue() || "").trim();
+  var parentSheet = ss.getSheetByName("ROUTINES");
+  var parentIdx = parentSheet && parentId ? findRowIndex(parentSheet, [0], [parentId], dataStartRowFor("ROUTINES")) : -1;
+  if (parentIdx !== -1) {
+    var parentStatus = routineStatusAt_(parentSheet, parentIdx);
+    if (parentStatus !== ROUTE_STATUS.ASSIGNED && parentStatus !== ROUTE_STATUS.IN_PROGRESS) {
+      return { error: "This route is " + parentStatus + " — its checklist can't be changed now." };
+    }
+  }
+
   sheet.getRange(rowIdx, 6).setValue(data.implemented ? "Yes" : "No");
   sheet.getRange(rowIdx, 7).setValue(data.notImplementedReason || "");
   sheet.getRange(rowIdx, 8).setValue(data.actualDate || new Date());
@@ -389,9 +588,9 @@ function submitRoutineItem(ss, data) {
     if (routinesSheet) {
       var rIdx = findRowIndex(routinesSheet, [0], [routineId], dataStartRowFor("ROUTINES"));
       if (rIdx !== -1) {
-        var currentStatus = String(routinesSheet.getRange(rIdx, 6).getValue() || "").trim();
-        if (currentStatus === "Assigned") {
-          routinesSheet.getRange(rIdx, 6).setValue("InProgress");
+        var currentStatus = routineStatusAt_(routinesSheet, rIdx);
+        if (currentStatus === ROUTE_STATUS.ASSIGNED) {
+          routinesSheet.getRange(rIdx, 6).setValue(ROUTE_STATUS.IN_PROGRESS);
         }
       }
     }
@@ -407,7 +606,13 @@ function submitRoutine(ss, data) {
   if (!sheet) return { error: "ROUTINES sheet not found" };
   var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
-  sheet.getRange(rowIdx, 6).setValue("Submitted");
+  var current = routineStatusAt_(sheet, rowIdx);
+  // Already sent (e.g. the same submit replayed from the offline queue).
+  if (current === ROUTE_STATUS.WAITING || current === ROUTE_STATUS.CONFIRMED) return { status: "ok", unchanged: true };
+  if (current !== ROUTE_STATUS.ASSIGNED && current !== ROUTE_STATUS.IN_PROGRESS) {
+    return { error: "A route that is " + current + " can't be submitted" };
+  }
+  sheet.getRange(rowIdx, 6).setValue(ROUTE_STATUS.WAITING);
   sheet.getRange(rowIdx, 7).setValue(new Date());
 
   try {
@@ -429,8 +634,11 @@ function approveRoutine(ss, data) {
   if (!sheet) return { error: "ROUTINES sheet not found" };
   var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
-  sheet.getRange(rowIdx, 6).setValue("Approved");
-  sheet.getRange(rowIdx, 8).setValue(data.approvedBy || "");
+  var current = routineStatusAt_(sheet, rowIdx);
+  if (current === ROUTE_STATUS.CONFIRMED) return { status: "ok", unchanged: true };
+  if (current !== ROUTE_STATUS.WAITING) return { error: "Only a route Waiting Approval can be confirmed" };
+  sheet.getRange(rowIdx, 6).setValue(ROUTE_STATUS.CONFIRMED);
+  sheet.getRange(rowIdx, 8).setValue(data.approvedBy || data.actingUser || "");
   sheet.getRange(rowIdx, 9).setValue(new Date());
 
   try {
@@ -441,6 +649,35 @@ function approveRoutine(ss, data) {
     logError("notifyRoutineApproved_", e, { routineId: routineId });
   }
 
+  return { status: "ok" };
+}
+
+
+// Phase 1 — Return for correction: back to In Progress with a reason; the
+// technician corrects and resubmits. The red "Returned" badge is shown
+// while ReturnedDate is on/after SubmittedDate and the route is with the
+// technician.
+function returnRoutine(ss, data) {
+  var routineId = String(data.routineId || "").trim();
+  if (!routineId) return { error: "routineId is required" };
+  var reason = String(data.reason || "").trim();
+  if (!reason) return { error: "A reason is required to return a route" };
+  var sheet = ss.getSheetByName("ROUTINES");
+  if (!sheet) return { error: "ROUTINES sheet not found" };
+  var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
+  if (rowIdx === -1) return { error: "Routine not found" };
+  var current = routineStatusAt_(sheet, rowIdx);
+  if (current !== ROUTE_STATUS.WAITING) return { error: "Only a route Waiting Approval can be returned" };
+
+  ensureRoutinePhase1Headers_(sheet);
+  sheet.getRange(rowIdx, 6).setValue(ROUTE_STATUS.IN_PROGRESS);
+  sheet.getRange(rowIdx, 20, 1, 3).setValues([[reason, data.actingUser || "", new Date()]]);
+
+  try {
+    notifyRoutineReturned_(routineId, sheet.getRange(rowIdx, 13).getValue(), sheet.getRange(rowIdx, 3).getValue(), data.actingUser || "", reason);
+  } catch (e) {
+    logError("notifyRoutineReturned_", e, { routineId: routineId });
+  }
   return { status: "ok" };
 }
 

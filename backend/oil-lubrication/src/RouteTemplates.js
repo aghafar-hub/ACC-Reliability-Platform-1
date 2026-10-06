@@ -165,7 +165,7 @@ function generateDueRouteInstances() {
         routineId = "RT-" + Utilities.getUuid();
         var dueLabel = Utilities.formatDate(nextGenDate, Session.getScriptTimeZone() || "Etc/UTC", "d MMM yyyy");
         var routineRow = [
-          routineId, "System (recurring)", "", contractor, new Date(), "Unassigned",
+          routineId, "System (recurring)", "", contractor, new Date(), ROUTE_STATUS.DRAFT,
           "", "", "", "", "", "",
           routeName + " — " + dueLabel, routeType, nextGenDate, templateId,
         ];
@@ -311,7 +311,8 @@ function intervalMonthsForRoute_(freqText) {
 // resumed, or a standalone routine someone paused — either way a due-date
 // comparison would be misleading), "Cancelled" (standalone routine only,
 // via setRoutineStatus), "Completed" (standalone routine only — already
-// Approved, nothing left to do), "Overdue" / "Due Soon" / "On Schedule"
+// Approved, nothing left to do), "Waiting Approval" (Phase 1: submitted,
+// so no longer overdue), "Overdue" / "Due Soon" / "On Schedule"
 // (everything else, from comparing the item's own due date against
 // today).
 var ROUTINE_DUE_SOON_DAYS = 7;
@@ -339,11 +340,14 @@ function countMatchingEquipment_(registry, routeType, area, oilType, contractor)
 // on the same today-vs-date comparison this function already did, not
 // literal start-time tracking — see Routines.js's own Duration column
 // comment.
-function classifyDueStatus_(dueDate, today, durationDays) {
+// graceDays (Phase 1, routes only): Overdue starts after DueDate +
+// Duration + graceDays; inside that last week the route shows Due Soon.
+function classifyDueStatus_(dueDate, today, durationDays, graceDays) {
   if (!dueDate || isNaN(dueDate.getTime())) return "Unknown";
   var windowEnd = dueDate.getTime() + (durationDays || 0) * 86400000;
+  var overdueAfter = windowEnd + (graceDays || 0) * 86400000;
+  if (Math.floor((overdueAfter - today.getTime()) / 86400000) < 0) return "Overdue";
   var diffDays = Math.floor((windowEnd - today.getTime()) / 86400000);
-  if (diffDays < 0) return "Overdue";
   if (diffDays <= ROUTINE_DUE_SOON_DAYS) return "Due Soon";
   return "On Schedule";
 }
@@ -372,7 +376,7 @@ function getRoutinesOverview(scope) {
   routineRows.forEach(function (r) {
     var sourceTemplateId = String(r[15] || "").trim();
     if (!sourceTemplateId) return;
-    if (String(r[5] || "").trim() !== "Approved") return;
+    if (normRouteStatus_(r[5]) !== ROUTE_STATUS.CONFIRMED) return;
     var approvedDate = r[8] ? new Date(r[8]) : null;
     if (!approvedDate || isNaN(approvedDate.getTime())) return;
     var prev = lastCompletedByTemplate[sourceTemplateId];
@@ -427,10 +431,10 @@ function getRoutinesOverview(scope) {
     if (!routineId) return;
     var contractor = String(r[3] || "").trim();
     if (scope && contractor !== scope) return;
-    var workflowStatus = String(r[5] || "").trim();
+    var workflowStatus = normRouteStatus_(r[5]);
     var dueDate = r[14] ? new Date(r[14]) : null;
     var approvedDate = r[8] ? new Date(r[8]) : null;
-    var isApproved = workflowStatus === "Approved";
+    var isApproved = workflowStatus === ROUTE_STATUS.CONFIRMED;
     var duration = parseInt(r[18], 10) || 0; // Duration (days) — see Routines.js's own column comment
     // dueStatus mirrors a template's own "Paused" handling above — a
     // paused or cancelled routine's due date comparison would be
@@ -440,7 +444,8 @@ function getRoutinesOverview(scope) {
     var oneTimeDueStatus = isApproved ? "Completed"
       : workflowStatus === "Paused" ? "Paused"
       : workflowStatus === "Cancelled" ? "Cancelled"
-      : classifyDueStatus_(dueDate, today, duration);
+      : workflowStatus === ROUTE_STATUS.WAITING ? "Waiting Approval"
+      : classifyDueStatus_(dueDate, today, duration, ROUTE_OVERDUE_GRACE_DAYS);
 
     var counts = itemCounts[routineId] || { total: 0, done: 0 };
 
@@ -463,6 +468,8 @@ function getRoutinesOverview(scope) {
       dueStatus: oneTimeDueStatus,
       lastCompleted: isApproved && approvedDate && !isNaN(approvedDate.getTime()) ? approvedDate.toISOString() : "",
       workflowStatus: workflowStatus,
+      // Phase 1: back with the technician after "Return for correction".
+      returned: isRouteReturnedRow_(r, workflowStatus),
     });
   });
 

@@ -141,6 +141,45 @@ function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) 
   sendNotificationEmail_({ to: reviewers.join(","), subject: subject, body: body });
 }
 
+// Phase 1: the engineer returned submitted work for correction — the
+// technician is told why, corrects it and resubmits.
+function notifyRoutineReturned_(routineId, routeName, assignedTo, returnedBy, reason) {
+  var label = routeName || routineId;
+  recordInAppNotification_(
+    SpreadsheetApp.getActiveSpreadsheet(), assignedTo, "routine-returned",
+    "Route " + label + " was returned for correction" + (returnedBy ? " by " + returnedBy : "") + ": " + reason,
+    "", "routines", routineId
+  );
+  if (!looksLikeEmail_(assignedTo)) return;
+  sendNotificationEmail_({
+    to: assignedTo,
+    subject: "Oil Lubrication: route returned for correction — " + label,
+    body:
+      "Your submitted route needs a correction.\n\n" +
+      "Route: " + label + "\n" +
+      "Reason: " + reason + "\n" +
+      (returnedBy ? "Returned by: " + returnedBy + "\n" : "") +
+      "\nOpen My Work in the ACC Reliability Platform, correct it and submit again."
+  });
+}
+
+// Phase 1: an ACC Engineer created and assigned a route — it goes straight
+// to the technician, and the contractor's responsible engineers are told.
+function notifyRoutineCreatedByAcc_(routineId, routeName, contractor, assignedTo, createdBy, dueDate) {
+  if (!contractor || contractor === "ACC") return;
+  var engineers = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
+  if (engineers.length === 0) return;
+  var label = routeName || routineId;
+  var msg = (createdBy || "An ACC Engineer") + " created route " + label + " and assigned it to " + assignedTo +
+    (dueDate ? " (due " + formatDateForEmail_(dueDate) + ")" : "");
+  recordInAppNotificationForEach_(SpreadsheetApp.getActiveSpreadsheet(), engineers, "routine-created-by-acc", msg, contractor, "routines", routineId);
+  sendNotificationEmail_({
+    to: engineers.join(","),
+    subject: "Oil Lubrication: ACC created a route for " + contractor + " — " + label,
+    body: msg + ".\n\nYou'll approve it once the technician submits it. Open Routines in the ACC Reliability Platform to see it."
+  });
+}
+
 function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
   var label = routeName || routineId;
   recordInAppNotification_(

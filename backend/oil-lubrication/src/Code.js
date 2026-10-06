@@ -52,6 +52,10 @@
 //                                              (Status: Paused/Cancelled, or back to
 //                                              Assigned to resume). See Routines.js's
 //                                              setRoutineStatus.
+//   doPost returnRoutine                    → Phase 1: Waiting Approval → In Progress with
+//                                              a reason (contractor's engineer only).
+//   doPost rescheduleRoutine                → Phase 1: new due date + reason, recorded
+//                                              (contractor's engineer only).
 //   doPost deleteRoutine                    → Admin-only hard delete of a routine AND
 //                                              every OA_ROUTINE_ITEMS row it owns —
 //                                              distinct from setRoutineStatus's
@@ -409,10 +413,12 @@ function doPost(e) {
         requirePermission_(auth.session, "Create");
         var createRoutineScope = getContractorScope_(auth.session);
         if (createRoutineScope) data.contractor = createRoutineScope;
+        data.createdByAcc = !createRoutineScope;
+        data.actingUser = actingUser;
         var createResult = createRoutine(ss, data);
         invalidateRoutinesOverviewCache();
         logError("doPost:createRoutine", createResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
-        if (!createResult.error) recordAudit_(ss, "ROUTINES", createResult.routineId, "create", actingUser, data.contractor, "Created routine");
+        if (!createResult.error) recordAudit_(ss, "ROUTINES", createResult.routineId, "create", actingUser, data.contractor, createResult.routineStatus === "Draft" ? "Created route as Draft (no technician yet)" : "Created route and assigned it to " + (data.assignedTo || ""));
         return jsonOut(createResult.error ? {status: "error", message: createResult.error} : {status: "ok", routineId: createResult.routineId});
       }
 
@@ -471,15 +477,38 @@ function doPost(e) {
       }
 
       if (data.action === "approveRoutine") {
-        requirePermission_(auth.session, "Approve");
         var approveContractor = getRoutineContractor_(data.routineId);
-        requireContractorMatch_(auth.session, approveContractor);
+        requireRouteEngineer_(auth.session, approveContractor, "confirm this route");
         data.actingUser = actingUser;
         var appResult = approveRoutine(ss, data);
         if (!appResult.error) invalidateRoutinesOverviewCache();
         logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
-        if (!appResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, approveContractor, "Approved routine");
+        if (!appResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, approveContractor, "Confirmed route");
         return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
+      }
+
+      // Phase 1 — return submitted work for correction (with a reason).
+      if (data.action === "returnRoutine") {
+        var returnContractor = getRoutineContractor_(data.routineId);
+        requireRouteEngineer_(auth.session, returnContractor, "return this route");
+        data.actingUser = actingUser;
+        var returnResult = returnRoutine(ss, data);
+        if (!returnResult.error) invalidateRoutinesOverviewCache();
+        logError("doPost:returnRoutine", returnResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!returnResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, returnContractor, "Returned route for correction: " + String(data.reason || "").trim());
+        return jsonOut(returnResult.error ? {status: "error", message: returnResult.error} : {status: "ok"});
+      }
+
+      // Phase 1 — reschedule (no approval needed); both dates go to the log.
+      if (data.action === "rescheduleRoutine") {
+        var rescheduleContractor = getRoutineContractor_(data.routineId);
+        requireRouteEngineer_(auth.session, rescheduleContractor, "reschedule this route");
+        data.actingUser = actingUser;
+        var rescheduleResult = rescheduleRoutine(ss, data);
+        if (!rescheduleResult.error) invalidateRoutinesOverviewCache();
+        logError("doPost:rescheduleRoutine", rescheduleResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
+        if (!rescheduleResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, rescheduleContractor, "Rescheduled route from " + rescheduleResult.oldDueDate + " to " + rescheduleResult.newDueDate + ": " + rescheduleResult.reason);
+        return jsonOut(rescheduleResult.error ? {status: "error", message: rescheduleResult.error} : {status: "ok"});
       }
 
       if (data.action === "addRoutineComment") {

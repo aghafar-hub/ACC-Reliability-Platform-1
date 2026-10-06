@@ -266,8 +266,8 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
       return;
     }
     if (!isRecurring) {
-      if (!assignedTo.trim()) {
-        pushToast("Enter who this route is assigned to.", "error");
+      // Phase 1: no technician yet saves the route as a Draft.
+      if (!assignedTo.trim() && !window.confirm("No technician chosen — save this route as a Draft and assign it later?")) {
         return;
       }
       if (selected.length === 0) {
@@ -320,7 +320,14 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
           reason: isEmergencyTopUp ? reason.trim() : undefined,
           area: routeArea,
         });
-        pushToast("Route created.", "success");
+        pushToast(
+          saved.status === "Draft"
+            ? "Route saved as Draft — assign a technician to send it out."
+            : !scopedContractor && contractor
+              ? `Route sent to the technician. ${contractor}'s engineer has been informed.`
+              : "Route created and sent to the technician.",
+          "success"
+        );
         onCreated(saved.routineId, null);
       }
     } catch (err) {

@@ -5,6 +5,9 @@ import { describeError } from '../api/client';
 import {
   getRoutineItems,
   getRoutines,
+  isRouteOverdue,
+  isRouteReturned,
+  ROUTE_STATUS,
   submitRoutine,
   submitRoutineItem,
   type Routine,
@@ -14,7 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import { tapHaptic } from '../haptics';
 import './MyWork.css';
 
-const OPEN_STATUSES = ['Assigned', 'InProgress'];
+const OPEN_STATUSES: string[] = [ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS];
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
 // Left-border accent color on each card — the status is already named in
@@ -23,25 +26,30 @@ const TODAY = () => new Date().toISOString().slice(0, 10);
 // colored status strip rather than decorating for its own sake.
 function statusAccentClass(status: string, overdue: boolean): string {
   if (overdue) return 'mywork-card--overdue';
-  if (status === 'InProgress') return 'mywork-card--inprogress';
-  if (status === 'Submitted') return 'mywork-card--submitted';
+  if (status === ROUTE_STATUS.IN_PROGRESS) return 'mywork-card--inprogress';
+  if (status === ROUTE_STATUS.WAITING) return 'mywork-card--submitted';
   return '';
 }
 
 function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void }) {
-  const overdue = !!routine.dueDate && routine.dueDate < TODAY() && OPEN_STATUSES.includes(routine.status);
+  const overdue = isRouteOverdue(routine);
+  const returned = isRouteReturned(routine);
   return (
     <button
       type="button"
-      className={`mywork-card tap-scale ${statusAccentClass(routine.status, overdue)}`}
+      className={`mywork-card tap-scale ${statusAccentClass(routine.status, overdue || returned)}`}
       onClick={onOpen}
     >
       <div className="mywork-card-top">
         <span className="mywork-card-title">{routine.routeName || routine.routineId}</span>
-        <span className={overdue ? 'mywork-badge mywork-badge--overdue' : 'mywork-badge'}>
-          {overdue ? 'Overdue' : routine.status}
+        <span className="mywork-badges">
+          {returned && <span className="mywork-badge mywork-badge--overdue">Returned</span>}
+          <span className={overdue ? 'mywork-badge mywork-badge--overdue' : 'mywork-badge'}>
+            {overdue ? 'Overdue' : routine.status}
+          </span>
         </span>
       </div>
+      {returned && routine.returnReason && <div className="mywork-card-returned">Fix: {routine.returnReason}</div>}
       <div className="mywork-card-meta">
         {routine.routeType || '—'} · {routine.contractor || '—'}
         {routine.dueDate ? ` · due ${routine.dueDate}` : ''}
@@ -218,8 +226,9 @@ function RoutineDetail({
     load();
   }, [load]);
 
-  const canSubmit = routine.status === 'Assigned' || routine.status === 'InProgress';
+  const canSubmit = OPEN_STATUSES.includes(routine.status);
   const locked = !canSubmit;
+  const returned = isRouteReturned(routine);
 
   function handleItemSaved(saved: RoutineItem) {
     setItems((prev) => prev.map((i) => (i.routineItemId === saved.routineItemId ? saved : i)));
@@ -249,6 +258,14 @@ function RoutineDetail({
         {routine.routeType || '—'} · {routine.contractor || '—'}
         {routine.dueDate ? ` · due ${routine.dueDate}` : ''}
       </p>
+      {returned && (
+        <div className="mywork-returned" role="status">
+          <strong>Returned for correction</strong>
+          {routine.returnReason ? `: ${routine.returnReason}` : ''}
+          {routine.returnedBy ? ` — ${routine.returnedBy}` : ''}
+          <div>Correct the points below and submit again.</div>
+        </div>
+      )}
 
       {loading && <SkeletonCards count={3} />}
       {error && <p className="mywork-error">{error}</p>}
@@ -288,7 +305,7 @@ function RoutineDetail({
           onClick={handleSubmitRoutine}
           disabled={submitting}
         >
-          {submitting ? 'Submitting…' : 'Submit Routine for Review'}
+          {submitting ? 'Submitting…' : returned ? 'Resubmit for approval' : 'Submit for approval'}
         </button>
       )}
     </div>
@@ -371,7 +388,7 @@ export default function MyWork({
         .sort((a, b) => (a.dueDate || '9999-99-99').localeCompare(b.dueDate || '9999-99-99')),
     [mine],
   );
-  const awaiting = useMemo(() => mine.filter((r) => r.status === 'Submitted'), [mine]);
+  const awaiting = useMemo(() => mine.filter((r) => r.status === ROUTE_STATUS.WAITING), [mine]);
 
   const selected = selectedId ? mine.find((r) => r.routineId === selectedId) || null : null;
 

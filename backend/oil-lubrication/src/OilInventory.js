@@ -124,9 +124,9 @@ function getOilInventoryForecast(monthsParam, scope) {
   var routineRows = readSheet(ss, "ROUTINES", true);
   var openOilChangeRoutineIds = {};
   routineRows.forEach(function (r) {
-    var status = String(r[5] || "").trim();
+    var status = normRouteStatus_(r[5]);
     var routeType = String(r[13] || "").trim();
-    if ((status === "Assigned" || status === "InProgress") && routeType === "Oil Change") {
+    if ((status === ROUTE_STATUS.ASSIGNED || status === ROUTE_STATUS.IN_PROGRESS) && routeType === "Oil Change") {
       openOilChangeRoutineIds[String(r[0] || "").trim()] = true;
     }
   });

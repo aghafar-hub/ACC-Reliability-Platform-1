@@ -29,9 +29,56 @@ export type Routine = {
   routeName: string;
   routeType: string;
   dueDate: string;
+  duration: number;
+  // Phase 1 — last "return for correction" and last reschedule.
+  returnReason: string;
+  returnedBy: string;
+  returnedDate: string;
+  originalDueDate: string;
+  rescheduleReason: string;
   itemsTotal: number;
   itemsDone: number;
 };
+
+// Phase 1 route statuses; rows from before the Phase 1 release carry the
+// old names, mapped here so every screen sees the new ones.
+export const ROUTE_STATUS = {
+  DRAFT: 'Draft',
+  ASSIGNED: 'Assigned',
+  IN_PROGRESS: 'In Progress',
+  WAITING: 'Waiting Approval',
+  CONFIRMED: 'Confirmed',
+  PAUSED: 'Paused',
+  CANCELLED: 'Cancelled',
+} as const;
+const LEGACY_ROUTE_STATUS: Record<string, string> = {
+  Unassigned: 'Draft',
+  InProgress: 'In Progress',
+  Submitted: 'Waiting Approval',
+  Approved: 'Confirmed',
+};
+export function normRouteStatus(status: unknown): string {
+  const s = String(status || '').trim();
+  return LEGACY_ROUTE_STATUS[s] || s;
+}
+
+// Overdue once not submitted by due date + duration + 1 week.
+export const ROUTE_OVERDUE_GRACE_DAYS = 7;
+export function isRouteOverdue(r: Routine, now = new Date()): boolean {
+  if (!r.dueDate) return false;
+  if (r.status !== ROUTE_STATUS.DRAFT && r.status !== ROUTE_STATUS.ASSIGNED && r.status !== ROUTE_STATUS.IN_PROGRESS) return false;
+  const [y, m, d] = r.dueDate.split('-').map(Number);
+  if (!y || !m || !d) return false;
+  const end = new Date(y, m - 1, d + (r.duration || 0) + ROUTE_OVERDUE_GRACE_DAYS + 1);
+  return now.getTime() >= end.getTime();
+}
+
+// Sent back for correction and not yet resubmitted.
+export function isRouteReturned(r: Routine): boolean {
+  if (!r.returnedDate) return false;
+  if (r.status !== ROUTE_STATUS.IN_PROGRESS && r.status !== ROUTE_STATUS.ASSIGNED && r.status !== ROUTE_STATUS.PAUSED) return false;
+  return !r.submittedDate || r.returnedDate >= r.submittedDate;
+}
 
 export type RoutineItem = {
   routineItemId: string;
@@ -55,26 +102,32 @@ function formatDate(value: unknown): string {
   return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
 }
 
+// ROUTINES row as sent by the backend: 26 columns (Routines.js), then
+// ItemsTotal and ItemsDone. An older backend sent 19 columns first.
+const ROUTINE_COLS = 26;
 function rowToRoutine(row: unknown[]): Routine {
+  const wide = row.length >= ROUTINE_COLS;
   return {
     routineId: String(row[0] || ''),
     createdBy: String(row[1] || ''),
     assignedTo: String(row[2] || ''),
     contractor: String(row[3] || ''),
     createdDate: formatDate(row[4]),
-    status: String(row[5] || 'Assigned'),
+    status: normRouteStatus(row[5]) || ROUTE_STATUS.ASSIGNED,
     submittedDate: formatDate(row[6]),
     approvedBy: String(row[7] || ''),
     approvedDate: formatDate(row[8]),
     routeName: String(row[12] || ''),
     routeType: String(row[13] || ''),
     dueDate: formatDate(row[14]),
-    // Patch 18: ROUTINES gained a raw column 16 (Reason, Emergency Top Up
-    // only) — itemsTotal/itemsDone are NOT raw sheet columns, getRoutines()
-    // (Routines.js) appends them after the real row, so they now trail one
-    // index further than before.
-    itemsTotal: Number(row[17]) || 0,
-    itemsDone: Number(row[18]) || 0,
+    duration: Number(row[18]) || 0,
+    returnReason: wide ? String(row[19] || '') : '',
+    returnedBy: wide ? String(row[20] || '') : '',
+    returnedDate: wide ? formatDate(row[21]) : '',
+    originalDueDate: wide ? formatDate(row[22]) : '',
+    rescheduleReason: wide ? String(row[23] || '') : '',
+    itemsTotal: Number(row[wide ? ROUTINE_COLS : 19]) || 0,
+    itemsDone: Number(row[wide ? ROUTINE_COLS + 1 : 20]) || 0,
   };
 }
 
@@ -203,7 +256,7 @@ export async function submitRoutine(sessionToken: string, routineId: string): Pr
 
   const routines = await getRoutines(sessionToken);
   const saved = routines.find((r) => r.routineId === routineId);
-  if (!saved || saved.status !== 'Submitted') {
+  if (!saved || (saved.status !== ROUTE_STATUS.WAITING && saved.status !== ROUTE_STATUS.CONFIRMED)) {
     throw new SaveVerificationError("The routine wasn't confirmed submitted — please try again.");
   }
   return saved;

@@ -94,6 +94,8 @@ var MA_CONFIG = {
     setRoutineStatus: ["routines"],
     assignRoutineTechnician: ["routines"],
     approveRoutine: ["routines"],
+    returnRoutine: ["routines"],
+    rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
     submitRoutineItem: ["routines", "mywork"],
     submitRoutine: ["routines", "mywork"],

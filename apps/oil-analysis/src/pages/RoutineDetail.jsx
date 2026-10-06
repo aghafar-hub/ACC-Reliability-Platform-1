@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { useSessionEmail } from "../SessionContext";
+import { useSessionEmail, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
-import { routineSuggestionReason, todayISO } from "../parsers";
+import { routineSuggestionReason, todayISO, ROUTE_STATUS, isRouteOverdue, isRouteReturned } from "../parsers";
 import ProgressBar from "../components/ProgressBar";
 import TechnicianPicker from "../components/TechnicianPicker";
 import EditRoutineModal from "../components/EditRoutineModal";
@@ -161,6 +161,12 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const [working, setWorking] = useState(false);
   const [assignee, setAssignee] = useState("");
   const [editing, setEditing] = useState(false);
+  // Phase 1: Return for correction / Reschedule forms.
+  const [returnReason, setReturnReason] = useState("");
+  const [rescheduling, setRescheduling] = useState(false);
+  const [newDueDate, setNewDueDate] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const isRouteEngineer = useIsRouteEngineerFor(routine?.contractor || "");
 
   const itemsDone = items.filter((i) => i.implemented === "Yes").length;
 
@@ -226,7 +232,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     // Mirrors submitRoutineItem's own Assigned -> InProgress transition
     // locally, so the header badge doesn't lag a full page refresh behind
     // the backend after the very first item is saved.
-    setRoutine((prev) => (prev && prev.status === "Assigned" ? { ...prev, status: "InProgress" } : prev));
+    setRoutine((prev) => (prev && prev.status === ROUTE_STATUS.ASSIGNED ? { ...prev, status: ROUTE_STATUS.IN_PROGRESS } : prev));
   }
 
   async function handleAssign() {
@@ -251,7 +257,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     try {
       const saved = await api.submitRoutine(webhookUrl, routineId);
       setRoutine(saved);
-      pushToast("Routine submitted for review.", "success");
+      pushToast("Route submitted — waiting for the contractor engineer's approval.", "success");
     } catch (err) {
       pushToast(err.message, "error");
     } finally {
@@ -331,8 +337,47 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     try {
       const saved = await api.approveRoutine(webhookUrl, routineId, approvedBy.trim());
       setRoutine(saved);
-      pushToast("Routine approved.", "success");
+      pushToast("Route confirmed.", "success");
       await applyApprovalSideEffects(saved);
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleReturn() {
+    const reason = returnReason.trim();
+    if (!reason) {
+      pushToast("Write why the work is being returned.", "error");
+      return;
+    }
+    setWorking(true);
+    try {
+      const saved = await api.returnRoutine(webhookUrl, routineId, reason);
+      setRoutine(saved);
+      setReturnReason("");
+      pushToast("Returned to the technician for correction.", "success");
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleReschedule() {
+    if (!newDueDate || !rescheduleReason.trim()) {
+      pushToast("Choose the new date and write the reason.", "error");
+      return;
+    }
+    setWorking(true);
+    try {
+      const saved = await api.rescheduleRoutine(webhookUrl, routineId, newDueDate, rescheduleReason.trim());
+      setRoutine(saved);
+      setRescheduling(false);
+      setNewDueDate("");
+      setRescheduleReason("");
+      pushToast("Route rescheduled.", "success");
     } catch (err) {
       pushToast(err.message, "error");
     } finally {
@@ -398,15 +443,23 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   if (error) return <p style={{ color: T.danger }}>{error}</p>;
   if (!routine) return <p style={{ color: T.danger }}>Routine not found.</p>;
 
-  const unassigned = routine.status === "Unassigned";
-  const paused = routine.status === "Paused";
-  const cancelled = routine.status === "Cancelled";
-  const locked = routine.status === "Approved" || cancelled || paused || unassigned;
-  const canSubmit = routine.status === "Assigned" || routine.status === "InProgress";
-  const canApprove = routine.status === "Submitted";
-  const canPause = routine.status === "Assigned" || routine.status === "InProgress";
+  const st = routine.status;
+  const unassigned = st === ROUTE_STATUS.DRAFT;
+  const paused = st === ROUTE_STATUS.PAUSED;
+  const cancelled = st === ROUTE_STATUS.CANCELLED;
+  const confirmed = st === ROUTE_STATUS.CONFIRMED;
+  const waiting = st === ROUTE_STATUS.WAITING;
+  // Checklist is open only while the route is with the technician.
+  const locked = !(st === ROUTE_STATUS.ASSIGNED || st === ROUTE_STATUS.IN_PROGRESS);
+  const canSubmit = st === ROUTE_STATUS.ASSIGNED || st === ROUTE_STATUS.IN_PROGRESS;
+  const canReview = waiting && isRouteEngineer;
+  const canPause = st === ROUTE_STATUS.ASSIGNED || st === ROUTE_STATUS.IN_PROGRESS;
   const canResume = paused;
-  const canCancel = routine.status !== "Approved" && !cancelled;
+  const canCancel = !confirmed && !cancelled;
+  const canEditRoute = canEdit && !confirmed && !cancelled && !waiting;
+  const canReschedule = isRouteEngineer && !confirmed && !cancelled && !waiting;
+  const returned = isRouteReturned(routine);
+  const overdue = isRouteOverdue(routine);
 
   return (
     <div>
@@ -414,6 +467,8 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
         <div>
           <p style={{ ...s.sectionTitle, margin: "0 0 4px" }}>
             {routine.routeName || `Routine — ${routine.assignedTo}`} <span style={s.badge(routine.status)}>{routine.status}</span>
+            {returned && <span style={{ ...s.badge("Returned"), marginLeft: 6 }}>Returned</span>}
+            {overdue && <span style={{ ...s.badge("Overdue"), marginLeft: 6 }}>Overdue</span>}
           </p>
           <p style={{ fontSize: 12.5, color: T.textSecondary, margin: 0 }}>
             {routine.routeType ? `${routine.routeType} · ` : ""}
@@ -422,8 +477,16 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
             {routine.assignedTo ? ` · ${routine.assignedTo}` : ""} · created {routine.createdDate || "—"}
             {routine.dueDate ? ` · due ${routine.dueDate}` : ""}
             {routine.submittedDate ? ` · submitted ${routine.submittedDate}` : ""}
-            {routine.approvedDate ? ` · approved ${routine.approvedDate}` : ""}
+            {routine.approvedDate ? ` · confirmed ${routine.approvedDate}${routine.approvedBy ? ` by ${routine.approvedBy}` : ""}` : ""}
           </p>
+          {routine.originalDueDate && (
+            <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "4px 0 0" }}>
+              <i className="ti ti-calendar-repeat" aria-hidden="true" style={{ marginRight: 4 }} />
+              Rescheduled from {routine.originalDueDate} to {routine.dueDate}
+              {routine.rescheduleReason ? ` — ${routine.rescheduleReason}` : ""}
+              {routine.rescheduledBy ? ` (${routine.rescheduledBy}${routine.rescheduledDate ? `, ${routine.rescheduledDate}` : ""})` : ""}
+            </p>
+          )}
           {/* Reason was already required/captured on create for an
               Emergency Top Up, but had no display surface anywhere after
               — it was write-only until this pass. */}
@@ -438,9 +501,14 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {canEdit && !locked && (
+          {canEditRoute && (
             <button style={s.btn} onClick={() => setEditing(true)}>
               <i className="ti ti-pencil" aria-hidden="true" /> Edit
+            </button>
+          )}
+          {canReschedule && (
+            <button style={s.btn} onClick={() => setRescheduling((v) => !v)} disabled={working}>
+              <i className="ti ti-calendar-repeat" aria-hidden="true" /> Reschedule
             </button>
           )}
           {canEdit && canPause && (
@@ -487,15 +555,59 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
         />
       )}
 
+      {rescheduling && canReschedule && (
+        <div style={{ ...s.card, marginBottom: 20, borderColor: T.accent }}>
+          <p style={{ fontWeight: 700, marginBottom: 4 }}>Reschedule</p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, marginBottom: 10 }}>
+            Current due date: {routine.dueDate || "—"}. No approval is needed — the old date, new date and your reason are recorded.
+          </p>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div>
+              <label style={s.label}>New due date</label>
+              <input style={s.input} type="date" value={newDueDate} onChange={(e) => setNewDueDate(e.target.value)} aria-label="New due date" />
+            </div>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <label style={s.label}>Reason</label>
+              <input
+                style={s.input}
+                type="text"
+                value={rescheduleReason}
+                placeholder="Why the date is moving"
+                aria-label="Reschedule reason"
+                onChange={(e) => setRescheduleReason(e.target.value)}
+              />
+            </div>
+            <button style={s.btnPrimary} onClick={handleReschedule} disabled={working || !newDueDate || !rescheduleReason.trim()}>
+              {working ? "…" : "Save new date"}
+            </button>
+            <button style={s.btn} onClick={() => setRescheduling(false)} disabled={working}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {returned && (
+        <div style={{ ...s.card, marginBottom: 20, borderColor: T.danger }}>
+          <p style={{ fontWeight: 700, marginBottom: 4, color: T.danger }}>
+            <i className="ti ti-arrow-back-up" aria-hidden="true" style={{ marginRight: 6 }} />
+            Returned for correction
+          </p>
+          <p style={{ fontSize: 13, margin: 0 }}>
+            "{routine.returnReason}" — {routine.returnedBy || "—"} ({routine.returnedDate || "—"})
+          </p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "6px 0 0" }}>Correct the checklist below and submit again.</p>
+        </div>
+      )}
+
       {unassigned && (
         <div style={{ ...s.card, marginBottom: 20, borderColor: T.danger }}>
           <p style={{ fontWeight: 700, marginBottom: 4, color: T.danger }}>
             <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 6 }} />
-            No technician assigned yet
+            Draft — no technician assigned yet
           </p>
           <p style={{ fontSize: 12.5, color: T.textSecondary, marginBottom: 10 }}>
-            This route was generated automatically and is waiting for a contractor engineer to assign a technician before it can be
-            worked.
+            Assign a technician to send this route out. It moves to Assigned and the technician is notified.
           </p>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
             <div style={{ flex: 1, maxWidth: 320 }}>
@@ -554,19 +666,57 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
       {canSubmit && (
         <div style={{ marginBottom: 20 }}>
           <button style={s.btnPrimary} onClick={handleSubmitRoutine} disabled={working}>
-            {working ? "Submitting…" : "Submit Routine for Review"}
+            {working ? "Submitting…" : returned ? "Resubmit for approval" : "Submit for approval"}
           </button>
         </div>
       )}
 
       <div style={s.card}>
-        <p style={{ fontWeight: 700, marginBottom: 10 }}>ACC Review</p>
+        <p style={{ fontWeight: 700, marginBottom: 10 }}>Approval</p>
         {routine.accComment && (
           <p style={{ fontSize: 13, color: T.textPrimary, marginBottom: 10 }}>
             "{routine.accComment}" — {routine.accCommentBy || "—"} ({routine.accCommentDate || "—"})
           </p>
         )}
-        {canApprove ? (
+        {canReview ? (
+          <>
+            <p style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 0 }}>
+              Check the checklist above, then confirm it — or return it to the technician with the reason.
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              <button style={s.btnPrimary} onClick={handleApprove} disabled={working}>
+                {working ? "…" : "Confirm route"}
+              </button>
+            </div>
+            <label style={s.label}>Return for correction — reason</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              <input
+                style={{ ...s.input, flex: 1, minWidth: 220 }}
+                type="text"
+                value={returnReason}
+                placeholder="What needs correcting"
+                aria-label="Return reason"
+                onChange={(e) => setReturnReason(e.target.value)}
+              />
+              <button
+                style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
+                onClick={handleReturn}
+                disabled={working || !returnReason.trim()}
+              >
+                <i className="ti ti-arrow-back-up" aria-hidden="true" /> Return
+              </button>
+            </div>
+          </>
+        ) : (
+          <p style={{ fontSize: 13, color: T.textSecondary, marginTop: 0 }}>
+            {confirmed
+              ? `Confirmed${routine.approvedBy ? ` by ${routine.approvedBy}` : ""}.`
+              : waiting
+                ? `Waiting for ${routine.contractor || "the contractor"}'s Contractor Engineer to confirm or return it.`
+                : "Available once the route is submitted."}
+          </p>
+        )}
+        {canEdit && !cancelled && (
           <>
             <label style={s.label}>Comment</label>
             <textarea
@@ -574,9 +724,9 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
-            <label style={s.label}>Reviewed By</label>
+            <label style={s.label}>Comment By</label>
             <input
-              style={{ ...s.input, marginBottom: 14 }}
+              style={{ ...s.input, marginBottom: 10 }}
               type="text"
               value={approvedBy}
               onChange={(e) => {
@@ -584,19 +734,10 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
                 setCommentBy(e.target.value);
               }}
             />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button style={s.btn} onClick={handleComment} disabled={working || !comment.trim()}>
-                Save Comment
-              </button>
-              <button style={s.btnPrimary} onClick={handleApprove} disabled={working}>
-                {working ? "…" : "Approve Routine"}
-              </button>
-            </div>
+            <button style={s.btn} onClick={handleComment} disabled={working || !comment.trim()}>
+              Save Comment
+            </button>
           </>
-        ) : (
-          <p style={{ fontSize: 13, color: T.textSecondary, margin: 0 }}>
-            {routine.status === "Approved" ? "This routine has been approved." : "Available once the routine is submitted."}
-          </p>
         )}
       </div>
     </div>
