@@ -532,7 +532,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
               <tr>
                 <th style={s.th}>Type / Brand</th>
                 <th style={s.th}>Stock</th>
-                <th style={s.th}>Reorder Level</th>
+                <th style={s.th}>Low-stock Level</th>
                 <th style={s.th}>Contractor</th>
               </tr>
             </thead>
@@ -601,7 +601,7 @@ function StockListTab({ products, loading, error, onAdd, onOpenProduct }) {
                 <th style={s.th}>Type / Brand</th>
                 <th style={s.th}>Contractor</th>
                 <th style={s.th}>Stock</th>
-                <th style={s.th}>Reorder Level</th>
+                <th style={s.th}>Low-stock Level</th>
                 <th style={s.th}>Location</th>
                 <th style={s.th}>Status</th>
                 <th style={s.th}>Last Movement</th>
@@ -799,11 +799,19 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
 // Patch 22). A Contractor Engineer only ever sees their own contractor's
 // lines (enforced server-side); ACC/Admin sees every contractor's, one row
 // per oil per contractor.
-const FORECAST_MONTHS_OPTIONS = [1, 3, 6];
+// Phase 5 — shortage check period (days).
+const FORECAST_PERIODS = [
+  { days: 15, label: "Next 15 days" },
+  { days: 30, label: "Next 30 days" },
+  { days: 60, label: "Next 60 days" },
+  { days: 90, label: "Next 90 days" },
+  { days: 182, label: "Next 6 months" },
+  { days: 365, label: "Next 1 year" },
+];
 
 function ForecastTab({ webhookUrl, contractorFilter }) {
   const { T, s } = useTheme();
-  const [months, setMonths] = useState(3);
+  const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -813,14 +821,15 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
     setLoading(true);
     setError(null);
     api
-      .getOilInventoryForecast(webhookUrl, months)
+      .getOilInventoryForecast(webhookUrl, { days })
       .then((res) => { if (!cancelled) setData(res); })
       .catch((err) => { if (!cancelled) setError(err.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [webhookUrl, months]);
+  }, [webhookUrl, days]);
 
   const rows = (data?.forecast || []).filter((r) => contractorFilter === "All" || r.contractor === contractorFilter);
+  const shortCount = rows.filter((r) => r.shortfall == null || r.shortfall > 0).length;
   const insufficientHistory = (data?.insufficientHistory || []).filter(
     (e) => contractorFilter === "All" || e.contractor === contractorFilter
   );
@@ -828,11 +837,11 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <label style={s.label}>Forecast window</label>
-        <select style={{ ...s.select, width: 140 }} value={months} onChange={(e) => setMonths(Number(e.target.value))}>
-          {FORECAST_MONTHS_OPTIONS.map((m) => (
-            <option key={m} value={m}>
-              Next {m} {m === 1 ? "month" : "months"}
+        <label style={s.label}>Shortage check</label>
+        <select style={{ ...s.select, width: 160 }} value={days} aria-label="Shortage check period" onChange={(e) => setDays(Number(e.target.value))}>
+          {FORECAST_PERIODS.map((p) => (
+            <option key={p.days} value={p.days}>
+              {p.label}
             </option>
           ))}
         </select>
@@ -840,6 +849,13 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
           <span style={{ fontSize: 12, color: T.textSecondary }}>through {data.windowEnd}</span>
         )}
       </div>
+      {!loading && !error && shortCount > 0 && (
+        <div style={{ ...s.card, borderColor: T.danger, marginBottom: 14, fontSize: 13 }}>
+          <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, marginRight: 6 }} />
+          <strong>{shortCount} oil{shortCount === 1 ? "" : "s"} won't cover the scheduled work in this period.</strong> Obtain stock, reschedule the
+          work, or use an approved equivalent oil.
+        </div>
+      )}
 
       {loading ? (
         <p style={{ color: T.textSecondary }}>Loading forecast…</p>

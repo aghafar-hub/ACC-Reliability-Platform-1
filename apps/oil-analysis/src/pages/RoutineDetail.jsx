@@ -291,6 +291,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
         if (routeType === "Oil Change") {
           return api.logOilChangeEvent(webhookUrl, {
             lpId: item.lpId,
+            routineItemId: item.routineItemId, // Phase 5: logged/deducted once per route item
             eventDate,
             doneBy: approvedRoutine.assignedTo,
             contractor: approvedRoutine.contractor,

@@ -283,7 +283,7 @@ function doGet(e) {
         result = getAllOilInventoryMovements(scope);
         break;
       case "getOilInventoryForecast":
-        result = getOilInventoryForecast(e.parameter.months, scope);
+        result = getOilInventoryForecast(e.parameter.months, scope, e.parameter.days);
         break;
       case "getOilInventoryConsumption":
         result = getOilInventoryConsumption(e.parameter.months, scope);
@@ -607,16 +607,34 @@ function doPost(e) {
         return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
       }
 
+      // Phase 5: low-stock level — the contractor's engineer or an ACC Engineer.
+      if (data.action === "setProductLowStockLevel") {
+        var levelContractor = getProductContractor_(data.productId);
+        if (!isActionEngineer_(auth.session, levelContractor)) {
+          throw new Error("Only an ACC Engineer or this contractor's engineer can change the low-stock level.");
+        }
+        var levelResult = setProductLowStockLevel(ss, data);
+        if (!levelResult.error) invalidateDashboardCache();
+        logError("doPost:setProductLowStockLevel", levelResult.error || "ok", {productId: data.productId, actingUser: actingUser});
+        if (!levelResult.error) recordAudit_(ss, "Oil Inventory", data.productId, "update", actingUser, levelContractor, "Changed low-stock level from " + (levelResult.oldLevel === "" ? "(none)" : levelResult.oldLevel) + " to " + levelResult.level);
+        return jsonOut(levelResult.error ? {status: "error", message: levelResult.error} : {status: "ok"});
+      }
+
       if (data.action === "logOilMovement") {
         requirePermission_(auth.session, "Edit");
         var movProdContractor = getProductContractor_(data.productId);
         requireContractorMatch_(auth.session, movProdContractor);
+        // Phase 5: receipts, adjustments and the opening balance are the
+        // contractor's engineer's (no approval step); every one is audited.
+        if (["Receipt", "Adjustment", "Opening Balance"].indexOf(data.movementType) !== -1) {
+          requireRouteEngineer_(auth.session, movProdContractor, "record receipts or adjustments for this stock");
+        }
         var movScope = getContractorScope_(auth.session);
         if (movScope) data.contractor = movScope;
         var movResult = logOilMovement(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId, actingUser: actingUser});
-        if (!movResult.error) recordAudit_(ss, "Oil Inventory LOG", data.productId, "create", actingUser, movScope || movProdContractor, "Logged " + (data.type || "movement") + " of " + (data.quantity || "") + " for product " + data.productId);
+        if (!movResult.error) recordAudit_(ss, "Oil Inventory LOG", data.productId, "create", actingUser, movScope || movProdContractor, "Logged " + (data.movementType || "movement") + " of " + (data.quantity || "") + " for product " + data.productId);
         return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
       }
 

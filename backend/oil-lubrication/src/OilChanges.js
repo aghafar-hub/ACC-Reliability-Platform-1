@@ -24,6 +24,15 @@ function logOilChangeEvent(ss, data) {
   var eventDate = data.eventDate ? new Date(data.eventDate) : new Date();
   if (isNaN(eventDate.getTime())) return { error: "eventDate is invalid" };
 
+  // Phase 5: consumption is posted once per confirmed job — the same
+  // route item logged again (a repeated confirm, a retried request) returns
+  // the existing event instead of logging and deducting a second time.
+  var routineItemId = String(data.routineItemId || "").trim();
+  if (routineItemId) {
+    var existing = readSheet(ss, "Oil Change LOG", true).filter(function (r) { return String(r[2] || "").trim() === routineItemId; })[0];
+    if (existing) return { status: "ok", eventId: String(existing[0] || ""), duplicate: true, nextDueDate: "", inventoryDeducted: false, inventoryNote: "already logged for this route item" };
+  }
+
   var reg = findRegistryEntryForOilChange_(ss, lpId);
   var months = intervalMonthsForOilChange_(reg ? reg.oilChangeInterval : "");
   var nextDueDate = months ? addMonths_(eventDate, months) : "";

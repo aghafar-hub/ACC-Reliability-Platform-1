@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { useSessionEmail } from "../SessionContext";
+import { useSessionEmail, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
 import { todayISO } from "../parsers";
 
+// Phase 5: receipts, adjustments and the one-off opening balance are the
+// contractor's engineer's; Issue stays available as before.
 const MOVEMENT_TYPES = ["Receipt", "Issue", "Adjustment"];
 const CONTRACTOR_OPTIONS = ["", "RHI", "ASEC"];
 
-function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushToast, onLogged }) {
+function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushToast, onLogged, types }) {
   const { T, s } = useTheme();
-  const [movementType, setMovementType] = useState("Receipt");
+  const [movementType, setMovementType] = useState(types[0]);
   const [quantity, setQuantity] = useState("");
   const [movementDate, setMovementDate] = useState(todayISO());
   const [linkedLpId, setLinkedLpId] = useState("");
@@ -63,7 +66,7 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
         <div>
           <label style={s.label}>Type</label>
           <select style={s.select} value={movementType} onChange={(e) => setMovementType(e.target.value)}>
-            {MOVEMENT_TYPES.map((t) => (
+            {types.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
@@ -157,12 +160,14 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
   useEffect(() => {
     refresh();
   }, [refresh]);
+  const isStockEngineer = useIsRouteEngineerFor(product?.contractor || "");
 
   if (loading) return <p style={{ color: T.textSecondary }}>Loading product…</p>;
   if (error) return <p style={{ color: T.danger }}>{error}</p>;
   if (!product) return <p style={{ color: T.danger }}>Product not found.</p>;
 
   const low = product.currentStock != null && product.recorderLevel != null && product.currentStock <= product.recorderLevel;
+  const hasOpening = movements.some((m) => String(m.reference || "").trim() === "Opening balance");
 
   return (
     <div>
@@ -187,10 +192,7 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
           </div>
           <div style={{ fontSize: 11, color: T.textSecondary }}>Current Stock{low ? " — below reorder level" : ""}</div>
         </div>
-        <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px" }}>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>{product.recorderLevel != null ? `${product.recorderLevel} ${product.unit || ""}` : "—"}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary }}>Reorder Level</div>
-        </div>
+        <LowStockLevelCard webhookUrl={webhookUrl} product={product} pushToast={pushToast} onSaved={refresh} />
         <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px" }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>{product.supplier || "—"}</div>
           <div style={{ fontSize: 11, color: T.textSecondary }}>Supplier</div>
@@ -201,7 +203,13 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
         </div>
       </div>
 
+      <StockChart movements={movements} level={product.recorderLevel} unit={product.unit} />
+
       <LogMovementForm
+        key={hasOpening ? "with-opening" : "no-opening"}
+        types={
+          !isStockEngineer ? ["Issue"] : hasOpening || movements.length > 0 ? MOVEMENT_TYPES : ["Opening Balance", ...MOVEMENT_TYPES]
+        }
         webhookUrl={webhookUrl}
         productId={productId}
         unit={product.unit}
@@ -245,6 +253,114 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// Phase 5 — the low-stock level: an alert goes to the contractor's and ACC
+// engineers when stock falls to it. Either of them can change it.
+function LowStockLevelCard({ webhookUrl, product, pushToast, onSaved }) {
+  const { T, s } = useTheme();
+  const isContractorEngineer = useIsRouteEngineerFor(product.contractor || "");
+  const isAcc = useIsAccEngineer();
+  const canEdit = isContractorEngineer || isAcc;
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(product.recorderLevel ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const level = Number(value);
+    if (value === "" || Number.isNaN(level) || level < 0) {
+      pushToast("Enter a low-stock level of 0 or more.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.setProductLowStockLevel(webhookUrl, product.productId, level);
+      pushToast("Low-stock level saved.", "success");
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px" }}>
+      {editing ? (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input
+            style={{ ...s.input, width: 90 }}
+            type="number"
+            min="0"
+            aria-label="Low-stock level"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+          <button style={s.btnPrimary} disabled={saving} onClick={save}>
+            {saving ? "…" : "Save"}
+          </button>
+        </div>
+      ) : (
+        <div style={{ fontSize: 22, fontWeight: 800 }}>
+          {product.recorderLevel != null ? `${product.recorderLevel} ${product.unit || ""}` : "—"}
+          {canEdit && (
+            <button style={{ ...s.btn, marginLeft: 8, padding: "2px 8px", fontSize: 11 }} onClick={() => setEditing(true)} aria-label="Change low-stock level">
+              <i className="ti ti-pencil" aria-hidden="true" /> Edit
+            </button>
+          )}
+        </div>
+      )}
+      <div style={{ fontSize: 11, color: T.textSecondary }}>Low-stock level</div>
+    </div>
+  );
+}
+
+// Phase 5 — stock after each movement, with the low-stock level as a line.
+function StockChart({ movements, level, unit }) {
+  const { T, s } = useTheme();
+  const data = useMemo(() => {
+    const sorted = [...(movements || [])]
+      .filter((m) => m.movementDate && m.quantity != null)
+      .sort((a, b) => new Date(a.movementDate) - new Date(b.movementDate));
+    let total = 0;
+    return sorted.map((m) => {
+      const q = Number(m.quantity) || 0;
+      total += m.movementType === "Receipt" ? Math.abs(q) : m.movementType === "Issue" ? -Math.abs(q) : q;
+      return { date: m.movementDate, stock: Math.round(total * 100) / 100, kind: m.movementType };
+    });
+  }, [movements]);
+  if (data.length < 2) return null;
+  const u = unit || "L";
+  return (
+    <div style={{ ...s.card, margin: "20px 0 0" }}>
+      <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Stock over time</p>
+      <div style={{ width: "100%", height: 220 }}>
+        <ResponsiveContainer>
+          <LineChart data={data} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke={T.border} strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="date" tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={{ stroke: T.border }} />
+            <YAxis tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+            <Tooltip
+              contentStyle={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, color: T.textPrimary }}
+              labelStyle={{ color: T.textSecondary }}
+              itemStyle={{ color: T.textPrimary }}
+              formatter={(v, _n, item) => [`${v} ${u}`, `Stock after ${item?.payload?.kind || "movement"}`]}
+            />
+            {level != null && (
+              <ReferenceLine
+                y={level}
+                stroke={T.danger}
+                strokeDasharray="5 4"
+                label={{ value: `Low-stock level ${level} ${u}`, position: "insideTopRight", fill: T.textSecondary, fontSize: 11 }}
+              />
+            )}
+            <Line type="stepAfter" dataKey="stock" stroke={T.accent} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

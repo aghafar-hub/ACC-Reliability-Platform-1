@@ -39,6 +39,16 @@ function logOilTopUp_(ss, data) {
   var eventDate = data.eventDate ? new Date(data.eventDate) : new Date();
   if (isNaN(eventDate.getTime())) return { error: "eventDate is invalid" };
 
+  // Phase 5: once per confirmed job — the same route's top-up for the same
+  // point isn't logged (or deducted) twice.
+  var routineIdForTopUp = String(data.routineId || "").trim();
+  if (routineIdForTopUp) {
+    var dup = readSheet(ss, "Oil Top Up LOG", true).filter(function (r) {
+      return String(r[2] || "").trim() === routineIdForTopUp && String(r[1] || "").trim() === lpId;
+    })[0];
+    if (dup) return { status: "ok", topUpId: String(dup[0] || ""), duplicate: true, inventoryDeducted: false, inventoryNote: "already logged for this route" };
+  }
+
   var reg = findRegistryEntryForOilChange_(ss, lpId); // OilChanges.js — same minimal lookup, same fields a top-up needs
   var contractor = data.contractor || (reg ? reg.contractor : "") || "";
 

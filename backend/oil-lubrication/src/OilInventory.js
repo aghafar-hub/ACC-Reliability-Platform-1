@@ -94,11 +94,15 @@ function getProductContractor_(productId) {
 //     than indistinguishable from "this equipment needs nothing."
 // A scheduled (has-interval) LP always contributes via 1 or 2 above; an
 // LP with none of the above contributes nothing.
-function getOilInventoryForecast(monthsParam, scope) {
-  var months = Math.max(1, parseInt(monthsParam, 10) || 3);
+// Phase 5: the shortage check's period selector (15 days … 1 year) passes
+// daysParam; months is then the fractional equivalent for the rate math.
+function getOilInventoryForecast(monthsParam, scope, daysParam) {
+  var days = parseInt(daysParam, 10) || 0;
+  var months = days > 0 ? days / 30.4375 : Math.max(1, parseInt(monthsParam, 10) || 3);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var windowEnd = new Date();
-  windowEnd.setMonth(windowEnd.getMonth() + months);
+  if (days > 0) windowEnd = new Date(windowEnd.getTime() + days * 86400000);
+  else windowEnd.setMonth(windowEnd.getMonth() + months);
   var historyWindowStart = new Date();
   historyWindowStart.setMonth(historyWindowStart.getMonth() - 12);
 
@@ -229,6 +233,8 @@ function getOilInventoryForecast(monthsParam, scope) {
 
   return {
     forecast: forecast,
+    shortages: forecast.filter(function (f) { return f.shortfall === null || f.shortfall > 0; }),
+    days: days || null,
     months: months,
     windowEnd: windowEnd.toISOString().slice(0, 10),
     insufficientHistory: insufficientHistory,
@@ -492,21 +498,96 @@ function tryAutoDeductInventory_(ss, info) {
 }
 
 
+// ── Phase 5 ───────────────────────────────────────────────────────────────
+// Stock from the movement log (Receipt +, Issue −, Adjustment signed) — the
+// same sum as the sheet's Current_Stock formula, computed here so the
+// low-stock check doesn't depend on the formula having recalculated.
+function productStockFromLog_(ss, productId) {
+  var total = 0;
+  readSheet(ss, "Oil Inventory LOG", true).forEach(function (r) {
+    if (String(r[1] || "").trim() !== productId) return;
+    var q = parseFloat(r[3]) || 0;
+    var t = String(r[2] || "").trim();
+    if (t === "Receipt") total += Math.abs(q);
+    else if (t === "Issue") total -= Math.abs(q);
+    else if (t === "Adjustment") total += q;
+  });
+  return Math.round(total * 100) / 100;
+}
+
+function findProductRow_(ss, productId) {
+  var rows = readSheet(ss, "Oil Inventory", true);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === productId) return rows[i];
+  }
+  return null;
+}
+
+function productLabel_(p) {
+  return String(p[1] || "").trim() + (p[2] ? " / " + String(p[2]).trim() : "") + " (" + String(p[0] || "").trim() + ")";
+}
+
+// When a movement takes stock down to (or below) the product's low-stock
+// level, the contractor's and ACC engineers are alerted once — at the
+// crossing, not on every later issue.
+function checkLowStockAfterMovement_(ss, productId, delta) {
+  var p = findProductRow_(ss, productId);
+  if (!p) return;
+  var level = parseFloat(p[7]);
+  if (isNaN(level)) return;
+  var after = productStockFromLog_(ss, productId);
+  var before = after - delta;
+  if (!(after <= level && before > level)) return;
+  var contractor = String(p[16] || "").trim();
+  var people = getNotifyReviewers_(contractor);
+  var msg = "Low stock: " + productLabel_(p) + " is at " + after + " " + (p[5] || "L") + " — at or below its low-stock level of " + level + ".";
+  recordInAppNotificationForEach_(ss, people, "low-stock", msg, contractor, "inventory", productId);
+  if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: low stock — " + productLabel_(p), body: msg });
+}
+
+// Low-stock level: either the contractor's engineer or an ACC Engineer.
+function setProductLowStockLevel(ss, data) {
+  var productId = String(data.productId || "").trim();
+  var level = parseFloat(data.level);
+  if (!productId) return { error: "productId is required" };
+  if (isNaN(level) || level < 0) return { error: "A low-stock level of 0 or more is required" };
+  var sheet = ss.getSheetByName("Oil Inventory");
+  if (!sheet) return { error: "Oil Inventory sheet not found" };
+  var rowIdx = findRowIndex(sheet, [0], [productId], dataStartRowFor("Oil Inventory"));
+  if (rowIdx === -1) return { error: "Product not found" };
+  var old = sheet.getRange(rowIdx, 8).getValue();
+  sheet.getRange(rowIdx, 8).setValue(level);
+  stampLastModified(sheet, "Oil Inventory", rowIdx);
+  return { status: "ok", oldLevel: old, level: level };
+}
+
 function logOilMovement(ss, data) {
   var productId = String(data.productId || "").trim();
   if (!productId) return { error: "productId is required" };
   var movementType = data.movementType || "";
+  // Phase 5: "Opening Balance" — the starting quantity, once per product,
+  // stored as a positive Adjustment marked "Opening balance".
+  var isOpening = movementType === "Opening Balance";
+  if (isOpening) {
+    var already = readSheet(ss, "Oil Inventory LOG", true).some(function (r) {
+      return String(r[1] || "").trim() === productId && String(r[9] || "").trim() === "Opening balance";
+    });
+    if (already) return { error: "This product already has an opening balance — use an Adjustment to correct stock" };
+    movementType = "Adjustment";
+    data.reference = "Opening balance";
+  }
   if (["Receipt", "Issue", "Adjustment"].indexOf(movementType) === -1) {
-    return { error: "movementType must be Receipt, Issue, or Adjustment" };
+    return { error: "movementType must be Receipt, Issue, Adjustment or Opening Balance" };
   }
   var quantity = parseFloat(data.quantity);
   if (isNaN(quantity)) return { error: "quantity is required" };
+  if (isOpening && quantity < 0) return { error: "An opening balance can't be negative" };
 
   var movementId = "MV-" + Utilities.getUuid();
   var row = [
     movementId,
     productId,
-    movementType,
+    movementType, // "Opening Balance" is stored as an Adjustment (see above)
     quantity,
     data.movementDate ? new Date(data.movementDate) : new Date(),
     data.linkedLpId || "",
@@ -518,5 +599,11 @@ function logOilMovement(ss, data) {
     "", // Created_Date — filled by appendRow's stampLastModified
   ];
   appendRow(ss, "Oil Inventory LOG", row);
+  try {
+    var delta = movementType === "Receipt" ? Math.abs(quantity) : movementType === "Issue" ? -Math.abs(quantity) : quantity;
+    checkLowStockAfterMovement_(ss, productId, delta);
+  } catch (e) {
+    logError("checkLowStockAfterMovement_", e, { productId: productId });
+  }
   return { status: "ok", movementId: movementId };
 }

@@ -659,6 +659,9 @@ export async function logOilChangeEvent(webhookUrl, event) {
     doneBy,
     conditionNotes: event.conditionNotes || "",
     contractor: event.contractor || "",
+    // Phase 5: the route item this change belongs to — the server logs
+    // (and deducts stock for) each route item only once.
+    routineItemId: event.routineItemId || "",
   });
 
   const verify = await getJSON(webhookUrl, { action: "getOilChangesForLp", lpId });
@@ -1090,6 +1093,17 @@ export async function getOilInventory(webhookUrl) {
   return (json.products || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilProduct);
 }
 
+// Phase 5 — low-stock level (contractor's engineer or ACC Engineer).
+export async function setProductLowStockLevel(webhookUrl, productId, level) {
+  await postBlind(webhookUrl, { action: "setProductLowStockLevel", productId, level });
+  const products = await getOilInventory(webhookUrl);
+  const saved = products.find((p) => p.productId === productId);
+  if (!saved || saved.recorderLevel !== Number(level)) {
+    throw new SaveVerificationError("The low-stock level wasn't confirmed — only an ACC Engineer or the contractor's engineer can change it. Please try again.");
+  }
+  return saved;
+}
+
 export async function getOilInventoryMovements(webhookUrl, productId) {
   const json = await getJSON(webhookUrl, { action: "getOilInventoryMovements", productId });
   return (json.movements || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilMovement);
@@ -1115,11 +1129,16 @@ export async function getOilInventoryConsumption(webhookUrl, months = 6) {
 // over the next `months` — see backend/oil-lubrication/src/OilInventory.js's
 // getOilInventoryForecast for the projection logic. Already shaped for
 // display (not raw sheet rows), so no row-parser needed here.
+// Phase 5: pass { days } for the shortage check's period selector
+// (15 days … 1 year); a plain number is still months.
 export async function getOilInventoryForecast(webhookUrl, months = 3) {
-  const json = await getJSON(webhookUrl, { action: "getOilInventoryForecast", months });
+  const params = typeof months === "object" && months ? { action: "getOilInventoryForecast", days: months.days } : { action: "getOilInventoryForecast", months };
+  const json = await getJSON(webhookUrl, params);
   return {
     forecast: json.forecast || [],
     months: json.months || months,
+    days: json.days || null,
+    shortages: json.shortages || [],
     windowEnd: json.windowEnd || "",
     // Patch 22 — condition-based equipment with no logged history and no
     // open routine to project from; surfaced separately rather than just

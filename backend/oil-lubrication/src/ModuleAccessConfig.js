@@ -101,6 +101,7 @@ var MA_CONFIG = {
     closeAction: ["actions"],
     rescheduleAction: ["actions"],
     validateLabReport: ["oilreport", "upload", "tracker"],
+    setProductLowStockLevel: ["inventory"],
     returnLabReport: ["oilreport", "upload", "tracker"],
     rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
