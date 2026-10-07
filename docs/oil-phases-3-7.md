@@ -537,3 +537,19 @@ RHI technician, and a manager.
 
 **Undo:** restore the sheet copies and pick the previous version under
 Manage deployments.
+
+## Page address and test-copy cache-busting
+
+- **Oil Lubrication lives at `/oil-lubrication`** (sidebar, phone bottom
+  bar, notification clicks, My Work links). The old `/oil-analysis` address
+  redirects there, keeping any query string, so bookmarks and old links
+  still work. The module's internal ID stays `oil-analysis` — Module
+  Access, saved settings, Settings' `?module=oil-analysis` tab and both
+  backends key on it.
+- **Test copy cache-buster.** The shell loads each module from
+  `apps/<module>/embed.js?v=<build id>`. The test copy is built by the
+  deploy workflow running on the default branch, so its build id
+  (`test-<default-branch sha>`) never changed between test deploys and the
+  service worker kept serving old modules. `frontend/vite.config.ts` now
+  adds the test checkout's own commit to a `test-…` build id; live builds
+  are unchanged.
