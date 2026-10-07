@@ -445,6 +445,16 @@ function doPost(e) {
         return jsonOut({status:"ok"});
       }
 
+      if (data.action === "fillLabInfo") {
+        requirePermission_(auth.session, "Edit");
+        var fillFound = findSampleRowById_(ss, data.sampleId);
+        if (fillFound.error) return jsonOut({status: "error", message: fillFound.error});
+        requireLpContractorMatch_(auth.session, fillFound.lpId);
+        var fillCount = fillLabReportInfo_(fillFound, data.labInfo || {});
+        if (fillCount) recordAudit_(ss, "Data_Entry", fillFound.lpId, "update", actingUser, scope || resolveLpContractor_(fillFound.lpId), "Filled report details for sample " + data.sampleId);
+        return jsonOut({status: "ok", filled: fillCount});
+      }
+
       if (data.action === "updateSampleTracker") {
         requirePermission_(auth.session, "Edit");
         requireLpContractorMatch_(auth.session, data.equipmentCode);

@@ -96,6 +96,43 @@ function writeLabReportInfo_(ss, row, info) {
   found.sheet.getRange(found.rowIdx, LAB_INFO_COL + 1, 1, values.length).setValues([values]);
 }
 
+// Re-importing a report that's already saved: fill in its report details
+// where they're still empty (reports saved before the import kept them).
+// Never overwrites a value, never touches the results, so the report isn't
+// sent back for validation. Found by Sample ID; returns { lpId, filled }.
+function findSampleRowById_(ss, sampleId) {
+  var sheet = ss.getSheetByName("Data_Entry");
+  if (!sheet) return { error: "Data_Entry sheet not found" };
+  var id = normSampleId_(sampleId);
+  if (!id) return { error: "Sample ID is required" };
+  var start = dataStartRowFor("Data_Entry");
+  var last = sheet.getLastRow();
+  if (last < start) return { error: "Lab report not found" };
+  var ids = sheet.getRange(start, 4, last - start + 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (normSampleId_(ids[i][0]) === id) {
+      var rowIdx = start + i;
+      return { sheet: sheet, rowIdx: rowIdx, lpId: String(sheet.getRange(rowIdx, 1).getValue() || "").trim() };
+    }
+  }
+  return { error: "Lab report not found" };
+}
+
+function fillLabReportInfo_(found, info) {
+  ensureLabInfoHeaders_(found.sheet);
+  var range = found.sheet.getRange(found.rowIdx, LAB_INFO_COL + 1, 1, LAB_INFO_FIELDS.length);
+  var current = range.getValues()[0];
+  var filled = 0;
+  var next = LAB_INFO_FIELDS.map(function (f, i) {
+    var have = String(current[i] == null ? "" : current[i]).trim();
+    var incoming = labInfoText_(info[f[0]]);
+    if (!have && incoming) { filled++; return incoming; }
+    return current[i];
+  });
+  if (filled) range.setValues([next]);
+  return filled;
+}
+
 function findSampleRow_(ss, data) {
   var sheet = ss.getSheetByName("Data_Entry");
   if (!sheet) return { error: "Data_Entry sheet not found" };

@@ -61,7 +61,7 @@ function normSampleId(v) {
   return String(v ?? "").trim().toUpperCase();
 }
 
-export default function AddSample({ equipmentOptions, equipmentRegistry, existingSamples, onAdd, onBulkAdd }) {
+export default function AddSample({ equipmentOptions, equipmentRegistry, existingSamples, onAdd, onBulkAdd, onFillLabInfo }) {
   const { T, s } = useTheme();
   const [mode, setMode] = useState("manual"); // "manual" | "bulk" | "review"
   const [reviewCount, setReviewCount] = useState(null); // samples waiting in the Review tab
@@ -211,6 +211,7 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
           equipmentRegistry={equipmentRegistry}
           existingSamples={existingSamples}
           onBulkAdd={onBulkAdd}
+          onFillLabInfo={onFillLabInfo}
           view={mode === "review" ? "review" : "upload"}
           onReviewReady={(n) => {
             setReviewCount(n);

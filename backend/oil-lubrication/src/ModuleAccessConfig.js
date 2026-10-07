@@ -113,6 +113,7 @@ var MA_CONFIG = {
     setProductLowStockLevel: ["inventory"],
     setOilEquivalent: ["inventory"],
     returnLabReport: ["oilreport", "upload", "tracker"],
+    fillLabInfo: ["upload"],
     rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
     submitRoutineItem: ["routines", "mywork"],

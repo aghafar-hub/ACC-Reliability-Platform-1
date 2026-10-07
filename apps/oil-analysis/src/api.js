@@ -751,7 +751,7 @@ export async function getOilChangesForLp(webhookUrl, lpId) {
 // future edit/delete instead of by the ambiguous (equipmentCode, sampleId)
 // pair described below. newId() (parsers.js) is the same id generator
 // Routines/Oil Inventory already use for exactly this reason.
-const LAB_INFO_KEYS = ["accountId", "accountName", "accountAddress", "assetId", "serviceLevel", "bottleId", "testedLubricant", "assetClass", "manufacturer", "model", "viscTemp"];
+export const LAB_INFO_KEYS = ["accountId", "accountName", "accountAddress", "assetId", "serviceLevel", "bottleId", "testedLubricant", "assetClass", "manufacturer", "model", "viscTemp"];
 
 export async function saveSample(webhookUrl, sample, headers) {
   const sampleUid = sample.sampleUid || newId("SMP");
@@ -1389,4 +1389,10 @@ export async function listOrgUsers(platformCoreUrl, sessionToken) {
     throw new Error(envelope.error?.message || "Could not load the account directory.");
   }
   return envelope.data || [];
+}
+
+// Re-importing a report already saved: fill in its report details where they
+// are still empty (the server never overwrites, see LabReports.js).
+export async function fillLabInfo(webhookUrl, sampleId, labInfo) {
+  await postBlind(webhookUrl, { action: "fillLabInfo", sampleId, labInfo });
 }

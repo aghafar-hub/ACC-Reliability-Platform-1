@@ -786,6 +786,25 @@ function AppShell({ config, setConfig, navBridge }) {
   // resync happens once at the end rather than after every sample, since
   // that's what applySampleTrackerSideEffect would otherwise do up to 150
   // times in a large batch.
+  // Re-imported reports that are already saved: fill in their missing report
+  // details (account, asset, bottle…). Never adds a sample.
+  const onFillLabInfo = useCallback(
+    async (fills) => {
+      let done = 0;
+      for (const f of fills) {
+        try {
+          await api.fillLabInfo(config.webhookUrl, f.sampleId, f.labInfo);
+          done++;
+        } catch (err) {
+          pushToast(`${f.sampleId}: ${err.message}`, "error");
+        }
+      }
+      if (done) await runSync();
+      return done;
+    },
+    [config.webhookUrl, pushToast, runSync]
+  );
+
   const onBulkAddSamples = useCallback(
     async (samplesToAdd, onProgress) => {
       const savedSamples = [];
@@ -1274,6 +1293,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 existingSamples={samples}
                 onAdd={onAddSample}
                 onBulkAdd={onBulkAddSamples}
+                onFillLabInfo={onFillLabInfo}
               />
             </div>
           )}

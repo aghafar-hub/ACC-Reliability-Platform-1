@@ -406,8 +406,17 @@ Apps Script (Oil Lubrication test script): replace `Code` and
   delete it (server refuses); the form opens it read-only, and it can't be
   dragged on the board.
 
-Apps Script (Oil Lubrication test script): replace `Code`, `LabReports`
-and `ActionWorkflow`, then deploy a new version.
+- **Filling in details for reports saved earlier.** Samples saved before
+  the import kept the report header (or entered by hand / migrated) show
+  "—" for account, asset, bottle… and a hint on the report page. Import
+  the same PDF again: its samples are already saved so none is added, and
+  the review offers "Fill in report details for N saved samples" (ticked):
+  only the empty detail columns are filled — nothing is overwritten and
+  the results aren't touched, so a validated report stays validated.
+  Tested Lubricant falls back to the oil in use when the report gave none.
+
+Apps Script (Oil Lubrication test script): replace `Code`, `LabReports`,
+`ActionWorkflow` and `ModuleAccessConfig`, then deploy a new version.
 
 ## Test copy: files to paste (Apps Script editor)
 

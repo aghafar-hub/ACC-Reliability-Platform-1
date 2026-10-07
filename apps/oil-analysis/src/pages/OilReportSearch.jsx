@@ -412,7 +412,7 @@ export default function OilReportSearch({
                     ["Sample ID", latest.sampleId],
                     ["Service Level", latest.serviceLevel],
                     ["Bottle ID", latest.bottleId],
-                    ["Tested Lubricant", latest.testedLubricant],
+                    ["Tested Lubricant", latest.testedLubricant || lastEvent?.oilBrandType || reg?.lubricant],
                   ],
                 },
                 {
@@ -436,6 +436,12 @@ export default function OilReportSearch({
                 </div>
               ))}
             </div>
+            {!latest.accountId && !latest.assetId && !latest.bottleId && !latest.serviceLevel && (
+              <div data-testid="report-details-hint" style={{ padding: "8px 20px", fontSize: 11.5, color: T.textSecondary, borderBottom: `1px solid ${T.border}` }}>
+                <i className="ti ti-info-circle" aria-hidden="true" /> This sample was saved without the lab report's header details. Import its PDF again (Add Report →
+                Import) — it won't be added twice, and the missing details are filled in.
+              </div>
+            )}
             <div style={{ padding: "10px 20px", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
               <span style={{ fontSize: 11, color: T.textSecondary }}>
                 Unit ID: <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent, fontSize: 13 }}>{latest.unitId}</span>

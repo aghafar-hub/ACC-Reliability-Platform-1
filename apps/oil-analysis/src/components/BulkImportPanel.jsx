@@ -7,7 +7,7 @@ const MAX_FILES = 30;
 
 // Upload + parse; the review then opens as its own tab on the Add Report page
 // (view === "review", see AddSample.jsx) instead of a pop-up.
-export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, view = "upload", onReviewReady }) {
+export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, view = "upload", onReviewReady }) {
   const { T, s } = useTheme();
   const [files, setFiles] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -39,16 +39,20 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
     }
   }
 
-  async function handleConfirm(selectedSamples) {
+  async function handleConfirm(selectedSamples, fills = []) {
     setSaving(true);
     setSaveProgress({ done: 0, total: selectedSamples.length, errors: 0 });
     try {
-      const result = await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }));
+      const result = selectedSamples.length
+        ? await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }))
+        : { saved: 0, failed: 0 };
+      const filled = fills.length && onFillLabInfo ? await onFillLabInfo(fills) : 0;
       setParsedReports(null);
       setFiles([]);
       onReviewReady?.(null);
       setResultMsg(
         `✓ Added ${result.saved} sample${result.saved === 1 ? "" : "s"}` +
+          (filled ? ` · filled in report details for ${filled} saved sample${filled === 1 ? "" : "s"}` : "") +
           (result.failed ? ` — ${result.failed} failed, see toasts for details` : "")
       );
     } finally {

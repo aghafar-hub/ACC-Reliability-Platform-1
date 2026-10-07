@@ -4,6 +4,7 @@ import useIsMobile from "../hooks/useIsMobile";
 import { formatDate } from "../parsers";
 import { RATING_OPTIONS } from "../theme";
 import { cellMark, viscCellTemp, visibleGroups } from "../labReport";
+import { LAB_INFO_KEYS } from "../api";
 
 // Lab report import — the review tab (not a pop-up). A side bar lists every
 // report: refused files with their reason, then each point's samples with a
@@ -122,6 +123,8 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const existingIds = useMemo(() => new Set((existingSamples || []).map((x) => norm(x.sampleId)).filter(Boolean)), [existingSamples]);
+  const existingById = useMemo(() => new Map((existingSamples || []).map((x) => [norm(x.sampleId), x])), [existingSamples]);
+  const [fillDetails, setFillDetails] = useState(true);
   const [raw, setRaw] = useState(() => {
     const list = buildCandidates(parsedReports, equipmentRegistry);
     // start ticked unless already saved / no Sample ID (a point still to be
@@ -148,6 +151,21 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
   const firstSample = candidates.find((c) => !c.blocked) || candidates[0];
   const [view, setView] = useState(() => (firstSample ? { type: "sample", key: firstSample._key } : refused[0] ? { type: "refused", fileIdx: refused[0].fileIdx } : null));
   const included = candidates.filter((c) => c.include);
+  // Already-saved samples whose saved row is missing report details this
+  // report has: those get filled in (only the empty ones) — never re-added.
+  const fillable = candidates
+    .filter((c) => c.duplicate && existingById.has(norm(c.sample.sampleId)))
+    .map((c) => {
+      const saved = existingById.get(norm(c.sample.sampleId));
+      const labInfo = {};
+      LAB_INFO_KEYS.forEach((k) => {
+        if (c.sample[k] && !saved[k]) labInfo[k] = String(c.sample[k]);
+      });
+      return { key: c._key, sampleId: c.sample.sampleId, labInfo };
+    })
+    .filter((f) => Object.keys(f.labInfo).length);
+  const fillKeys = new Set(fillable.map((f) => f.key));
+  const fills = fillDetails ? fillable : [];
 
   const update = (key, fn) => setRaw((prev) => prev.map((c) => (c._key === key ? fn(c) : c)));
   const toggle = (key, on) => update(key, (c) => ({ ...c, selected: on }));
@@ -177,7 +195,8 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
         ...c.sample,
         unitId: c.unitId,
         recommendations: (c.sample.recommendations || []).map((r) => String(r).trim()).filter(Boolean),
-      }))
+      })),
+      fills.map(({ sampleId, labInfo }) => ({ sampleId, labInfo }))
     );
   }
 
@@ -250,7 +269,11 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontWeight: 600 }}>{formatDate(c.sample.sampledDate) || "No date"}</span>
                     <span style={{ display: "block", fontSize: 10.5, fontFamily: "monospace", color: T.textSecondary }}>{c.sample.sampleId || "no Sample ID"}</span>
-                    {c.duplicate && <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary, fontStyle: "italic" }}>Already saved — skipped</span>}
+                    {c.duplicate && (
+                      <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary, fontStyle: "italic" }}>
+                        Already saved — skipped{fillKeys.has(c._key) && fillDetails ? "; report details filled in" : ""}
+                      </span>
+                    )}
                     {c.noSampleId && <span style={{ display: "block", fontSize: 10.5, color: T.warning, fontWeight: 700 }}>No Sample ID</span>}
                     {c.edited.length > 0 && <span style={{ display: "block", fontSize: 10.5, color: T.accent, fontWeight: 700 }}>Edited</span>}
                   </span>
@@ -285,8 +308,19 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
           <button type="button" style={s.btn} onClick={onDiscard} disabled={saving}>
             Discard
           </button>
-          <button type="button" style={s.btnPrimary} onClick={submit} disabled={saving || included.length === 0} data-testid="import-submit">
-            <i className="ti ti-upload" aria-hidden="true" /> {saving ? "Saving…" : `Submit ${included.length} sample${included.length === 1 ? "" : "s"}`}
+          {fillable.length > 0 && (
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }} title="Saved earlier without the report's header details (account, asset, bottle…)">
+              <input type="checkbox" checked={fillDetails} onChange={(e) => setFillDetails(e.target.checked)} data-testid="import-fill" />
+              Fill in report details for {fillable.length} saved sample{fillable.length === 1 ? "" : "s"}
+            </label>
+          )}
+          <button type="button" style={s.btnPrimary} onClick={submit} disabled={saving || (included.length === 0 && fills.length === 0)} data-testid="import-submit">
+            <i className="ti ti-upload" aria-hidden="true" />{" "}
+            {saving
+              ? "Saving…"
+              : included.length || !fills.length
+                ? `Submit ${included.length} sample${included.length === 1 ? "" : "s"}`
+                : `Fill in details for ${fills.length}`}
           </button>
         </div>
       </div>
@@ -299,7 +333,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               <p style={{ fontWeight: 700, margin: "0 0 6px", color: T.danger }}>
                 <i className="ti ti-ban" aria-hidden="true" /> {currentRefused.fileName} — refused
               </p>
-              <p style={{ fontSize: 13, color: T.textPrimary, margin: "0 0 10px", lineHeight: 1.6 }}>{String(currentRefused.error || "").replace(`${currentRefused.fileName}: `, "")}</p>
+              <p style={{ fontSize: 13, color: T.textPrimary, margin: "0 0 10px", lineHeight: 1.6 }}>{String(currentRefused.error || "").replace(`${currentRefused.fileName}: `, "").replace(/^refused — /, "")}</p>
               <p style={{ fontSize: 12.5, color: T.textSecondary, margin: 0 }}>Nothing from this file is added. Fix the file and import it again.</p>
             </div>
           )}
@@ -317,6 +351,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               onField={setField}
               onMark={cycleMark}
               onText={setText}
+              canFill={fillKeys.has(current._key)}
             />
           )}
         </div>
@@ -327,7 +362,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
 
 // One sample: the point's report as the lab printed it (every sample of this
 // file as a column, this one outlined), with the new samples' cells editable.
-function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onToggle, onOpen, onField, onMark, onText }) {
+function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onToggle, onOpen, onField, onMark, onText, canFill }) {
   const columns = file.items;
   const groups = visibleGroups(columns.map((x) => x.sample)).map((g) => ({ ...g, rows: g.rows.filter((r) => r.field) }));
   const border = `1px solid ${T.border}`;
@@ -438,7 +473,8 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onT
         </div>
         {c.duplicate && (
           <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, color: T.textPrimary }} data-testid="import-dup-note">
-            <i className="ti ti-copy" aria-hidden="true" /> Sample ID {smp.sampleId} is already saved — it won't be added again.
+            <i className="ti ti-copy" aria-hidden="true" /> Sample ID {smp.sampleId} is already saved — it won't be added again
+            {canFill ? "; the report details missing from the saved one (account, asset, bottle…) can be filled in — see the box at the top." : "."}
           </p>
         )}
         {c.noSampleId && <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>This column has no Sample ID — type it in the table to add it.</p>}
