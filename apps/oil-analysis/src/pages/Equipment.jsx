@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { useIsAccEngineer } from "../SessionContext";
+import { useIsAccEngineer, useSessionContractor } from "../SessionContext";
+import EquipmentList from "../components/EquipmentList";
+import { HEALTH_COLOR, healthForLp, indexByLp, pointHealth, worstHealth } from "../equipmentHealth";
 import { formatDate, conditionBucket } from "../parsers";
 import { statusColor } from "../theme";
 import * as api from "../api";
@@ -188,6 +190,7 @@ export default function Equipment({
   equipmentRegistry,
   actions,
   oilChanges,
+  oilChangeEvents,
   actionRegistry,
   webhookUrl,
   pushToast,
@@ -204,7 +207,18 @@ export default function Equipment({
 }) {
   const { T, s } = useTheme();
   const isAccEngineer = useIsAccEngineer();
+  const scopedContractor = useSessionContractor();
   const registry = equipmentRegistry || [];
+  // Every top-up, once — the leak rule in the health score needs them for
+  // every point, not just the one open.
+  const [allTopUps, setAllTopUps] = useState([]);
+  useEffect(() => {
+    if (!webhookUrl) return;
+    let cancelled = false;
+    api.getAllTopUps(webhookUrl).then((t) => { if (!cancelled) setAllTopUps(t); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [webhookUrl]);
+  const lpIndex = useMemo(() => indexByLp({ samples, actions, oilChanges, topUps: allTopUps }), [samples, actions, oilChanges, allTopUps]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   // { mode: "equipment", id: Equipment_ID } | { mode: "lp", id: LP_ID } | null
@@ -284,7 +298,7 @@ export default function Equipment({
 
   const isEquipmentView = selection?.mode === "equipment";
   const isLpView = selection?.mode === "lp";
-  const groupRows = isEquipmentView ? groups.get(selection.id) || [] : [];
+  const groupRows = useMemo(() => (isEquipmentView ? groups.get(selection.id) || [] : []), [isEquipmentView, groups, selection?.id]);
 
   // ── single lubrication point (unchanged from before the redesign) ──────
   const reg = isLpView ? registry.find((r) => r.code === selection.id) : null;
@@ -310,12 +324,11 @@ export default function Equipment({
   const latestTopUp = topUps[0] || null;
   const criticality = isLpView ? criticalityFor(latest, oilChangeOverdue) : "Normal";
   const criticalityColor = criticality === "High" ? "danger" : criticality === "Medium" ? "warning" : "success";
-  const healthScore =
-    (latest?.reportStatus === "Alert" ? 2 : latest?.reportStatus === "Caution" || latest?.reportStatus === "Warning" ? 1 : 0) +
-    (oilChangeOverdue ? 2 : 0) +
-    (openActions.length > 0 ? 1 : 0);
-  const health = healthScore >= 3 ? "Poor" : healthScore >= 1 ? "Fair" : "Good";
-  const healthColor = health === "Poor" ? "danger" : health === "Fair" ? "warning" : "success";
+  const lpHealth = isLpView && reg
+    ? pointHealth({ reg, samples: samplesForEquip, oilChange: lpOilChangeState, actions: actionsForEquip, topUps: topUps.length ? topUps : lpIndex.topUps.get(reg.code) || [] })
+    : null;
+  const health = lpHealth?.health || "Good";
+  const healthColor = HEALTH_COLOR[health];
   const siblingCount = isLpView ? (groups.get(reg?.equipmentId)?.length || 0) : 0;
 
   const lpTimeline = useMemo(() => {
@@ -363,10 +376,11 @@ export default function Equipment({
         actions: pointActions,
         openActions: pointActions.filter((a) => a.status !== "Closed").length,
         criticality: criticalityFor(latest, pointOilChange?.status === "Overdue"),
+        h: healthForLp(r, lpIndex),
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEquipmentView, groupRows, samples, oilChanges, actions]);
+  }, [isEquipmentView, groupRows, samples, oilChanges, actions, lpIndex]);
 
   const totalSamples = pointSummaries.reduce((sum, p) => sum + p.samples.length, 0);
   const totalOpenActions = pointSummaries.reduce((sum, p) => sum + p.openActions, 0);
@@ -375,15 +389,18 @@ export default function Equipment({
     const sev = STATUS_SEVERITY[p.latest.reportStatus] || 1;
     return !acc || sev > acc.sev ? { status: p.latest.reportStatus, sev } : acc;
   }, null);
-  // Worst criticality across every point on this equipment — distinct from
-  // `worst` above, which only looks at sample severity: criticalityFor also
-  // folds in an overdue oil change, so a point can be High here even with a
-  // Normal latest sample.
-  const equipmentCriticality = pointSummaries.reduce(
-    (acc, p) => (CRITICALITY_RANK[p.criticality] > CRITICALITY_RANK[acc] ? p.criticality : acc),
-    "Normal"
-  );
-  const equipmentCriticalityColor = equipmentCriticality === "High" ? "danger" : equipmentCriticality === "Medium" ? "warning" : "success";
+  const machineHealth = worstHealth(pointSummaries.map((p) => p.h));
+  const machineAttention = pointSummaries.filter((p) => p.h.health !== "Good").length;
+  const machineOverdueActions = pointSummaries.reduce((n, p) => n + p.h.overdueActions, 0);
+  const oilUsedThisYear = useMemo(() => {
+    if (!isEquipmentView) return 0;
+    const codes = new Set(groupRows.map((r) => r.code));
+    const year = new Date().getFullYear();
+    const inYear = (d) => new Date(d).getFullYear() === year;
+    const changes = (oilChangeEvents || []).filter((e) => codes.has(e.lpId) && inYear(e.eventDate)).reduce((n, e) => n + (parseFloat(e.quantityUsed) || 0), 0);
+    const tops = allTopUps.filter((t) => codes.has(t.lpId) && inYear(t.eventDate)).reduce((n, t) => n + (parseFloat(t.quantity) || 0), 0);
+    return Math.round((changes + tops) * 10) / 10;
+  }, [isEquipmentView, groupRows, oilChangeEvents, allTopUps]);
   const soonestNextDue = pointSummaries
     .map((p) => p.oilChange)
     .filter((o) => o?.nextDueDate)
@@ -500,7 +517,7 @@ export default function Equipment({
       <div
         style={{
           textAlign: selection ? "left" : "center",
-          padding: selection ? "0 0 20px" : "40px 20px 30px",
+          padding: selection ? "0 0 20px" : "8px 0 18px",
           transition: "padding 0.15s",
         }}
       >
@@ -511,9 +528,9 @@ export default function Equipment({
             >
               Equipment Lookup
             </div>
-            <p style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px", color: T.textPrimary }}>Find any piece of equipment</p>
-            <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 auto 22px", maxWidth: 440 }}>
-              Search by equipment code for the full combined picture, or by a specific LP_ID for just that lubrication point.
+            <p style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", color: T.textPrimary }}>Oil Equipment</p>
+            <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 auto 14px", maxWidth: 520 }}>
+              Every machine and lubrication point, worst first. Search for one, or filter the list below.
             </p>
           </>
         )}
@@ -720,21 +737,13 @@ export default function Equipment({
       </div>
 
       {!selection && (
-        <div
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, maxWidth: 760, margin: "0 auto" }}
-        >
-          {[
-            ["ti-timeline", "Sample timeline", "Every reading for every lubrication point, newest first, with severity at a glance."],
-            ["ti-droplet", "Oil change history", "Every lubrication point — last change, next due, and how overdue it is."],
-            ["ti-clipboard-check", "Actions taken", "Every action ever raised for this equipment, with status and outcome."],
-          ].map(([icon, title, desc]) => (
-            <div key={title} style={{ ...s.card, marginBottom: 0 }}>
-              <i className={`ti ${icon}`} style={{ color: T.accent, fontSize: 18, marginBottom: 8, display: "block" }} aria-hidden="true" />
-              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 3 }}>{title}</div>
-              <div style={{ fontSize: 11.5, color: T.textSecondary, lineHeight: 1.5 }}>{desc}</div>
-            </div>
-          ))}
-        </div>
+        <EquipmentList
+          registry={registry}
+          idx={lpIndex}
+          scopedContractor={scopedContractor}
+          onOpenEquipment={selectEquipmentGroup}
+          onOpenLp={selectLp}
+        />
       )}
 
       {/* ── combined equipment dashboard ──────────────────────────────── */}
@@ -760,18 +769,18 @@ export default function Equipment({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 18 }} data-testid="machine-summary">
               {[
-                ["Total Samples", totalSamples, null],
-                ["Worst Result", worst ? worst.status : "—", worst ? statusColor(T, worst.status) : null],
-                ["Equipment Criticality", equipmentCriticality, T[equipmentCriticalityColor]],
-                ["Open Actions", totalOpenActions, totalOpenActions > 0 ? T.danger : T.success],
+                ["Health", machineHealth, T[HEALTH_COLOR[machineHealth]], machineAttention ? `${machineAttention} of ${groupRows.length} points need attention` : "All points good"],
+                ["Worst Result", worst ? worst.status : "—", worst ? statusColor(T, worst.status) : null, `${totalSamples} sample${totalSamples === 1 ? "" : "s"}`],
+                ["Open Actions", totalOpenActions, totalOpenActions > 0 ? T.danger : T.success, machineOverdueActions ? `${machineOverdueActions} overdue` : null],
                 [
                   "Next Oil Change",
                   soonestNextDue ? formatDate(soonestNextDue.nextDueDate) : "—",
                   soonestNextDue?.status === "Overdue" ? T.danger : null,
                   soonestNextDue?.lubricationPoint,
                 ],
+                ["Oil Used This Year", `${oilUsedThisYear} L`, null, "oil changes + top-ups"],
               ].map(([label, val, color, sub]) => (
                 <div key={label} style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "11px 13px" }}>
                   <div
@@ -796,66 +805,74 @@ export default function Equipment({
           {cardSection(
             <>
               {sectionLabel("ti-list-details", "Lubrication Points", groupRows.length)}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {pointSummaries.map((p) => (
-                  <div
-                    key={p.reg.code}
-                    style={{
-                      background: T.cardSubBg,
-                      border: `1px solid ${T.border2}`,
-                      borderRadius: 10,
-                      padding: "14px 16px",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{p.reg.code}</span>
-                          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{p.reg.lubricationPoint || p.reg.description}</span>
-                          <SmallBadge T={T} color={p.criticality === "High" ? "danger" : p.criticality === "Medium" ? "warning" : "success"}>
-                            {p.criticality}
-                          </SmallBadge>
-                        </div>
-                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 3 }}>
-                          {p.reg.lubricant || "—"}
-                          {p.reg.oilAnalysisRequired === "Yes" ? " · oil analysis tracked" : " · oil change / actions only"}
-                        </div>
-                      </div>
-                      <button style={{ ...s.btn, padding: "4px 10px", fontSize: 11.5 }} onClick={() => selectLp(p.reg.code)}>
-                        Open point <i className="ti ti-arrow-right" aria-hidden="true" />
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 10 }}>
-                      <div style={{ fontSize: 11.5 }}>
-                        <span style={{ color: T.textMuted }}>Latest sample: </span>
-                        {p.latest ? (
-                          <span style={s.badge(p.latest.reportStatus)}>
-                            {p.latest.reportStatus} · {formatDate(p.latest.sampledDate)}
-                          </span>
-                        ) : (
-                          <span style={{ color: T.textMuted }}>{p.reg.oilAnalysisRequired === "Yes" ? "none yet" : "not tracked"}</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11.5 }}>
-                        <span style={{ color: T.textMuted }}>Oil change: </span>
-                        {p.oilChange?.changeDate ? (
-                          <span style={{ color: p.oilChange.status === "Overdue" ? T.danger : T.textPrimary, fontWeight: 600 }}>
-                            last {formatDate(p.oilChange.changeDate)}
-                            {p.oilChange.nextDueDate ? `, next due ${formatDate(p.oilChange.nextDueDate)}` : ""}
-                          </span>
-                        ) : (
-                          <span style={{ color: T.textMuted }}>no history yet</span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 11.5 }}>
-                        <span style={{ color: T.textMuted }}>Actions: </span>
-                        <span style={{ color: p.openActions > 0 ? T.danger : T.textPrimary, fontWeight: 600 }}>
-                          {p.openActions > 0 ? `${p.openActions} open` : p.actions.length > 0 ? "none open" : "none"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ overflowX: "auto" }}>
+                <table style={s.table} data-testid="points-compare">
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Point</th>
+                      <th style={s.th}>Oil</th>
+                      <th style={s.th}>Health</th>
+                      <th style={s.th}>Latest result</th>
+                      <th style={s.th}>Oil change</th>
+                      <th style={s.th}>Actions</th>
+                      <th style={s.th}>Top-ups (30 d)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...pointSummaries]
+                      .sort((a, b) => b.h.score - a.h.score)
+                      .map((p) => (
+                        <tr key={p.reg.code} style={{ cursor: "pointer" }} onClick={() => selectLp(p.reg.code)}>
+                          <td style={s.td}>
+                            <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{p.reg.code}</div>
+                            <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.reg.lubricationPoint || p.reg.description}</div>
+                          </td>
+                          <td style={s.td}>
+                            {p.reg.lubricant || "—"}
+                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.reg.oilAnalysisRequired === "Yes" ? "sampled" : "time-based, not sampled"}</div>
+                          </td>
+                          <td style={s.td}>
+                            <SmallBadge T={T} color={HEALTH_COLOR[p.h.health]}>{p.h.health}</SmallBadge>
+                            {p.h.reasons.length > 0 && (
+                              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 3 }}>{p.h.reasons.map((x) => x.text).join(" · ")}</div>
+                            )}
+                          </td>
+                          <td style={s.td}>
+                            {p.latest ? (
+                              <>
+                                <span style={s.badge(p.latest.reportStatus)}>{p.latest.reportStatus}</span>
+                                <div style={{ fontSize: 11, color: T.textSecondary }}>{formatDate(p.latest.sampledDate)}</div>
+                              </>
+                            ) : (
+                              <span style={{ color: T.textMuted }}>{p.reg.oilAnalysisRequired === "Yes" ? "none yet" : "—"}</span>
+                            )}
+                          </td>
+                          <td style={s.td}>
+                            {p.oilChange?.changeDate ? (
+                              <>
+                                <div>last {formatDate(p.oilChange.changeDate)}</div>
+                                {p.oilChange.nextDueDate && (
+                                  <div style={{ fontSize: 11, color: p.oilChange.status === "Overdue" ? T.danger : T.textSecondary, fontWeight: p.oilChange.status === "Overdue" ? 700 : 400 }}>
+                                    next {formatDate(p.oilChange.nextDueDate)}
+                                    {p.oilChange.status === "Overdue" ? " (overdue)" : ""}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span style={{ color: T.textMuted }}>no history yet</span>
+                            )}
+                          </td>
+                          <td style={s.td}>
+                            {p.openActions ? `${p.openActions} open` : "—"}
+                            {p.h.overdueActions > 0 && <div style={{ fontSize: 11, color: T.danger }}>{p.h.overdueActions} overdue</div>}
+                          </td>
+                          <td style={{ ...s.td, color: p.h.recentTopUps >= 3 ? T.danger : undefined, fontWeight: p.h.recentTopUps >= 3 ? 700 : undefined }}>
+                            {p.h.recentTopUps || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             </>
           )}
@@ -872,6 +889,11 @@ export default function Equipment({
                 <SmallBadge T={T} color={healthColor}>{health}</SmallBadge>
               </div>
               <div style={{ fontSize: 14, color: T.textSecondary, marginTop: 4 }}>{reg?.lubricationPoint || reg?.description || "—"}</div>
+              {lpHealth?.reasons.length > 0 && (
+                <div style={{ fontSize: 12, color: T[healthColor], marginTop: 4 }} data-testid="health-reasons">
+                  {health}: {lpHealth.reasons.map((x) => x.text).join(" · ")}
+                </div>
+              )}
               {reg?.equipmentId && (
                 <button
                   style={{ ...s.btn, padding: "3px 8px", fontSize: 11, marginTop: 8 }}

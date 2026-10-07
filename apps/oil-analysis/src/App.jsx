@@ -1228,6 +1228,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 equipmentRegistry={equipmentRegistry}
                 actions={actions}
                 oilChanges={oilChanges}
+                oilChangeEvents={oilChangeEvents}
                 actionRegistry={actionRegistry}
                 webhookUrl={config.webhookUrl}
                 pushToast={pushToast}
