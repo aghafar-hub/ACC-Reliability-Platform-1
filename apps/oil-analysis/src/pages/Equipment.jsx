@@ -269,6 +269,7 @@ export default function Equipment({
   onOpenRoute,
   initialCode,
   onCodeChange,
+  focus,
 }) {
   const { T, s } = useTheme();
   const isAccEngineer = useIsAccEngineer();
@@ -293,6 +294,11 @@ export default function Equipment({
     setSelection(sel);
     if (onCodeChange) onCodeChange(sel);
   }
+  // opened from outside (the shell's global search)
+  useEffect(() => {
+    if (focus?.sel) setSelectionSynced(focus.sel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a new focus arrives
+  }, [focus?.n]);
 
   const [editingSample, setEditingSample] = useState(null);
   const [editingAction, setEditingAction] = useState(null); // { action, isNew }

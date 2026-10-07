@@ -13,7 +13,9 @@ export type NavBridge = {
   // page (e.g. a routineId) instead of just landing on the page's list view.
   // An embedded app that doesn't recognize it for a given page just ignores
   // the extra argument and behaves exactly as before.
-  navigate?: (pageId: string, recordId?: string) => void;
+  // An object recordId carries a pre-filled form instead, e.g.
+  // { newRoute: { routeType: 'Emergency Top Up', ... } } (the phone's ＋ menu).
+  navigate?: (pageId: string, recordId?: NavRecord) => void;
   onNavigate?: (pageId: string) => void;
   // Set by the embedded app itself (see each app's ThemeContext/App) so the
   // platform Settings page can push a live theme change into whichever
@@ -30,6 +32,19 @@ export type NavBridge = {
   // directly by the shell, no bridge needed.
   sync?: () => void;
   onSyncStateChange?: (info: SyncInfo) => void;
+  // Global search (top bar): the module answers from the data it already
+  // holds — points, sample IDs, … — so search works offline too.
+  search?: (query: string) => SearchResult[];
+};
+
+export type NavRecord = string | Record<string, unknown>;
+
+export type SearchResult = {
+  kind: string;
+  title: string;
+  subtitle?: string;
+  page: string;
+  recordId?: string;
 };
 
 export type SyncInfo = { syncState: string; pendingSyncCount: number };
@@ -56,7 +71,8 @@ type EmbeddedNavContextValue = {
   register: (moduleId: string, bridge: NavBridge) => void;
   unregister: (moduleId: string) => void;
   setActivePage: (moduleId: string, pageId: string) => void;
-  navigateTo: (moduleId: string, pageId: string, recordId?: string) => void;
+  navigateTo: (moduleId: string, pageId: string, recordId?: NavRecord) => void;
+  search: (moduleId: string, query: string) => SearchResult[];
   // Patch 35: the shell TopBar's module-aware Sync button/badge — see
   // NavBridge.sync/onSyncStateChange above.
   syncInfoFor: (moduleId: string) => SyncInfo | null;
@@ -103,6 +119,13 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
         );
       },
       navigateTo: (moduleId, pageId, recordId) => modules[moduleId]?.bridge.navigate?.(pageId, recordId),
+      search: (moduleId, query) => {
+        try {
+          return modules[moduleId]?.bridge.search?.(query) ?? [];
+        } catch {
+          return [];
+        }
+      },
       pushTheme: (themeName) => {
         Object.values(modules).forEach((m) => m.bridge.setTheme?.(themeName));
       },

@@ -44,6 +44,13 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
   const navigate = useNavigate();
   const embeddedNav = useEmbeddedNav();
   const [open, setOpen] = useState(false);
+  // The phone's bottom bar has an "Alerts" button (BottomNav.tsx) — it opens
+  // this same panel instead of a second notifications screen.
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener('acc:open-notifications', show);
+    return () => window.removeEventListener('acc:open-notifications', show);
+  }, []);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);

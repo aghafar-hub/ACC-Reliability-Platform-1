@@ -96,6 +96,12 @@
   .shell-topbar-lang {
     display: none;
   }
+  /* On module pages the page picker under the bar already names the page,
+     so the bar keeps just the module name. */
+  .shell-topbar:has(~ .module-tabs) .shell-topbar-sep,
+  .shell-topbar:has(~ .module-tabs) .shell-topbar-page {
+    display: none;
+  }
 
   /* This module's sync row (added right after the menu button/crumb fix
      above) needs the same treatment on an already-tight phone width —

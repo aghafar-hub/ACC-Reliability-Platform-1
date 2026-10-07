@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
+import ModuleTabs from './components/ModuleTabs';
 import SaveBlockedToast from './components/SaveBlockedToast';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './auth/AuthContext';
@@ -98,6 +99,7 @@ function ShellRoot() {
       <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
       <div className="app-shell-right">
         <TopBar onOpenMenu={() => setMobileNavOpen(true)} />
+        <ModuleTabs />
         <main className="shell-page-content">
           <Routes>
             {/* Patch 31 briefly pointed "/" and "/equipment" at Oil

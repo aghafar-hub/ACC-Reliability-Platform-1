@@ -40,7 +40,7 @@
    .app-content--embedded's own negative-margin/zoom system below. */
 @media (max-width: 860px) {
   .app-shell-right {
-    padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -195,12 +195,12 @@
 
 .env-ribbon {
   position: fixed;
-  top: 0;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   z-index: 2000;
   padding: 2px 14px;
-  border-radius: 0 0 8px 8px;
+  border-radius: 8px 8px 0 0;
   background: #c2410c;
   color: #fff;
   font-size: 12px;
@@ -214,6 +214,8 @@
   .env-ribbon {
     font-size: 12px;
     padding: 1px 10px;
+    /* sits on top of the bottom bar */
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
   }
 
   .env-ribbon-extra {

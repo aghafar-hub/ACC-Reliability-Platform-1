@@ -5,6 +5,7 @@ import { useEmbeddedNav } from '../embeddedNav';
 import { Icon, TablerIcon } from '../icons';
 import { NAV_ITEMS } from '../navigation';
 import NotificationBell from './NotificationBell';
+import GlobalSearch from './GlobalSearch';
 import './TopBar.css';
 
 // Shell-level TopBar (Patch 28) — matches the reference mockup's own bar:
@@ -95,6 +96,8 @@ export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
           </>
         )}
       </div>
+
+      <GlobalSearch />
 
       <div className="shell-topbar-actions">
         {/* Patch 35: this module's own Sync button/pending-upload count,

@@ -23,7 +23,7 @@ import { ActionWorkflowProvider, LabWorkflowProvider } from "./ActionWorkflowCon
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
 import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistry";
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
-import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges } from "./parsers";
+import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, formatDate } from "./parsers";
 import * as api from "./api";
 import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
@@ -153,6 +153,9 @@ function AppShell({ config, setConfig, navBridge }) {
   }, [page]);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
   const [equipmentSelectedCode, setEquipmentSelectedCode] = useState(""); // sticky so Equipment restores the same equipment after Back
+  // Set when the shell opens a point from outside (global search): Equipment
+  // switches to it even though it's already mounted.
+  const [equipmentFocus, setEquipmentFocus] = useState(null);
   const [oilReportCode, setOilReportCode] = useState("");
   const [oilReportFocus, setOilReportFocus] = useState(null);
   // Patch 15: set when the shell's notification bell navigates here with a
@@ -1102,16 +1105,54 @@ function AppShell({ config, setConfig, navBridge }) {
     setMobileNavOpen(false);
   }
 
+  // recordId: a routine ID (routines), an LP_ID (equipment / oilreport), or
+  // { newRoute: {...} } to open New Route pre-filled (the shell's ＋ menu).
   function navigate(nextPage, recordId) {
+    if (nextPage === "oilreport" && typeof recordId === "string" && recordId) {
+      goToOilReport(recordId);
+      return;
+    }
     if (nextPage !== "equipment") setSelectedEquipment(null);
-    setDeepLinkRoutineId(nextPage === "routines" && recordId ? recordId : null);
+    if (nextPage === "equipment" && typeof recordId === "string" && recordId) {
+      setEquipmentFocus({ sel: { mode: "lp", id: recordId }, n: Date.now() });
+    }
+    if (nextPage === "routines" && recordId && typeof recordId === "object" && recordId.newRoute) {
+      setDeepLinkNewRoute(recordId.newRoute);
+      setDeepLinkRoutineId(null);
+    } else {
+      setDeepLinkRoutineId(nextPage === "routines" && typeof recordId === "string" && recordId ? recordId : null);
+    }
     setPage(nextPage);
     setMobileNavOpen(false);
+  }
+
+  // Global search in the shell's top bar (embeddedNav.search): points by
+  // LP_ID, Equipment ID, the lab's Report Equipment ID or description, and
+  // lab reports by Sample ID. Spaces and case are ignored.
+  function searchAll(query) {
+    const sq = (v) => String(v ?? "").replace(/\s+/g, "").toLowerCase();
+    const q = sq(query);
+    if (q.length < 2) return [];
+    const points = [];
+    for (const r of equipmentRegistry || []) {
+      const hit = [r.code, r.equipmentId, r.reportEquipmentId].some((v) => sq(v).includes(q)) || String(r.description || "").toLowerCase().includes(String(query).trim().toLowerCase());
+      if (!hit) continue;
+      points.push({ kind: "point", title: r.code, subtitle: [r.description, r.reportEquipmentId && `Report ID ${r.reportEquipmentId}`, r.contractor].filter(Boolean).join(" · "), page: "equipment", recordId: r.code });
+      if (points.length >= 8) break;
+    }
+    const reports = [];
+    for (const sm of samples || []) {
+      if (!sm.sampleId || !sq(sm.sampleId).includes(q)) continue;
+      reports.push({ kind: "sample", title: `Sample ${sm.sampleId}`, subtitle: [sm.unitId, formatDate(sm.sampledDate), sm.reportStatus].filter(Boolean).join(" · "), page: "oilreport", recordId: sm.unitId });
+      if (reports.length >= 5) break;
+    }
+    return [...points, ...reports];
   }
 
   useEffect(() => {
     if (!navBridge) return;
     navBridge.navigate = navigate;
+    navBridge.search = searchAll;
     navBridge.onNavigate?.(page);
   });
 
@@ -1294,6 +1335,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 onOpenRoute={(routineId) => navigate("routines", routineId)}
                 initialCode={equipmentSelectedCode}
                 onCodeChange={setEquipmentSelectedCode}
+                focus={equipmentFocus}
               />
             </div>
           )}

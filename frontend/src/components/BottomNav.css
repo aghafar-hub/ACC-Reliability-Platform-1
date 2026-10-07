@@ -1,73 +1,43 @@
-/* Hidden by default (desktop) — only shown <=860px, matching Sidebar.css's
-   overlay breakpoint and TopBar.css's hamburger breakpoint exactly. All
-   three must agree on where "mobile" starts, or the hamburger/bottom bar/
-   sidebar-overlay modes disagree about which one should be active. */
+/* Phone bottom bar (design system D2) — see BottomNav.tsx. Hidden on
+   desktop; shown <=860px, the same breakpoint as Sidebar.css's overlay and
+   TopBar.css's menu button. */
 .bottom-nav {
   display: none;
 }
 
 @media (max-width: 860px) {
   .bottom-nav {
-    display: flex;
+    display: grid;
+    align-items: start;
     position: fixed;
-    left: 0;
-    right: 0;
+    inset-inline: 0;
     bottom: 0;
-    height: 58px;
-    /* iPhone home-indicator safe area — without this the bar's own
-       content sits flush against (or under) the gesture bar. Falls back
-       to 0 on a device with no notch/home-indicator inset. */
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    background: var(--shell-sidebar-bg, #0f172a);
-    background: color-mix(in srgb, var(--shell-sidebar-bg, #0f172a) 88%, transparent);
+    height: calc(62px + env(safe-area-inset-bottom, 0px));
+    /* iPhone home-indicator safe area */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--shell-card-bg, #fff);
+    background: color-mix(in srgb, var(--shell-card-bg, #fff) 94%, transparent);
     -webkit-backdrop-filter: blur(var(--glass-blur));
     backdrop-filter: blur(var(--glass-blur));
-    border-top: 1px solid var(--shell-border, #1e293b);
+    border-top: 1px solid var(--shell-border, #d9e0e8);
     z-index: 300;
-  }
-
-  /* The one deliberate motion moment on this bar — a pill that slides
-     under whichever of the 5 equal-width slots (4 tabs + More) is active,
-     instead of every item just silently swapping color. Sized/positioned
-     in the 0–100% box of a single slot; BottomNav.tsx translates it by
-     slotIndex * 100%, so this element's own width IS one slot's width. */
-  .bottom-nav-indicator {
-    position: absolute;
-    top: 6px;
-    left: 0;
-    width: 20%;
-    height: 40px;
-    pointer-events: none;
-    transition: transform var(--motion-base) var(--motion-ease);
-  }
-
-  .bottom-nav-indicator::after {
-    content: '';
-    display: block;
-    margin: 0 10px;
-    height: 100%;
-    border-radius: var(--radius-md);
-    background: var(--shell-accent, #38bdf8);
-    opacity: 0.14;
   }
 
   .bottom-nav-item {
     position: relative;
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
     min-width: 0;
-    height: 58px;
+    height: 62px;
     border: none;
     background: transparent;
-    color: var(--shell-sidebar-text-secondary, #8ea0bb);
+    color: var(--shell-text-secondary, #4a5a70);
     font-family: var(--sans);
     font-size: 12px;
     font-weight: 600;
-    text-decoration: none;
     cursor: pointer;
     padding: 0;
   }
@@ -78,17 +48,130 @@
     white-space: nowrap;
     max-width: 100%;
     padding: 0 4px;
-    transition: transform var(--motion-fast) var(--motion-ease);
   }
 
   .bottom-nav-item--active {
-    color: var(--shell-accent, #38bdf8);
+    color: var(--shell-accent, #1e5bb8);
   }
 
-  /* .tap-scale (index.css) already handles the press-compress — this
-     widens its effect slightly for a bottom-nav tap specifically, since a
-     whole-button scale reads better here than the default 0.97. */
+  .bottom-nav-item--active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    inset-inline: 22%;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--shell-accent, #1e5bb8);
+  }
+
   .bottom-nav-item:active {
     transform: scale(0.94);
   }
+
+  .bottom-nav-plus {
+    width: 56px;
+    height: 56px;
+    margin-top: -20px;
+    border-radius: 16px;
+    background: var(--shell-accent, #1e5bb8);
+    color: var(--shell-accent-text, #fff);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--shell-accent, #1e5bb8) 40%, transparent);
+  }
+
+  .bottom-nav-item:focus-visible,
+  .quick-sheet-item:focus-visible {
+    outline: 2px solid var(--shell-accent, #1e5bb8);
+    outline-offset: 2px;
+  }
+}
+
+.quick-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 27, 46, 0.45);
+  z-index: 600;
+}
+
+.quick-sheet {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 601;
+  background: var(--shell-card-bg, #fff);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.18);
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  animation: quick-sheet-in 0.18s ease-out;
+  font-family: var(--sans);
+}
+
+@keyframes quick-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quick-sheet {
+    animation: none;
+  }
+}
+
+.quick-sheet-grab {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--shell-border, #d9e0e8);
+  margin: 0 auto 12px;
+}
+
+.quick-sheet-title {
+  margin: 0 0 6px;
+  font: 700 18px var(--heading, var(--sans));
+  color: var(--shell-text, #0f1b2d);
+}
+
+.quick-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 60px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--shell-border, #d9e0e8) 60%, transparent);
+  background: none;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-align: start;
+  color: var(--shell-text, #0f1b2d);
+}
+
+.quick-sheet-item:last-child {
+  border-bottom: 0;
+}
+
+.quick-sheet-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--shell-accent, #1e5bb8) 12%, transparent);
+  color: var(--shell-accent, #1e5bb8);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.quick-sheet-text b {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.quick-sheet-text small {
+  display: block;
+  font-size: 13px;
+  color: var(--shell-text-secondary, #4a5a70);
 }

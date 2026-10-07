@@ -1,81 +1,134 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { ORG_ACC } from '../auth/session';
+import { useEmbeddedNav, type NavRecord } from '../embeddedNav';
 import { tapHaptic } from '../haptics';
 import { Icon } from '../icons';
-import { canOpenModule, useModuleAccess } from '../moduleAccess';
+import { canOpenModule, canSave, useModuleAccess } from '../moduleAccess';
 import './BottomNav.css';
 
-// App-like bottom tab bar (Patch 34) — the primary navigation surface on a
-// phone, replacing "navigate via the sidebar" with the pattern users
-// actually associate with a normal installed app. Only visible <=860px
-// (BottomNav.css), same breakpoint as Sidebar's overlay mode and TopBar's
-// hamburger button — all three must agree on where "mobile" starts.
-//
-// Only 4 primary slots fit well on a phone without feeling cramped, so this
-// is deliberately NOT every item in navigation.ts's NAV_ITEMS (7 total) —
-// confirmed directly by the user: Dashboard, Oil Lubrication, Vibration
-// Analysis, and My Work are the ones actually built/used today; Equipment,
-// Reliability Measures, and Compressors (all still placeholders, see
-// App.tsx's ComingSoon routes) live behind "More" instead, which reuses
-// the exact same slide-in Sidebar overlay the hamburger button opens
-// (onOpenMore === TopBar's onOpenMenu, both drive App.tsx's mobileNavOpen)
-// — also the user's own call: no second navigation UI to design/build.
-const PRIMARY_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
-  { to: '/oil-lubrication', label: 'Oil Lub.', icon: 'droplet', end: false, moduleId: 'oil-analysis' },
-  { to: '/vibration-analysis', label: 'Vibration', icon: 'graphs', end: false, moduleId: 'vibration-analysis' },
-  { to: '/my-work', label: 'My Work', icon: 'action', end: false },
-] as const;
+// The phone's bottom bar (design system D2), only visible <=860px
+// (BottomNav.css): Home · Equipment · ＋ · Alerts · More.
+// - Home depends on the role: ACC staff open the Dashboard, contractor
+//   staff open My Work (technicians-only have their own shell).
+// - ＋ starts the field entries from any screen. Work is recorded through
+//   routes in this app, so it offers Emergency top-up (a pre-filled route),
+//   New route, Add lab report and New vibration reading — whichever this
+//   person may do (Module Access).
+// - Alerts opens the notification panel; More opens the full menu.
+const OIL = 'oil-analysis';
+const VIB = 'vibration-analysis';
+const OIL_ROUTE = '/oil-lubrication';
+const VIB_ROUTE = '/vibration-analysis';
+
+type QuickItem = { key: string; label: string; hint: string; icon: string; moduleId: string; route: string; page: string; record?: NavRecord };
 
 export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const embeddedNav = useEmbeddedNav();
+  const { claims } = useAuth();
   const { access } = useModuleAccess();
-  // Phase 0: a module this person can't open has no slot at all.
-  const items = PRIMARY_ITEMS.filter((item) => !('moduleId' in item) || canOpenModule(access[item.moduleId]));
-  // "More" highlights whenever the active route isn't one of the 4 primary
-  // tabs, so the bar always shows where you are, even for a page (Settings,
-  // Equipment, Reliability Measures, Compressors) that only lives behind it.
-  const primaryIndex = items.findIndex((item) =>
-    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
-  );
-  // 5 equal-width slots (4 primary + More) — the sliding indicator just
-  // needs to know which one of the 5 to sit under; -1 (no primary tab
-  // active) means "More" owns it, slot index 4.
-  const activeSlot = primaryIndex === -1 ? items.length : primaryIndex;
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const oil = canOpenModule(access[OIL]);
+  const vib = canOpenModule(access[VIB]);
+  const contractorStaff = !!claims && claims.orgId !== ORG_ACC;
+  const mainModule = oil ? { id: OIL, route: OIL_ROUTE } : vib ? { id: VIB, route: VIB_ROUTE } : null;
+
+  function openPage(moduleId: string, route: string, page: string, record?: NavRecord) {
+    tapHaptic();
+    embeddedNav.navigateTo(moduleId, page, record);
+    if (location.pathname !== route) navigate(route);
+    setSheetOpen(false);
+  }
+
+  const activePage = mainModule ? embeddedNav.activePageFor(mainModule.id) : null;
+  const onMain = !!mainModule && location.pathname.startsWith(mainModule.route);
+  const homeActive = contractorStaff ? location.pathname === '/my-work' : onMain && (activePage === 'dashboard' || !activePage);
+  const equipmentPage = mainModule?.id === OIL ? 'equipment' : 'equipreg';
+  const equipmentActive = onMain && activePage === equipmentPage;
+
+  const quick: QuickItem[] = [
+    oil && canSave(access[OIL], 'routines') && {
+      key: 'topup', label: 'Emergency top-up', hint: 'Start a top-up route now', icon: 'droplet', moduleId: OIL, route: OIL_ROUTE, page: 'routines',
+      record: { newRoute: { lpId: '', routeType: 'Emergency Top Up', workType: 'Top Up', contractor: '', reason: '' } },
+    },
+    oil && canSave(access[OIL], 'routines') && {
+      key: 'route', label: 'New route', hint: 'Oil change, sampling, top-up…', icon: 'route', moduleId: OIL, route: OIL_ROUTE, page: 'routines',
+      record: { newRoute: { lpId: '', routeType: 'Sampling', workType: 'Sampling', contractor: '', reason: '' } },
+    },
+    oil && canSave(access[OIL], 'upload') && {
+      key: 'report', label: 'Add lab report', hint: 'Import the lab PDF or type it in', icon: 'flask', moduleId: OIL, route: OIL_ROUTE, page: 'upload',
+    },
+    vib && canSave(access[VIB], 'newreading') && {
+      key: 'reading', label: 'New vibration reading', hint: 'Record a measurement', icon: 'graphs', moduleId: VIB, route: VIB_ROUTE, page: 'newreading',
+    },
+  ].filter(Boolean) as QuickItem[];
+
+  const slots: { key: string; label: string; icon: string; active: boolean; onClick: () => void; plus?: boolean }[] = [];
+  if (contractorStaff) {
+    slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: homeActive, onClick: () => { tapHaptic(); navigate('/my-work'); } });
+  } else if (mainModule) {
+    slots.push({ key: 'home', label: 'Dashboard', icon: 'dashboard', active: homeActive, onClick: () => openPage(mainModule.id, mainModule.route, 'dashboard') });
+  } else {
+    slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
+  }
+  if (mainModule) {
+    slots.push({ key: 'equipment', label: 'Equipment', icon: 'equipment', active: equipmentActive, onClick: () => openPage(mainModule.id, mainModule.route, equipmentPage) });
+  }
+  if (quick.length) {
+    slots.push({ key: 'plus', label: 'Add', icon: 'plus', active: sheetOpen, plus: true, onClick: () => { tapHaptic(); setSheetOpen(true); } });
+  }
+  slots.push({ key: 'alerts', label: 'Alerts', icon: 'bell', active: false, onClick: () => { tapHaptic(); window.dispatchEvent(new Event('acc:open-notifications')); } });
+  slots.push({ key: 'more', label: 'More', icon: 'menu', active: !slots.some((s) => s.active), onClick: () => { tapHaptic(); onOpenMore(); } });
 
   return (
-    <nav className="bottom-nav" aria-label="Primary">
-      <span
-        className="bottom-nav-indicator"
-        style={{ transform: `translateX(${activeSlot * 100}%)`, width: `${100 / (items.length + 1)}%` }}
-        aria-hidden="true"
-      />
-      {items.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          onClick={tapHaptic}
-          className={({ isActive }) =>
-            isActive ? 'bottom-nav-item bottom-nav-item--active tap-scale' : 'bottom-nav-item tap-scale'
-          }
-        >
-          <Icon name={item.icon} size={21} />
-          <span>{item.label}</span>
-        </NavLink>
-      ))}
-      <button
-        type="button"
-        className={
-          primaryIndex === -1 ? 'bottom-nav-item bottom-nav-item--active tap-scale' : 'bottom-nav-item tap-scale'
-        }
-        onClick={() => {
-          tapHaptic();
-          onOpenMore();
-        }}
-      >
-        <Icon name="menu" size={21} />
-        <span>More</span>
-      </button>
-    </nav>
+    <>
+      <nav className="bottom-nav" aria-label="Primary" style={{ gridTemplateColumns: `repeat(${slots.length}, 1fr)` }}>
+        {slots.map((s) =>
+          s.plus ? (
+            <button key={s.key} type="button" className="bottom-nav-item bottom-nav-plus-slot" onClick={s.onClick} aria-label="Add — field entries" aria-haspopup="dialog" data-testid="bottom-plus">
+              <span className="bottom-nav-plus">
+                <Icon name="plus" size={26} />
+              </span>
+            </button>
+          ) : (
+            <button
+              key={s.key}
+              type="button"
+              className={s.active ? 'bottom-nav-item bottom-nav-item--active tap-scale' : 'bottom-nav-item tap-scale'}
+              aria-current={s.active ? 'page' : undefined}
+              onClick={s.onClick}
+              data-testid={`bottom-${s.key}`}
+            >
+              <Icon name={s.icon} size={22} />
+              <span>{s.label}</span>
+            </button>
+          ),
+        )}
+      </nav>
+      {sheetOpen && (
+        <>
+          <div className="quick-sheet-backdrop" onClick={() => setSheetOpen(false)} aria-hidden="true" />
+          <div className="quick-sheet" role="dialog" aria-label="Log from the field" data-testid="quick-sheet">
+            <div className="quick-sheet-grab" aria-hidden="true" />
+            <p className="quick-sheet-title">Log from the field</p>
+            {quick.map((q) => (
+              <button key={q.key} type="button" className="quick-sheet-item" onClick={() => openPage(q.moduleId, q.route, q.page, q.record)} data-testid={`quick-${q.key}`}>
+                <span className="quick-sheet-icon">
+                  <Icon name={q.icon} size={22} />
+                </span>
+                <span className="quick-sheet-text">
+                  <b>{q.label}</b>
+                  <small>{q.hint}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </>
   );
 }

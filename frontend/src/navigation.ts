@@ -85,3 +85,82 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
   { label: 'Compressors', to: '/compressors', icon: 'sync' },
 ];
+
+// ── Module page tabs (design system D2) ─────────────────────────────────
+// A module's pages show as tabs across the top of the module (ModuleTabs.tsx)
+// instead of a long list in the sidebar. Related pages share one tab: its
+// `pages` are the page ids it stands for (the first is where it opens), its
+// `views` the switch shown under the tabs, and `action` a button that opens
+// a page which is really an action ("Add report"). Rarely used pages sit
+// under "More". Page ids are the same ones as in the *_SUB_TABS lists above;
+// a page hidden by Module Access drops out, and a tab with none left goes.
+export type TabGroup = {
+  label: string;
+  icon: string;
+  pages: string[];
+  views?: { id: string; label: string }[];
+  action?: { id: string; label: string; icon: string };
+};
+
+export type ModuleTabsConfig = {
+  moduleId: string;
+  route: string;
+  title: string;
+  groups: TabGroup[];
+  more: { id: string; label: string; icon: string }[];
+};
+
+export const MODULE_TABS: ModuleTabsConfig[] = [
+  {
+    moduleId: 'oil-analysis',
+    route: '/oil-lubrication',
+    title: 'Oil Lubrication',
+    groups: [
+      { label: 'Dashboard', icon: 'ti-layout-dashboard', pages: ['dashboard'] },
+      { label: 'Equipment', icon: 'ti-engine', pages: ['equipment'] },
+      { label: 'Routes', icon: 'ti-route', pages: ['routines'] },
+      {
+        label: 'Lab Reports',
+        icon: 'ti-file-analytics',
+        pages: ['oilreport', 'tracker', 'upload'],
+        views: [
+          { id: 'oilreport', label: 'Oil Analysis Report' },
+          { id: 'tracker', label: 'Sampling Log' },
+        ],
+        action: { id: 'upload', label: 'Add report', icon: 'ti-plus' },
+      },
+      { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
+      { label: 'Oil Changes', icon: 'ti-droplet-filled', pages: ['oilchange'] },
+      { label: 'Inventory', icon: 'ti-package', pages: ['inventory'] },
+    ],
+    more: [
+      { id: 'reports', label: 'Reports', icon: 'ti-report' },
+      { id: 'team', label: 'Team Workload', icon: 'ti-users-group' },
+      { id: 'activity', label: 'Activity', icon: 'ti-history' },
+    ],
+  },
+  {
+    moduleId: 'vibration-analysis',
+    route: '/vibration-analysis',
+    title: 'Vibration Analysis',
+    groups: [
+      { label: 'Dashboard', icon: 'ti-layout-dashboard', pages: ['dashboard'] },
+      {
+        label: 'Readings',
+        icon: 'ti-chart-line',
+        pages: ['registry', 'graphs', 'newreading'],
+        views: [
+          { id: 'registry', label: 'Equipment Reading' },
+          { id: 'graphs', label: 'Graphs' },
+        ],
+        action: { id: 'newreading', label: 'New reading', icon: 'ti-plus' },
+      },
+      { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
+      { label: 'Compliance', icon: 'ti-calendar-check', pages: ['compliance'] },
+    ],
+    more: [
+      { id: 'equipreg', label: 'Equipment Register', icon: 'ti-list-details' },
+      { id: 'limits', label: 'Limits setting', icon: 'ti-adjustments' },
+    ],
+  },
+];

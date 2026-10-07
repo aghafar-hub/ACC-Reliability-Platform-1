@@ -64,7 +64,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   const scopedContractor = useSessionContractor();
 
   const [routeType, setRouteType] = useState(initialSuggestion?.routeType || "Sampling");
-  const [routeName, setRouteName] = useState(initialSuggestion ? `${initialSuggestion.workType} - ${initialSuggestion.lpId}` : "");
+  const [routeName, setRouteName] = useState(initialSuggestion?.lpId ? `${initialSuggestion.workType} - ${initialSuggestion.lpId}` : "");
   const [frequency, setFrequency] = useState("One-time");
   const [dueDate, setDueDate] = useState(initialSuggestion?.requiredDate ? initialSuggestion.requiredDate.slice(0, 10) : "");
   // Grace period (days) after dueDate before a one-time routine counts as

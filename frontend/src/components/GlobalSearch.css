@@ -1,0 +1,155 @@
+/* Global search (design system D2) — see GlobalSearch.tsx. */
+.gsearch {
+  position: relative;
+  flex: 1;
+  max-width: 460px;
+  margin: 0 16px;
+}
+.gsearch-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--shell-border, #d9e0e8);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--shell-card-bg, #fff) 70%, var(--shell-bg, #f3f5f8));
+  color: var(--shell-text-secondary, #4a5a70);
+}
+.gsearch-box:focus-within {
+  border-color: var(--shell-accent, #1e5bb8);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--shell-accent, #1e5bb8) 22%, transparent);
+}
+.gsearch-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--shell-text, #0f1b2d);
+  font: 400 14px var(--sans);
+}
+.gsearch-box input::placeholder {
+  color: var(--shell-text-secondary, #4a5a70);
+}
+.gsearch-box kbd {
+  font: 500 11.5px var(--mono);
+  border: 1px solid var(--shell-border, #d9e0e8);
+  border-radius: 5px;
+  padding: 1px 6px;
+  color: var(--shell-text-secondary, #4a5a70);
+}
+.gsearch-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--shell-card-bg, #fff);
+  border: 1px solid var(--shell-border, #d9e0e8);
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+  z-index: 250;
+}
+.gsearch-empty {
+  margin: 0;
+  padding: 12px;
+  font-size: 13.5px;
+  color: var(--shell-text-secondary, #4a5a70);
+}
+.gsearch-hit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: start;
+  cursor: pointer;
+  color: var(--shell-text, #0f1b2d);
+}
+.gsearch-hit--active {
+  background: color-mix(in srgb, var(--shell-accent, #1e5bb8) 10%, transparent);
+}
+.gsearch-kind {
+  flex-shrink: 0;
+  width: 78px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--shell-text-secondary, #4a5a70);
+}
+.gsearch-text {
+  min-width: 0;
+}
+.gsearch-text b {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+}
+.gsearch-mono {
+  font-family: var(--mono);
+}
+.gsearch-text small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--shell-text-secondary, #4a5a70);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gsearch-phone-btn {
+  display: none !important;
+}
+.gsearch-phone {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  background: var(--shell-card-bg, #fff);
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.gsearch-phone-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--shell-border, #d9e0e8);
+}
+.gsearch-phone-bar .gsearch-box {
+  flex: 1;
+  height: 44px;
+}
+.gsearch-phone-bar input {
+  font-size: 16px; /* 16px stops iOS zooming in on focus */
+}
+.gsearch-cancel {
+  border: 0;
+  background: none;
+  color: var(--shell-accent, #1e5bb8);
+  font: 600 15px var(--sans);
+  padding: 8px 4px;
+  cursor: pointer;
+}
+.gsearch-phone .gsearch-results {
+  position: static;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  max-height: none;
+  flex: 1;
+}
+.gsearch-phone .gsearch-hit {
+  min-height: 56px;
+}
+@media (max-width: 860px) {
+  .gsearch {
+    display: none;
+  }
+  .gsearch-phone-btn {
+    display: grid !important;
+  }
+}
