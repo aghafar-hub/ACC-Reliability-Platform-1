@@ -16,7 +16,10 @@ import { LAB_INFO_KEYS } from "../api";
 // import (the server refuses it too); a sample with no Sample ID; a sample of
 // a point the app doesn't know until a point is picked.
 
-const norm = (v) => String(v ?? "").trim().toUpperCase();
+const norm = (v) =>
+  String(v ?? "")
+    .trim()
+    .toUpperCase();
 const NEXT_MARK = { "": "Caution", Caution: "Alert", Alert: "" };
 const MARK_COLOR = { Caution: "warning", Alert: "danger" };
 
@@ -46,7 +49,10 @@ function toInputDate(v) {
 // ("111.HC100(IR)" = "111.HC100 (IR)"). Only when no point has it as its
 // Report Equipment ID is an LP_ID equal to the Unit ID used. More than one
 // match (shouldn't happen) → the user picks among them.
-const squash = (v) => String(v ?? "").replace(/\s+/g, "").toUpperCase();
+const squash = (v) =>
+  String(v ?? "")
+    .replace(/\s+/g, "")
+    .toUpperCase();
 export function matchPoint(unitId, registry) {
   const key = squash(unitId);
   if (!key) return { code: null, options: [] };
@@ -71,6 +77,9 @@ function buildCandidates(parsedReports, equipmentRegistry) {
         fileIdx: fi,
         fileName: report.fileName,
         sample,
+        // the lab's Recommendation / Alert Type belong to the report's newest
+        // sample only (the rightmost column; the parser keeps them there)
+        latest: si === report.samples.length - 1,
         matched: !!point.code,
         pointCode: point.code,
         pointOptions: point.options,
@@ -99,7 +108,10 @@ function withStatus(candidates, existingIds, remap) {
 
 // The equipment part of a lab Unit ID ("462.LQ145Gearbox" → "462.LQ145"),
 // used to suggest that equipment's points before anything is typed.
-const equipmentPart = (unitId) => (String(unitId || "").toUpperCase().match(/\d{3}\.[A-Z]{2}\d{3}/) || [""])[0];
+const equipmentPart = (unitId) =>
+  (String(unitId || "")
+    .toUpperCase()
+    .match(/\d{3}\.[A-Z]{2}\d{3}/) || [""])[0];
 
 function PointPicker({ T, s, equipmentRegistry, value, onChange, hint }) {
   const [query, setQuery] = useState("");
@@ -107,7 +119,13 @@ function PointPicker({ T, s, equipmentRegistry, value, onChange, hint }) {
   const base = equipmentPart(hint).toLowerCase();
   const matches = q
     ? (equipmentRegistry || [])
-        .filter((r) => [r.code, r.description, r.reportEquipmentId].some((v) => String(v || "").toLowerCase().includes(q)))
+        .filter((r) =>
+          [r.code, r.description, r.reportEquipmentId].some((v) =>
+            String(v || "")
+              .toLowerCase()
+              .includes(q)
+          )
+        )
         .slice(0, 8)
     : !value && base
       ? (equipmentRegistry || [])
@@ -137,7 +155,18 @@ function PointPicker({ T, s, equipmentRegistry, value, onChange, hint }) {
                 onChange(r.code);
                 setQuery("");
               }}
-              style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 8px", fontSize: 12, border: "none", borderBottom: `1px solid ${T.border2}`, background: "none", color: T.textPrimary, cursor: "pointer" }}
+              style={{
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                padding: "6px 8px",
+                fontSize: 12,
+                border: "none",
+                borderBottom: `1px solid ${T.border2}`,
+                background: "none",
+                color: T.textPrimary,
+                cursor: "pointer",
+              }}
             >
               <span style={{ fontFamily: "monospace", color: T.accent }}>{r.code}</span> — {r.description}
               {r.reportEquipmentId && <span style={{ color: T.textSecondary }}> · Report ID {r.reportEquipmentId}</span>}
@@ -152,7 +181,13 @@ function PointPicker({ T, s, equipmentRegistry, value, onChange, hint }) {
 function StatusPill({ T, status }) {
   const key = { Alert: "danger", Caution: "warning", Warning: "warning", Normal: "success" }[status] || "textSecondary";
   const c = T[key];
-  return <span style={{ fontSize: 10.5, fontWeight: 700, color: c, background: `${c}22`, borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }}>{status || "—"}</span>;
+  return (
+    <span
+      style={{ fontSize: 10.5, fontWeight: 700, color: c, background: `${c}22`, borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }}
+    >
+      {status || "—"}
+    </span>
+  );
 }
 
 export default function ImportReview({ parsedReports, equipmentRegistry, existingSamples, onSubmit, onDiscard, saving, progress }) {
@@ -185,8 +220,11 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
       items: [...items].sort((a, b) => new Date(a.sample.sampledDate) - new Date(b.sample.sampledDate)),
     }));
   }, [candidates]);
-  const firstSample = candidates.find((c) => !c.blocked) || candidates[0];
-  const [view, setView] = useState(() => (firstSample ? { type: "sample", key: firstSample._key } : refused[0] ? { type: "refused", fileIdx: refused[0].fileIdx } : null));
+  // open on the first report's newest sample: the one with the lab's recommendations
+  const firstSample = candidates.find((c) => c.latest) || candidates[0];
+  const [view, setView] = useState(() =>
+    firstSample ? { type: "sample", key: firstSample._key } : refused[0] ? { type: "refused", fileIdx: refused[0].fileIdx } : null
+  );
   const included = candidates.filter((c) => c.include);
   // Already-saved samples whose saved row is missing report details this
   // report has: those get filled in (only the empty ones) — never re-added.
@@ -216,7 +254,11 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
   const toggle = (key, on) => update(key, (c) => ({ ...c, selected: on }));
   const toggleFile = (fileIdx, on) => setRaw((prev) => prev.map((c) => (c.fileIdx === fileIdx ? { ...c, selected: on } : c)));
   function setField(key, row, value) {
-    update(key, (c) => ({ ...c, sample: setPath(c.sample, row.field, value), edited: c.edited.includes(row.key) ? c.edited : [...c.edited, row.key] }));
+    update(key, (c) => ({
+      ...c,
+      sample: setPath(c.sample, row.field, value),
+      edited: c.edited.includes(row.key) ? c.edited : [...c.edited, row.key],
+    }));
   }
   function cycleMark(key, row) {
     update(key, (c) => {
@@ -231,7 +273,11 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
     });
   }
   function setText(key, field, value) {
-    update(key, (c) => ({ ...c, sample: { ...c.sample, [field]: value }, edited: c.edited.includes(field) ? c.edited : [...c.edited, field] }));
+    update(key, (c) => ({
+      ...c,
+      sample: { ...c.sample, [field]: value },
+      edited: c.edited.includes(field) ? c.edited : [...c.edited, field],
+    }));
   }
 
   function submit() {
@@ -269,14 +315,40 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
   });
 
   const sidebar = (
-    <div data-testid="import-sidebar" style={{ ...s.card, padding: 0, marginBottom: 0, overflow: "hidden", alignSelf: "start", position: isMobile ? "static" : "sticky", top: 0 }}>
+    <div
+      data-testid="import-sidebar"
+      style={{
+        ...s.card,
+        padding: 0,
+        marginBottom: 0,
+        overflow: "hidden",
+        alignSelf: "start",
+        position: isMobile ? "static" : "sticky",
+        top: 0,
+      }}
+    >
       {refused.length > 0 && (
         <div>
-          <div style={{ padding: "8px 10px", fontSize: 11.5, fontWeight: 700, color: T.danger, background: T.cardSubBg, borderBottom: `1px solid ${T.border2}` }}>
+          <div
+            style={{
+              padding: "8px 10px",
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: T.danger,
+              background: T.cardSubBg,
+              borderBottom: `1px solid ${T.border2}`,
+            }}
+          >
             <i className="ti ti-ban" aria-hidden="true" /> Refused ({refused.length})
           </div>
           {refused.map((r) => (
-            <button key={r.fileIdx} type="button" data-testid={`import-refused-${r.fileIdx}`} style={sideItem(view?.type === "refused" && view.fileIdx === r.fileIdx)} onClick={() => setView({ type: "refused", fileIdx: r.fileIdx })}>
+            <button
+              key={r.fileIdx}
+              type="button"
+              data-testid={`import-refused-${r.fileIdx}`}
+              style={sideItem(view?.type === "refused" && view.fileIdx === r.fileIdx)}
+              onClick={() => setView({ type: "refused", fileIdx: r.fileIdx })}
+            >
               <i className="ti ti-file-alert" aria-hidden="true" style={{ color: T.danger }} />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.fileName}</span>
             </button>
@@ -288,7 +360,17 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
         const allOn = addable.length > 0 && addable.every((c) => c.selected);
         return (
           <div key={f.fileIdx}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: T.cardSubBg, borderTop: `1px solid ${T.border2}`, borderBottom: `1px solid ${T.border2}` }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 10px",
+                background: T.cardSubBg,
+                borderTop: `1px solid ${T.border2}`,
+                borderBottom: `1px solid ${T.border2}`,
+              }}
+            >
               <input
                 type="checkbox"
                 checked={allOn}
@@ -299,8 +381,12 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: T.textPrimary }}>{f.unitId}</div>
                 <div style={{ fontSize: 10.5, color: T.textSecondary }}>Report ID {f.reportId}</div>
-                <div style={{ fontSize: 10.5, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
-                {!f.matched && !remap[f.fileIdx] && <div style={{ fontSize: 10.5, color: T.warning, fontWeight: 700 }}>Pick the point — Report ID not in the registry</div>}
+                <div style={{ fontSize: 10.5, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {f.fileName}
+                </div>
+                {!f.matched && !remap[f.fileIdx] && (
+                  <div style={{ fontSize: 10.5, color: T.warning, fontWeight: 700 }}>Pick the point — Report ID not in the registry</div>
+                )}
               </div>
             </div>
             {f.items.map((c) => (
@@ -314,20 +400,46 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
                   data-testid={`import-check-${c.sample.sampleId}`}
                   style={{ margin: "0 0 0 10px" }}
                 />
-                <button type="button" onClick={() => setView({ type: "sample", key: c._key })} data-testid={`import-item-${c.sample.sampleId}`} style={{ ...sideItem(false), borderLeft: "none", background: "none", padding: "8px 10px 8px 6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setView({ type: "sample", key: c._key })}
+                  data-testid={`import-item-${c.sample.sampleId}`}
+                  style={{ ...sideItem(false), borderLeft: "none", background: "none", padding: "8px 10px 8px 6px" }}
+                >
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontWeight: 600, color: c.blocked ? T.textSecondary : undefined }}>{formatDate(c.sample.sampledDate) || "No date"}</span>
-                    <span style={{ display: "block", fontSize: 10.5, fontFamily: "monospace", color: T.textSecondary }}>{c.sample.sampleId || "no Sample ID"}</span>
+                    <span style={{ display: "block", fontWeight: 600, color: c.blocked ? T.textSecondary : undefined }}>
+                      {formatDate(c.sample.sampledDate) || "No date"}
+                    </span>
+                    <span style={{ display: "block", fontSize: 10.5, fontFamily: "monospace", color: T.textSecondary }}>
+                      {c.sample.sampleId || "no Sample ID"}
+                    </span>
                     {c.duplicate && (
-                      <span style={{ display: "block", fontSize: 10.5, color: T.danger, fontWeight: 600 }} data-testid={`import-dup-${c.sample.sampleId}`}>
+                      <span
+                        style={{ display: "block", fontSize: 10.5, color: T.danger, fontWeight: 600 }}
+                        data-testid={`import-dup-${c.sample.sampleId}`}
+                      >
                         <i className="ti ti-alert-circle" aria-hidden="true" /> Sample ID already in the system — not added
                       </span>
                     )}
                     {c.duplicate && fillKeys.has(c._key) && fillDetails && (
-                      <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary }}>Its missing report details will be filled in</span>
+                      <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary }}>
+                        Its missing report details will be filled in
+                      </span>
                     )}
-                    {c.noSampleId && <span style={{ display: "block", fontSize: 10.5, color: T.warning, fontWeight: 700 }}>No Sample ID</span>}
-                    {c.edited.length > 0 && <span style={{ display: "block", fontSize: 10.5, color: T.accent, fontWeight: 700 }}>Edited</span>}
+                    {c.noSampleId && (
+                      <span style={{ display: "block", fontSize: 10.5, color: T.warning, fontWeight: 700 }}>No Sample ID</span>
+                    )}
+                    {c.latest && (
+                      <span
+                        style={{ display: "block", fontSize: 10.5, color: T.textSecondary }}
+                        data-testid={`import-latest-${c.sample.sampleId}`}
+                      >
+                        <i className="ti ti-message-2" aria-hidden="true" /> Latest — recommendations
+                      </span>
+                    )}
+                    {c.edited.length > 0 && (
+                      <span style={{ display: "block", fontSize: 10.5, color: T.accent, fontWeight: 700 }}>Edited</span>
+                    )}
                   </span>
                   <StatusPill T={T} status={c.sample.reportStatus} />
                 </button>
@@ -341,13 +453,23 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
 
   return (
     <div data-testid="import-review">
-      <div style={{ ...s.card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+      <div
+        style={{
+          ...s.card,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
+      >
         <div>
           <p style={{ fontWeight: 700, margin: 0 }}>Review the lab reports</p>
           <p style={{ fontSize: 12, color: T.textSecondary, margin: "2px 0 0" }}>
             {candidates.length} sample{candidates.length === 1 ? "" : "s"} in {files.length} report{files.length === 1 ? "" : "s"}
-            {refused.length ? ` · ${refused.length} refused` : ""} · {candidates.filter((c) => c.duplicate).length} already saved. Open a sample to check it — correct any value
-            that's wrong — then submit the ticked ones.
+            {refused.length ? ` · ${refused.length} refused` : ""} · {candidates.filter((c) => c.duplicate).length} already saved. Open a
+            sample to check it — correct any value that's wrong — then submit the ticked ones.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -361,12 +483,21 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
             Discard
           </button>
           {fillable.length > 0 && (
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }} title="Saved earlier without the report's header details (account, asset, bottle…)">
+            <label
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}
+              title="Saved earlier without the report's header details (account, asset, bottle…)"
+            >
               <input type="checkbox" checked={fillDetails} onChange={(e) => setFillDetails(e.target.checked)} data-testid="import-fill" />
               Fill in report details for {fillable.length} saved sample{fillable.length === 1 ? "" : "s"}
             </label>
           )}
-          <button type="button" style={s.btnPrimary} onClick={submit} disabled={saving || (included.length === 0 && fills.length === 0)} data-testid="import-submit">
+          <button
+            type="button"
+            style={s.btnPrimary}
+            onClick={submit}
+            disabled={saving || (included.length === 0 && fills.length === 0)}
+            data-testid="import-submit"
+          >
             <i className="ti ti-upload" aria-hidden="true" />{" "}
             {saving
               ? "Saving…"
@@ -385,8 +516,14 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               <p style={{ fontWeight: 700, margin: "0 0 6px", color: T.danger }}>
                 <i className="ti ti-ban" aria-hidden="true" /> {currentRefused.fileName} — refused
               </p>
-              <p style={{ fontSize: 13, color: T.textPrimary, margin: "0 0 10px", lineHeight: 1.6 }}>{String(currentRefused.error || "").replace(`${currentRefused.fileName}: `, "").replace(/^refused — /, "")}</p>
-              <p style={{ fontSize: 12.5, color: T.textSecondary, margin: 0 }}>Nothing from this file is added. Fix the file and import it again.</p>
+              <p style={{ fontSize: 13, color: T.textPrimary, margin: "0 0 10px", lineHeight: 1.6 }}>
+                {String(currentRefused.error || "")
+                  .replace(`${currentRefused.fileName}: `, "")
+                  .replace(/^refused — /, "")}
+              </p>
+              <p style={{ fontSize: 12.5, color: T.textSecondary, margin: 0 }}>
+                Nothing from this file is added. Fix the file and import it again.
+              </p>
             </div>
           )}
           {current && currentFile && (
@@ -415,8 +552,24 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
 
 // One sample: the point's report as the lab printed it (every sample of this
 // file as a column, this one outlined), with the new samples' cells editable.
-function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, onRemap, onToggle, onOpen, onField, onMark, onText, canFill }) {
+function SampleView({
+  T,
+  s,
+  c,
+  file,
+  equipmentRegistry,
+  remapValue,
+  remapPoint,
+  onRemap,
+  onToggle,
+  onOpen,
+  onField,
+  onMark,
+  onText,
+  canFill,
+}) {
   const columns = file.items;
+  const latestItem = columns.find((x) => x.latest);
   const groups = visibleGroups(columns.map((x) => x.sample)).map((g) => ({ ...g, rows: g.rows.filter((r) => r.field) }));
   const border = `1px solid ${T.border}`;
   const smp = c.sample;
@@ -449,14 +602,19 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
       const mark = row.kind === "num" ? cellMark(d, row) : "";
       return (
         <td key={col._key} style={{ ...base, color: mark ? T[MARK_COLOR[mark]] : T.textSecondary, fontWeight: mark ? 700 : 400 }}>
-          {row.kind === "date" ? formatDate(v) || "—" : v ?? "—"}
+          {row.kind === "date" ? formatDate(v) || "—" : (v ?? "—")}
         </td>
       );
     }
     if (row.kind === "status") {
       return (
         <td key={col._key} style={base}>
-          <select style={{ ...s.input, fontSize: 12, padding: "3px 5px" }} value={v || ""} onChange={(e) => onField(col._key, row, e.target.value)} aria-label={`${row.label} ${d.sampleId}`}>
+          <select
+            style={{ ...s.input, fontSize: 12, padding: "3px 5px" }}
+            value={v || ""}
+            onChange={(e) => onField(col._key, row, e.target.value)}
+            aria-label={`${row.label} ${d.sampleId}`}
+          >
             <option value="">—</option>
             {RATING_OPTIONS.map((o) => (
               <option key={o}>{o}</option>
@@ -468,14 +626,25 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
     if (row.kind === "date") {
       return (
         <td key={col._key} style={base}>
-          <input type="date" style={{ ...inputStyle, minWidth: 120 }} value={toInputDate(v)} onChange={(e) => onField(col._key, row, e.target.value)} aria-label={`${row.label} ${d.sampleId}`} />
+          <input
+            type="date"
+            style={{ ...inputStyle, minWidth: 120 }}
+            value={toInputDate(v)}
+            onChange={(e) => onField(col._key, row, e.target.value)}
+            aria-label={`${row.label} ${d.sampleId}`}
+          />
         </td>
       );
     }
     if (row.kind === "mono" || row.kind === "text") {
       return (
         <td key={col._key} style={base}>
-          <input style={{ ...inputStyle, minWidth: 110 }} value={v ?? ""} onChange={(e) => onField(col._key, row, e.target.value)} aria-label={`${row.label} ${d.sampleId}`} />
+          <input
+            style={{ ...inputStyle, minWidth: 110 }}
+            value={v ?? ""}
+            onChange={(e) => onField(col._key, row, e.target.value)}
+            aria-label={`${row.label} ${d.sampleId}`}
+          />
         </td>
       );
     }
@@ -498,12 +667,34 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
               onClick={() => onMark(col._key, row)}
               title={mark ? `Lab marked ${mark} — click to change` : "Not marked — click to mark Caution"}
               aria-label={`Lab mark ${row.label} ${d.sampleId}: ${mark || "none"}`}
-              style={{ width: 22, height: 22, borderRadius: 4, border: `1px solid ${mc || T.border}`, background: mc ? `${mc}33` : "transparent", color: mc || T.textMuted, fontSize: 10, fontWeight: 800, cursor: "pointer", padding: 0 }}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 4,
+                border: `1px solid ${mc || T.border}`,
+                background: mc ? `${mc}33` : "transparent",
+                color: mc || T.textMuted,
+                fontSize: 10,
+                fontWeight: 800,
+                cursor: "pointer",
+                padding: 0,
+              }}
             >
               {mark ? mark[0] : "·"}
             </button>
           )}
-          {row.visc && viscCellTemp(columns.map((x) => x.sample), d) && <span style={{ fontSize: 9.5, color: T.textSecondary }}>{viscCellTemp(columns.map((x) => x.sample), d)}</span>}
+          {row.visc &&
+            viscCellTemp(
+              columns.map((x) => x.sample),
+              d
+            ) && (
+              <span style={{ fontSize: 9.5, color: T.textSecondary }}>
+                {viscCellTemp(
+                  columns.map((x) => x.sample),
+                  d
+                )}
+              </span>
+            )}
         </span>
       </td>
     );
@@ -516,7 +707,10 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
           <div>
             <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>
               <span style={{ fontFamily: "monospace" }}>{c.unitId}</span>
-              {c.unitId !== smp.unitId && <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}> (Report ID {smp.unitId})</span>} · Sample {smp.sampleId || "—"} · {formatDate(smp.sampledDate) || "—"} <StatusPill T={T} status={smp.reportStatus} />
+              {c.unitId !== smp.unitId && (
+                <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}> (Report ID {smp.unitId})</span>
+              )}{" "}
+              · Sample {smp.sampleId || "—"} · {formatDate(smp.sampledDate) || "—"} <StatusPill T={T} status={smp.reportStatus} />
             </p>
             <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.textSecondary }}>{c.fileName}</p>
           </div>
@@ -527,11 +721,18 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
         </div>
         {c.duplicate && (
           <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, color: T.textPrimary }} data-testid="import-dup-note">
-            <i className="ti ti-copy" aria-hidden="true" style={{ color: T.danger }} /> Sample ID {smp.sampleId} is already in the system — it won't be added again
-            {canFill ? "; the report details missing from the saved one (account, asset, bottle…) can be filled in — see the box at the top." : "."}
+            <i className="ti ti-copy" aria-hidden="true" style={{ color: T.danger }} /> Sample ID {smp.sampleId} is already in the system —
+            it won't be added again
+            {canFill
+              ? "; the report details missing from the saved one (account, asset, bottle…) can be filled in — see the box at the top."
+              : "."}
           </p>
         )}
-        {c.noSampleId && <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>This column has no Sample ID — type it in the table to add it.</p>}
+        {c.noSampleId && (
+          <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>
+            This column has no Sample ID — type it in the table to add it.
+          </p>
+        )}
         {!c.matched && (
           <div style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>
             {c.pointOptions?.length > 1 ? (
@@ -539,7 +740,12 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
                 Unit ID <strong>{smp.unitId}</strong> matches more than one point's Report Equipment ID — pick the one:
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
                   {c.pointOptions.map((r) => (
-                    <button key={r.code} type="button" onClick={() => onRemap(r.code)} style={{ ...s.btn, padding: "4px 10px", fontSize: 12, borderColor: remapValue === r.code ? T.accent : T.border }}>
+                    <button
+                      key={r.code}
+                      type="button"
+                      onClick={() => onRemap(r.code)}
+                      style={{ ...s.btn, padding: "4px 10px", fontSize: 12, borderColor: remapValue === r.code ? T.accent : T.border }}
+                    >
                       {r.code}
                     </button>
                   ))}
@@ -547,18 +753,19 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
               </>
             ) : (
               <>
-                Unit ID <strong>{smp.unitId}</strong> isn't a Report Equipment ID in the Equipment Registry. Pick the point these results belong to:
+                Unit ID <strong>{smp.unitId}</strong> isn't a Report Equipment ID in the Equipment Registry. Pick the point these results
+                belong to:
                 <PointPicker T={T} s={s} equipmentRegistry={equipmentRegistry} value={remapValue} onChange={onRemap} hint={smp.unitId} />
                 {remapPoint &&
                   (String(remapPoint.reportEquipmentId || "").trim() ? (
                     <div style={{ marginTop: 6, color: T.textSecondary }} data-testid="import-learn-note">
-                      {remapPoint.code} already has Report Equipment ID <strong>{remapPoint.reportEquipmentId}</strong> — kept as it is, so this Unit ID
-                      will need picking again next time (change it in the Equipment Registry if the lab now uses {smp.unitId}).
+                      {remapPoint.code} already has Report Equipment ID <strong>{remapPoint.reportEquipmentId}</strong> — kept as it is, so
+                      this Unit ID will need picking again next time (change it in the Equipment Registry if the lab now uses {smp.unitId}).
                     </div>
                   ) : (
                     <div style={{ marginTop: 6, color: T.success }} data-testid="import-learn-note">
-                      <i className="ti ti-bulb" aria-hidden="true" /> On submit, <strong>{smp.unitId}</strong> is saved as {remapPoint.code}'s Report Equipment
-                      ID, so the next report from this point is matched automatically.
+                      <i className="ti ti-bulb" aria-hidden="true" /> On submit, <strong>{smp.unitId}</strong> is saved as {remapPoint.code}
+                      's Report Equipment ID, so the next report from this point is matched automatically.
                     </div>
                   ))}
               </>
@@ -577,48 +784,25 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
         )}
       </div>
 
-      <div style={{ ...s.card, padding: 0, overflow: "hidden", marginBottom: 14 }}>
-        <div style={{ padding: "10px 14px", borderBottom: border, fontSize: 12, color: T.textSecondary }}>
-          Every sample in this report, oldest on the left; this one is outlined. Correct a value by typing over it; the small box beside a value sets the lab's mark (· → C → A).
-          Samples already saved are shown for reference and can't be changed here.
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%" }} data-testid="import-table">
-            <thead>
-              <tr>
-                <th style={{ padding: "6px 8px", border, background: T.appBg, color: T.textSecondary, fontSize: 11, textAlign: "left", position: "sticky", left: 0, zIndex: 2, minWidth: 150 }}>Parameter</th>
-                {columns.map((col) => (
-                  <th key={col._key} style={{ padding: "6px 8px", border, background: col._key === c._key ? `${T.accent}22` : T.appBg, color: T.textPrimary, fontSize: 11, whiteSpace: "nowrap" }}>
-                    <button type="button" onClick={() => onOpen(col._key)} style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", fontWeight: 700 }}>
-                      {formatDate(col.sample.sampledDate) || "—"}
-                    </button>
-                    {col.blocked && <div style={{ fontSize: 9.5, color: T.textSecondary, fontWeight: 500 }}>{col.duplicate ? "already saved" : col.noSampleId ? "no Sample ID" : "pick point"}</div>}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => [
-                <tr key={g.title}>
-                  <td colSpan={columns.length + 1} style={{ padding: "6px 10px", background: T.infoBarBg, color: T.accent, fontSize: 12, fontWeight: 700, border }}>
-                    {g.title}
-                  </td>
-                </tr>,
-                ...g.rows.map((row) => (
-                  <tr key={row.key}>
-                    <td style={{ padding: "5px 10px", border, fontSize: 12, background: T.cardBg, position: "sticky", left: 0, zIndex: 1, whiteSpace: "nowrap" }}>{row.label}</td>
-                    {columns.map((col) => cell(row, col))}
-                  </tr>
-                )),
-              ])}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {(smp.recommendations?.length > 0 || smp.alertType || !c.blocked) && (
-        <div style={{ ...s.card }}>
-          <p style={{ fontWeight: 700, margin: "0 0 8px" }}>Recommendations (short)</p>
+      {!c.latest && (
+        <p style={{ ...s.infoBar, margin: "0 0 14px", fontSize: 12.5 }} data-testid="import-recs-elsewhere">
+          <i className="ti ti-message-2" aria-hidden="true" /> The lab's Recommendation and Alert Type belong to this report's newest sample
+          {latestItem ? ` (${formatDate(latestItem.sample.sampledDate)})` : ""} only — older samples in the report don't get them.{" "}
+          {latestItem && (
+            <button type="button" onClick={() => onOpen(latestItem._key)} style={{ ...s.btn, padding: "2px 10px", fontSize: 12 }}>
+              Open it
+            </button>
+          )}
+        </p>
+      )}
+      {c.latest && (
+        <div style={{ ...s.card, marginBottom: 14 }} data-testid="import-recs">
+          <p style={{ fontWeight: 700, margin: "0 0 8px" }}>Recommendations (short) — from this report</p>
+          {!smp.alertType && !smp.recommendations?.length && (
+            <p style={{ fontSize: 12.5, color: T.warning, margin: "0 0 8px" }}>
+              No recommendation was found in this PDF — type it in if the report has one.
+            </p>
+          )}
           <label style={{ ...s.label, fontSize: 11 }}>Alert type</label>
           <input
             style={{ ...s.input, fontSize: 13, marginBottom: 10 }}
@@ -637,6 +821,94 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, 
           />
         </div>
       )}
+
+      <div style={{ ...s.card, padding: 0, overflow: "hidden", marginBottom: 14 }}>
+        <div style={{ padding: "10px 14px", borderBottom: border, fontSize: 12, color: T.textSecondary }}>
+          Every sample in this report, oldest on the left; this one is outlined. Correct a value by typing over it; the small box beside a
+          value sets the lab's mark (· → C → A). Samples already saved are shown for reference and can't be changed here.
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%" }} data-testid="import-table">
+            <thead>
+              <tr>
+                <th
+                  style={{
+                    padding: "6px 8px",
+                    border,
+                    background: T.appBg,
+                    color: T.textSecondary,
+                    fontSize: 11,
+                    textAlign: "left",
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 2,
+                    minWidth: 150,
+                  }}
+                >
+                  Parameter
+                </th>
+                {columns.map((col) => (
+                  <th
+                    key={col._key}
+                    style={{
+                      padding: "6px 8px",
+                      border,
+                      background: col._key === c._key ? `${T.accent}22` : T.appBg,
+                      color: T.textPrimary,
+                      fontSize: 11,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onOpen(col._key)}
+                      style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", fontWeight: 700 }}
+                    >
+                      {formatDate(col.sample.sampledDate) || "—"}
+                    </button>
+                    {col.blocked && (
+                      <div style={{ fontSize: 9.5, color: T.textSecondary, fontWeight: 500 }}>
+                        {col.duplicate ? "already saved" : col.noSampleId ? "no Sample ID" : "pick point"}
+                      </div>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => [
+                <tr key={g.title}>
+                  <td
+                    colSpan={columns.length + 1}
+                    style={{ padding: "6px 10px", background: T.infoBarBg, color: T.accent, fontSize: 12, fontWeight: 700, border }}
+                  >
+                    {g.title}
+                  </td>
+                </tr>,
+                ...g.rows.map((row) => (
+                  <tr key={row.key}>
+                    <td
+                      style={{
+                        padding: "5px 10px",
+                        border,
+                        fontSize: 12,
+                        background: T.cardBg,
+                        position: "sticky",
+                        left: 0,
+                        zIndex: 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {row.label}
+                    </td>
+                    {columns.map((col) => cell(row, col))}
+                  </tr>
+                )),
+              ])}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

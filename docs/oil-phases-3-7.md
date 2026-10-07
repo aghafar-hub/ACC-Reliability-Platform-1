@@ -402,7 +402,12 @@ Apps Script (Oil Lubrication test script): replace `Code` and
   details and the report table (every sample of that report as a column,
   this one outlined). New samples' values can be corrected in place and the
   lab mark beside each value set (· → C → A); edited samples say "Edited".
-  The short recommendations and Alert Type can be edited too. A refused
+  The lab's Recommendation and Alert Type belong to each report's newest
+  sample only (the lab prints them for that one), so the review opens on
+  the first report's newest sample with them shown above the table (marked
+  "Latest — recommendations" in the side bar); an older sample says where
+  they are, with a button to open it. They can be edited there. A report
+  with no findings gets Alert Type "NO ACTION REQUIRED…". A refused
   file shows its reason and what to do. **Submit N samples** saves every
   ticked sample at once; Discard drops the import.
 - **Viscosity by test temperature.** The import records 40 or 100 °C (new

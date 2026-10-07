@@ -13,7 +13,10 @@ const BOILERPLATE = /^contact your exxonmobil representative/i;
 function sentences(text) {
   const out = [];
   let cur = "";
-  const parts = String(text || "").replace(/\s+/g, " ").trim().split(/(?<=\.)\s+(?=[A-Z0-9])/);
+  const parts = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=\.)\s+(?=[A-Z0-9])/);
   for (const p of parts) {
     cur = cur ? `${cur} ${p}` : p;
     // "a." / "b." / "1." / "i.e." on their own are list markers, not ends
@@ -49,14 +52,19 @@ export function shortenRecommendation(text) {
       while (i < list.length && !isHeadline(list[i])) i++;
     } else if (!lines.length) {
       // no headline at all: keep the first two real sentences
-      const keep = list.filter((s) => !BOILERPLATE.test(s)).slice(0, 2).join(" ");
+      const keep = list
+        .filter((s) => !BOILERPLATE.test(s))
+        .slice(0, 2)
+        .join(" ");
       if (keep) lines.push(keep);
       break;
     } else {
       i++;
     }
   }
-  // The alert type names the findings, not "no action" / admin notes.
+  // The alert type names the findings, not "no action" / admin notes —
+  // unless there are no findings: then it says so ("NO ACTION REQUIRED…").
   const findings = heads.filter((h) => !/^NO ACTION REQUIRED/i.test(h) && !/^ADMINISTRATION\b/i.test(h));
-  return { lines, alertType: findings.join("; ") };
+  const noAction = heads.find((h) => /^NO ACTION REQUIRED/i.test(h)) || "";
+  return { lines, alertType: findings.length ? findings.join("; ") : noAction };
 }
