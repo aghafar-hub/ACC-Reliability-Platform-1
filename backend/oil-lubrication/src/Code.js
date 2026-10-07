@@ -264,6 +264,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getOilPlan":
+        result = getOilPlan(e.parameter.lpIds, e.parameter.itemType, scope);
+        break;
       case "getTeamWorkload":
         result = getTeamWorkload(scope);
         break;
@@ -603,7 +606,14 @@ function doPost(e) {
         requirePermission_(auth.session, "Create");
         var addProdScope = getContractorScope_(auth.session);
         if (addProdScope) data.contractor = addProdScope;
+        // Phase 8: only the contractor's engineer approves an equivalent.
+        var addEquivType = String(data.equivalentToType || "").trim();
+        if (addEquivType) requireRouteEngineer_(auth.session, data.contractor, "approve an equivalent oil");
         var addProdResult = addOilProduct(ss, data);
+        if (!addProdResult.error && addEquivType) {
+          var addEquivResult = setOilEquivalent(ss, { productId: addProdResult.productId, mainType: addEquivType, mainBrand: data.equivalentToBrand }, actingUser);
+          if (!addEquivResult.error) recordAudit_(ss, "Oil Inventory", addProdResult.productId, "update", actingUser, data.contractor, addEquivResult.message);
+        }
         logError("doPost:addOilProduct", addProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         if (!addProdResult.error) recordAudit_(ss, "Oil Inventory", addProdResult.productId, "create", actingUser, data.contractor, "Added oil product");
         return jsonOut(addProdResult.error ? {status: "error", message: addProdResult.error} : {status: "ok", productId: addProdResult.productId});
@@ -617,6 +627,18 @@ function doPost(e) {
         logError("doPost:updateOilProduct", updProdResult.error || "ok", {productId: data.productId, actingUser: actingUser});
         if (!updProdResult.error) recordAudit_(ss, "Oil Inventory", data.productId, "update", actingUser, updProdContractor, "Updated oil product");
         return jsonOut(updProdResult.error ? {status: "error", message: updProdResult.error} : {status: "ok"});
+      }
+
+      // Phase 8: approve (or remove) an equivalent oil — the product's own
+      // contractor's engineer only; ACC engineers and managers are told.
+      if (data.action === "setOilEquivalent") {
+        var equivContractor = getProductContractor_(data.productId);
+        requireRouteEngineer_(auth.session, equivContractor, "approve an equivalent oil");
+        var equivResult = setOilEquivalent(ss, data, actingUser);
+        invalidateDashboardCache();
+        logError("doPost:setOilEquivalent", equivResult.error || "ok", {productId: data.productId, actingUser: actingUser});
+        if (!equivResult.error) recordAudit_(ss, "Oil Inventory", data.productId, "update", actingUser, equivContractor, equivResult.message);
+        return jsonOut(equivResult.error ? {status: "error", message: equivResult.error} : {status: "ok"});
       }
 
       // Phase 5: low-stock level — the contractor's engineer or an ACC Engineer.

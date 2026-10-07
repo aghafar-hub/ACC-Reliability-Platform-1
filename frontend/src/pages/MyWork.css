@@ -378,3 +378,29 @@
 .mywork-returned .mywork-btn {
   margin-top: 0.6rem;
 }
+
+/* Phase 8 — the oil to use / oil used under the LP id */
+.mywork-oil {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--sans);
+  white-space: normal;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--shell-text-secondary, #8a9bb5);
+}
+.mywork-oil strong {
+  color: var(--shell-accent, #00b4d8);
+}
+.mywork-oil-equiv {
+  font-style: normal;
+  font-weight: 700;
+  color: #f59e0b;
+}
+.mywork-oil-note {
+  display: block;
+}
+.mywork-oil-select {
+  margin-top: 6px;
+}

@@ -137,14 +137,7 @@ function getTeamWorkload(scope) {
 
   getSuggestions(scope, false).suggestions.forEach(function (sg) { bucket(sg.contractor).suggestionsOpen++; });
 
-  var stockById = {};
-  readSheet(ss, "Oil Inventory LOG", true).forEach(function (r) {
-    var id = String(r[1] || "").trim();
-    var q = parseFloat(r[3]) || 0;
-    var t = String(r[2] || "").trim();
-    var d = t === "Receipt" ? Math.abs(q) : t === "Issue" ? -Math.abs(q) : t === "Adjustment" ? q : 0;
-    stockById[id] = (stockById[id] || 0) + d;
-  });
+  var stockById = productStocksFromLog_(ss);
   readSheet(ss, "Oil Inventory", true).forEach(function (p) {
     var id = String(p[0] || "").trim();
     if (!id) return;

@@ -213,11 +213,14 @@ function getOilInventoryForecast(monthsParam, scope, daysParam) {
   var productRows = readSheet(ss, "Oil Inventory", true);
   var forecast = Object.keys(needed).map(function (key) {
     var n = needed[key];
-    // Patch 8: falls back to a declared equivalent product when the exact
-    // originally-spec'd brand isn't in this contractor's inventory — see
-    // findInventoryProductRow_'s own comment.
-    var product = findInventoryProductRow_(productRows, n.lubricant, n.lubricantBrand, n.contractor);
-    var currentStock = product ? (parseFloat(product[6]) || 0) : null;
+    // Phase 8: the need is covered by the main oil plus its approved
+    // equivalents, so their stock is counted together.
+    var covering = approvedOilsFor_(productRows, {}, n.lubricant, n.lubricantBrand, n.contractor);
+    var product = covering.length ? productRows.filter(function (p) { return String(p[0] || "").trim() === covering[0].productId; })[0] : null;
+    var currentStock = covering.length ? Math.round(covering.reduce(function (sum, o) {
+      var p = productRows.filter(function (x) { return String(x[0] || "").trim() === o.productId; })[0];
+      return sum + (parseFloat(p[6]) || 0);
+    }, 0) * 100) / 100 : null;
     var quantityNeeded = Math.round(n.quantityNeeded * 100) / 100;
     return {
       contractor: n.contractor,
@@ -226,6 +229,7 @@ function getOilInventoryForecast(monthsParam, scope, daysParam) {
       quantityNeeded: quantityNeeded,
       lpCount: n.lpCount,
       productId: product ? String(product[0] || "").trim() : "",
+      coveredBy: covering.map(function (o) { return o.label + (o.isEquivalent ? " (approved equivalent)" : ""); }),
       currentStock: currentStock,
       shortfall: currentStock === null ? null : Math.max(0, Math.round((quantityNeeded - currentStock) * 100) / 100),
     };
@@ -364,8 +368,8 @@ function addOilProduct(ss, data) {
     new Date(),
     "", // Modified_Date — filled by appendRow's stampLastModified
     data.contractor || "", // Contractor — see the column-16 comment above; Code.js forces this to the caller's own scope
-    data.equivalentToType || "",
-    data.equivalentToBrand || "",
+    "", // EquivalentToType/Brand — Phase 8: set through setOilEquivalent (Code.js calls it after this when asked)
+    "",
   ];
   appendRow(ss, "Oil Inventory", row);
   return { status: "ok", productId: productId };
@@ -404,10 +408,8 @@ function updateOilProduct(ss, data) {
   sheet.getRange(rowIdx, 11).setValue(data.unitCost || "");
   sheet.getRange(rowIdx, 12).setValue(data.status || "");
   sheet.getRange(rowIdx, 14).setValue(data.notes || "");
-  // Equivalence IS editable after creation — see the column-17/18 comment
-  // above for why this is treated differently from Contractor (locked).
-  sheet.getRange(rowIdx, 18).setValue(data.equivalentToType || "");
-  sheet.getRange(rowIdx, 19).setValue(data.equivalentToBrand || "");
+  // Phase 8: equivalence is approved only through setOilEquivalent
+  // (AlternativeOils.js) — the contractor's engineer, with notifications.
   stampLastModified(sheet, "Oil Inventory", rowIdx);
   return { status: "ok" };
 }
@@ -473,10 +475,14 @@ function findMatchingProduct_(ss, lubricant, lubricantBrand, contractor) {
 function tryAutoDeductInventory_(ss, info) {
   var qty = parseFloat(info.quantityUsed);
   if (isNaN(qty) || qty <= 0) return { deducted: false, reason: "no usable quantity to deduct" };
-  if (!info.lubricant || !info.contractor) {
-    return { deducted: false, reason: "equipment has no registered lubricant type/contractor to match against" };
+  // Phase 8: the product actually used, when known.
+  var product = info.productId ? productById_(ss, info.productId) : null;
+  if (!product) {
+    if (!info.lubricant || !info.contractor) {
+      return { deducted: false, reason: "equipment has no registered lubricant type/contractor to match against" };
+    }
+    product = findMatchingProduct_(ss, info.lubricant, info.lubricantBrand, info.contractor);
   }
-  var product = findMatchingProduct_(ss, info.lubricant, info.lubricantBrand, info.contractor);
   if (!product) return { deducted: false, reason: "no matching Oil Inventory product found for this lubricant and contractor" };
   if (product.unit !== "L") {
     return { deducted: false, reason: "matched product is tracked in " + (product.unit || "an unknown unit") + ", not Liters — log this Issue manually" };
@@ -502,6 +508,20 @@ function tryAutoDeductInventory_(ss, info) {
 // Stock from the movement log (Receipt +, Issue −, Adjustment signed) — the
 // same sum as the sheet's Current_Stock formula, computed here so the
 // low-stock check doesn't depend on the formula having recalculated.
+// Every product's stock from the movement log, read once: { productId: L }.
+function productStocksFromLog_(ss) {
+  var out = {};
+  readSheet(ss, "Oil Inventory LOG", true).forEach(function (r) {
+    var id = String(r[1] || "").trim();
+    if (!id) return;
+    var q = parseFloat(r[3]) || 0;
+    var t = String(r[2] || "").trim();
+    var d = t === "Receipt" ? Math.abs(q) : t === "Issue" ? -Math.abs(q) : t === "Adjustment" ? q : 0;
+    out[id] = Math.round(((out[id] || 0) + d) * 100) / 100;
+  });
+  return out;
+}
+
 function productStockFromLog_(ss, productId) {
   var total = 0;
   readSheet(ss, "Oil Inventory LOG", true).forEach(function (r) {

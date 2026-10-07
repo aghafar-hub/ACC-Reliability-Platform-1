@@ -1047,12 +1047,39 @@ export async function submitRoutineItem(webhookUrl, routineId, item) {
     actualDate: item.actualDate || "",
     actualQuantity: item.actualQuantity || "",
     sampleTaken: !!item.sampleTaken,
+    // Phase 8: the oil used (main oil or an approved equivalent).
+    oilProductId: item.oilProductId || "",
   });
 
   const items = await getRoutineItems(webhookUrl, routineId);
   const saved = items.find((i) => i.routineItemId === item.routineItemId);
-  if (!saved || (saved.implemented === "Yes") !== !!item.implemented) {
+  if (
+    !saved ||
+    (saved.implemented === "Yes") !== !!item.implemented ||
+    (item.implemented && item.oilProductId && saved.oilUsedProductId !== item.oilProductId)
+  ) {
     throw new SaveVerificationError(`The routine item wasn't confirmed saved to the sheet — please try again.`);
+  }
+  return saved;
+}
+
+// Phase 8 — which oil each point should get: { [lpId]: { mainOil, current,
+// allowed: [{ productId, label, isEquivalent, stock }], use, note } }.
+// itemType: "Change" | "TopUp".
+export async function getOilPlan(webhookUrl, lpIds, itemType) {
+  if (!lpIds.length) return {};
+  const json = await getJSON(webhookUrl, { action: "getOilPlan", lpIds: lpIds.join(","), itemType });
+  return json.plans || {};
+}
+
+// Phase 8 — the contractor's engineer approves (or, with a blank mainType,
+// removes) "this product is an equivalent for <main oil>".
+export async function setOilEquivalent(webhookUrl, productId, mainType, mainBrand) {
+  await postBlind(webhookUrl, { action: "setOilEquivalent", productId, mainType: mainType || "", mainBrand: mainBrand || "" });
+  const products = await getOilInventory(webhookUrl);
+  const saved = products.find((p) => p.productId === productId);
+  if (!saved || (saved.equivalentToType || "") !== (mainType || "")) {
+    throw new SaveVerificationError("The equivalent oil wasn't confirmed saved — only the contractor's engineer can approve it. Please try again.");
   }
   return saved;
 }

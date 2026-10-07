@@ -165,6 +165,55 @@ itself). To test the scheduled jobs, add them to the **test** Oil script
 Keep notification email **off** in the test copy unless you want real
 emails from test data.
 
+## Phase 8: alternative oils
+
+- **Approving an equivalent** (Oil Inventory → product → *Approved
+  equivalent*, or when adding a product):
+  - Only that contractor's **Contractor Engineer** can approve or remove
+    one; ACC engineers can't.
+  - The ACC engineers, that contractor's managers and the ACC managers are
+    told (bell, and email if it's on).
+  - The product page shows who approved it and when, and the Stock List
+    marks the product "Approved equivalent for …".
+  - Editing a product no longer changes its equivalence.
+- **Oil to use on a route:** each point shows **Use: …**, for the
+  technician in My Work and for engineers in Routines.
+  - For an **oil change** it's the main oil when there's enough stock.
+    Otherwise it's the approved equivalent, shown with the reason.
+  - For a **top-up** it's **only the oil already in the point**. There's
+    no mixing, ever.
+- **Oil used:** when an oil-change or top-up item is set to Done, the
+  technician picks the oil used from the allowed list only.
+  - Saving without one, or with an oil that isn't allowed, is refused.
+  - The server checks this too. A top-up with a different oil is refused
+    with "No mixing".
+- **Records:** the oil change / top-up log records the product used
+  (new **Product_ID** column), and stock is taken from that product.
+  - Consumption is therefore by the real brand.
+  - The point's **current oil** is the product from its latest oil change.
+    A point never changed through the app is taken to hold its
+    registered oil.
+- **Forecast:** a need is covered by the main oil **plus** its approved
+  equivalents together; the Current Stock column says which.
+- New columns (added automatically, refused if already used):
+  - Oil Inventory T–U (EquivalentApprovedBy, EquivalentApprovedDate)
+  - Oil Change LOG N (Product_ID)
+  - Oil Top Up LOG M (Product_ID)
+  - OA_ROUTINE_ITEMS M–N (OilUsedProductId, OilUsed)
+
+**Test it:**
+1. As the RHI contractor engineer, open a product and choose **Approve as
+   an equivalent**, then pick the main oil. Check the bell for the ACC
+   engineer and the managers.
+2. Make the main oil short (stock below one change's quantity) and
+   create an oil-change route. The route item says **Use: <equivalent>**.
+3. As the technician, set the item to Done. **Oil used** is required; pick
+   one and save.
+4. Confirm the route. The oil change log shows that product, and its stock
+   goes down (not the main oil's).
+5. Create an emergency top-up for the same point. Only that same oil is
+   offered.
+
 ## Test copy: files to paste (Apps Script editor)
 
 Copy from the `claude/test-site` branch.
@@ -172,7 +221,8 @@ Copy from the `claude/test-site` branch.
 **Oil Lubrication (test) script:**
 
 - New files (➕ → Script, name without `.js`): `ActionWorkflow`,
-  `Suggestions`, `LabReports`, `DailyNotifications`, `Managers`.
+  `Suggestions`, `LabReports`, `DailyNotifications`, `Managers`,
+  `AlternativeOils`.
 - Replace: `Code`, `Config`, `Rbac`, `ModuleAccess`,
   `ModuleAccessConfig`, `Notifications`, `Routines`, `RouteTemplates`,
   `Dashboard`, `OilInventory`, `OilChanges`, `TopUps`, `SampleOverdue`,

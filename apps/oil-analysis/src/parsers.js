@@ -1012,6 +1012,9 @@ export function rowToRoutineItem(row) {
     sampleTaken: row[9] || "",
     createdDate: formatDate(row[10]),
     modifiedDate: row[11] || "",
+    // Phase 8: the oil the technician used (product id + label).
+    oilUsedProductId: row[12] || "",
+    oilUsed: row[13] || "",
   };
 }
 
@@ -1056,6 +1059,9 @@ export function rowToOilProduct(row) {
     // column-17/18 comment).
     equivalentToType: row[17] || "",
     equivalentToBrand: row[18] || "",
+    // Phase 8: who approved the equivalence (the contractor's engineer).
+    equivalentApprovedBy: row[19] || "",
+    equivalentApprovedDate: formatDate(row[20]),
   };
 }
 

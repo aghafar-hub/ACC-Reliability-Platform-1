@@ -34,6 +34,10 @@ function logOilChangeEvent(ss, data) {
   }
 
   var reg = findRegistryEntryForOilChange_(ss, lpId);
+  // Phase 8: the oil actually used — the one saved on the route item, or
+  // (logged by hand) the product picked; otherwise the registered oil.
+  var usedOil = routineItemId ? routineItemOil_(ss, routineItemId, "", "") : null;
+  var usedProduct = productById_(ss, (usedOil && usedOil.productId) || String(data.productId || "").trim());
   var months = intervalMonthsForOilChange_(reg ? reg.oilChangeInterval : "");
   var nextDueDate = months ? addMonths_(eventDate, months) : "";
 
@@ -48,20 +52,24 @@ function logOilChangeEvent(ss, data) {
     data.eventType || "Change",
     eventDate,
     quantityUsed,
-    data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
+    (usedProduct ? usedProduct.type + (usedProduct.brand ? " / " + usedProduct.brand : "") : "") || data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
     data.doneBy || "",
     contractor,
     data.conditionNotes || "",
     data.photoUrl || "",
     nextDueDate,
     "", // Created_Date — filled by appendRow's own stampLastModified, same as every other tracked sheet
+    usedProduct ? usedProduct.productId : "", // Phase 8: Product_ID — the point's current oil from now on
   ];
+  var ocSheet = ss.getSheetByName("Oil Change LOG");
+  if (ocSheet && usedProduct) ensureServerHeaders_(ocSheet, 1, OC_PRODUCT_COL, ["Product_ID"]);
   appendRow(ss, "Oil Change LOG", row);
 
   // Best-effort: draw down the matching Oil Inventory product's stock —
   // see tryAutoDeductInventory_'s own comment (OilInventory.js) for why
   // this never fails the oil-change write itself.
   var inventory = tryAutoDeductInventory_(ss, {
+    productId: usedProduct ? usedProduct.productId : "",
     lpId: lpId,
     lubricant: reg ? reg.lubricant : "",
     lubricantBrand: reg ? reg.lubricantBrand : "",

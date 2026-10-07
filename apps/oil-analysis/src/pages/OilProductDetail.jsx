@@ -227,6 +227,15 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
         </div>
       </div>
 
+      <EquivalentCard
+        webhookUrl={webhookUrl}
+        product={product}
+        equipmentRegistry={equipmentRegistry}
+        canApprove={isContractorEngineer}
+        pushToast={pushToast}
+        onSaved={refresh}
+      />
+
       <StockChart movements={movements} level={product.recorderLevel} unit={product.unit} />
 
       <LogMovementForm
@@ -387,6 +396,106 @@ function StockChart({ movements, level, unit }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+    </div>
+  );
+}
+
+// Phase 8 — "this product is an approved equivalent for <main oil>". Only
+// the product's own contractor engineer approves or removes it; the ACC
+// engineers and the managers are told. Routes then use it when the main
+// oil is short, and the technician can pick it as the oil used.
+function EquivalentCard({ webhookUrl, product, equipmentRegistry, canApprove, pushToast, onSaved }) {
+  const { T, s } = useTheme();
+  const [editing, setEditing] = useState(false);
+  const [pick, setPick] = useState("");
+  const [saving, setSaving] = useState(false);
+  const mainOils = useMemo(() => {
+    const seen = new Map();
+    (equipmentRegistry || []).forEach((r) => {
+      const type = (r.lubricant || "").trim();
+      if (!type || (r.contractor || "").trim() !== product.contractor) return;
+      const brand = (r.lubricantBrand || "").trim();
+      if (type.toLowerCase() === (product.lubricantType || "").trim().toLowerCase()) return;
+      // spelling differences in the registry ("MOBIL SHC 632") are one oil
+      const key = `${type}|${brand}`.toLowerCase().replace(/\s+/g, " ");
+      if (!seen.has(key)) seen.set(key, { type, brand });
+    });
+    return Array.from(seen.values()).sort((a, b) => a.type.localeCompare(b.type));
+  }, [equipmentRegistry, product.contractor, product.lubricantType]);
+
+  async function save(mainType, mainBrand) {
+    setSaving(true);
+    try {
+      await api.setOilEquivalent(webhookUrl, product.productId, mainType, mainBrand);
+      pushToast(mainType ? "Equivalent approved — the ACC engineers and managers have been told." : "Equivalent removed.", "success");
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const has = !!product.equivalentToType;
+  const label = (type, brand) => (brand ? `${type} — ${brand}` : type);
+  return (
+    <div style={{ ...s.card, marginBottom: 16, borderLeft: has ? `3px solid ${T.warning}` : undefined }} data-testid="equivalent-card">
+      <p style={{ fontWeight: 700, margin: "0 0 6px" }}>Approved equivalent</p>
+      {has ? (
+        <p style={{ fontSize: 13, margin: "0 0 8px" }}>
+          Used in place of <strong>{label(product.equivalentToType, product.equivalentToBrand)}</strong> when that oil is short.
+          {product.equivalentApprovedBy && (
+            <span style={{ color: T.textSecondary }}>
+              {" "}
+              Approved by {product.equivalentApprovedBy}
+              {product.equivalentApprovedDate ? ` on ${product.equivalentApprovedDate}` : ""}.
+            </span>
+          )}
+        </p>
+      ) : (
+        <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 8px" }}>Not an equivalent for another oil.</p>
+      )}
+      {canApprove &&
+        (editing ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <select style={{ ...s.select, width: "auto", minWidth: 220 }} aria-label="Main oil this product replaces" value={pick} onChange={(e) => setPick(e.target.value)}>
+              <option value="">Main oil it replaces…</option>
+              {mainOils.map((o) => (
+                <option key={`${o.type}|${o.brand}`} value={`${o.type}|${o.brand}`}>
+                  {label(o.type, o.brand)}
+                </option>
+              ))}
+            </select>
+            <button
+              style={s.btnPrimary}
+              disabled={saving || !pick}
+              onClick={() => {
+                const [type, brand] = pick.split("|");
+                save(type, brand);
+              }}
+            >
+              {saving ? "…" : "Approve"}
+            </button>
+            <button style={s.btn} disabled={saving} onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button style={s.btn} onClick={() => setEditing(true)}>
+              <i className="ti ti-arrows-exchange" aria-hidden="true" /> {has ? "Change" : "Approve as an equivalent"}
+            </button>
+            {has && (
+              <button style={s.btn} disabled={saving} onClick={() => save("", "")}>
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+      {!canApprove && (
+        <p style={{ fontSize: 11.5, color: T.textSecondary, margin: 0 }}>Only {product.contractor || "the contractor"}'s engineer can approve or remove an equivalent.</p>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import '../components/ModuleAccessNotice.css';
 import { describeError } from '../api/client';
 import {
   getRoutineItems,
+  getOilPlan,
   getRoutines,
   isRouteOverdue,
   isRouteReturned,
@@ -12,6 +13,7 @@ import {
   submitRoutineItem,
   type Routine,
   type RoutineItem,
+  type OilPlan,
 } from '../api/oilLubrication';
 import { useAuth } from '../auth/AuthContext';
 import { tapHaptic } from '../haptics';
@@ -79,6 +81,7 @@ function ItemRow({
   routineId,
   onSaved,
   onError,
+  plan,
 }: {
   item: RoutineItem;
   locked: boolean;
@@ -86,8 +89,12 @@ function ItemRow({
   routineId: string;
   onSaved: (item: RoutineItem) => void;
   onError: (message: string) => void;
+  plan?: OilPlan;
 }) {
   const [implemented, setImplemented] = useState(item.implemented === 'Yes');
+  const [oilProductId, setOilProductId] = useState(item.oilUsedProductId || '');
+  const allowedOils = plan?.allowed || [];
+  const oilChoice = oilProductId || (allowedOils.length === 1 ? allowedOils[0].productId : '');
   const [reason, setReason] = useState(item.notImplementedReason || '');
   const [quantity, setQuantity] = useState(item.actualQuantity || '');
   const [saving, setSaving] = useState(false);
@@ -101,6 +108,10 @@ function ItemRow({
   }
 
   async function handleSave() {
+    if (implemented && allowedOils.length > 0 && !oilChoice) {
+      onError(`Choose the oil used on ${item.lpId}.`);
+      return;
+    }
     setSaving(true);
     try {
       const saved = await submitRoutineItem(sessionToken, routineId, {
@@ -112,6 +123,7 @@ function ItemRow({
         // No separate "Sample taken" box: Done on a Sampling route item
         // already means the sample was taken (same as the Routines page).
         sampleTaken: implemented,
+        oilProductId: implemented ? oilChoice : '',
       });
       setDirty(false);
       tapHaptic();
@@ -130,6 +142,18 @@ function ItemRow({
           the visual presentation reflows from a row to a stacked card. */}
       <td className="mywork-td mywork-td-lp" data-label="LP">
         <span>{item.lpId}</span>
+        {item.oilUsed ? (
+          <span className="mywork-oil">Used: {item.oilUsed}</span>
+        ) : (
+          plan?.use &&
+          !locked && (
+            <span className="mywork-oil" data-testid="oil-to-use">
+              Use: <strong>{plan.use.label}</strong>
+              {plan.use.isEquivalent && <em className="mywork-oil-equiv"> approved equivalent</em>}
+              {plan.note && <span className="mywork-oil-note">{plan.note}</span>}
+            </span>
+          )
+        )}
       </td>
       <td className="mywork-td" data-label="Type">
         <span>{item.itemType}</span>
@@ -147,14 +171,33 @@ function ItemRow({
       </td>
       <td className="mywork-td" data-label={implemented ? 'Qty' : 'Reason'}>
         {implemented ? (
-          <input
-            className="mywork-input"
-            type="text"
-            placeholder="Qty"
-            disabled={locked}
-            value={quantity}
-            onChange={(e) => markDirty(setQuantity)(e.target.value)}
-          />
+          <>
+            <input
+              className="mywork-input"
+              type="text"
+              placeholder="Qty"
+              disabled={locked}
+              value={quantity}
+              onChange={(e) => markDirty(setQuantity)(e.target.value)}
+            />
+            {allowedOils.length > 0 && (
+              <select
+                className="mywork-select mywork-oil-select"
+                aria-label={`Oil used on ${item.lpId}`}
+                disabled={locked}
+                value={oilChoice}
+                onChange={(e) => markDirty(setOilProductId)(e.target.value)}
+              >
+                {allowedOils.length > 1 && <option value="">Oil used…</option>}
+                {allowedOils.map((o) => (
+                  <option key={o.productId} value={o.productId}>
+                    {o.label}
+                    {o.isEquivalent ? ' (approved equivalent)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </>
         ) : (
           <input
             className="mywork-input"
@@ -233,7 +276,25 @@ function RoutineDetail({
   const locked = !canSubmit;
   const returned = isRouteReturned(routine);
 
+  // Phase 8: which oil each point gets.
+  const [oilPlans, setOilPlans] = useState<Record<string, OilPlan>>({});
+  const planType = routine.routeType === 'Oil Change' ? 'Change' : routine.routeType === 'Emergency Top Up' ? 'TopUp' : null;
+  const planLps = items.map((i) => i.lpId).join(',');
+  useEffect(() => {
+    if (!planType || !planLps) return;
+    let cancelled = false;
+    getOilPlan(sessionToken, planLps.split(','), planType)
+      .then((plans) => {
+        if (!cancelled) setOilPlans(plans);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken, planType, planLps]);
+
   function handleItemSaved(saved: RoutineItem) {
+    setError(null);
     setItems((prev) => prev.map((i) => (i.routineItemId === saved.routineItemId ? saved : i)));
   }
 
@@ -304,6 +365,7 @@ function RoutineDetail({
                 routineId={routine.routineId}
                 onSaved={handleItemSaved}
                 onError={setError}
+                plan={oilPlans[item.lpId]}
               />
             ))}
           </tbody>

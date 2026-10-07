@@ -31,7 +31,24 @@ function ReasonBadge({ T, reason }) {
   );
 }
 
-function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId, pushToast, onSaved }) {
+// Phase 8: the oil to use on this point, and the "oil used" choice.
+function OilToUse({ T, plan }) {
+  if (!plan || !plan.use) return null;
+  return (
+    <div style={{ marginTop: 4, fontSize: 11.5 }} data-testid="oil-to-use">
+      <span style={{ color: T.textSecondary }}>Use: </span>
+      <strong style={{ color: T.accent }}>{plan.use.label}</strong>
+      {plan.use.isEquivalent && (
+        <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: T.warning, background: T.warning + "1c", borderRadius: 4, padding: "1px 6px" }}>
+          approved equivalent
+        </span>
+      )}
+      {plan.note && <div style={{ color: T.textSecondary, marginTop: 2 }}>{plan.note}</div>}
+    </div>
+  );
+}
+
+function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId, pushToast, onSaved, plan }) {
   const { T, s } = useTheme();
   const reg = registryByLp[item.lpId];
   // Oil Type/Brand prefers the registry's own live value for this LP — it
@@ -45,6 +62,9 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   const [implemented, setImplemented] = useState(item.implemented === "Yes");
   const [reason, setReason] = useState(item.notImplementedReason || "");
   const [quantity, setQuantity] = useState(item.actualQuantity || "");
+  const [oilProductId, setOilProductId] = useState(item.oilUsedProductId || "");
+  const allowedOils = plan?.allowed || [];
+  const oilChoice = oilProductId || (allowedOils.length === 1 ? allowedOils[0].productId : "");
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -61,9 +81,14 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   }
 
   async function handleSave() {
+    if (implemented && allowedOils.length > 0 && !oilChoice) {
+      pushToast(`Choose the oil used on ${item.lpId}.`, "error");
+      return;
+    }
     setSaving(true);
     try {
       const saved = await api.submitRoutineItem(webhookUrl, routineId, {
+        oilProductId: implemented ? oilChoice : "",
         routineItemId: item.routineItemId,
         implemented,
         notImplementedReason: implemented ? "" : reason,
@@ -103,6 +128,14 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
         ) : (
           <span style={{ color: T.textMuted }}>—</span>
         )}
+        {item.oilUsed ? (
+          <div style={{ marginTop: 4, fontSize: 11.5 }}>
+            <span style={{ color: T.textSecondary }}>Used: </span>
+            <strong>{item.oilUsed}</strong>
+          </div>
+        ) : (
+          !locked && <OilToUse T={T} plan={plan} />
+        )}
       </td>
       <td style={s.td}>{requiredQty ? `${requiredQty} L` : <span style={{ color: T.textMuted }}>—</span>}</td>
       <td style={s.td}>
@@ -118,14 +151,33 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
       </td>
       <td style={s.td}>
         {implemented ? (
-          <input
-            style={{ ...s.input, width: 90 }}
-            type="text"
-            placeholder="Qty"
-            disabled={locked}
-            value={quantity}
-            onChange={(e) => markDirty(setQuantity)(e.target.value)}
-          />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              style={{ ...s.input, width: 90 }}
+              type="text"
+              placeholder="Qty"
+              disabled={locked}
+              value={quantity}
+              onChange={(e) => markDirty(setQuantity)(e.target.value)}
+            />
+            {allowedOils.length > 0 && (
+              <select
+                style={{ ...s.select, width: "auto", minWidth: 170 }}
+                aria-label={`Oil used on ${item.lpId}`}
+                disabled={locked}
+                value={oilChoice}
+                onChange={(e) => markDirty(setOilProductId)(e.target.value)}
+              >
+                {allowedOils.length > 1 && <option value="">Oil used…</option>}
+                {allowedOils.map((o) => (
+                  <option key={o.productId} value={o.productId}>
+                    {o.label}
+                    {o.isEquivalent ? " (approved equivalent)" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         ) : (
           <input
             style={s.input}
@@ -169,6 +221,21 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
   const isRouteEngineer = useIsRouteEngineerFor(routine?.contractor || "");
 
   const itemsDone = items.filter((i) => i.implemented === "Yes").length;
+
+  // Phase 8: which oil each point gets (main oil, or an approved equivalent
+  // when it's short; a top-up only the oil already in the point).
+  const [oilPlans, setOilPlans] = useState({});
+  const planItemType = routine?.routeType === "Oil Change" ? "Change" : routine?.routeType === "Emergency Top Up" ? "TopUp" : "";
+  const planLpKey = items.map((i) => i.lpId).join(",");
+  useEffect(() => {
+    if (!planItemType || !planLpKey) return;
+    let cancelled = false;
+    api
+      .getOilPlan(webhookUrl, planLpKey.split(","), planItemType)
+      .then((plans) => { if (!cancelled) setOilPlans(plans); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [webhookUrl, planItemType, planLpKey]);
 
   // Prefills "Reviewed By" from the logged-in user once a session is
   // available — still editable, since the reviewer isn't always the person
@@ -665,6 +732,7 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
                 routineId={routineId}
                 pushToast={pushToast}
                 onSaved={updateItemLocal}
+                plan={oilPlans[item.lpId]}
               />
             ))}
           </tbody>

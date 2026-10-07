@@ -91,6 +91,20 @@ export type RoutineItem = {
   actualDate: string;
   actualQuantity: string;
   sampleTaken: string;
+  // Phase 8: the oil used (product id + label).
+  oilUsedProductId: string;
+  oilUsed: string;
+};
+
+// Phase 8 — which oil a point should get.
+export type OilOption = { productId: string; label: string; isEquivalent: boolean; stock: number };
+export type OilPlan = {
+  lpId: string;
+  mainOil: string;
+  current: { productId: string; label: string } | null;
+  allowed: OilOption[];
+  use: OilOption | null;
+  note: string;
 };
 
 class SaveVerificationError extends Error {}
@@ -143,6 +157,8 @@ function rowToRoutineItem(row: unknown[]): RoutineItem {
     actualDate: formatDate(row[7]),
     actualQuantity: String(row[8] || ''),
     sampleTaken: String(row[9] || ''),
+    oilUsedProductId: String(row[12] || ''),
+    oilUsed: String(row[13] || ''),
   };
 }
 
@@ -231,6 +247,7 @@ export async function submitRoutineItem(
     actualDate?: string;
     actualQuantity?: string;
     sampleTaken: boolean;
+    oilProductId?: string;
   },
 ): Promise<RoutineItem> {
   await postBlind(sessionToken, {
@@ -241,14 +258,27 @@ export async function submitRoutineItem(
     actualDate: item.actualDate || '',
     actualQuantity: item.actualQuantity || '',
     sampleTaken: item.sampleTaken,
+    oilProductId: item.oilProductId || '',
   });
 
   const items = await getRoutineItems(sessionToken, routineId);
   const saved = items.find((i) => i.routineItemId === item.routineItemId);
-  if (!saved || (saved.implemented === 'Yes') !== item.implemented) {
+  if (
+    !saved ||
+    (saved.implemented === 'Yes') !== item.implemented ||
+    (item.implemented && item.oilProductId && saved.oilUsedProductId !== item.oilProductId)
+  ) {
     throw new SaveVerificationError("The routine item wasn't confirmed saved — please try again.");
   }
   return saved;
+}
+
+// Phase 8 — the oil each point gets on this route (main oil, an approved
+// equivalent when it's short, or — for a top-up — only the oil already in it).
+export async function getOilPlan(sessionToken: string, lpIds: string[], itemType: 'Change' | 'TopUp'): Promise<Record<string, OilPlan>> {
+  if (!lpIds.length) return {};
+  const json = await getJSON(sessionToken, { action: 'getOilPlan', lpIds: lpIds.join(','), itemType });
+  return json.plans || {};
 }
 
 export async function submitRoutine(sessionToken: string, routineId: string): Promise<Routine> {

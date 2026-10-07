@@ -68,6 +68,8 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
   // contractor's own registry oils — equivalence never crosses contractor
   // lines, same as the stock itself never does.
   const [equivalentEnabled, setEquivalentEnabled] = useState(false);
+  // Phase 8: only the contractor's own engineer approves an equivalent.
+  const canApproveEquivalent = useIsRouteEngineerFor(form.contractor || "");
   const [selectedEquivalentKey, setSelectedEquivalentKey] = useState("");
   const knownOilsForContractor = useMemo(
     () => knownOils.filter((o) => o.contractor === form.contractor),
@@ -108,7 +110,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
     try {
       const productId = newId("OIL");
       const payload = { productId, ...form };
-      if (!equivalentEnabled) {
+      if (!equivalentEnabled || !canApproveEquivalent) {
         payload.equivalentToType = "";
         payload.equivalentToBrand = "";
       }
@@ -171,10 +173,11 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
             </div>
           </>
         )}
+        {canApproveEquivalent && (
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
             <input type="checkbox" checked={equivalentEnabled} onChange={(e) => setEquivalentEnabled(e.target.checked)} />
-            This replaces a different spec'd oil (market doesn't carry the original anymore)
+            Approve as an equivalent for another oil (used when that oil is short; the ACC engineers and managers are told)
           </label>
           {equivalentEnabled && (
             <div style={{ marginTop: 6 }}>
@@ -207,12 +210,12 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
                 </div>
               )}
               <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
-                Auto-deduction and the forecast will use this product for that original oil's equipment whenever there's no exact match
-                in {form.contractor || "this contractor"}'s own stock.
+                Routes use this product for that oil's points when the main oil is short, and the forecast counts it as cover.
               </p>
             </div>
           )}
         </div>
+        )}
         <div>
           <label style={s.label}>Container Type</label>
           <select style={s.select} value={form.containerType} onChange={(e) => set("containerType", e.target.value)}>
@@ -696,6 +699,12 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
                     <td style={s.td}>
                       <div style={{ fontWeight: 700 }}>{p.lubricantType}</div>
                       <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
+                      {p.equivalentToType && (
+                        <div style={{ fontSize: 11, color: T.warning, fontWeight: 600 }}>
+                          Approved equivalent for {p.equivalentToType}
+                          {p.equivalentToBrand ? ` — ${p.equivalentToBrand}` : ""}
+                        </div>
+                      )}
                     </td>
                     <td style={s.td}>{p.contractor || "—"}</td>
                     <td style={s.td}>
@@ -996,7 +1005,12 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
                         <td style={s.td}>{r.contractor}</td>
                         <td style={s.td}>{r.lpCount}</td>
                         <td style={s.td}>{r.quantityNeeded} L</td>
-                        <td style={s.td}>{r.currentStock != null ? `${r.currentStock} L` : "No matching product"}</td>
+                        <td style={s.td}>
+                          {r.currentStock != null ? `${r.currentStock} L` : "No matching product"}
+                          {(r.coveredBy || []).length > 1 && (
+                            <div style={{ fontSize: 11, color: T.textSecondary }}>incl. {r.coveredBy.slice(1).join(", ")}</div>
+                          )}
+                        </td>
                         <td style={s.td}>
                           {r.shortfall == null ? (
                             "—"

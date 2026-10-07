@@ -585,6 +585,22 @@ function submitRoutineItem(ss, data) {
     }
   }
 
+  // Phase 8: a done oil change / top-up names the oil used, from the
+  // allowed list only (main oil or approved equivalent; a top-up only the
+  // oil already in the point).
+  var oilUsed = { productId: "", label: "" };
+  if (data.implemented) {
+    var itemLp = String(sheet.getRange(rowIdx, 3).getValue() || "").trim();
+    var itemType = String(sheet.getRange(rowIdx, 4).getValue() || "").trim();
+    oilUsed = checkOilUsed_(ss, itemLp, itemType, data.oilProductId);
+    if (oilUsed.error) return { error: oilUsed.error };
+  }
+  var oilCells = sheet.getRange(rowIdx, RI_OIL_COL.PRODUCT + 1, 1, 2);
+  if (oilUsed.productId || String(oilCells.getValues()[0][0] || "").trim()) {
+    ensureServerHeaders_(sheet, 1, RI_OIL_COL.PRODUCT, ["OilUsedProductId", "OilUsed"]);
+    oilCells.setValues([[oilUsed.productId, oilUsed.label]]);
+  }
+
   sheet.getRange(rowIdx, 6).setValue(data.implemented ? "Yes" : "No");
   sheet.getRange(rowIdx, 7).setValue(data.notImplementedReason || "");
   sheet.getRange(rowIdx, 8).setValue(data.actualDate || new Date());

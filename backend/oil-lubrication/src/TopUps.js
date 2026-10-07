@@ -24,6 +24,7 @@
 var TOP_UP_LOG_HEADERS = [
   "TopUpId", "LP_ID", "RoutineId", "EventDate", "Quantity", "OilBrandType",
   "Reason", "RequestedBy", "DoneBy", "Contractor", "Remarks", "Created_Date",
+  "Product_ID",
 ];
 
 function logOilTopUp_(ss, data) {
@@ -52,6 +53,16 @@ function logOilTopUp_(ss, data) {
   var reg = findRegistryEntryForOilChange_(ss, lpId); // OilChanges.js — same minimal lookup, same fields a top-up needs
   var contractor = data.contractor || (reg ? reg.contractor : "") || "";
 
+  // Phase 8: the oil used — the one saved on the route item, or the product
+  // picked — and never a different oil from what's already in the point.
+  var usedOil = routineIdForTopUp ? routineItemOil_(ss, "", routineIdForTopUp, lpId) : null;
+  var usedProductId = (usedOil && usedOil.productId) || String(data.productId || "").trim();
+  if (usedProductId) {
+    var mixCheck = checkOilUsed_(ss, lpId, "TopUp", usedProductId);
+    if (mixCheck.error) return { error: mixCheck.error };
+  }
+  var usedProduct = productById_(ss, usedProductId);
+
   var topUpId = "TU-" + Utilities.getUuid();
   var row = [
     topUpId,
@@ -59,14 +70,17 @@ function logOilTopUp_(ss, data) {
     data.routineId || "",
     eventDate,
     quantityUsed,
-    data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
+    (usedProduct ? usedProduct.type + (usedProduct.brand ? " / " + usedProduct.brand : "") : "") || data.oilBrandType || (reg ? oilBrandTypeFor_(reg) : "") || "",
     reason,
     data.requestedBy || "",
     data.doneBy || "",
     contractor,
     data.remarks || "",
     "", // Created_Date — filled by appendRow's own stampLastModified
+    usedProduct ? usedProduct.productId : "", // Phase 8: Product_ID
   ];
+  var tuSheet = ss.getSheetByName("Oil Top Up LOG");
+  if (tuSheet && usedProduct) ensureServerHeaders_(tuSheet, 1, TU_PRODUCT_COL, ["Product_ID"]);
   // Unlike Oil Change LOG (a tab that already existed in the original
   // workbook), "Oil Top Up LOG" is brand new — passing the header row here
   // lets Utils.js's appendRow self-create the sheet correctly on first
@@ -79,6 +93,7 @@ function logOilTopUp_(ss, data) {
   // confirmed directly by the user: a top-up draws down stock exactly like
   // a change does, just a smaller quantity.
   var inventory = tryAutoDeductInventory_(ss, {
+    productId: usedProduct ? usedProduct.productId : "",
     lpId: lpId,
     lubricant: reg ? reg.lubricant : "",
     lubricantBrand: reg ? reg.lubricantBrand : "",
