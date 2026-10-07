@@ -7,6 +7,7 @@ import EditActionModal from "../components/EditActionModal";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 import { Donut, StackedBars } from "../components/DashCharts";
+import { SERIES_DARK, SERIES_LIGHT, isDarkSurface } from "../pointHistory";
 
 // Phase 2 statuses (old "In Progress" rows are read as Open).
 const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
@@ -14,11 +15,10 @@ const COLUMNS = ACTION_STATUSES;
 // Dragging only does Open → Waiting Stoppage (one-way). Everything else —
 // Submit, closure, reschedule — happens inside the action.
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-// Open actions by age (design D5): 0–7, 8–30, 31–60 and 60+ days; the
-// older the bucket, the darker the blue (one hue — it is an amount, not a
-// status).
+// Open actions by age: 0–7, 8–30, 31–60 and 60+ days, green → blue →
+// amber → red as they get older.
 const AGE_BUCKETS = ["0–7 d", "8–30 d", "31–60 d", "60+ d"];
-const AGE_SHADE = { "0–7 d": 35, "8–30 d": 55, "31–60 d": 78, "60+ d": 100 };
+const AGE_TONE = { "0–7 d": "success", "8–30 d": "accent", "31–60 d": "warning", "60+ d": "danger" };
 
 function ageDays(dateStr) {
   if (!dateStr) return null;
@@ -128,13 +128,14 @@ export default function ActionTracker({
   // matches the standing rule from Oil Change Log/Oil Sampling Log that
   // every filter on a page affects every graph on it, not just the board.
   const statusCounts = COLUMNS.reduce((acc, st) => ({ ...acc, [st]: visible.filter((a) => a.status === st).length }), {});
+  // Each stage in its own colour — the same one as its column on the board.
   const STAGES = [
-    { key: ACTION_STATUS.DRAFT, label: "Draft", shade: 30 },
-    { key: ACTION_STATUS.OPEN, label: "Open", shade: 55 },
-    { key: ACTION_STATUS.WAITING, label: "Waiting stoppage", shade: 78 },
-    { key: ACTION_STATUS.CLOSURE_REQUESTED, label: "To approve", shade: 100 },
+    { key: ACTION_STATUS.DRAFT, label: "Draft" },
+    { key: ACTION_STATUS.OPEN, label: "Open" },
+    { key: ACTION_STATUS.WAITING, label: "Waiting stoppage" },
+    { key: ACTION_STATUS.CLOSURE_REQUESTED, label: "To approve" },
   ];
-  const stageSegs = STAGES.map((st) => ({ label: st.label, value: statusCounts[st.key] || 0, color: `color-mix(in srgb, ${T.accent} ${st.shade}%, ${T.cardBg})` }));
+  const stageSegs = STAGES.map((st) => ({ label: st.label, value: statusCounts[st.key] || 0, color: T[STATUS_COLOR_KEY[st.key]] }));
   const openCount = stageSegs.reduce((n, x) => n + x.value, 0);
   const overdueOpen = visible.filter((a) => isActionOverdue(a)).length;
 
@@ -167,7 +168,7 @@ export default function ActionTracker({
       const bucket = ageBucket(ageDays(a.revisionDate));
       if (bucket) counts[bucket]++;
     });
-    return AGE_BUCKETS.map((b) => ({ bucket: b, count: counts[b], fill: `color-mix(in srgb, ${T.accent} ${AGE_SHADE[b]}%, ${T.cardBg})` }));
+    return AGE_BUCKETS.map((b) => ({ bucket: b, count: counts[b], fill: T[AGE_TONE[b]] }));
   }, [visible, T]);
 
   const contractorData = useMemo(() => {
@@ -177,11 +178,13 @@ export default function ActionTracker({
       const c = registryByCode[code]?.contractor;
       if (counts[c] != null) counts[c]++;
     });
+    // same contractor colours as Inventory → Consumption
+    const palette = isDarkSurface(T.cardBg) ? SERIES_DARK : SERIES_LIGHT;
     return [
-      { label: "RHI", value: counts.RHI, color: T.accent },
-      { label: "ASEC", value: counts.ASEC, color: T.textSecondary },
+      { label: "RHI", value: counts.RHI, color: palette[1] },
+      { label: "ASEC", value: counts.ASEC, color: palette[0] },
     ];
-  }, [visible, registryByCode, T.accent, T.textSecondary]);
+  }, [visible, registryByCode, T.cardBg]);
 
   // Opened (by revisionDate) vs Closed (by completedDate), last 6 calendar
   // months — the one thing neither the status donut nor the kanban board

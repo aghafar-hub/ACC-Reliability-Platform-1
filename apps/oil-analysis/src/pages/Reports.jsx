@@ -216,7 +216,6 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
     );
   }
 
-  const blue = (pct) => `color-mix(in srgb, ${T.accent} ${pct}%, ${T.cardBg})`;
   const sampleOk = Math.max(0, samplePreview.total - samplePreview.missing - samplePreview.overdue);
   const ocOk = Math.max(0, oilChangePreview.totalPoints - oilChangePreview.overdue);
   return (
@@ -263,10 +262,10 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
             T={T}
             testid="report-action-bar"
             parts={[
-              { label: "Draft", value: actionPreview.draft, color: blue(30) },
-              { label: "Open", value: actionPreview.open, color: blue(55) },
-              { label: "Waiting stoppage", value: actionPreview.waiting, color: blue(78) },
-              { label: "Closure requested", value: actionPreview.closure, color: blue(100) },
+              { label: "Draft", value: actionPreview.draft, color: T.warning },
+              { label: "Open", value: actionPreview.open, color: T.danger },
+              { label: "Waiting stoppage", value: actionPreview.waiting, color: T.accent },
+              { label: "Closure requested", value: actionPreview.closure, color: T.info },
             ]}
           />
         </ReportCard>

@@ -53,6 +53,7 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
   }, []);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [onlyUnread, setOnlyUnread] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
@@ -116,6 +117,15 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
     markAllNotificationsRead(sessionToken as string).catch(() => {});
   }
 
+  const shown = onlyUnread ? notifications.filter((n) => !n.read) : notifications;
+  const groups: { label: string; items: InAppNotification[] }[] = [];
+  shown.forEach((n) => {
+    const label = dayGroup(n.createdDate);
+    const g = groups.find((x) => x.label === label);
+    if (g) g.items.push(n);
+    else groups.push({ label, items: [n] });
+  });
+
   return (
     <div className="notif-bell" ref={containerRef}>
       <button
@@ -132,36 +142,105 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
       </button>
 
       {open && (
-        <div className="notif-bell-panel">
+        <div className="notif-bell-panel" role="dialog" aria-label="Notifications">
           <div className="notif-bell-panel-header">
-            <span>Notifications</span>
-            {unreadCount > 0 && (
-              <button type="button" className="notif-bell-markall" onClick={handleMarkAllRead}>
-                Mark all read
+            <span className="notif-bell-title">
+              Notifications
+              {unreadCount > 0 && <span className="notif-bell-count">{unreadCount} new</span>}
+            </span>
+            <span className="notif-bell-header-actions">
+              {unreadCount > 0 && (
+                <button type="button" className="notif-bell-markall" onClick={handleMarkAllRead}>
+                  Mark all read
+                </button>
+              )}
+              <button type="button" className="notif-bell-close" onClick={() => setOpen(false)} aria-label="Close notifications">
+                <Icon name="close" size={16} />
               </button>
-            )}
+            </span>
           </div>
-          <div className="notif-bell-list">
-            {notifications.length === 0 && <div className="notif-bell-empty">No notifications yet.</div>}
-            {notifications.map((n) => (
+          <div className="notif-bell-filters" role="group" aria-label="Show">
+            {[
+              { id: false, label: `All ${notifications.length}` },
+              { id: true, label: `Unread ${unreadCount}` },
+            ].map((f) => (
               <button
+                key={String(f.id)}
                 type="button"
-                key={n.notificationId}
-                className={`notif-bell-item${n.read ? '' : ' unread'}`}
-                onClick={() => handleOpen(n)}
+                aria-pressed={onlyUnread === f.id}
+                className={`notif-bell-chip${onlyUnread === f.id ? ' on' : ''}`}
+                onClick={() => setOnlyUnread(f.id)}
               >
-                <span className="notif-bell-dot" />
-                <span className="notif-bell-item-body">
-                  <span className="notif-bell-message">{n.message}</span>
-                  <span className="notif-bell-time">{formatRelative(n.createdDate)}</span>
-                </span>
+                {f.label}
               </button>
             ))}
           </div>
+          <div className="notif-bell-list">
+            {shown.length === 0 && (
+              <div className="notif-bell-empty">
+                <span className="notif-bell-empty-icon">
+                  <Icon name="bell" size={22} />
+                </span>
+                {onlyUnread ? "You're all caught up." : 'No notifications yet.'}
+              </div>
+            )}
+            {groups.map((g) => (
+              <div key={g.label}>
+                <div className="notif-bell-group">{g.label}</div>
+                {g.items.map((n) => {
+                  const k = kindOf(n);
+                  return (
+                    <button
+                      type="button"
+                      key={n.notificationId}
+                      className={`notif-bell-item${n.read ? '' : ' unread'}`}
+                      onClick={() => handleOpen(n)}
+                    >
+                      <span className={`notif-bell-icon kind-${k.tone}`} aria-hidden="true">
+                        <Icon name={k.icon} size={16} />
+                      </span>
+                      <span className="notif-bell-item-body">
+                        <span className="notif-bell-message">{n.message}</span>
+                        <span className="notif-bell-time">
+                          {k.label}
+                          {n.contractor ? ` · ${n.contractor}` : ''} · {formatRelative(n.createdDate)}
+                        </span>
+                      </span>
+                      {!n.read && <span className="notif-bell-dot" aria-label="unread" />}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          {notifications.length > 0 && <div className="notif-bell-footer">Latest {notifications.length} · tap one to open it</div>}
         </div>
       )}
     </div>
   );
+}
+
+// What a notification is about, from its type: an icon, a colour and a
+// short label for the line under the message.
+type Kind = { icon: 'route' | 'action' | 'flask' | 'droplet' | 'bell'; tone: 'route' | 'action' | 'lab' | 'stock' | 'late'; label: string };
+function kindOf(n: InAppNotification): Kind {
+  const t = (n.type || '').toLowerCase();
+  if (t.includes('overdue') || t.includes('escalation') || t.includes('due-soon')) return { icon: 'bell', tone: 'late', label: t.includes('due-soon') ? 'Due soon' : 'Overdue' };
+  if (t.startsWith('lab-report')) return { icon: 'flask', tone: 'lab', label: 'Lab report' };
+  if (t.includes('stock') || t.includes('oil-equivalent')) return { icon: 'droplet', tone: 'stock', label: 'Oil stock' };
+  if (t.startsWith('action') || t.includes('agreed-action')) return { icon: 'action', tone: 'action', label: 'Action' };
+  if (t.startsWith('rout') || n.linkPage === 'routines') return { icon: 'route', tone: 'route', label: 'Route' };
+  return { icon: 'bell', tone: 'route', label: 'Update' };
+}
+
+function dayGroup(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return 'Earlier';
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  if (d.getTime() >= start) return 'Today';
+  if (d.getTime() >= start - 86400000) return 'Yesterday';
+  return 'Earlier';
 }
 
 function formatRelative(iso: string): string {

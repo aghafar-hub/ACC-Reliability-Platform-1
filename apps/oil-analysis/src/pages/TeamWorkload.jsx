@@ -200,10 +200,10 @@ function ContractorCard({ T, s, c }) {
     { label: "Returned", value: c.routes.returned, color: T.warning },
   ];
   const actionSegs = [
-    { label: "Draft", value: c.actions.draft, color: blue(25) },
-    { label: "Open", value: c.actions.open, color: blue(55) },
-    { label: "Waiting stoppage", value: c.actions.waitingStoppage, color: blue(78) },
-    { label: "Closure requested", value: c.actions.closureRequested, color: blue(100) },
+    { label: "Draft", value: c.actions.draft, color: T.warning },
+    { label: "Open", value: c.actions.open, color: T.danger },
+    { label: "Waiting stoppage", value: c.actions.waitingStoppage, color: T.accent },
+    { label: "Closure requested", value: c.actions.closureRequested, color: T.info },
   ];
   const attention = [
     { label: "routes overdue", value: c.routes.overdue, icon: "ti-route" },

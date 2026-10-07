@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -7,7 +8,6 @@ import {
   ComposedChart,
   Legend,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,7 +17,6 @@ import { useTheme } from "../ThemeContext";
 import { useSessionContractor, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
 import { formatDate, newId } from "../parsers";
-import useIsMobile from "../hooks/useIsMobile";
 import { SERIES_DARK, SERIES_LIGHT, isDarkSurface } from "../pointHistory";
 import {
   SHORTAGE_PERIODS,
@@ -748,28 +747,41 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
           <p style={{ color: T.textSecondary, margin: 0 }}>No logged Issue movements in this window yet.</p>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="invTrendFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={T.accent} stopOpacity={0.32} />
+                  <stop offset="100%" stopColor={T.accent} stopOpacity={0.03} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
               <Tooltip content={<ChartTooltip T={T} />} />
-              <Line
-                type="linear"
+              {/* complete months: a smooth line with dots and the area under it filled */}
+              <Area
+                type="monotone"
                 dataKey="total"
                 name="Issued"
                 stroke={T.accent}
-                strokeWidth={2}
-                dot={{ r: 4, fill: T.accent, strokeWidth: 0 }}
+                strokeWidth={2.5}
+                fill="url(#invTrendFill)"
+                dot={{ r: 4.5, fill: T.accent, stroke: T.cardBg, strokeWidth: 2 }}
+                activeDot={{ r: 6, fill: T.accent, stroke: T.cardBg, strokeWidth: 2 }}
                 isAnimationActive={false}
               />
-              <Line
-                type="linear"
+              {/* this month so far: dashed, lightly filled, hollow end dot */}
+              <Area
+                type="monotone"
                 dataKey="soFar"
                 name="So far"
                 stroke={T.accent}
                 strokeWidth={2}
                 strokeDasharray="5 4"
+                fill={T.accent}
+                fillOpacity={0.06}
                 isAnimationActive={false}
+                activeDot={false}
                 dot={(p) =>
                   p.index === lastIdx && p.cx != null && p.cy != null ? (
                     <circle key={p.index} cx={p.cx} cy={p.cy} r={5} fill={T.cardBg} stroke={T.accent} strokeWidth={2} />
@@ -778,7 +790,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
                   )
                 }
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>
@@ -1773,7 +1785,6 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
 
 export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast }) {
   const { T, s } = useTheme();
-  const isMobile = useIsMobile();
   const [view, setView] = useState("tabs"); // "tabs" | "add" | "detail"
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedProductId, setSelectedProductId] = useState(null);
@@ -1872,19 +1883,22 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
           </p>
         </div>
         {!scopedContractor && (
-          <select
-            style={{ ...s.select, width: isMobile ? "100%" : 170, fontSize: 12.5 }}
-            value={contractorFilter}
-            aria-label="Contractor"
-            onChange={(e) => setContractorFilter(e.target.value)}
-          >
-            <option value="All">All Contractors</option>
-            {CONTRACTOR_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <div role="group" aria-label="Contractor" style={{ display: "flex", gap: 6, flexWrap: "wrap" }} data-testid="inv-contractor">
+            {["All", ...CONTRACTOR_OPTIONS].map((c) => {
+              const on = contractorFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setContractorFilter(c)}
+                  style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderRadius: 999, borderColor: on ? T.accent : T.border, background: on ? T.accent : T.cardBg, color: on ? "#fff" : T.textSecondary, fontWeight: on ? 700 : 500 }}
+                >
+                  {c === "All" ? "All contractors" : c}
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
       <TabBar T={T} activeTab={activeTab} setActiveTab={setActiveTab} counts={{ stock: { value: visibleProducts.length }, ...(lowCount ? { overview: { value: `${lowCount} low`, tone: T.danger } } : {}) }} />

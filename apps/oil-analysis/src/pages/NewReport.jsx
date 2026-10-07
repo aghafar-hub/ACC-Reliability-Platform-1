@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
+import useIsMobile from "../hooks/useIsMobile";
 import { REPORT_GROUPS, REPORT_SECTIONS, generateOilReportPdf, generateOilReportExcel } from "../reportGenerators";
 
 // Mirrors Routines.jsx's own "Create Route" -> NewRoutine.jsx pattern
@@ -18,6 +19,7 @@ const CONTRACTOR_OPTIONS = ["All", "RHI", "ASEC"];
 
 export default function NewReport({ webhookUrl, actions, oilChanges, samples, equipmentRegistry, trackerByEquip, onCancel }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
   const [contractor, setContractor] = useState("All");
   const [sectionIds, setSectionIds] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,115 +89,155 @@ export default function NewReport({ webhookUrl, actions, oilChanges, samples, eq
     }
   }
 
+  const step = (n, title, hint) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      <span style={{ width: 26, height: 26, borderRadius: "50%", background: T.accent, color: "#fff", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{n}</span>
+      <span style={{ fontSize: 14.5, fontWeight: 700, color: T.textPrimary }}>{title}</span>
+      {hint && <span style={{ fontSize: 12, color: T.textSecondary }}>{hint}</span>}
+    </div>
+  );
+  const busy = sectionIds.length === 0 || loading || !!generating;
+
   return (
-    <div style={{ maxWidth: 820 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-        <p style={{ ...s.sectionTitle, margin: 0 }}>New Report</p>
+    <div data-testid="new-report">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+        <div>
+          <p style={{ ...s.sectionTitle, margin: 0 }}>New Report</p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 0" }}>
+            One PDF (with charts) or one Excel workbook (data only, a sheet per section) — nothing is saved or sent anywhere.
+          </p>
+        </div>
         <button style={s.btn} onClick={onCancel}>
           <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Oil Reports
         </button>
       </div>
-      <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 20px" }}>
-        Pick what to include, pick a contractor (or both), then generate one PDF (with charts) or one Excel workbook (data only, one sheet
-        per section) — nothing is saved or sent anywhere.
-      </p>
-
-      <div style={{ ...s.card, marginBottom: 20 }}>
-        <label style={s.label}>Contractor</label>
-        <select style={{ ...s.select, maxWidth: 220 }} value={contractor} onChange={(e) => setContractor(e.target.value)}>
-          {CONTRACTOR_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c === "All" ? "Both / All Contractors" : c}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {loadError && (
-        <div style={{ ...s.card, borderColor: T.danger, marginBottom: 16 }}>
-          <p style={{ margin: 0, color: T.danger, fontSize: 12.5 }}>
-            Some sections (Routines, Inventory, Top Ups) couldn't load: {loadError}. You can still generate with what did load.
-          </p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", background: T.danger + "12", border: `1px solid ${T.danger}55`, borderRadius: 10, padding: "10px 14px", margin: "12px 0", fontSize: 12.5 }}>
+          <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger }} />
+          Some sections (Routines, Inventory, Top Ups) couldn't load: {loadError}. You can still generate with what did load.
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-        <p style={{ fontWeight: 700, margin: 0, fontSize: 13 }}>Sections {sectionIds.length > 0 ? `(${sectionIds.length} selected)` : ""}</p>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ ...s.btn, fontSize: 12, padding: "5px 10px" }} onClick={selectAll}>
-            Select All
-          </button>
-          <button style={{ ...s.btn, fontSize: 12, padding: "5px 10px" }} onClick={clearAll}>
-            Clear
-          </button>
-        </div>
-      </div>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 340px", gap: 20, alignItems: "start", marginTop: 16 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...s.card, marginBottom: 16 }}>
+            {step(1, "Contractor")}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="group" aria-label="Contractor">
+              {CONTRACTOR_OPTIONS.map((c) => {
+                const on = contractor === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setContractor(c)}
+                    style={{ ...s.btn, padding: "7px 16px", borderRadius: 999, borderColor: on ? T.accent : T.border, background: on ? T.accent : T.cardBg, color: on ? "#fff" : T.textSecondary, fontWeight: on ? 700 : 500 }}
+                  >
+                    {c === "All" ? "Both / all contractors" : c}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 16 }}>
-        {REPORT_GROUPS.map((group) => {
-          const sections = REPORT_SECTIONS.filter((sec) => sec.group === group.id);
-          const checkedCount = sections.filter((sec) => sectionIds.includes(sec.id)).length;
-          const allChecked = checkedCount === sections.length;
-          return (
-            <div key={group.id} style={{ ...s.card, display: "flex", flexDirection: "column", gap: 12, marginBottom: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 38, height: 38, borderRadius: 10, background: T[group.iconColor] + "22", color: T[group.iconColor],
-                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                    }}
-                  >
-                    <i className={`ti ${group.icon}`} style={{ fontSize: 19 }} aria-hidden="true" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{group.label}</div>
-                    <div style={{ fontSize: 12, color: T.textSecondary }}>
-                      {checkedCount} of {sections.length} selected
-                    </div>
-                  </div>
-                </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.textSecondary, cursor: "pointer" }}>
-                  <input type="checkbox" checked={allChecked} onChange={() => toggleGroup(group.id)} />
-                  All
-                </label>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {sections.map((sec) => (
-                  <label
-                    key={sec.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 12.5,
-                      color: T.textPrimary,
-                      cursor: "pointer",
-                      padding: "6px 8px",
-                      borderRadius: 6,
-                      background: sectionIds.includes(sec.id) ? T.navActive : "transparent",
-                    }}
-                  >
-                    <input type="checkbox" checked={sectionIds.includes(sec.id)} onChange={() => toggleSection(sec.id)} />
-                    {sec.label}
-                  </label>
-                ))}
+          <div style={{ ...s.card, marginBottom: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              {step(2, "Sections", sectionIds.length ? `${sectionIds.length} of ${REPORT_SECTIONS.length} picked` : "pick at least one")}
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <button style={{ ...s.btn, fontSize: 12.5, padding: "5px 10px" }} onClick={selectAll}>
+                  Select All
+                </button>
+                <button style={{ ...s.btn, fontSize: 12.5, padding: "5px 10px" }} onClick={clearAll} disabled={!sectionIds.length}>
+                  Clear
+                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 250px), 1fr))", gap: 12 }}>
+              {REPORT_GROUPS.map((group) => {
+                const sections = REPORT_SECTIONS.filter((sec) => sec.group === group.id);
+                const checkedCount = sections.filter((sec) => sectionIds.includes(sec.id)).length;
+                const allChecked = checkedCount === sections.length;
+                const c = T[group.iconColor] || T.accent;
+                return (
+                  <div key={group.id} style={{ border: `1.5px solid ${checkedCount ? c : T.border}`, borderRadius: 12, overflow: "hidden" }} data-testid={`report-group-${group.id}`}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: checkedCount ? c + "12" : T.cardSubBg }}>
+                      <span style={{ width: 34, height: 34, borderRadius: 9, background: c + "22", color: c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <i className={`ti ${group.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13.5, fontWeight: 700, color: T.textPrimary }}>{group.label}</span>
+                        <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>
+                          {checkedCount} of {sections.length} selected
+                        </span>
+                      </span>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.textSecondary, cursor: "pointer" }}>
+                        <input type="checkbox" checked={allChecked} onChange={() => toggleGroup(group.id)} />
+                        All
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", padding: 6 }}>
+                      {sections.map((sec) => {
+                        const on = sectionIds.includes(sec.id);
+                        return (
+                          <label
+                            key={sec.id}
+                            style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textPrimary, cursor: "pointer", padding: "7px 8px", borderRadius: 8, background: on ? c + "14" : "transparent", fontWeight: on ? 600 : 400 }}
+                          >
+                            <input type="checkbox" checked={on} onChange={() => toggleSection(sec.id)} />
+                            {sec.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-        <button style={s.btnPrimary} disabled={sectionIds.length === 0 || loading || generating} onClick={() => handleGenerate("pdf")}>
-          <i className={`ti ${generating === "pdf" ? "ti-loader" : "ti-file-type-pdf"}`} aria-hidden="true" />{" "}
-          {generating === "pdf" ? "Generating…" : "Generate PDF"}
-        </button>
-        <button style={s.btn} disabled={sectionIds.length === 0 || loading || generating} onClick={() => handleGenerate("excel")}>
-          <i className={`ti ${generating === "excel" ? "ti-loader" : "ti-file-spreadsheet"}`} aria-hidden="true" />{" "}
-          {generating === "excel" ? "Generating…" : "Generate Excel"}
-        </button>
-        {loading && <span style={{ fontSize: 12, color: T.textMuted, alignSelf: "center" }}>Loading Routines/Inventory/Top Up data…</span>}
+        <div style={{ ...s.card, marginBottom: 0, position: isMobile ? "static" : "sticky", top: 12 }} data-testid="new-report-summary">
+          {step(3, "Your report")}
+          <div style={{ fontSize: 12.5, color: T.textSecondary, marginBottom: 6 }}>Contractor</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{contractor === "All" ? "Both / all contractors" : contractor}</div>
+          <div style={{ fontSize: 12.5, color: T.textSecondary, marginBottom: 6 }}>Sections ({sectionIds.length})</div>
+          {sectionIds.length === 0 ? (
+            <p style={{ fontSize: 12.5, color: T.textMuted, margin: "0 0 14px" }}>Nothing picked yet.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14, maxHeight: 300, overflowY: "auto" }}>
+              {REPORT_GROUPS.map((g) => {
+                const picked = REPORT_SECTIONS.filter((sec) => sec.group === g.id && sectionIds.includes(sec.id));
+                if (!picked.length) return null;
+                return (
+                  <div key={g.id}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: T[g.iconColor] || T.accent }}>{g.label}</div>
+                    {picked.map((sec) => (
+                      <div key={sec.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: T.textPrimary, padding: "2px 0" }}>
+                        <i className="ti ti-check" aria-hidden="true" style={{ color: T.success }} />
+                        <span style={{ flex: 1 }}>{sec.label}</span>
+                        <button type="button" aria-label={`Remove ${sec.label}`} onClick={() => toggleSection(sec.id)} style={{ border: 0, background: "none", color: T.textMuted, cursor: "pointer", fontSize: 14 }}>
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <button style={{ ...s.btnPrimary, padding: "10px 12px", opacity: busy ? 0.6 : 1 }} disabled={busy} onClick={() => handleGenerate("pdf")}>
+              <i className={`ti ${generating === "pdf" ? "ti-loader" : "ti-file-type-pdf"}`} aria-hidden="true" /> {generating === "pdf" ? "Generating…" : "Generate PDF"}
+            </button>
+            <button style={{ ...s.btn, padding: "10px 12px" }} disabled={busy} onClick={() => handleGenerate("excel")}>
+              <i className={`ti ${generating === "excel" ? "ti-loader" : "ti-file-spreadsheet"}`} aria-hidden="true" /> {generating === "excel" ? "Generating…" : "Generate Excel"}
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: T.textMuted, margin: "10px 0 0" }}>
+            {loading ? "Loading Routines / Inventory / Top Up data…" : "PDF: charts and tables, A4. Excel: one sheet per section."}
+          </p>
+        </div>
       </div>
     </div>
   );

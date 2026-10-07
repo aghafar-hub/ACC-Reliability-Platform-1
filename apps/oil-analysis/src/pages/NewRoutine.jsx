@@ -202,8 +202,27 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     setPresetId(id);
     const preset = SUGGESTION_PRESETS.find((p) => p.id === id);
     if (!preset) return;
-    setSelected(allSuggested.filter(preset.filter).map(toChipRow));
+    // The recommendation follows the Area / Oil Type filters too.
+    setSelected(
+      allSuggested
+        .filter(preset.filter)
+        .filter((r) => (area === "All" || r.area === area) && (oilType === "All" || r.lubricant === oilType))
+        .map(toChipRow)
+    );
   }
+
+  // Area / Oil Type changed: narrow the recommendation to match (unless the
+  // route was opened from picked suggestions, which stay as they are).
+  const firstFilterRun = useRef(true);
+  useEffect(() => {
+    if (firstFilterRun.current) {
+      firstFilterRun.current = false;
+      return;
+    }
+    if (isEmergencyTopUp || isRecurring || keepInitialPick.current) return;
+    applyPreset(presetId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a filter change should re-run this
+  }, [area, oilType]);
 
   // Re-apply the current preset whenever what it would suggest changes
   // (a route type switch) so the list stays in sync instead of showing a
@@ -236,8 +255,20 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   // logic only governs new clicks, not a selection that already existed
   // the moment this type became active.
   useEffect(() => {
-    if (isEmergencyTopUp) setSelected((prev) => (prev.length > 1 ? prev.slice(0, 1) : prev));
+    if (isEmergencyTopUp) setSelected((prev) => (keepInitialPick.current ? prev.slice(0, 1) : []));
   }, [isEmergencyTopUp]);
+
+  // Each route type starts with its own clean filters — an Area or Oil Type
+  // picked for a Sampling route must not carry over to Oil Change or Top Up
+  // (Top Up doesn't even show those filters).
+  const lastType = useRef(routeType);
+  useEffect(() => {
+    if (lastType.current === routeType) return;
+    lastType.current = routeType;
+    setArea("All");
+    setOilType("All");
+    setSearch("");
+  }, [routeType]);
 
   // Patch 19: an ACC/unscoped account has no manual Contractor dropdown —
   // contractor is derived from whichever equipment they pick first (see
@@ -263,10 +294,10 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     // yet — show both contractors' equipment until the first pick locks it.
     if (contractor && r.contractor && r.contractor !== contractor) return false;
     if (routeType === "Sampling" && r.oilAnalysisRequired !== "Yes") return false;
-    if (area !== "All" && r.area !== area) return false;
-    if (oilType !== "All" && r.lubricant !== oilType) return false;
+    if (!isEmergencyTopUp && area !== "All" && r.area !== area) return false;
+    if (!isEmergencyTopUp && oilType !== "All" && r.lubricant !== oilType) return false;
     if (!q) return true;
-    return [r.code, r.equipmentId, r.lubricationPoint, r.area].filter(Boolean).some((f) => f.toLowerCase().includes(q));
+    return [r.code, r.equipmentId, r.lubricationPoint, r.description, r.area, r.lubricant].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
   });
   const shownCandidates = candidates.slice(0, 200);
 
