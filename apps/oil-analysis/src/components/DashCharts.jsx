@@ -414,3 +414,27 @@ export function CalendarHeat({ T, days, weeks = 5, unit = "points", onDay }) {
     </div>
   );
 }
+
+// "This month: planned vs done" (D5 — Oil Changes, Sampling Log): a ring
+// of done ÷ (done + still due by the end of the month, overdue included).
+export function MonthProgress({ T, s, title, done, remaining, noun, testid }) {
+  const planned = done + remaining;
+  const pct = planned ? Math.round((done / planned) * 100) : null;
+  const month = new Date().toLocaleDateString("en-GB", { month: "long" });
+  return (
+    <div style={{ ...s.card, marginBottom: 0 }} data-testid={testid}>
+      <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight || T.textPrimary }}>{title}</p>
+      <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted || T.textSecondary }}>{month} so far — done vs still due by the month end</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <Ring T={T} pct={pct} size={104} thickness={11} color={pct === 100 ? T.success : T.accent} label={`${done} of ${planned} ${noun} done this month`} />
+        <div style={{ fontSize: 13.5, color: T.textPrimary, lineHeight: 1.6 }}>
+          <div>
+            <b style={{ fontSize: 20 }}>{done}</b> of {planned} {noun} done
+          </div>
+          <div style={{ color: remaining ? T.warning : T.success, fontWeight: 700 }}>{remaining ? `${remaining} still due by month end` : "Nothing else due this month"}</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>overdue ones count as still due</div>
+        </div>
+      </div>
+    </div>
+  );
+}

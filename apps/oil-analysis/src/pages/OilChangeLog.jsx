@@ -7,6 +7,7 @@ import GenerateOilChangeActionsModal from "../components/GenerateOilChangeAction
 import LpHistoryModal from "../components/LpHistoryModal";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
+import { MonthProgress } from "../components/DashCharts";
 
 const WEEKS_AHEAD = 8;
 
@@ -260,6 +261,20 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
     return monthlyOnTimeTrend(classifyChangeHistory(relevant));
   }, [visible, oilChangeEvents]);
 
+  // ── Chart 0 (D5): this month, done vs still due ──────────────────────
+  const monthProgress = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const daysToEnd = Math.ceil((monthEnd - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+    const codes = new Set(visible.map((p) => p.oilChange.equipmentCode));
+    const doneCodes = new Set(
+      (oilChangeEvents || []).filter((ev) => codes.has(ev.lpId) && ev.eventDate && new Date(ev.eventDate) >= monthStart).map((ev) => ev.lpId)
+    );
+    const remaining = visible.filter((p) => p.days != null && p.days <= daysToEnd && !doneCodes.has(p.oilChange.equipmentCode)).length;
+    return { done: doneCodes.size, remaining };
+  }, [visible, oilChangeEvents]);
+
   function historyForLp(lpId) {
     return (oilChangeEvents || []).filter((ev) => ev.lpId === lpId);
   }
@@ -290,6 +305,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
 
       {/* ====== GRAPHS ====== */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, marginBottom: 18 }}>
+        <MonthProgress T={T} s={s} title="This month" done={monthProgress.done} remaining={monthProgress.remaining} noun="oil changes" testid="oc-month-ring" />
         <div style={{ ...s.card, marginBottom: 0 }}>
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>
             Upcoming Changes — Next {WEEKS_AHEAD} Weeks

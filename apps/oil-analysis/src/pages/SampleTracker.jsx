@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext";
 import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import SampleHistoryModal from "../components/SampleHistoryModal";
+import { MonthProgress } from "../components/DashCharts";
 
 const WEEKS_AHEAD = 8;
 
@@ -272,6 +273,28 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     return map;
   }, [filtered, dueSoonCodes, dueDateByCode]);
 
+  // ── Chart 0 (D5): this month, points sampled vs still due ───────────
+  const monthProgress = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEndKey = (() => {
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return `${e.getFullYear()}-${String(e.getMonth() + 1).padStart(2, "0")}-${String(e.getDate()).padStart(2, "0")}`;
+    })();
+    let done = 0;
+    let remaining = 0;
+    filtered.forEach((r) => {
+      const last = r.history[0]?.date ? new Date(r.history[0].date) : null;
+      if (last && !isNaN(last) && last >= monthStart) {
+        done++;
+        return;
+      }
+      const due = dueDateByCode.get(r.eq.code);
+      if (r.status.label === "OVERDUE" || r.status.label === "MISSING" || (due && due <= monthEndKey)) remaining++;
+    });
+    return { done, remaining };
+  }, [filtered, dueDateByCode]);
+
   // ── Chart 1: Samples Due by Week ────────────────────────────────────
   const weeklyData = useMemo(() => {
     const today = new Date();
@@ -316,6 +339,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
 
       {/* ====== GRAPHS ====== */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, marginBottom: 18 }}>
+        <MonthProgress T={T} s={s} title="This month" done={monthProgress.done} remaining={monthProgress.remaining} noun="samples" testid="st-month-ring" />
         <div style={{ ...s.card, marginBottom: 0 }}>
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>
             Samples Due — Next {WEEKS_AHEAD} Weeks
