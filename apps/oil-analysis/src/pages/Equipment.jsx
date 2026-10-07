@@ -1,22 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
 import EquipmentList from "../components/EquipmentList";
 import { HEALTH_COLOR, healthForLp, indexByLp, pointHealth, worstHealth } from "../equipmentHealth";
-import { formatDate, conditionBucket, intervalMonths, isActionOverdue, actionDaysOverdue, ROUTE_STATUS } from "../parsers";
+import { formatDate, intervalMonths, isActionOverdue, actionDaysOverdue, ROUTE_STATUS } from "../parsers";
 import { statusColor } from "../theme";
 import * as api from "../api";
 import EditSampleModal from "../components/EditSampleModal";
 import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
+import PointHistory from "../components/PointHistory";
 
 const STATUS_ACTION_COLOR = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
-// Shared by the single-LP "Oil Condition Trend" chart and the equipment-/
-// point-level Criticality badges — Normal < Caution < Alert, same severity
-// order criticalityFor below already uses.
-const CONDITION_COLOR_KEY = { Normal: "success", Caution: "warning", Alert: "danger" };
-const CONDITION_VALUE = { Normal: 1, Caution: 2, Alert: 3 };
 const CRITICALITY_RANK = { Normal: 0, Medium: 1, High: 2 };
 
 // Severity ranking for picking the "worst" status across several
@@ -36,7 +31,6 @@ const LP_TABS = [
   { key: "routes", label: "Routes", icon: "ti-route" },
   { key: "info", label: "Equipment Info", icon: "ti-info-circle" },
 ];
-const TIMELINE_COLOR = { Change: "accent", Sample: "info", TopUp: "danger" };
 
 function statusColorKey(status) {
   if (status === "Alert") return "danger";
@@ -69,17 +63,6 @@ function ClickableCard({ s, onClick, style, children }) {
     >
       {children}
     </Tag>
-  );
-}
-
-function ChartTooltip({ T, active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0];
-  return (
-    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
-      <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>
-      <div style={{ color: T[CONDITION_COLOR_KEY[p.payload.bucket]] || T.textPrimary, fontWeight: 700 }}>{p.payload.bucket}</div>
-    </div>
   );
 }
 
@@ -211,7 +194,7 @@ export default function Equipment({
   const { T, s } = useTheme();
   const isAccEngineer = useIsAccEngineer();
   const scopedContractor = useSessionContractor();
-  const registry = equipmentRegistry || [];
+  const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   // Every top-up, once — the leak rule in the health score needs them for
   // every point, not just the one open.
   const [allTopUps, setAllTopUps] = useState([]);
@@ -388,30 +371,13 @@ export default function Equipment({
   const healthColor = HEALTH_COLOR[health];
   const siblingCount = isLpView ? (groups.get(reg?.equipmentId)?.length || 0) : 0;
 
-  const lpTimeline = useMemo(() => {
-    if (!isLpView) return [];
-    const events = [];
-    changeHistory.forEach((c) => events.push({ type: "Change", date: c.eventDate, label: `${c.quantityUsed || "—"} L`, detail: c.oilBrandType }));
-    samplesForEquip.forEach((sm) => events.push({ type: "Sample", date: sm.sampledDate, label: sm.reportStatus || "—", detail: sm.sampleId }));
-    topUps.forEach((t) => events.push({ type: "TopUp", date: t.eventDate, label: `${t.quantity || "—"} L`, detail: t.reason }));
-    return events.filter((e) => e.date).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-12);
-  }, [isLpView, changeHistory, samplesForEquip, topUps]);
-
-  // Per-LP Oil Condition Trend — same Normal/Caution/Alert classification
-  // (conditionBucket) Sample Tracker's own Condition Trend chart and
-  // Dashboard's Fleet/Oil Health KPI already share, just scoped to this one
-  // lubrication point instead of fleet-wide, which no other page shows.
-  const conditionTrendData = useMemo(() => {
-    if (!isLpView) return [];
-    return [...samplesForEquip]
-      .filter((sm) => sm.sampledDate)
-      .sort((a, b) => new Date(a.sampledDate) - new Date(b.sampledDate))
-      .map((sm) => {
-        const bucket = conditionBucket(sm.reportStatus);
-        return bucket ? { date: formatDate(sm.sampledDate), bucket, value: CONDITION_VALUE[bucket] } : null;
-      })
-      .filter(Boolean);
-  }, [isLpView, samplesForEquip]);
+  // Same-oil reports from other points — the fallback for limit lines
+  // when the lab never marked a value on this point's own reports.
+  const sameOilSamples = useMemo(() => {
+    if (!isLpView || !reg?.lubricant) return [];
+    const codes = new Set(registry.filter((r) => r.code !== reg.code && r.lubricant === reg.lubricant).map((r) => r.code));
+    return (samples || []).filter((sm) => codes.has(sm.unitId));
+  }, [isLpView, reg?.code, reg?.lubricant, registry, samples]);
 
   // ── combined equipment view (new) ───────────────────────────────────────
   const pointSummaries = useMemo(() => {
@@ -1150,91 +1116,18 @@ export default function Equipment({
                 </ClickableCard>
               </div>
 
-              {reg?.oilAnalysisRequired === "Yes" && (
-                <div style={{ ...s.card, marginBottom: 20 }}>
-                  <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Oil Condition Trend</p>
-                  {conditionTrendData.length === 0 ? (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No classifiable lab results yet.</p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={160}>
-                      <LineChart data={conditionTrendData} margin={{ left: -10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={T.border2} vertical={false} />
-                        <XAxis dataKey="date" tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-                        <YAxis
-                          domain={[0.5, 3.5]}
-                          ticks={[1, 2, 3]}
-                          tickFormatter={(v) => ({ 1: "Normal", 2: "Caution", 3: "Alert" }[v])}
-                          tick={{ fontSize: 10.5, fill: T.textSecondary }}
-                          axisLine={false}
-                          tickLine={false}
-                          width={62}
-                        />
-                        <Tooltip content={<ChartTooltip T={T} />} />
-                        <Line
-                          type="stepAfter"
-                          dataKey="value"
-                          stroke={T.border}
-                          strokeWidth={2}
-                          isAnimationActive={false}
-                          dot={({ cx, cy, payload, key }) => (
-                            <circle key={key} cx={cx} cy={cy} r={5} fill={T[CONDITION_COLOR_KEY[payload.bucket]] || T.textMuted} stroke={T.cardBg} strokeWidth={1.5} />
-                          )}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              )}
-
-              <div style={{ ...s.card, marginBottom: 20 }}>
-                <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Lubrication Timeline</p>
-                {lpTimeline.length === 0 ? (
-                  <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No lubrication activity logged yet.</p>
-                ) : (
-                  <div style={{ overflowX: "auto", paddingBottom: 6 }}>
-                    <div style={{ position: "relative", display: "flex", gap: 18, paddingTop: 4, width: "fit-content" }}>
-                      <div style={{ position: "absolute", left: 0, right: 0, top: 97, height: 2, background: T.border2, zIndex: 0 }} />
-                      {lpTimeline.map((e, i) => (
-                        <div
-                          key={i}
-                          style={{ flex: "0 0 auto", width: 118, display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1 }}
-                        >
-                          <div
-                            style={{
-                              border: `1px solid ${T[TIMELINE_COLOR[e.type]]}`,
-                              borderRadius: 8,
-                              padding: "8px 10px",
-                              textAlign: "center",
-                              background: T.cardBg,
-                              width: "100%",
-                              height: 70,
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "center",
-                              boxSizing: "border-box",
-                            }}
-                          >
-                            <div style={{ fontSize: 10, fontWeight: 700, color: T[TIMELINE_COLOR[e.type]] }}>{e.type}</div>
-                            <div style={{ fontSize: 11.5, fontWeight: 700, margin: "4px 0" }}>{formatDate(e.date)}</div>
-                            <div style={{ fontSize: 10.5, color: T.textSecondary }}>{e.label}</div>
-                          </div>
-                          <div style={{ width: 2, height: 16, background: T.border2 }} />
-                          <div
-                            style={{
-                              width: 13,
-                              height: 13,
-                              borderRadius: "50%",
-                              background: T[TIMELINE_COLOR[e.type]],
-                              border: `2px solid ${T.cardBg}`,
-                              boxShadow: `0 0 0 1px ${T[TIMELINE_COLOR[e.type]]}66`,
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <PointHistory
+                reg={reg}
+                samples={samplesForEquip}
+                sameOilSamples={sameOilSamples}
+                changes={changeHistory}
+                topUps={topUps}
+                nextChangeDue={lpOilChangeState?.nextDueDate || ""}
+                nextSampleDue={nextSampleDue}
+                onOpenSample={onSelectSample}
+                onOpenChanges={() => setLpTab("changes")}
+                onOpenTopUps={() => setLpTab("topups")}
+              />
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 14 }}>
                 <RecentTable T={T} s={s} title="Recent Oil Samples" rows={samplesForEquip.slice(0, 5)} columns={["sampledDate", "sampleId", "reportStatus"]} headers={["Date", "Sample ID", "Status"]} />

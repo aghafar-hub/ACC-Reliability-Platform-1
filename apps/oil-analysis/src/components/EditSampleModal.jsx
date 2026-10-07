@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { RATING_OPTIONS } from "../theme";
+import FlagPicker from "./FlagPicker";
 
 // The date input needs "YYYY-MM-DD"; samples carry the display form
 // ("01 Oct 2026"), which left the field looking empty.
@@ -147,6 +148,11 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
               />
             </div>
           ))}
+        </div>
+
+        <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Lab Marks (yellow / red cells)</p>
+        <div style={{ marginBottom: 16 }}>
+          <FlagPicker value={form.flaggedReadings} onChange={(v) => set("flaggedReadings", v)} />
         </div>
 
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Alert Type / Sample Analysis</p>

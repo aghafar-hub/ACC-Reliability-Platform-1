@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { RATING_OPTIONS } from "../theme";
 import BulkImportPanel from "../components/BulkImportPanel";
+import FlagPicker from "../components/FlagPicker";
 
 const EMPTY = {
   unitId: "",
@@ -21,6 +22,7 @@ const EMPTY = {
   contaminants: { K: "", Na: "", Si: "" },
   additives: { B: "", Ba: "", Ca: "", Mg: "", P: "", Zn: "" },
   alertType: "",
+  flaggedReadings: [],
 };
 
 function SectionHeader({ label, icon }) {
@@ -349,6 +351,11 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
                 </div>
               ))}
             </div>
+          </SectionBody>
+
+          <SectionHeader label="Lab Marks (yellow / red cells)" icon="ti-flag" />
+          <SectionBody>
+            <FlagPicker value={form.flaggedReadings} onChange={(v) => set("flaggedReadings", v)} />
           </SectionBody>
 
           <SectionHeader label="Recommendations / Comments" icon="ti-notes" />
