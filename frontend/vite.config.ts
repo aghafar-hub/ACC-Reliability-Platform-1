@@ -1,9 +1,28 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { execSync } from 'node:child_process'
+
+// The build id the shell puts on the modules' embed.js URLs (?v=…, see
+// EmbeddedOilAnalysis.tsx) so a new deploy is fetched instead of the service
+// worker's cached copy. The test copy is built from claude/test-site by the
+// deploy workflow running on the default branch, so its VITE_BUILD_SHA
+// ("test-<default-branch sha>") stays the same across test deploys — add
+// this checkout's own commit so the URL changes whenever the test branch does.
+function buildId(): string | undefined {
+  const sha = process.env.VITE_BUILD_SHA
+  if (!sha || !sha.startsWith('test-')) return undefined
+  try {
+    return `${sha}-${execSync('git rev-parse --short HEAD').toString().trim()}`
+  } catch {
+    return `${sha}-${Date.now()}`
+  }
+}
+const testBuildId = buildId()
 
 // https://vite.dev/config/
 export default defineConfig({
+  ...(testBuildId ? { define: { 'import.meta.env.VITE_BUILD_SHA': JSON.stringify(testBuildId) } } : {}),
   plugins: [
     react(),
     // Patch 34 ("make it feel like a normal app on mobile"): the
