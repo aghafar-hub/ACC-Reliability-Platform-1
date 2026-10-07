@@ -26,8 +26,9 @@ Requested → Closed**. Old **In Progress** actions read as **Open**.
   to closure. The status picker and dragging only allow Open → Waiting
   Stoppage.
 - **Automatic Drafts:**
-  - **Lab Caution or Alert:** a sample with a Caution/Alert result taken
-    in the last 45 days creates a Draft for that point, with the report's
+  - **Lab Caution or Alert:** a newly added lab report with a
+    Caution/Alert result creates a Draft for that point once it's validated
+    (Phase 4). Reports already in the sheet never do, with the report's
     recommendations in *Sample Analysis*. If the point already has an
     action that isn't Closed, no new one is made; both engineers are told
     about the new result instead.

@@ -65,9 +65,6 @@ var ACTION_DRAFT_DUE_DAYS = 7;
 var ACTION_LEGACY_DUE_DAYS = 14; // rows from before due dates existed
 var ACTION_HEADER_ROW = 5; // Action Tracker: rows 1-4 title, row 5 header, data from 6
 var LAB_DRAFT_STATUSES = { "Caution": "Lab Caution", "Warning": "Lab Caution", "Alert": "Lab Alert" };
-// Only recent lab results make a Draft — importing old reports in bulk
-// must not flood the tracker with drafts for long-past samples.
-var LAB_DRAFT_MAX_AGE_DAYS = 45;
 var LEAKAGE_TOP_UPS = 3;
 var LEAKAGE_WINDOW_DAYS = 30;
 
@@ -452,8 +449,9 @@ function openActionsForLp_(ss, lpId) {
   });
 }
 
-// After a sample (Data_Entry row) is saved: a Caution/Alert result makes a
-// Draft action — unless that point already has an action that isn't
+// After a newly added lab report is validated (LabReports.js — reports from
+// before Phase 4 have no status and never reach here, so existing results
+// don't create drafts): a Caution/Alert result makes a Draft action — unless that point already has an action that isn't
 // Closed, in which case both engineers are told about the new result.
 function applyLabResultRule_(ss, sampleRow) {
   if (!sampleRow) return null;
@@ -462,8 +460,6 @@ function applyLabResultRule_(ss, sampleRow) {
   if (!rule) return null;
   var lpId = String(sampleRow[0] || "").trim();
   if (!lpId) return null;
-  var sampled = sampleRow[4] instanceof Date ? sampleRow[4] : new Date(sampleRow[4]);
-  if (!isNaN(sampled.getTime()) && Date.now() - sampled.getTime() > LAB_DRAFT_MAX_AGE_DAYS * 86400000) return null;
   var ref = String(sampleRow[39] || "").trim() || (lpId + "|" + String(sampleRow[3] || "").trim());
   var existing = openActionsForLp_(ss, lpId);
   var already = readSheet(ss, "Action Tracker", true).some(function (r) { return String(r[ACTION_COL.RULE_REF] || "").trim() === ref; });

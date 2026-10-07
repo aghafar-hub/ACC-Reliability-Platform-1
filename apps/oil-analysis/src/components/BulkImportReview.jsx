@@ -8,18 +8,26 @@ import { formatDate } from "../parsers";
 // doesn't match any known Equipment Registry code.
 function buildCandidates(parsedReports, equipmentRegistry, existingSamples) {
   const registryCodes = new Set((equipmentRegistry || []).map((r) => r.code));
-  const existingKeys = new Set((existingSamples || []).map((s) => `${s.unitId}|${s.sampleId}`));
+  // One Sample ID is saved once — matched on the Sample ID alone, also
+  // against the other reports in this same import.
+  const norm = (v) => String(v ?? "").trim().toUpperCase();
+  const existingKeys = new Set((existingSamples || []).map((s) => norm(s.sampleId)).filter(Boolean));
+  const seenInImport = new Set();
   const candidates = [];
   for (const report of parsedReports) {
     if (!report.ok) continue;
     for (const sample of report.samples) {
-      const key = `${sample.unitId}|${sample.sampleId}`;
+      const key = norm(sample.sampleId);
+      const noSampleId = !key;
+      const duplicate = !noSampleId && (existingKeys.has(key) || seenInImport.has(key));
+      if (key) seenInImport.add(key);
       candidates.push({
         _key: `${report.fileName}|${sample.sampleId}`,
         fileName: report.fileName,
         sample,
         matched: registryCodes.has(sample.unitId),
-        duplicate: existingKeys.has(key),
+        duplicate,
+        noSampleId,
         remappedUnitId: null,
       });
     }
@@ -80,7 +88,7 @@ export default function BulkImportReview({ parsedReports, equipmentRegistry, exi
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
-  const [candidates, setCandidates] = useState(() => initialCandidates.map((c) => ({ ...c, selected: c.matched && !c.duplicate })));
+  const [candidates, setCandidates] = useState(() => initialCandidates.map((c) => ({ ...c, selected: c.matched && !c.duplicate && !c.noSampleId })));
 
   function setCandidate(key, patch) {
     setCandidates((prev) => prev.map((c) => (c._key === key ? { ...c, ...patch } : c)));
@@ -196,6 +204,8 @@ export default function BulkImportReview({ parsedReports, equipmentRegistry, exi
                   <input
                     type="checkbox"
                     checked={c.selected}
+                    disabled={c.duplicate || c.noSampleId}
+                    aria-label={`Import ${c.sample.sampleId || "sample"}`}
                     onChange={(e) => setCandidate(c._key, { selected: e.target.checked })}
                     style={{ marginTop: 3 }}
                   />
@@ -205,7 +215,10 @@ export default function BulkImportReview({ parsedReports, equipmentRegistry, exi
                       <span style={{ fontSize: 11, fontFamily: "monospace", color: T.accent }}>{c.sample.sampleId}</span>
                       <span style={{ ...s.badge(c.sample.reportStatus), fontSize: 10 }}>{c.sample.reportStatus || "—"}</span>
                       {c.duplicate && (
-                        <span style={{ fontSize: 10, color: T.textMuted, fontStyle: "italic" }}>already saved — skipped</span>
+                        <span style={{ fontSize: 10, color: T.textMuted, fontStyle: "italic" }}>Sample ID already saved — skipped</span>
+                      )}
+                      {c.noSampleId && (
+                        <span style={{ fontSize: 10, color: T.warning, fontWeight: 700 }}>no Sample ID — can't import</span>
                       )}
                       {!c.matched && !c.remappedUnitId && (
                         <span style={{ fontSize: 10, color: T.warning, fontWeight: 700 }}>

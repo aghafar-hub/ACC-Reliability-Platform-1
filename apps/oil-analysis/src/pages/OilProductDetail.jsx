@@ -20,6 +20,7 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
   const [doneBy, setDoneBy] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const sessionEmail = useSessionEmail();
 
@@ -34,6 +35,10 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
       pushToast("Enter a valid quantity.", "error");
       return;
     }
+    if (movementType === "Issue" && !reason.trim()) {
+      pushToast("Enter the reason for this issue — oil changes and top-ups are already deducted automatically.", "error");
+      return;
+    }
     setSaving(true);
     try {
       await api.logOilMovement(webhookUrl, {
@@ -46,9 +51,11 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
         doneBy,
         reference,
         notes,
+        reason: movementType === "Issue" ? reason.trim() : "",
       });
       pushToast(`${movementType} logged.`, "success");
       setQuantity("");
+      setReason("");
       setReference("");
       setNotes("");
       onLogged();
@@ -81,6 +88,19 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
           <label style={s.label}>Date</label>
           <input style={s.input} type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} />
         </div>
+        {movementType === "Issue" && (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={s.label}>Reason for issue *</label>
+            <input
+              style={s.input}
+              type="text"
+              aria-label="Reason for issue"
+              placeholder="Why is this oil issued by hand? (oil changes and top-ups are deducted automatically)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+        )}
         {movementType === "Issue" && (
           <div>
             <label style={s.label}>Issued to (LP_ID)</label>
@@ -160,7 +180,11 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
   useEffect(() => {
     refresh();
   }, [refresh]);
-  const isStockEngineer = useIsRouteEngineerFor(product?.contractor || "");
+  // Receipts, adjustments and the opening balance: the contractor's
+  // engineer or an ACC engineer. Anyone else can only record an Issue.
+  const isContractorEngineer = useIsRouteEngineerFor(product?.contractor || "");
+  const isAccEngineer = useIsAccEngineer();
+  const isStockEngineer = isContractorEngineer || isAccEngineer;
 
   if (loading) return <p style={{ color: T.textSecondary }}>Loading product…</p>;
   if (error) return <p style={{ color: T.danger }}>{error}</p>;
@@ -235,6 +259,7 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
                 <th style={s.th}>Contractor</th>
                 <th style={s.th}>Done By</th>
                 <th style={s.th}>Reference</th>
+                <th style={s.th}>Notes / Reason</th>
               </tr>
             </thead>
             <tbody>
@@ -247,6 +272,7 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
                   <td style={s.td}>{m.contractor || "—"}</td>
                   <td style={s.td}>{m.doneBy || "—"}</td>
                   <td style={s.td}>{m.reference || "—"}</td>
+                  <td style={s.td}>{m.notes || "—"}</td>
                 </tr>
               ))}
             </tbody>

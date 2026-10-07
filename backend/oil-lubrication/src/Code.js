@@ -399,6 +399,15 @@ function doPost(e) {
         if (appendLpCol !== undefined && data.row) {
           requireLpContractorMatch_(auth.session, appendLpId);
         }
+        // Every lab report has a Sample ID, and one Sample ID is saved once:
+        // re-importing the same report must not add its result twice.
+        if (data.sheet === "Data_Entry" && data.row) {
+          var newSampleId = normSampleId_(data.row[3]);
+          if (!newSampleId) return jsonOut({status: "error", message: "Sample ID is required."});
+          if (sampleIdExists_(ss, newSampleId)) {
+            return jsonOut({status: "error", message: "Sample ID " + data.row[3] + " is already saved — not added again."});
+          }
+        }
         // Phase 2: a new action is saved as Draft or Submitted (→ Open).
         var appendGuard = null;
         if (data.sheet === "Action Tracker") {
@@ -627,17 +636,24 @@ function doPost(e) {
         requirePermission_(auth.session, "Edit");
         var movProdContractor = getProductContractor_(data.productId);
         requireContractorMatch_(auth.session, movProdContractor);
-        // Phase 5: receipts, adjustments and the opening balance are the
-        // contractor's engineer's (no approval step); every one is audited.
-        if (["Receipt", "Adjustment", "Opening Balance"].indexOf(data.movementType) !== -1) {
-          requireRouteEngineer_(auth.session, movProdContractor, "record receipts or adjustments for this stock");
+        // Receipts, adjustments and the opening balance: the contractor's
+        // engineer or an ACC engineer (no approval step); every one is audited.
+        if (["Receipt", "Adjustment", "Opening Balance"].indexOf(data.movementType) !== -1 && !isActionEngineer_(auth.session, movProdContractor)) {
+          throw new Error("Only " + (movProdContractor ? movProdContractor + "'s" : "the contractor's") + " engineer or an ACC engineer can record receipts or adjustments for this stock.");
+        }
+        // Oil changes and top-ups deduct stock automatically, so an Issue
+        // logged by hand needs a reason (kept in Notes).
+        if (data.movementType === "Issue") {
+          var issueReason = String(data.reason || "").trim();
+          if (!issueReason) throw new Error("A manual issue needs a reason — oil changes and top-ups are already deducted automatically.");
+          data.notes = "Reason: " + issueReason + (data.notes ? " — " + data.notes : "");
         }
         var movScope = getContractorScope_(auth.session);
         if (movScope) data.contractor = movScope;
         var movResult = logOilMovement(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilMovement", movResult.error || "ok", {productId: data.productId, actingUser: actingUser});
-        if (!movResult.error) recordAudit_(ss, "Oil Inventory LOG", data.productId, "create", actingUser, movScope || movProdContractor, "Logged " + (data.movementType || "movement") + " of " + (data.quantity || "") + " for product " + data.productId);
+        if (!movResult.error) recordAudit_(ss, "Oil Inventory LOG", data.productId, "create", actingUser, movScope || movProdContractor, "Logged " + (data.movementType || "movement") + " of " + (data.quantity || "") + " for product " + data.productId + (data.movementType === "Issue" ? " (" + String(data.reason || "").trim() + ")" : ""));
         return jsonOut(movResult.error ? {status: "error", message: movResult.error} : {status: "ok", movementId: movResult.movementId});
       }
 

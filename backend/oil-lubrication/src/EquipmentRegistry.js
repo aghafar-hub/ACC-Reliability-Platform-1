@@ -36,7 +36,22 @@
 // possible for every OTHER sheet too (Data_Entry, Action Tracker, Oil
 // Change LOG, Oil Sample Tracker all key their rows by LP_ID, none of them
 // carry their own Contractor column), see Rbac.js's filterRowsByLpContractor_.
+// Kept for the rest of this request: callers like resolveLpContractor_
+// run once per row (Team Workload, escalation, digests), and re-reading the
+// whole registry each time made those take minutes. Cleared by every write
+// to the registry (Utils.js's appendRow/updateRow/deleteRow).
+var LP_CONTRACTOR_MAP_MEMO_ = null;
+function invalidateLpContractorMap_() {
+  LP_CONTRACTOR_MAP_MEMO_ = null;
+}
+
 function getLpContractorMap_() {
+  if (LP_CONTRACTOR_MAP_MEMO_) return LP_CONTRACTOR_MAP_MEMO_;
+  LP_CONTRACTOR_MAP_MEMO_ = readLpContractorMap_();
+  return LP_CONTRACTOR_MAP_MEMO_;
+}
+
+function readLpContractorMap_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName("Equipment Registry");
   if (!sheet) return {};

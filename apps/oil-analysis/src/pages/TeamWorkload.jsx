@@ -3,6 +3,8 @@ import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 
 // Phase 7 — managers' view: per contractor, the open work and what's late.
+// Live: the backend counts it straight from the sheets on every open (no
+// separate store), so it's as current as the sheets themselves.
 // A contractor's people only get their own contractor back (the backend
 // scopes it); ACC sees every contractor. Escalation of items still overdue
 // 10 days later runs in the daily notification job (Managers.js).
@@ -14,6 +16,73 @@ function Count({ label, value, warn }) {
     <div style={{ minWidth: 92, padding: "8px 10px", borderRadius: 8, background: T.bgSecondary || T.bg, border: `1px solid ${hot ? T.danger : T.border}` }}>
       <div style={{ fontSize: 20, fontWeight: 700, color: hot ? T.danger : T.textPrimary }}>{value}</div>
       <div style={{ fontSize: 11, color: T.textSecondary }}>{label}</div>
+    </div>
+  );
+}
+
+// ACC / App Owner: the contractors side by side, worse value in red.
+const COMPARE_ROWS = [
+  { label: "Open routes", get: (c) => c.routes.draft + c.routes.assigned + c.routes.inProgress },
+  { label: "Routes overdue", get: (c) => c.routes.overdue, bad: true },
+  { label: "Routes overdue (% of open)", get: (c) => pct(c.routes.overdue, c.routes.draft + c.routes.assigned + c.routes.inProgress), bad: true, unit: "%" },
+  { label: "Routes returned for correction", get: (c) => c.routes.returned, bad: true },
+  { label: "Routes waiting approval", get: (c) => c.routes.waitingApproval, bad: true },
+  { label: "Open actions", get: (c) => c.actions.open + c.actions.waitingStoppage },
+  { label: "Actions overdue", get: (c) => c.actions.overdue, bad: true },
+  { label: "Actions overdue (% of Open)", get: (c) => pct(c.actions.overdue, c.actions.open), bad: true, unit: "%" },
+  { label: "Draft actions not submitted", get: (c) => c.actions.draft, bad: true },
+  { label: "Closure requested", get: (c) => c.actions.closureRequested },
+  { label: "Lab reports to validate", get: (c) => c.labReportsPending, bad: true },
+  { label: "Open suggestions (no route yet)", get: (c) => c.suggestionsOpen, bad: true },
+  { label: "Low-stock oils", get: (c) => c.lowStock, bad: true },
+  { label: "Technicians", get: (c) => c.technicians.length },
+];
+
+function pct(part, whole) {
+  return whole ? Math.round((part / whole) * 100) : 0;
+}
+
+function CompareTable({ contractors }) {
+  const { T, s } = useTheme();
+  return (
+    <div style={{ ...s.card, marginBottom: 20 }} data-testid="team-compare">
+      <p style={{ ...s.sectionTitle, marginTop: 0 }}>Contractors compared</p>
+      <div style={{ overflowX: "auto" }}>
+        <table style={s.table}>
+          <thead>
+            <tr>
+              <th style={s.th}>Measure</th>
+              {contractors.map((c) => (
+                <th key={c.contractor} style={s.th}>
+                  {c.contractor}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARE_ROWS.map((row) => {
+              const values = contractors.map((c) => row.get(c));
+              const worst = Math.max(...values);
+              const differs = values.some((v) => v !== worst);
+              return (
+                <tr key={row.label}>
+                  <td style={s.td}>{row.label}</td>
+                  {values.map((v, i) => {
+                    const hot = row.bad && differs && v === worst && v > 0;
+                    return (
+                      <td key={contractors[i].contractor} style={{ ...s.td, color: hot ? T.danger : undefined, fontWeight: hot ? 700 : undefined }}>
+                        {v}
+                        {row.unit || ""}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "10px 0 0" }}>Red marks the contractor with more of something that should be low.</p>
     </div>
   );
 }
@@ -42,6 +111,7 @@ export default function TeamWorkload({ webhookUrl }) {
   if (!webhookUrl) return <p style={{ color: T.textSecondary }}>Add your Apps Script webhook URL in Settings first.</p>;
 
   const contractors = (data && data.contractors) || [];
+  const compared = contractors.filter((c) => c.contractor !== "—" && c.contractor !== "ACC");
   return (
     <div>
       <div className="mobile-stack-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
@@ -50,8 +120,12 @@ export default function TeamWorkload({ webhookUrl }) {
           <i className="ti ti-refresh" aria-hidden="true" /> {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
-      {error && <div style={{ ...s.card, color: T.danger, marginBottom: 16 }}>{error}</div>}
+      {loading && !data && (
+        <div style={{ ...s.card, color: T.textSecondary, marginBottom: 16 }}>Reading routes, actions, lab reports and stock from the sheets…</div>
+      )}
+      {error && <div style={{ ...s.card, color: T.danger, marginBottom: 16 }}>Couldn't load the workload: {error}</div>}
       {!loading && !error && contractors.length === 0 && <div style={s.card}>No open work.</div>}
+      {compared.length >= 2 && <CompareTable contractors={compared} />}
       {contractors.map((c) => (
         <div key={c.contractor} data-testid={`team-${c.contractor}`} style={{ ...s.card, marginBottom: 20 }}>
           <p style={{ ...s.sectionTitle, marginTop: 0 }}>{c.contractor === "—" ? "No contractor" : c.contractor}</p>

@@ -25,6 +25,8 @@ var ROLE_GRANTS = {
   // (contractor scope from the user's own org), plus the team view and
   // overdue escalations.
   'ROLE-CMGR': ['View', 'Create', 'Edit', 'Approve'],
+  // Visitor: sees what Module Access shows them, never saves anything.
+  'ROLE-VIEW': ['View'],
   // ROLE-ADMIN isn't listed — handled as a wildcard below, matching
   // Platform Core's own ROLE-ADMIN "*" grant row.
 };

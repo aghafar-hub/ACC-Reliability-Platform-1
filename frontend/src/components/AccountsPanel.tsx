@@ -23,10 +23,11 @@ const ORGS = [
 const ROLE_OPTIONS = [
   { id: ROLE.ADMIN, label: 'App Admin' },
   { id: ROLE.RELIABILITY_ENGINEER, label: 'ACC Engineer' },
-  { id: ROLE.MANAGER, label: 'Manager' },
+  { id: ROLE.MANAGER, label: 'ACC Manager' },
   { id: ROLE.CONTRACTOR_MANAGER, label: 'Contractor Manager' },
   { id: ROLE.CONTRACTOR_ENGINEER, label: 'Contractor Engineer' },
   { id: ROLE.TECHNICIAN, label: 'Technician' },
+  { id: ROLE.VISITOR, label: 'Visitor (view only)' },
 ];
 
 // Shows a password/value with a one-click copy button — used below for the

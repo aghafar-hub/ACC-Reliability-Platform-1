@@ -37,6 +37,8 @@ const CONTRACTORS = [
   { id: 'RHI', orgId: 'ORG-RHI' },
 ];
 const LEVELS: TabLevel[] = ['Hidden', 'View', 'Edit'];
+// Visitors never edit (the server caps them at View too).
+const VISITOR_LEVELS: TabLevel[] = ['Hidden', 'View'];
 const ORG_TO_CONTRACTOR: Record<string, string> = { 'ORG-ACC': 'ACC', 'ORG-RHI': 'RHI', 'ORG-ASEC': 'ASEC' };
 
 const TAB_LABELS: Record<string, Record<string, string>> = {
@@ -433,7 +435,12 @@ function RoleDefaultsCard({ config, onSave }: { config: Config; onSave: SaveFn }
                   const value = draft[k] || saved(r.id, tabId);
                   return (
                     <td key={r.id} className={draft[k] ? 'ma-changed' : undefined}>
-                      <LevelSelect value={value} label={`${r.label} — ${tabLabel(config.moduleId, tabId)}`} onChange={(next) => change(r.id, tabId, next)} />
+                      <LevelSelect
+                        value={value}
+                        label={`${r.label} — ${tabLabel(config.moduleId, tabId)}`}
+                        levels={r.id === ROLE.VISITOR ? VISITOR_LEVELS : LEVELS}
+                        onChange={(next) => change(r.id, tabId, next)}
+                      />
                     </td>
                   );
                 })}
@@ -594,10 +601,22 @@ function OverridesCard({ config, onSave }: { config: Config; onSave: SaveFn }) {
   );
 }
 
-function LevelSelect({ value, label, onChange }: { value: TabLevel; label: string; onChange: (l: TabLevel) => void }) {
+function LevelSelect({
+  value,
+  label,
+  onChange,
+  levels = LEVELS,
+}: {
+  value: TabLevel;
+  label: string;
+  onChange: (l: TabLevel) => void;
+  levels?: TabLevel[];
+}) {
+  // A Visitor's saved Edit (from before) is shown as the View it acts as.
+  const shown = levels.includes(value) ? value : 'View';
   return (
-    <select className={`ma-level ma-level--${value.toLowerCase()}`} value={value} aria-label={label} onChange={(e) => onChange(e.target.value as TabLevel)}>
-      {LEVELS.map((l) => (
+    <select className={`ma-level ma-level--${shown.toLowerCase()}`} value={shown} aria-label={label} onChange={(e) => onChange(e.target.value as TabLevel)}>
+      {levels.map((l) => (
         <option key={l} value={l}>
           {l}
         </option>

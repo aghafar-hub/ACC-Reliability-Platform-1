@@ -44,6 +44,8 @@ export const ROLE = {
   // Phase 7 — Contractor Engineer rights for their own contractor, plus the
   // team view and overdue escalations.
   CONTRACTOR_MANAGER: 'ROLE-CMGR',
+  // Sees the tabs Module Access allows, never edits.
+  VISITOR: 'ROLE-VIEW',
 } as const;
 
 /**

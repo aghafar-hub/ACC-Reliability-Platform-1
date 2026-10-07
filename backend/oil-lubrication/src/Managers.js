@@ -3,7 +3,8 @@
 //  - Escalation: a route or action still overdue 10 days after it became
 //    overdue goes to that contractor's manager(s) and the ACC manager(s)
 //    (the "ACC managers" / "<contractor> managers" lists in Module Access).
-//    Run as part of runDailyOilNotifications; each item escalates once.
+//    Run as part of runDailyOilNotifications; repeated once a week while
+//    the item stays overdue.
 //  - Team workload (GET getTeamWorkload): per contractor, the open work and
 //    what's late — routes per technician, actions by status, lab reports
 //    waiting for validation, open suggestions, low-stock products. A
@@ -42,7 +43,7 @@ function escalateLongOverdue_(ss, today, sent, newKeys) {
     var from = routeOverdueFrom_(r);
     if (from.getTime() > cutoff) return;
     var id = String(r[0] || "").trim();
-    add(String(r[3] || "").trim(), "Route " + (r[12] || id) + " — overdue since " + formatDateForEmail_(from) + " (" + normRouteStatus_(r[5]) + ", " + (r[2] || "no technician") + ")", "escalate|route|" + id);
+    add(String(r[3] || "").trim(), "Route " + (r[12] || id) + " — overdue since " + formatDateForEmail_(from) + " (" + normRouteStatus_(r[5]) + ", " + (r[2] || "no technician") + ")", "escalate|route|" + id + "|" + weekKey_(today));
   });
 
   readSheet(ss, "Action Tracker", true).forEach(function (r) {
@@ -52,7 +53,7 @@ function escalateLongOverdue_(ss, today, sent, newKeys) {
     if (since.getTime() > cutoff) return;
     var acNo = String(r[ACTION_COL.AC_NO] || "").trim();
     var lp = String(r[ACTION_COL.LP] || "").trim();
-    add(actionContractor_(r), "Action " + acNo + " (" + lp + ") — overdue since " + formatDateForEmail_(since) + ": " + String(r[ACTION_COL.AGREED] || "").trim(), "escalate|action|" + acNo + "|" + lp);
+    add(actionContractor_(r), "Action " + acNo + " (" + lp + ") — overdue since " + formatDateForEmail_(since) + ": " + String(r[ACTION_COL.AGREED] || "").trim(), "escalate|action|" + acNo + "|" + lp + "|" + weekKey_(today));
   });
 
   var accManagers = maResponsibleEmails_(MA_RESP.ACC_MANAGER, "");

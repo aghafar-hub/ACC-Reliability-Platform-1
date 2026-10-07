@@ -198,6 +198,7 @@ function findRowIndex(sheet, matchCols, matchValues, dataStartRow) {
 
 
 function updateRow(ss, sheetName, matchCols, matchValues, newRow) {
+  if (sheetName === "Equipment Registry") invalidateLpContractorMap_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return false;
   var rowIdx = findRowIndex(sheet, matchCols, matchValues, dataStartRowFor(sheetName));
@@ -213,6 +214,7 @@ function updateRow(ss, sheetName, matchCols, matchValues, newRow) {
 
 
 function deleteRow(ss, sheetName, matchCols, matchValues) {
+  if (sheetName === "Equipment Registry") invalidateLpContractorMap_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return false;
   var rowIdx = findRowIndex(sheet, matchCols, matchValues, dataStartRowFor(sheetName));
@@ -223,6 +225,7 @@ function deleteRow(ss, sheetName, matchCols, matchValues) {
 
 
 function appendRow(ss, sheetName, row, headers) {
+  if (sheetName === "Equipment Registry") invalidateLpContractorMap_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);

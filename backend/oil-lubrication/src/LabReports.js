@@ -128,3 +128,14 @@ function returnLabReport(ss, data) {
   }
   return { status: "ok" };
 }
+
+// Sample IDs compare trimmed and case-insensitive ("s-001 " = "S-001").
+function normSampleId_(v) {
+  return String(v == null ? "" : v).trim().toUpperCase();
+}
+
+function sampleIdExists_(ss, sampleId) {
+  var id = normSampleId_(sampleId);
+  if (!id) return false;
+  return readSheet(ss, "Data_Entry", true).some(function (r) { return normSampleId_(r[3]) === id; });
+}

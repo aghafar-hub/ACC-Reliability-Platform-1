@@ -90,7 +90,6 @@ function ItemRow({
   const [implemented, setImplemented] = useState(item.implemented === 'Yes');
   const [reason, setReason] = useState(item.notImplementedReason || '');
   const [quantity, setQuantity] = useState(item.actualQuantity || '');
-  const [sampleTaken, setSampleTaken] = useState(item.sampleTaken === 'Yes');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -110,7 +109,9 @@ function ItemRow({
         notImplementedReason: implemented ? '' : reason,
         actualDate: implemented ? TODAY() : '',
         actualQuantity: quantity,
-        sampleTaken,
+        // No separate "Sample taken" box: Done on a Sampling route item
+        // already means the sample was taken (same as the Routines page).
+        sampleTaken: implemented,
       });
       setDirty(false);
       tapHaptic();
@@ -164,9 +165,6 @@ function ItemRow({
             onChange={(e) => markDirty(setReason)(e.target.value)}
           />
         )}
-      </td>
-      <td className="mywork-td mywork-td-center" data-label="Sample taken">
-        <input type="checkbox" disabled={locked} checked={sampleTaken} onChange={(e) => markDirty(setSampleTaken)(e.target.checked)} />
       </td>
       <td className="mywork-td mywork-td-save">
         {!locked && (
@@ -293,7 +291,6 @@ function RoutineDetail({
               <th>Type</th>
               <th>Status</th>
               <th>Qty / Reason</th>
-              <th>Sample</th>
               <th />
             </tr>
           </thead>

@@ -45,6 +45,14 @@ function maIsEnforced_() {
   return !!PropertiesService.getScriptProperties().getProperty("SESSION_SIGNING_SECRET");
 }
 
+// Visitor: can be shown tabs, never edits — Edit is read as View for anyone
+// whose only role is Visitor, whatever the role or exception rows say.
+var MA_VISITOR_ROLE = "ROLE-VIEW";
+function maIsVisitorOnly_(session) {
+  var roles = (session && session.roles) || [];
+  return roles.length > 0 && roles.every(function (r) { return r === MA_VISITOR_ROLE; });
+}
+
 function maIsAdmin_(session) {
   return !!session && (session.roles || []).indexOf("ROLE-ADMIN") !== -1;
 }
@@ -231,6 +239,7 @@ function maResolve_(session) {
       if (lvl && MA_LEVELS[lvl] > MA_LEVELS[best]) best = lvl;
     });
     if (overrides[tabId]) best = overrides[tabId];
+    if (best === "Edit" && maIsVisitorOnly_(session)) best = "View";
     base.tabs[tabId] = best;
   });
   return base;

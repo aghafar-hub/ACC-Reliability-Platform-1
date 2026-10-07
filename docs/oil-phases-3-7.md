@@ -59,9 +59,19 @@ setup is in `test-copy-setup.md`.
 - **Shortage check:** Forecast → choose the next 15/30/60/90 days, 6
   months or 1 year. A banner lists the oils whose stock won't cover the
   scheduled work.
-- **Receipts and adjustments** are for the contractor's engineer. Other
-  engineers can only record an Issue. *(This is a change: see the
-  questions below.)*
+- **Receipts, adjustments and the opening balance:** the contractor's
+  engineer or an ACC engineer.
+- **A manual Issue needs a reason.** Oil changes and top-ups already
+  deduct stock automatically, so an Issue logged by hand must say why.
+  The reason is saved in the movement's Notes and in the Activity log.
+- **Where to set the low-stock level:**
+  - when adding a product (Low-stock Level field);
+  - in the Stock List, with the **Edit** button next to the level;
+  - on the product page.
+- The low-stock level also shows on the product's stock chart (dashed
+  line) and on the Forecast chart (a dashed marker for each oil). The
+  Forecast table adds **Low-stock Level** and **Stock After Work**
+  columns.
 - Oil used is no longer counted twice. Re-confirming the same route item
   doesn't log a second oil change or top-up.
 
@@ -77,7 +87,7 @@ around 6:00 every morning) sends:
   technician, once per route.
 - **Stock shortage** for the next 30 days goes to the contractor's and
   ACC engineers, at most once a week per oil.
-- **Escalation** (Phase 7, below).
+- **Escalation**: see Phase 7 below.
 
 Each item is announced once. What was already sent is kept in the new
 `OL_NOTIFY_SENT` sheet.
@@ -92,13 +102,20 @@ Recipients for route events changed:
 
 - **New role: Contractor Manager** (`ROLE-CMGR`). It has the same rights
   as a Contractor Engineer for their own contractor, plus Team Workload
-  and escalations. The existing **Manager** role (`ROLE-MGR`) acts as the
-  ACC manager.
+  and escalations. The **Manager** role (`ROLE-MGR`) is renamed **ACC
+  Manager** (same id, so nobody's access changes).
+- **New role: Visitor** (`ROLE-VIEW`). A visitor can see but never edit.
+  - Which tabs a visitor sees is set per module in Module Access (Hidden
+    or View).
+  - Edit isn't offered for Visitor, and the server treats any Edit as
+    View.
+  - As with everyone, a visitor must be added to a module (as Member) to
+    open it.
 - **Module Access → People** has new lists: **ACC managers** and
   **RHI / ASEC managers**.
 - **Escalation:** a route or an Open action that is still overdue **10
   days after it became overdue** goes to that contractor's managers and
-  the ACC managers. Each item is escalated once.
+  the ACC managers. It repeats once a week while the item stays overdue.
 - **Team Workload** (new Oil tab): for each contractor it shows routes
   (Draft / Assigned / In Progress / Waiting Approval / Returned /
   Overdue), actions (Draft / Open / Waiting Stoppage / Closure Requested
@@ -106,6 +123,47 @@ Recipients for route events changed:
   low-stock oils. It also has a table per technician. A contractor's
   people see only their own contractor. Technicians don't see the tab by
   default; change this in Module Access → tab levels.
+
+## Feedback round 1 (after testing)
+
+- **Team Workload loads quickly now.** Finding each action's contractor
+  used to re-read the whole Equipment Registry once per action, which hit
+  Apps Script's time limit on real data. The registry is now read once
+  per request.
+- **Contractors compared:** ACC and the App Owner see a side-by-side
+  table of RHI and ASEC at the top of Team Workload. The worse value of
+  anything that should be low is in red. Team Workload is live: it is
+  counted from the sheets every time it opens, with no separate database.
+- **My Work:** the "Sample taken" box is removed. **Done** on a Sampling
+  route item already means the sample was taken.
+- **Sample IDs:**
+  - Every lab report needs a Sample ID.
+  - A Sample ID that is already saved is never added again.
+  - Manual entry blocks it.
+  - PDF import skips it and can't be ticked back on. It also catches the
+    same ID twice in one import.
+  - The server refuses it too. Editing a saved report still works.
+- **Lab Drafts:** a Caution/Alert Draft is created only for a newly added
+  report, once validated, whatever its sample date. Existing reports
+  never create one.
+
+### Triggers in the test scripts
+
+The live scripts have time-driven triggers that were added by hand. The
+test scripts start with none (only the sheet's own `onEdit` runs by
+itself). To test the scheduled jobs, add them to the **test** Oil script
+(⏰ Triggers → Add Trigger → function → Time-driven → Day timer):
+
+| Function | What it does | Add in test? |
+|---|---|---|
+| `runDailyOilNotifications` | Phases 6–7 daily job (install with `installDailyOilNotificationsTrigger`) | Yes |
+| `generateDueRouteInstances` | Creates the next routes from route templates | Yes |
+| `checkSampleOverdueAndNotify` | Sample-overdue digest | Yes |
+| `sendAgingActionsDigest` | Daily list of aging actions | Yes |
+| `sendLowStockDigest` | Daily low-stock list. The Phase 5 alert (on crossing) and the Phase 6 shortage check now cover this | Optional; consider removing from live after release |
+
+Keep notification email **off** in the test copy unless you want real
+emails from test data.
 
 ## Test copy: files to paste (Apps Script editor)
 
@@ -117,7 +175,8 @@ Copy from the `claude/test-site` branch.
   `Suggestions`, `LabReports`, `DailyNotifications`, `Managers`.
 - Replace: `Code`, `Config`, `Rbac`, `ModuleAccess`,
   `ModuleAccessConfig`, `Notifications`, `Routines`, `RouteTemplates`,
-  `Dashboard`, `OilInventory`, `OilChanges`, `TopUps`, `SampleOverdue`.
+  `Dashboard`, `OilInventory`, `OilChanges`, `TopUps`, `SampleOverdue`,
+  `EquipmentRegistry`, `Utils`.
 
 **Vibration (test) script:** `ModuleAccess`, `ModuleAccessConfig` (plus
 `Auth` and `Code` from Phase 0 if not done yet).
@@ -134,7 +193,7 @@ New version → Deploy**.
 | Oil | `migrateRouteStatusesPhase1DryRun`, then `migrateRouteStatusesPhase1` | 1 |
 | Oil | `migrateActionStatusesPhase2DryRun`, then `migrateActionStatusesPhase2` | 2 |
 | Oil | `installDailyOilNotificationsTrigger` | 6 |
-| Platform Core | `addContractorManagerRole` | 7 |
+| Platform Core | `updateRolesPhase7` (adds Contractor Manager and Visitor, renames Manager) | 7 |
 
 ## How to test each phase (test copy)
 
@@ -176,12 +235,13 @@ RHI technician, and a manager.
    2. Set a **Low-stock level** above the stock and issue oil. You should
       get one alert.
    3. In Forecast, change the shortage period.
-   4. As ACC, only **Issue** should be offered.
+   4. Log an **Issue** without a reason: it's refused. Add a reason and
+      it's saved.
 7. **Phase 6, notifications:** run `runDailyOilNotifications` from the
    editor. Check the bell (and email, if enabled) for due-soon, overdue
    and shortage messages. Run it again; nothing should repeat.
 8. **Phase 7, managers:**
-   1. Run `addContractorManagerRole`, give a test user the **Contractor
+   1. Run `updateRolesPhase7`, give a test user the **Contractor
       Manager** role, and add people to the new manager lists in Module
       Access.
    2. Set a test route's due date 30 days back and run

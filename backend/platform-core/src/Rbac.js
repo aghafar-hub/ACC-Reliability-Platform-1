@@ -164,30 +164,55 @@ function runSeedRolePermissions() {
 }
 
 /**
- * Phase 7 — the Contractor Manager role. Run addContractorManagerRole once
- * from the Apps Script editor's Run dropdown. It adds ROLE-CMGR
- * ("Contractor Manager") to ROLES and gives it the same grants as a
- * Contractor Engineer — its contractor scope comes from the user's own
- * organisation, like every other role. Safe to run again: it doesn't
- * duplicate the role or its grants.
+ * Phase 7 roles. Run updateRolesPhase7 once from the Apps Script editor's
+ * Run dropdown (addContractorManagerRole does the same thing — it's kept so
+ * an earlier run of it still counts). It:
+ *  - adds ROLE-CMGR "Contractor Manager" with the Contractor Engineer's
+ *    grants (contractor scope comes from the user's own organisation),
+ *  - adds ROLE-VIEW "Visitor": View only, so every save is refused; which
+ *    tabs a visitor sees is set per module in Module Access,
+ *  - renames ROLE-MGR to "ACC Manager" (same id, so nobody's access changes).
+ * Safe to run again: it doesn't duplicate roles or grants.
  */
-function addContractorManagerRole() {
+function updateRolesPhase7() {
   var roles = getSheet_(SHEET_NAMES.ROLES);
-  var hasRole = readSheetAsObjects_(roles).some(function (r) { return r.RoleId === 'ROLE-CMGR'; });
-  if (!hasRole) appendRow_(roles, { RoleId: 'ROLE-CMGR', RoleName: 'Contractor Manager' });
+  var values = roles.getDataRange().getValues();
+  var idCol = values[0].indexOf('RoleId');
+  var nameCol = values[0].indexOf('RoleName');
+  var have = {};
+  for (var i = 1; i < values.length; i++) {
+    var id = values[i][idCol];
+    have[id] = true;
+    if (id === 'ROLE-MGR' && nameCol !== -1 && values[i][nameCol] !== 'ACC Manager') {
+      roles.getRange(i + 1, nameCol + 1).setValue('ACC Manager');
+    }
+  }
+  var added = [];
+  [['ROLE-CMGR', 'Contractor Manager'], ['ROLE-VIEW', 'Visitor']].forEach(function (r) {
+    if (have[r[0]]) return;
+    appendRow_(roles, { RoleId: r[0], RoleName: r[1] });
+    added.push(r[0]);
+  });
 
   var perms = getSheet_(SHEET_NAMES.ROLE_PERMISSION);
   deleteRowsByColumn_(perms, 'RoleId', 'ROLE-CMGR');
+  deleteRowsByColumn_(perms, 'RoleId', 'ROLE-VIEW');
   [
     ['ROLE-CMGR', 'oil-analysis', 'View'],
     ['ROLE-CMGR', 'oil-analysis', 'Create'],
     ['ROLE-CMGR', 'oil-analysis', 'Edit'],
     ['ROLE-CMGR', 'oil-analysis', 'Approve'],
     ['ROLE-CMGR', 'platform-core', 'View'],
+    ['ROLE-VIEW', 'oil-analysis', 'View'],
+    ['ROLE-VIEW', 'platform-core', 'View'],
   ].forEach(function (g) {
     appendRow_(perms, { RoleId: g[0], ModuleId: g[1], ActionCode: g[2], Allowed: true });
   });
-  var result = { status: 'ok', roleAdded: !hasRole };
+  var result = { status: 'ok', rolesAdded: added, managerRenamed: true };
   Logger.log(result);
   return result;
+}
+
+function addContractorManagerRole() {
+  return updateRolesPhase7();
 }

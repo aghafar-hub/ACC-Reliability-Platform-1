@@ -1226,6 +1226,7 @@ export async function logOilMovement(webhookUrl, movement) {
     doneBy: movement.doneBy || "",
     reference: movement.reference || "",
     notes: movement.notes || "",
+    reason: movement.reason || "",
   });
 
   const movements = await getOilInventoryMovements(webhookUrl, movement.productId);

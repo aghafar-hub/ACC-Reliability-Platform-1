@@ -18,8 +18,10 @@ var MA_CONFIG = {
     { id: "ROLE-TECH", label: "Technician" },
     { id: "ROLE-CENG", label: "Contractor Engineer" },
     { id: "ROLE-RENG", label: "ACC Engineer" },
-    { id: "ROLE-MGR", label: "Manager" },
+    { id: "ROLE-MGR", label: "ACC Manager" },
     { id: "ROLE-CMGR", label: "Contractor Manager" },
+    // Sees what the App Owner allows, never edits (capped at View in ModuleAccess.js).
+    { id: "ROLE-VIEW", label: "Visitor" },
   ],
 
   // Matches what each role could do before Phase 0: technician-only
@@ -30,6 +32,7 @@ var MA_CONFIG = {
     "ROLE-RENG": { "*": "Edit" },
     "ROLE-MGR": { "*": "Edit" },
     "ROLE-CMGR": { "*": "Edit" },
+    "ROLE-VIEW": { settings: "Hidden", "*": "View" },
   },
 
   orgToContractor: { "ORG-RHI": "RHI", "ORG-ASEC": "ASEC" },

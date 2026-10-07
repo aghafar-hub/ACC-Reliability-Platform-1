@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { useSessionContractor } from "../SessionContext";
+import { useSessionContractor, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
 import { newId } from "../parsers";
 import OilProductDetail from "./OilProductDetail";
@@ -238,8 +238,8 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
           </select>
         </div>
         <div>
-          <label style={s.label}>Reorder Level</label>
-          <input style={s.input} type="number" value={form.recorderLevel} onChange={(e) => set("recorderLevel", e.target.value)} />
+          <label style={s.label}>Low-stock Level (alert at or below)</label>
+          <input style={s.input} type="number" min="0" aria-label="Low-stock level" value={form.recorderLevel} onChange={(e) => set("recorderLevel", e.target.value)} />
         </div>
         <div>
           <label style={s.label}>Storage Location</label>
@@ -369,6 +369,7 @@ function ForecastChart({ T, rows }) {
       contractor: r.contractor,
       stock: r.currentStock ?? 0,
       need: r.quantityNeeded || 0,
+      level: r.level ?? null,
       short: r.shortfall != null && r.shortfall > 0,
     }))
     .sort((a, b) => b.need - b.stock - (a.need - a.stock));
@@ -377,7 +378,7 @@ function ForecastChart({ T, rows }) {
   return (
     <div style={{ overflowX: "auto" }}>
       <ResponsiveContainer width={chartWidth} height={300}>
-        <BarChart data={sorted} margin={{ top: 10, right: 10, bottom: 55, left: 0 }}>
+        <ComposedChart data={sorted} margin={{ top: 10, right: 10, bottom: 55, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
           <XAxis
             dataKey="label"
@@ -392,13 +393,30 @@ function ForecastChart({ T, rows }) {
           <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={40} />
           <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
           <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" />
-          <Bar dataKey="stock" name="Current Stock" radius={[4, 4, 0, 0]}>
+          <Bar dataKey="stock" name="Current Stock" fill={T.success} radius={[4, 4, 0, 0]}>
             {sorted.map((d, i) => (
               <Cell key={i} fill={d.short ? T.danger : T.success} />
             ))}
           </Bar>
           <Bar dataKey="need" name="Projected Need" fill={T.accent} radius={[4, 4, 0, 0]} />
-        </BarChart>
+          {/* Each oil's own low-stock level, as a marker over its bars. */}
+          <Line
+            dataKey="level"
+            name="Low-stock Level"
+            stroke={T.warning}
+            strokeWidth={0}
+            legendType="plainline"
+            isAnimationActive={false}
+            activeDot={false}
+            dot={(p) =>
+              p.value == null || p.cx == null || p.cy == null ? (
+                <g key={p.index} />
+              ) : (
+                <line key={p.index} x1={p.cx - 34} x2={p.cx + 34} y1={p.cy} y2={p.cy} stroke={T.warning} strokeWidth={2.5} strokeDasharray="6 3" />
+              )
+            }
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
@@ -561,7 +579,70 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
 }
 
 // ─── Stock List tab (the original flat product list + search) ───────────
-function StockListTab({ products, loading, error, onAdd, onOpenProduct }) {
+// Low-stock level, editable right in the Stock List (the contractor's
+// engineer or an ACC engineer) — same save as the product page's card.
+function LowStockCell({ webhookUrl, product, pushToast, onSaved }) {
+  const { T, s } = useTheme();
+  const isContractorEngineer = useIsRouteEngineerFor(product.contractor || "");
+  const isAcc = useIsAccEngineer();
+  const canEdit = isContractorEngineer || isAcc;
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(product.recorderLevel ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const level = Number(value);
+    if (value === "" || Number.isNaN(level) || level < 0) {
+      pushToast("Enter a low-stock level of 0 or more.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.setProductLowStockLevel(webhookUrl, product.productId, level);
+      pushToast("Low-stock level saved.", "success");
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      pushToast(err.message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
+        <input style={{ ...s.input, width: 80 }} type="number" min="0" aria-label={`Low-stock level for ${product.productId}`} value={value} onChange={(e) => setValue(e.target.value)} />
+        <button style={s.btnPrimary} disabled={saving} onClick={save}>
+          {saving ? "…" : "Save"}
+        </button>
+        <button style={s.btn} disabled={saving} onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </span>
+    );
+  }
+  return (
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+      {product.recorderLevel != null ? `${product.recorderLevel} ${product.unit || ""}` : <span style={{ color: T.textMuted }}>Not set</span>}
+      {canEdit && (
+        <button
+          style={{ ...s.btn, padding: "2px 8px", fontSize: 11 }}
+          aria-label={`Change low-stock level for ${product.productId}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setValue(product.recorderLevel ?? "");
+            setEditing(true);
+          }}
+        >
+          <i className="ti ti-pencil" aria-hidden="true" /> Edit
+        </button>
+      )}
+    </span>
+  );
+}
+
+function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, error, onAdd, onOpenProduct }) {
   const { T, s } = useTheme();
   const [search, setSearch] = useState("");
   const q = search.trim().toLowerCase();
@@ -627,7 +708,9 @@ function StockListTab({ products, loading, error, onAdd, onOpenProduct }) {
                         </span>
                       )}
                     </td>
-                    <td style={s.td}>{p.recorderLevel != null ? `${p.recorderLevel} ${p.unit || ""}` : "—"}</td>
+                    <td style={s.td}>
+                      <LowStockCell webhookUrl={webhookUrl} product={p} pushToast={pushToast} onSaved={onChanged} />
+                    </td>
                     <td style={s.td}>{p.storageLocation || "—"}</td>
                     <td style={s.td}>
                       <span style={s.badge(p.status)}>{p.status}</span>
@@ -809,7 +892,7 @@ const FORECAST_PERIODS = [
   { days: 365, label: "Next 1 year" },
 ];
 
-function ForecastTab({ webhookUrl, contractorFilter }) {
+function ForecastTab({ webhookUrl, contractorFilter, products }) {
   const { T, s } = useTheme();
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
@@ -828,7 +911,14 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
     return () => { cancelled = true; };
   }, [webhookUrl, days]);
 
-  const rows = (data?.forecast || []).filter((r) => contractorFilter === "All" || r.contractor === contractorFilter);
+  const levelById = useMemo(() => Object.fromEntries((products || []).map((p) => [p.productId, p.recorderLevel])), [products]);
+  const rows = (data?.forecast || [])
+    .filter((r) => contractorFilter === "All" || r.contractor === contractorFilter)
+    .map((r) => {
+      const level = r.productId != null && levelById[r.productId] != null ? levelById[r.productId] : null;
+      const after = r.currentStock != null ? Math.round((r.currentStock - (r.quantityNeeded || 0)) * 100) / 100 : null;
+      return { ...r, level, after, belowLevel: after != null && level != null && after <= level };
+    });
   const shortCount = rows.filter((r) => r.shortfall == null || r.shortfall > 0).length;
   const insufficientHistory = (data?.insufficientHistory || []).filter(
     (e) => contractorFilter === "All" || e.contractor === contractorFilter
@@ -875,7 +965,8 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
               <div style={{ ...s.card, marginBottom: 20 }}>
                 <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Current Stock vs. Projected Need</p>
                 <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 14px" }}>
-                  The Stock column turns red when it won't cover the Need column next to it — worst shortfall first.
+                  The Stock column turns red when it won't cover the Need column next to it — worst shortfall first. The dashed line is
+                  each oil's low-stock level.
                 </p>
                 <ForecastChart T={T} rows={rows} />
               </div>
@@ -889,6 +980,8 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
                     <th style={s.th}>Projected Need</th>
                     <th style={s.th}>Current Stock</th>
                     <th style={s.th}>Shortfall</th>
+                    <th style={s.th}>Low-stock Level</th>
+                    <th style={s.th}>Stock After Work</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -913,6 +1006,16 @@ function ForecastTab({ webhookUrl, contractorFilter }) {
                             </span>
                           ) : (
                             <span style={{ color: T.success }}>Covered</span>
+                          )}
+                        </td>
+                        <td style={s.td}>{r.level != null ? `${r.level} L` : "—"}</td>
+                        <td style={s.td}>
+                          {r.after == null ? (
+                            "—"
+                          ) : (
+                            <span style={r.belowLevel ? { color: T.warning, fontWeight: 700 } : undefined}>
+                              {r.after} L{r.belowLevel ? " — at/below low-stock level" : ""}
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -1174,10 +1277,19 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
         <OverviewTab webhookUrl={webhookUrl} products={visibleProducts} contractorFilter={contractorFilter} onOpenProduct={openProduct} onNavigateTab={setActiveTab} />
       )}
       {activeTab === "stock" && (
-        <StockListTab products={visibleProducts} loading={loading} error={error} onAdd={() => setView("add")} onOpenProduct={openProduct} />
+        <StockListTab
+          webhookUrl={webhookUrl}
+          pushToast={pushToast}
+          onChanged={refresh}
+          products={visibleProducts}
+          loading={loading}
+          error={error}
+          onAdd={() => setView("add")}
+          onOpenProduct={openProduct}
+        />
       )}
       {activeTab === "consumption" && <ConsumptionTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} onOpenProduct={openProduct} />}
-      {activeTab === "forecast" && <ForecastTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} />}
+      {activeTab === "forecast" && <ForecastTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} products={products} />}
       {activeTab === "movements" && (
         <MovementsTab webhookUrl={webhookUrl} products={visibleProducts} contractorFilter={contractorFilter} onOpenProduct={openProduct} />
       )}

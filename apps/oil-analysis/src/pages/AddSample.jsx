@@ -54,6 +54,10 @@ function SectionBody({ children }) {
   );
 }
 
+function normSampleId(v) {
+  return String(v ?? "").trim().toUpperCase();
+}
+
 export default function AddSample({ equipmentOptions, equipmentRegistry, existingSamples, onAdd, onBulkAdd }) {
   const { T, s } = useTheme();
   const [mode, setMode] = useState("manual"); // "manual" | "bulk"
@@ -62,7 +66,8 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
   const [saved, setSaved] = useState(false);
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
 
-  const usedSampleIds = new Set((existingSamples || []).map((s2) => s2.sampleId).filter(Boolean));
+  // One Sample ID is saved once (the server refuses a repeat too).
+  const usedSampleIds = new Set((existingSamples || []).map((s2) => normSampleId(s2.sampleId)).filter(Boolean));
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -90,7 +95,8 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
   function handleSubmitClick() {
     if (!form.unitId) return alert("Equipment ID is required.");
     if (!form.sampledDate) return alert("Sample Date is required.");
-    if (form.sampleId && usedSampleIds.has(form.sampleId) && !confirmDuplicate) {
+    if (!normSampleId(form.sampleId)) return alert("Sample ID is required.");
+    if (usedSampleIds.has(normSampleId(form.sampleId))) {
       setConfirmDuplicate(true);
       return;
     }
@@ -196,16 +202,12 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
           }}
         >
           <span style={{ fontSize: 12, color: T.danger }}>
-            <i className="ti ti-alert-triangle" aria-hidden="true" /> Sample ID "{form.sampleId}" already exists. Save anyway?
+            <i className="ti ti-alert-triangle" aria-hidden="true" /> Sample ID "{form.sampleId}" is already saved — this result is in the
+            system, so it isn't added again. Check the Sample ID.
           </span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button style={{ ...s.btn, fontSize: 12 }} onClick={() => setConfirmDuplicate(false)}>
-              Cancel
-            </button>
-            <button style={{ ...s.btnPrimary, fontSize: 12 }} onClick={doSave}>
-              Save Anyway
-            </button>
-          </div>
+          <button style={{ ...s.btn, fontSize: 12 }} onClick={() => setConfirmDuplicate(false)}>
+            OK
+          </button>
         </div>
       )}
 
