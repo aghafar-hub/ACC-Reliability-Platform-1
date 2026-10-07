@@ -11,7 +11,7 @@ import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import PointHistory from "../components/PointHistory";
 import useIsMobile from "../hooks/useIsMobile";
-import { Gauge } from "../components/DashCharts";
+import { Donut, Gauge, StackedBars } from "../components/DashCharts";
 import { daysLeft, fmtNum, isLow, oilLabel, productForPoint } from "../inventoryLogic";
 
 const STATUS_ACTION_COLOR = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
@@ -275,6 +275,7 @@ export default function Equipment({
   focus,
 }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
   const isAccEngineer = useIsAccEngineer();
   const scopedContractor = useSessionContractor();
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
@@ -300,6 +301,7 @@ export default function Equipment({
   const [open, setOpen] = useState(false);
   // { mode: "equipment", id: Equipment_ID } | { mode: "lp", id: LP_ID } | null
   const [selection, setSelection] = useState(initialCode || null);
+  const [machineFilter, setMachineFilter] = useState("all"); // machine view: Good / Fair / Poor
 
   function setSelectionSynced(sel) {
     setSelection(sel);
@@ -553,6 +555,21 @@ export default function Equipment({
     const tops = allTopUps.filter((t) => codes.has(t.lpId) && inYear(t.eventDate)).reduce((n, t) => n + (parseFloat(t.quantity) || 0), 0);
     return Math.round((changes + tops) * 10) / 10;
   }, [isEquipmentView, groupRows, oilChangeEvents, allTopUps]);
+  // Oil used this year per point (D5): oil changes vs top-ups, litres — a
+  // point eating far more top-ups than its neighbours is the leak to find.
+  const oilByPoint = useMemo(() => {
+    if (!isEquipmentView) return [];
+    const year = new Date().getFullYear();
+    const inYear = (d) => new Date(d).getFullYear() === year;
+    return groupRows
+      .map((r) => {
+        const ch = (oilChangeEvents || []).filter((e) => e.lpId === r.code && inYear(e.eventDate)).reduce((n, e) => n + (parseFloat(e.quantityUsed) || 0), 0);
+        const tu = allTopUps.filter((t) => t.lpId === r.code && inYear(t.eventDate)).reduce((n, t) => n + (parseFloat(t.quantity) || 0), 0);
+        return { code: r.code, changes: Math.round(ch * 10) / 10, topUps: Math.round(tu * 10) / 10 };
+      })
+      .filter((x) => x.changes + x.topUps > 0)
+      .sort((a, b) => b.changes + b.topUps - (a.changes + a.topUps));
+  }, [isEquipmentView, groupRows, oilChangeEvents, allTopUps]);
   const soonestNextDue = pointSummaries
     .map((p) => p.oilChange)
     .filter((o) => o?.nextDueDate)
@@ -601,30 +618,7 @@ export default function Equipment({
     </span>
   );
 
-  const sectionLabel = (icon, label, count) => (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-      <span
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontSize: 12,
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: 0.5,
-          color: T.textSecondary,
-        }}
-      >
-        <i className={`ti ${icon}`} style={{ color: T.accent, fontSize: 14 }} aria-hidden="true" />
-        {label}
-      </span>
-      {count != null && <span style={{ fontSize: 12, color: T.textMuted }}>{count}</span>}
-    </div>
-  );
 
-  const cardSection = (children, extraStyle) => (
-    <div style={{ padding: "20px 24px", borderTop: `1px solid ${T.border}`, ...extraStyle }}>{children}</div>
-  );
 
   // "Log Oil Change" / "New Action" at the top of the combined view: a
   // direct button when the equipment has exactly one lubrication point
@@ -894,19 +888,33 @@ export default function Equipment({
         />
       )}
 
-      {/* ── combined equipment dashboard ──────────────────────────────── */}
-      {isEquipmentView && (
-        <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden" }}>
-          <div style={{ padding: "20px 24px" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      {/* ── combined equipment dashboard (D5 design) ─────────────────── */}
+      {isEquipmentView && (() => {
+        const segs = ["Good", "Fair", "Poor"].map((hl) => ({ label: hl, value: pointSummaries.filter((p) => p.h.health === hl).length, color: T[HEALTH_COLOR[hl]] }));
+        const goodPct = pointSummaries.length ? Math.round((segs[0].value / pointSummaries.length) * 100) : null;
+        const shownPoints = [...pointSummaries].filter((p) => machineFilter === "all" || p.h.health === machineFilter).sort((a, b) => b.h.score - a.h.score);
+        const kpi = (label, value, color, sub, testid) => (
+          <div key={label} style={{ ...s.card, marginBottom: 0, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 4 }} data-testid={testid}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary }}>{label}</span>
+            <span style={{ fontFamily: "'Space Grotesk','IBM Plex Sans',sans-serif", fontSize: 24, fontWeight: 700, color: color || T.textPrimary, lineHeight: 1.15 }}>{value}</span>
+            {sub && <span style={{ fontSize: 12.5, color: T.textSecondary }}>{sub}</span>}
+          </div>
+        );
+        return (
+          <div data-testid="machine-view">
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
+                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 24, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
+                  <SmallBadge T={T} color={HEALTH_COLOR[machineHealth]}>{machineHealth}</SmallBadge>
+                </div>
+                <div style={{ fontSize: 14, color: T.textSecondary, marginTop: 4 }}>{groupRows[0]?.description || ""}</div>
+                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                  {[groupRows[0]?.area, groupRows[0]?.contractor].filter(Boolean).map(tag)}
                   <span style={{ ...s.badge(), background: T.cardSubBg, color: T.textMuted }}>
                     {groupRows.length} lubrication point{groupRows.length !== 1 ? "s" : ""}
                   </span>
                 </div>
-                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>{[groupRows[0]?.area, groupRows[0]?.contractor].filter(Boolean).map(tag)}</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 {onCreateRoute && pointActionControl("Create Route", "ti-route", (lpCode) => createRouteFor(lpCode, "Oil Change"))}
@@ -915,115 +923,137 @@ export default function Equipment({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginTop: 18 }} data-testid="machine-summary">
-              {[
-                ["Health", machineHealth, T[HEALTH_COLOR[machineHealth]], machineAttention ? `${machineAttention} of ${groupRows.length} points need attention` : "All points good"],
-                ["Worst Result", worst ? worst.status : "—", worst ? statusColor(T, worst.status) : null, `${totalSamples} sample${totalSamples === 1 ? "" : "s"}`],
-                ["Open Actions", totalOpenActions, totalOpenActions > 0 ? T.danger : T.success, machineOverdueActions ? `${machineOverdueActions} overdue` : null],
-                [
-                  "Next Oil Change",
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(300px, 2fr) minmax(0, 3fr)", gap: 14, marginBottom: 14 }} data-testid="machine-summary">
+              <div style={{ ...s.card, marginBottom: 0, padding: "14px 16px" }} data-testid="machine-health">
+                <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary }}>Health of its points</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+                  <Donut T={T} segments={segs} size={116} thickness={16} center={goodPct == null ? "—" : `${goodPct}%`} sub="Good" ariaLabel={segs.map((x) => `${x.value} ${x.label}`).join(", ")} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {segs.map((x) => (
+                      <button
+                        key={x.label}
+                        type="button"
+                        onClick={() => setMachineFilter(machineFilter === x.label ? "all" : x.label)}
+                        aria-pressed={machineFilter === x.label}
+                        style={{ display: "flex", alignItems: "center", gap: 7, border: 0, background: machineFilter === x.label ? x.color + "1A" : "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, color: T.textPrimary }}
+                      >
+                        <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color }} />
+                        <b>{x.value}</b> {x.label}
+                      </button>
+                    ))}
+                    <span style={{ fontSize: 12.5, color: machineAttention ? T.warning : T.success, paddingLeft: 8, fontWeight: 600 }}>
+                      {machineAttention ? `${machineAttention} of ${groupRows.length} points need attention` : "All points good"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 14 }}>
+                {kpi("Worst result", worst ? worst.status : "—", worst ? statusColor(T, worst.status) : null, `${totalSamples} sample${totalSamples === 1 ? "" : "s"}`, "machine-worst")}
+                {kpi("Open actions", totalOpenActions, totalOpenActions > 0 ? T.danger : T.success, machineOverdueActions ? `${machineOverdueActions} overdue` : "none overdue", "machine-actions")}
+                {kpi(
+                  "Next oil change",
                   soonestNextDue ? formatDate(soonestNextDue.nextDueDate) : "—",
                   soonestNextDue?.status === "Overdue" ? T.danger : null,
-                  soonestNextDue?.lubricationPoint,
-                ],
-                ["Oil Used This Year", `${oilUsedThisYear} L`, null, "oil changes + top-ups"],
-              ].map(([label, val, color, sub]) => (
-                <div key={label} style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "11px 13px" }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 600,
-                      letterSpacing: 0.4,
-                      textTransform: "uppercase",
-                      color: T.textMuted,
-                      marginBottom: 5,
-                    }}
-                  >
-                    {label}
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: color || T.textHighlight }}>{val}</div>
-                  {sub && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{sub}</div>}
+                  soonestNextDue ? `${soonestNextDue.equipmentCode || soonestNextDue.lubricationPoint || ""}${soonestNextDue.status === "Overdue" ? " · overdue" : ""}` : null,
+                  "machine-next"
+                )}
+                {kpi("Oil used this year", `${oilUsedThisYear} L`, null, "oil changes + top-ups", "machine-oil")}
+              </div>
+            </div>
+
+            {oilByPoint.length > 0 && (
+              <div style={{ ...s.card, marginBottom: 14 }} data-testid="machine-oil-bars">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>Oil used this year by point (L)</span>
+                  <span style={{ display: "flex", gap: 10, fontSize: 12, color: T.textSecondary }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 2, background: T.accent }} />
+                      Oil changes
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 2, background: T.warning }} />
+                      Top-ups
+                    </span>
+                  </span>
                 </div>
-              ))}
+                <StackedBars
+                  T={T}
+                  labelWidth={200}
+                  onRow={(r) => selectLp(r.label)}
+                  rows={oilByPoint.map((x) => ({
+                    label: x.code,
+                    parts: [
+                      { label: "Oil changes", value: x.changes, color: T.accent },
+                      { label: "Top-ups", value: x.topUps, color: T.warning },
+                    ],
+                  }))}
+                />
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", margin: "6px 0 10px" }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary }}>
+                Lubrication points{machineFilter !== "all" ? ` · ${machineFilter}` : ""} <span style={{ color: T.textSecondary, fontWeight: 500 }}>{shownPoints.length}</span>
+              </span>
+              <span style={{ fontSize: 12.5, color: T.textSecondary }}>worst first · tap one to open it</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 320px), 1fr))", gap: 12 }} data-testid="points-compare">
+              {shownPoints.map((p) => {
+                const hc = T[HEALTH_COLOR[p.h.health]];
+                const oc = p.oilChange;
+                return (
+                  <button
+                    key={p.reg.code}
+                    type="button"
+                    onClick={() => selectLp(p.reg.code)}
+                    data-testid={`point-card-${p.reg.code}`}
+                    style={{ ...s.card, marginBottom: 0, textAlign: "left", cursor: "pointer", borderLeft: `4px solid ${hc}`, padding: "12px 14px", fontFamily: "inherit", color: T.textPrimary, display: "flex", flexDirection: "column", gap: 6 }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent, fontSize: 14 }}>{p.reg.code}</div>
+                        <div style={{ fontSize: 12.5, color: T.textSecondary }}>{p.reg.lubricationPoint || p.reg.description}</div>
+                      </div>
+                      <SmallBadge T={T} color={HEALTH_COLOR[p.h.health]}>{p.h.health}</SmallBadge>
+                    </div>
+                    {p.h.reasons.length > 0 && <div style={{ fontSize: 12.5, color: hc }}>{p.h.reasons.map((x) => x.text).join(" · ")}</div>}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px", fontSize: 12.5, marginTop: 2 }}>
+                      <span style={{ color: T.textSecondary }}>Oil</span>
+                      <span>{p.reg.lubricant || "—"}</span>
+                      <span style={{ color: T.textSecondary }}>Latest result</span>
+                      <span>
+                        {p.latest ? (
+                          <>
+                            <span style={s.badge(p.latest.reportStatus)}>{p.latest.reportStatus}</span> {formatDate(p.latest.sampledDate)}
+                          </>
+                        ) : p.reg.oilAnalysisRequired === "Yes" ? (
+                          "none yet"
+                        ) : (
+                          "not sampled"
+                        )}
+                      </span>
+                      <span style={{ color: T.textSecondary }}>Next oil change</span>
+                      <span style={{ color: oc?.status === "Overdue" ? T.danger : undefined, fontWeight: oc?.status === "Overdue" ? 700 : 400 }}>
+                        {oc?.nextDueDate ? `${formatDate(oc.nextDueDate)}${oc.status === "Overdue" ? " (overdue)" : ""}` : oc?.changeDate ? "—" : "no history yet"}
+                      </span>
+                      <span style={{ color: T.textSecondary }}>Actions</span>
+                      <span>
+                        {p.openActions ? `${p.openActions} open` : "—"}
+                        {p.h.overdueActions > 0 && <span style={{ color: T.danger, fontWeight: 700 }}> · {p.h.overdueActions} overdue</span>}
+                      </span>
+                      <span style={{ color: T.textSecondary }}>Top-ups (30 d)</span>
+                      <span style={{ color: p.h.recentTopUps >= 3 ? T.danger : undefined, fontWeight: p.h.recentTopUps >= 3 ? 700 : 400 }}>
+                        {p.h.recentTopUps || "—"}
+                        {p.h.recentTopUps >= 3 ? " · possible leak" : ""}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
-
-          {cardSection(
-            <>
-              {sectionLabel("ti-list-details", "Lubrication Points", groupRows.length)}
-              <div style={{ overflowX: "auto" }}>
-                <table style={s.table} data-testid="points-compare">
-                  <thead>
-                    <tr>
-                      <th style={s.th}>Point</th>
-                      <th style={s.th}>Oil</th>
-                      <th style={s.th}>Health</th>
-                      <th style={s.th}>Latest result</th>
-                      <th style={s.th}>Oil change</th>
-                      <th style={s.th}>Actions</th>
-                      <th style={s.th}>Top-ups (30 d)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...pointSummaries]
-                      .sort((a, b) => b.h.score - a.h.score)
-                      .map((p) => (
-                        <tr key={p.reg.code} style={{ cursor: "pointer" }} onClick={() => selectLp(p.reg.code)}>
-                          <td style={s.td}>
-                            <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{p.reg.code}</div>
-                            <div style={{ fontSize: 12, color: T.textSecondary }}>{p.reg.lubricationPoint || p.reg.description}</div>
-                          </td>
-                          <td style={s.td}>
-                            {p.reg.lubricant || "—"}
-                            <div style={{ fontSize: 12, color: T.textSecondary }}>{p.reg.oilAnalysisRequired === "Yes" ? "sampled" : "time-based, not sampled"}</div>
-                          </td>
-                          <td style={s.td}>
-                            <SmallBadge T={T} color={HEALTH_COLOR[p.h.health]}>{p.h.health}</SmallBadge>
-                            {p.h.reasons.length > 0 && (
-                              <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 3 }}>{p.h.reasons.map((x) => x.text).join(" · ")}</div>
-                            )}
-                          </td>
-                          <td style={s.td}>
-                            {p.latest ? (
-                              <>
-                                <span style={s.badge(p.latest.reportStatus)}>{p.latest.reportStatus}</span>
-                                <div style={{ fontSize: 12, color: T.textSecondary }}>{formatDate(p.latest.sampledDate)}</div>
-                              </>
-                            ) : (
-                              <span style={{ color: T.textMuted }}>{p.reg.oilAnalysisRequired === "Yes" ? "none yet" : "—"}</span>
-                            )}
-                          </td>
-                          <td style={s.td}>
-                            {p.oilChange?.changeDate ? (
-                              <>
-                                <div>last {formatDate(p.oilChange.changeDate)}</div>
-                                {p.oilChange.nextDueDate && (
-                                  <div style={{ fontSize: 12, color: p.oilChange.status === "Overdue" ? T.danger : T.textSecondary, fontWeight: p.oilChange.status === "Overdue" ? 700 : 400 }}>
-                                    next {formatDate(p.oilChange.nextDueDate)}
-                                    {p.oilChange.status === "Overdue" ? " (overdue)" : ""}
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <span style={{ color: T.textMuted }}>no history yet</span>
-                            )}
-                          </td>
-                          <td style={s.td}>
-                            {p.openActions ? `${p.openActions} open` : "—"}
-                            {p.h.overdueActions > 0 && <div style={{ fontSize: 12, color: T.danger }}>{p.h.overdueActions} overdue</div>}
-                          </td>
-                          <td style={{ ...s.td, color: p.h.recentTopUps >= 3 ? T.danger : undefined, fontWeight: p.h.recentTopUps >= 3 ? 700 : undefined }}>
-                            {p.h.recentTopUps || "—"}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── single lubrication point ("equipment view" profile) ─────────── */}
       {isLpView && (

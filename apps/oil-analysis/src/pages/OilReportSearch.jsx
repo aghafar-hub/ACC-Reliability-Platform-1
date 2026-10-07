@@ -4,17 +4,12 @@ import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import { formatDate, intervalMonths, sampleTrackerStatus } from "../parsers";
 import LastActionsPanel from "../components/LastActionsPanel";
-import LineChart from "../components/LineChart";
-import { seriesColor, toTime } from "../pointHistory";
-import { actionsForSample, cellMark, changeLabel, pickSamples, reportColumns, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "../labReport";
+import LabTrendCharts, { Chip, LabCountControls } from "../components/LabTrendCharts";
+import { toTime } from "../pointHistory";
+import { actionsForSample, cellMark, changeLabel, pickSamples, reportColumns, reviewOf, viscCellTemp, visibleGroups } from "../labReport";
 import { Donut, Ring } from "../components/DashCharts";
 
-const WEAR_METALS = ["Ag", "Al", "Cr", "Cu", "Fe", "Mo", "Ni", "Pb", "Sn"];
-const WEAR_NAMES = { Ag: "Silver", Al: "Aluminum", Cr: "Chromium", Cu: "Copper", Fe: "Iron", Mo: "Molybdenum", Ni: "Nickel", Pb: "Lead", Sn: "Tin" };
-const CONTAMINANTS = ["Si", "Na", "K"];
-const CONTAMINANT_NAMES = { K: "Potassium", Na: "Sodium", Si: "Silicon" };
 const STATUS_RANK = { Alert: 3, Caution: 2, Warning: 2, Normal: 1 };
-const COUNTS = ["5", "10", "15", "all"];
 const SEV_KEY = { Alert: "danger", Caution: "warning" };
 
 function statusKey(status) {
@@ -32,7 +27,6 @@ function Pill({ T, status, children, size = 11 }) {
   );
 }
 
-const num = (v) => (v === "" || v === null || v === undefined || (typeof v === "number" && isNaN(v)) ? null : Number(v));
 
 // The `oilreport` sidebar destination: every sample of one lubrication point
 // as columns (newest on the right), trend charts beside them. With no point
@@ -120,7 +114,6 @@ export default function OilReportSearch({
   const history = pickSamples(historyAll, { count, sinceChange, lastChangeTime });
   const latest = historyAll[historyAll.length - 1];
   const columns = reportColumns(history, changeEvents, { sinceChange, lastChangeTime });
-  const labels = history.map((d) => d.sampledDate);
 
   // Sampling status and next sample due.
   const trackerHistory = equipCode !== "All" ? (trackerByEquip || {})[equipCode] || [] : [];
@@ -133,26 +126,6 @@ export default function OilReportSearch({
     const d = new Date(t);
     return new Date(d.getFullYear(), d.getMonth() + sampleMonths, d.getDate());
   })();
-
-  // Charts — same four charts as before; each value keeps its own colour,
-  // missing values are left out (never drawn as 0), and the legend is built
-  // from the very same list so it always matches the lines.
-  const series = (key, label, get) => ({ key, label, color: seriesColor(T, key), data: history.map((d) => num(get(d))) });
-  const hasData = (sr) => sr.data.some((v) => v !== null && v !== 0);
-  const charts = [
-    { title: "Viscosity", height: 90, datasets: [series("Visc", `${viscTempLabel(history) ? `Visc${viscTempLabel(history)}` : "Viscosity"} (cSt)`, (d) => d.visc40C)].filter(hasData) },
-    { title: "Wear", height: 100, datasets: WEAR_METALS.map((m) => series(m, `${m} (${WEAR_NAMES[m]})`, (d) => d.wear?.[m])).filter(hasData) },
-    { title: "Contaminants", height: 90, datasets: CONTAMINANTS.map((c) => series(c, `${c} (${CONTAMINANT_NAMES[c]})`, (d) => d.contaminants?.[c])).filter(hasData) },
-    {
-      title: "Physical Properties",
-      height: 90,
-      datasets: [
-        series("Water", "Water (Vol%)", (d) => d.water),
-        series("Oxidation", "Oxidation (Ab/cm)", (d) => d.oxidation),
-        series("TAN", "TAN (mg KOH/g)", (d) => d.tan),
-      ].filter(hasData),
-    },
-  ];
 
   async function downloadPdf() {
     setPdfBusy(true);
@@ -478,23 +451,21 @@ export default function OilReportSearch({
           <div style={card}>
             <div style={{ ...cardHead, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary }}>Sample Data &amp; Trends</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }} data-testid="report-filters">
-                <span style={{ fontSize: 12, color: T.textSecondary }}>Show</span>
-                {COUNTS.map((c) => (
-                  <Chip key={c} T={T} s={s} active={count === c} onClick={() => setCount(c)} testid={`report-count-${c}`}>
-                    {c === "all" ? "All" : `Last ${c}`}
-                  </Chip>
-                ))}
-                <Chip T={T} s={s} active={sinceChange} onClick={() => setSinceChange((v) => !v)} disabled={!lastChangeTime} testid="report-since-change">
-                  <i className="ti ti-droplet" aria-hidden="true" /> Since last oil change
-                </Chip>
-                <span style={{ fontSize: 12, color: T.textSecondary }} data-testid="report-shown">
-                  {history.length} of {historyAll.length} samples
-                </span>
+              <LabCountControls
+                T={T}
+                s={s}
+                count={count}
+                setCount={setCount}
+                sinceChange={sinceChange}
+                setSinceChange={setSinceChange}
+                lastChangeTime={lastChangeTime}
+                shown={history.length}
+                total={historyAll.length}
+              >
                 <button type="button" style={{ ...s.btn, padding: "5px 11px", fontSize: 12 }} onClick={downloadPdf} disabled={pdfBusy} data-testid="report-pdf">
                   <i className="ti ti-file-download" aria-hidden="true" /> {pdfBusy ? "Preparing…" : "PDF"}
                 </button>
-              </div>
+              </LabCountControls>
             </div>
             {history.length === 0 ? (
               <p style={{ padding: 20, margin: 0, color: T.textSecondary, fontSize: 13 }}>
@@ -505,23 +476,8 @@ export default function OilReportSearch({
                 <div style={{ overflowX: "auto", borderRight: `1px solid ${T.border}`, minWidth: 0 }}>
                   <ParamTable T={T} columns={columns} shown={history} actions={actions} code={equipCode} focusKey={focusKey} />
                 </div>
-                <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-                  {charts.map((ch) => (
-                    <div key={ch.title} style={{ background: T.appBg, borderRadius: 8, padding: "12px 14px" }} data-testid={`report-chart-${ch.title.replace(/\s+/g, "-")}`}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: T.textPrimary }}>{ch.title}</span>
-                        {ch.datasets.length === 1 && <LegendItem T={T} color={ch.datasets[0].color} label={ch.datasets[0].label} />}
-                      </div>
-                      <LineChart datasets={ch.datasets} labels={labels} height={ch.height} connectNulls />
-                      {ch.datasets.length > 1 && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", marginTop: 6 }} data-testid={`report-legend-${ch.title.replace(/\s+/g, "-")}`}>
-                          {ch.datasets.map((d) => (
-                            <LegendItem key={d.key} T={T} color={d.color} label={d.label} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                <div style={{ padding: 16, minWidth: 0 }}>
+                  <LabTrendCharts T={T} history={history} layout="column" testPrefix="report" />
                 </div>
               </div>
             )}
@@ -558,38 +514,7 @@ function Info({ T, label, value, color, strong }) {
   );
 }
 
-function Chip({ T, s, active, onClick, children, testid, disabled }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-      data-testid={testid}
-      style={{
-        ...s.btn,
-        padding: "5px 11px",
-        fontSize: 12,
-        borderColor: active ? T.accent : T.border,
-        color: active ? T.accent : T.textSecondary,
-        fontWeight: active ? 700 : 500,
-        opacity: disabled ? 0.45 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
-function LegendItem({ T, color, label }) {
-  return (
-    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: T.textSecondary }}>
-      <span style={{ width: 10, height: 3, background: color, display: "inline-block" }} />
-      {label}
-    </span>
-  );
-}
 
 // With no point picked: every sampled point by its latest result, worst
 // first, with what the lab marked and whether a sample is due.
