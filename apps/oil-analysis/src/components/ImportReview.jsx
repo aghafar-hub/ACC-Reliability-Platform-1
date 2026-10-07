@@ -41,18 +41,39 @@ function toInputDate(v) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// The lab report's Unit ID is the registry's Report Equipment ID (e.g.
+// "131.BC100" → LP-131.BC100-GB). Compared without spaces or case
+// ("111.HC100(IR)" = "111.HC100 (IR)"). Only when no point has it as its
+// Report Equipment ID is an LP_ID equal to the Unit ID used. More than one
+// match (shouldn't happen) → the user picks among them.
+const squash = (v) => String(v ?? "").replace(/\s+/g, "").toUpperCase();
+export function matchPoint(unitId, registry) {
+  const key = squash(unitId);
+  if (!key) return { code: null, options: [] };
+  const list = registry || [];
+  let options = list.filter((r) => squash(r.reportEquipmentId) === key);
+  if (!options.length) options = list.filter((r) => squash(r.code) === key);
+  if (options.length > 1) {
+    const sampled = options.filter((r) => r.oilAnalysisRequired === "Yes");
+    if (sampled.length) options = sampled;
+  }
+  return { code: options.length === 1 ? options[0].code : null, options };
+}
+
 function buildCandidates(parsedReports, equipmentRegistry) {
-  const registryCodes = new Set((equipmentRegistry || []).map((r) => r.code));
   const out = [];
   parsedReports.forEach((report, fi) => {
     if (!report.ok) return;
+    const point = matchPoint(report.samples[0]?.unitId, equipmentRegistry);
     report.samples.forEach((sample, si) => {
       out.push({
         _key: `${fi}|${si}|${sample.sampleId}`,
         fileIdx: fi,
         fileName: report.fileName,
         sample,
-        matched: registryCodes.has(sample.unitId),
+        matched: !!point.code,
+        pointCode: point.code,
+        pointOptions: point.options,
         selected: true, // trimmed below once duplicates are known
         edited: [],
       });
@@ -69,7 +90,7 @@ function withStatus(candidates, existingIds, remap) {
     const noSampleId = !id;
     const duplicate = !noSampleId && (existingIds.has(id) || seen.has(id));
     if (id) seen.add(id);
-    const unitId = remap[c.fileIdx] || c.sample.unitId;
+    const unitId = remap[c.fileIdx] || c.pointCode || c.sample.unitId;
     const needsPoint = !c.matched && !remap[c.fileIdx];
     const blocked = duplicate || noSampleId || needsPoint;
     return { ...c, unitId, duplicate, noSampleId, needsPoint, blocked, include: c.selected && !blocked };
@@ -144,6 +165,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
       fileIdx,
       fileName: items[0].fileName,
       unitId: items[0].unitId,
+      reportId: items[0].sample.unitId,
       matched: items[0].matched,
       items: [...items].sort((a, b) => new Date(a.sample.sampledDate) - new Date(b.sample.sampledDate)),
     }));
@@ -194,6 +216,8 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
       included.map((c) => ({
         ...c.sample,
         unitId: c.unitId,
+        // the report's own Unit ID, kept in Data_Entry's Report Equipment ID
+        reportEquipmentId: c.sample.reportEquipmentId || c.sample.unitId,
         recommendations: (c.sample.recommendations || []).map((r) => String(r).trim()).filter(Boolean),
       })),
       fills.map(({ sampleId, labInfo }) => ({ sampleId, labInfo }))
@@ -250,12 +274,13 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: T.textPrimary }}>{f.unitId}</div>
+                <div style={{ fontSize: 10.5, color: T.textSecondary }}>Report ID {f.reportId}</div>
                 <div style={{ fontSize: 10.5, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.fileName}</div>
-                {!f.matched && !remap[f.fileIdx] && <div style={{ fontSize: 10.5, color: T.warning, fontWeight: 700 }}>Pick the point — not in the registry</div>}
+                {!f.matched && !remap[f.fileIdx] && <div style={{ fontSize: 10.5, color: T.warning, fontWeight: 700 }}>Pick the point — Report ID not in the registry</div>}
               </div>
             </div>
             {f.items.map((c) => (
-              <div key={c._key} style={{ ...sideItem(view?.type === "sample" && view.key === c._key), padding: 0, opacity: c.blocked ? 0.6 : 1 }}>
+              <div key={c._key} style={{ ...sideItem(view?.type === "sample" && view.key === c._key), padding: 0 }}>
                 <input
                   type="checkbox"
                   checked={c.include}
@@ -267,12 +292,15 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
                 />
                 <button type="button" onClick={() => setView({ type: "sample", key: c._key })} data-testid={`import-item-${c.sample.sampleId}`} style={{ ...sideItem(false), borderLeft: "none", background: "none", padding: "8px 10px 8px 6px" }}>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontWeight: 600 }}>{formatDate(c.sample.sampledDate) || "No date"}</span>
+                    <span style={{ display: "block", fontWeight: 600, color: c.blocked ? T.textSecondary : undefined }}>{formatDate(c.sample.sampledDate) || "No date"}</span>
                     <span style={{ display: "block", fontSize: 10.5, fontFamily: "monospace", color: T.textSecondary }}>{c.sample.sampleId || "no Sample ID"}</span>
                     {c.duplicate && (
-                      <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary, fontStyle: "italic" }}>
-                        Already saved — skipped{fillKeys.has(c._key) && fillDetails ? "; report details filled in" : ""}
+                      <span style={{ display: "block", fontSize: 10.5, color: T.danger, fontWeight: 600 }} data-testid={`import-dup-${c.sample.sampleId}`}>
+                        <i className="ti ti-alert-circle" aria-hidden="true" /> Sample ID already in the system — not added
                       </span>
+                    )}
+                    {c.duplicate && fillKeys.has(c._key) && fillDetails && (
+                      <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary }}>Its missing report details will be filled in</span>
                     )}
                     {c.noSampleId && <span style={{ display: "block", fontSize: 10.5, color: T.warning, fontWeight: 700 }}>No Sample ID</span>}
                     {c.edited.length > 0 && <span style={{ display: "block", fontSize: 10.5, color: T.accent, fontWeight: 700 }}>Edited</span>}
@@ -462,7 +490,8 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onT
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div>
             <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>
-              <span style={{ fontFamily: "monospace" }}>{c.unitId}</span> · Sample {smp.sampleId || "—"} · {formatDate(smp.sampledDate) || "—"} <StatusPill T={T} status={smp.reportStatus} />
+              <span style={{ fontFamily: "monospace" }}>{c.unitId}</span>
+              {c.unitId !== smp.unitId && <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}> (Report ID {smp.unitId})</span>} · Sample {smp.sampleId || "—"} · {formatDate(smp.sampledDate) || "—"} <StatusPill T={T} status={smp.reportStatus} />
             </p>
             <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.textSecondary }}>{c.fileName}</p>
           </div>
@@ -473,15 +502,31 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onT
         </div>
         {c.duplicate && (
           <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, color: T.textPrimary }} data-testid="import-dup-note">
-            <i className="ti ti-copy" aria-hidden="true" /> Sample ID {smp.sampleId} is already saved — it won't be added again
+            <i className="ti ti-copy" aria-hidden="true" style={{ color: T.danger }} /> Sample ID {smp.sampleId} is already in the system — it won't be added again
             {canFill ? "; the report details missing from the saved one (account, asset, bottle…) can be filled in — see the box at the top." : "."}
           </p>
         )}
         {c.noSampleId && <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>This column has no Sample ID — type it in the table to add it.</p>}
         {!c.matched && (
           <div style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>
-            Unit ID <strong>{smp.unitId}</strong> isn't in the Equipment Registry. Pick the point these results belong to:
-            <PointPicker T={T} s={s} equipmentRegistry={equipmentRegistry} value={remapValue} onChange={onRemap} />
+            {c.pointOptions?.length > 1 ? (
+              <>
+                Unit ID <strong>{smp.unitId}</strong> matches more than one point's Report Equipment ID — pick the one:
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                  {c.pointOptions.map((r) => (
+                    <button key={r.code} type="button" onClick={() => onRemap(r.code)} style={{ ...s.btn, padding: "4px 10px", fontSize: 12, borderColor: remapValue === r.code ? T.accent : T.border }}>
+                      {r.code}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                Unit ID <strong>{smp.unitId}</strong> isn't a Report Equipment ID in the Equipment Registry. Pick the point these results belong to (and
+                add the Report Equipment ID to the registry so the next import finds it):
+                <PointPicker T={T} s={s} equipmentRegistry={equipmentRegistry} value={remapValue} onChange={onRemap} />
+              </>
+            )}
           </div>
         )}
         {info.length > 0 && (

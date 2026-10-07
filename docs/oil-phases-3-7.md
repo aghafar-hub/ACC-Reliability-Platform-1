@@ -381,8 +381,14 @@ Apps Script (Oil Lubrication test script): replace `Code` and
   Report page opens a **Review (N)** tab (it stays while you switch to
   Manual Entry and back). Left: a side bar with **Refused** files first,
   then each report's samples with a tick box (a tick for the whole report
-  too); already-saved samples are greyed and can't be ticked; a point not
-  in the registry must be picked first. Right: the open sample — its report
+  too); a sample whose Sample ID is already in the system can't be ticked
+  and says so in red. The report's **Unit ID** is looked up in the
+  registry's **Report Equipment ID** column (spaces and case ignored, so
+  "431.KB102(4)" finds "431.KB102 (4)" → LP-431.KB102-KB-B4); the sample is
+  saved under that LP_ID with the Unit ID kept as its Report Equipment ID.
+  Only when no point has it as its Report Equipment ID is an LP_ID equal to
+  the Unit ID used; otherwise the point must be picked first (and the
+  Report Equipment ID should be added to the registry for next time). Right: the open sample — its report
   details and the report table (every sample of that report as a column,
   this one outlined). New samples' values can be corrected in place and the
   lab mark beside each value set (· → C → A); edited samples say "Edited".
