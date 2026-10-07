@@ -13,8 +13,11 @@ export const ON_TIME_GRACE_DAYS = ROUTE_OVERDUE_GRACE_DAYS;
 
 // Every lab value, its group and which way is bad when the lab gives no
 // hint. `flag` is the name the lab report uses in "Flagged Parameters".
-export const LAB_GROUPS = ["Wear", "Contamination", "Oil condition", "Additives"];
-export const LAB_PARAMS = [
+// Grouped the way the Oil Analysis Report draws its trend charts — one chart
+// per topic.
+export const LAB_GROUPS = ["Viscosity", "Wear", "Contaminants", "Physical properties", "Additives"];
+const PARAMS = [
+  { key: "Visc", flag: "Visc", label: "Viscosity", unit: "cSt", group: "Viscosity", get: (s) => s.visc40C },
   { key: "Fe", flag: "Fe", label: "Fe (Iron)", unit: "ppm", group: "Wear", get: (s) => s.wear?.Fe },
   { key: "Cu", flag: "Cu", label: "Cu (Copper)", unit: "ppm", group: "Wear", get: (s) => s.wear?.Cu },
   { key: "Cr", flag: "Cr", label: "Cr (Chromium)", unit: "ppm", group: "Wear", get: (s) => s.wear?.Cr },
@@ -24,13 +27,12 @@ export const LAB_PARAMS = [
   { key: "Ni", flag: "Ni", label: "Ni (Nickel)", unit: "ppm", group: "Wear", get: (s) => s.wear?.Ni },
   { key: "Ag", flag: "Ag", label: "Ag (Silver)", unit: "ppm", group: "Wear", get: (s) => s.wear?.Ag },
   { key: "Mo", flag: "Mo", label: "Mo (Molybdenum)", unit: "ppm", group: "Wear", get: (s) => s.wear?.Mo },
-  { key: "Si", flag: "Si", label: "Si (Silicon / dust)", unit: "ppm", group: "Contamination", get: (s) => s.contaminants?.Si },
-  { key: "Water", flag: "Water", label: "Water", unit: "%", group: "Contamination", get: (s) => s.water },
-  { key: "Na", flag: "Na", label: "Na (Sodium)", unit: "ppm", group: "Contamination", get: (s) => s.contaminants?.Na },
-  { key: "K", flag: "K", label: "K (Potassium)", unit: "ppm", group: "Contamination", get: (s) => s.contaminants?.K },
-  { key: "Visc", flag: "Visc", label: "Viscosity", unit: "cSt", group: "Oil condition", get: (s) => s.visc40C },
-  { key: "TAN", flag: "TAN", label: "TAN", unit: "mg KOH/g", group: "Oil condition", get: (s) => s.tan },
-  { key: "Oxidation", flag: "Oxidation", label: "Oxidation", unit: "", group: "Oil condition", get: (s) => s.oxidation },
+  { key: "Si", flag: "Si", label: "Si (Silicon / dust)", unit: "ppm", group: "Contaminants", get: (s) => s.contaminants?.Si },
+  { key: "Na", flag: "Na", label: "Na (Sodium)", unit: "ppm", group: "Contaminants", get: (s) => s.contaminants?.Na },
+  { key: "K", flag: "K", label: "K (Potassium)", unit: "ppm", group: "Contaminants", get: (s) => s.contaminants?.K },
+  { key: "Water", flag: "Water", label: "Water", unit: "Vol%", group: "Physical properties", get: (s) => s.water },
+  { key: "Oxidation", flag: "Oxidation", label: "Oxidation", unit: "Ab/cm", group: "Physical properties", get: (s) => s.oxidation },
+  { key: "TAN", flag: "TAN", label: "TAN", unit: "mg KOH/g", group: "Physical properties", get: (s) => s.tan },
   { key: "Zn", flag: "Zn", label: "Zn (Zinc)", unit: "ppm", group: "Additives", get: (s) => s.additives?.Zn, low: true },
   { key: "P", flag: "P", label: "P (Phosphorus)", unit: "ppm", group: "Additives", get: (s) => s.additives?.P, low: true },
   { key: "Ca", flag: "Ca", label: "Ca (Calcium)", unit: "ppm", group: "Additives", get: (s) => s.additives?.Ca, low: true },
@@ -38,6 +40,17 @@ export const LAB_PARAMS = [
   { key: "Ba", flag: "Ba", label: "Ba (Barium)", unit: "ppm", group: "Additives", get: (s) => s.additives?.Ba, low: true },
   { key: "B", flag: "B", label: "B (Boron)", unit: "ppm", group: "Additives", get: (s) => s.additives?.B, low: true },
 ];
+
+// Line colours for a topic chart, in a fixed order checked for colour-blind
+// safety (light and dark sets). Each value keeps its own colour — slot = its
+// place in its topic — so hiding a line never repaints the others. A 9th
+// value in one topic (Mo, in Wear) gets the neutral grey.
+export const SERIES_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+export const SERIES_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
+export const LAB_PARAMS = PARAMS.map((p) => {
+  const i = PARAMS.filter((x) => x.group === p.group).indexOf(p);
+  return { ...p, slot: i < SERIES_LIGHT.length ? i : null };
+});
 
 export function toTime(d) {
   if (!d) return null;

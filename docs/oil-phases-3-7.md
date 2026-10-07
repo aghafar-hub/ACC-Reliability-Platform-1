@@ -278,13 +278,17 @@ the table, and that clicking an item opens the right page.
   `getRoutesForLp`.
 - **E3 — Lubrication History** (`pointHistory.js`, `PointHistory.jsx`), on
   one time axis:
-  - *Lab values* (sampled points): one small chart per value, grouped
-    Wear / Contamination / Oil condition / Additives, "Needs a look"
-    first. Dots take the lab's own marks (the yellow / red cells). The
+  - *Lab values* (sampled points): one chart per topic, as on the Oil
+    Analysis Report — Viscosity, Wear, Contaminants, Physical properties
+    (water, oxidation, TAN), Additives — one line per value, each value
+    always in the same colour (a fixed set checked for colour-blind
+    readers). Tap a value's name under the chart to hide or show its line;
+    values that are all zero are listed as "Not detected". A value the lab
+    marked (its yellow / red cells) gets a ringed dot with C or A. The
     dashed Caution / Alert lines are the lowest value the lab marked on
     this point's reports — or, if it never marked that value here, on
     other points using the same oil. (For additives and a falling
-    viscosity, the highest.) The line breaks at each oil change. A value
+    viscosity, the highest.) Lines break at each oil change. A value
     moving the bad way 3 samples in a row, by 20% or more, since the last
     oil change is called out. Click a dot to open the report.
   - *Oil change cycles* (points with changes): each cycle against its

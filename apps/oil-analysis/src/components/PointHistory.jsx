@@ -7,6 +7,8 @@ import {
   DAY,
   LAB_GROUPS,
   LAB_PARAMS,
+  SERIES_DARK,
+  SERIES_LIGHT,
   ON_TIME_GRACE_DAYS,
   PERIODS,
   buildCycles,
@@ -43,9 +45,23 @@ const LANE_LABEL = { 3: "Changes", 2: "Samples", 1: "Top-ups" };
 const TYPE_LABEL = { Change: "Oil changes", Sample: "Samples", TopUp: "Top-ups" };
 const TYPE_ICON = { Change: "ti-droplet", Sample: "ti-flask", TopUp: "ti-droplet-plus" };
 
+// Round axis ticks from 0 to just above max (with room for the C / A
+// letters): steps of 1, 2, 2.5 or 5 × 10^n, about four of them.
+function zeroTicks(max) {
+  const top = max > 0 ? max * 1.12 : 1;
+  const raw = top / 4;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * p).find((x) => x >= raw);
+  const n = Math.ceil(top / step - 1e-9);
+  return Array.from({ length: n + 1 }, (_, i) => Number((i * step).toPrecision(6)));
+}
+
 function fmtNum(v) {
   if (v === null || v === undefined) return "—";
-  return Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 100) / 100);
+  const a = Math.abs(v);
+  if (a >= 100) return String(Math.round(v));
+  if (a >= 1 || a === 0) return String(Math.round(v * 100) / 100);
+  return String(Number(v.toPrecision(2)));
 }
 
 function Seg({ T, s, active, onClick, children, testid }) {
@@ -68,6 +84,7 @@ function Key({ T, items }) {
       {items.map((it) => (
         <span key={it.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {it.dot && <span style={{ width: 9, height: 9, borderRadius: "50%", background: it.dot, display: "inline-block" }} />}
+          {it.ring && <span style={{ width: 8, height: 8, borderRadius: "50%", border: `2.5px solid ${it.ring}`, display: "inline-block" }} />}
           {it.line && <span style={{ width: 16, height: 0, borderTop: `2px ${it.dashed ? "dashed" : "solid"} ${it.line}`, display: "inline-block" }} />}
           {it.area && <span style={{ width: 14, height: 10, background: it.area, display: "inline-block", borderRadius: 2 }} />}
           {it.label}
@@ -85,7 +102,16 @@ function TipBox({ T, children }) {
   );
 }
 
-function LabTooltip({ T, p, active, payload }) {
+// Dark or light theme — picks which set of line colours to use.
+function isDarkSurface(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const lum = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+  return lum < 128;
+}
+
+function TopicTooltip({ T, series, colorOf, active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   if (d.change) {
@@ -96,105 +122,185 @@ function LabTooltip({ T, p, active, payload }) {
       </TipBox>
     );
   }
+  const rows = series.filter((x) => d[x.p.key] !== null && d[x.p.key] !== undefined).sort((a, b) => d[b.p.key] - d[a.p.key]);
   return (
     <TipBox T={T}>
-      <div style={{ color: T.textSecondary }}>{formatDate(d.t)} · Sample {d.sample.sampleId}</div>
-      <div style={{ fontWeight: 700 }}>
-        {p.label}: {fmtNum(d.v)} {p.unit}
+      <div style={{ color: T.textSecondary, marginBottom: 4 }}>
+        {formatDate(d.t)} · Sample {d.sample.sampleId}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: d.flag ? T[SEV_COLOR[d.flag]] : T.accent, display: "inline-block" }} />
-        {d.flag ? `Lab marked ${d.flag}` : "Not marked by the lab"}
-      </div>
-      <div style={{ color: T.textSecondary, marginTop: 2 }}>Click to open the report</div>
+      {rows.map((x) => {
+        const f = d[`${x.p.key}__f`];
+        return (
+          <div key={x.p.key} style={{ display: "flex", alignItems: "center", gap: 6, lineHeight: 1.6 }}>
+            <span style={{ width: 10, height: 3, background: colorOf(x.p), display: "inline-block", flexShrink: 0 }} />
+            <span style={{ flex: 1 }}>{x.p.label}</span>
+            <strong>
+              {fmtNum(d[x.p.key])} {x.p.unit}
+            </strong>
+            {f && (
+              <span style={{ fontWeight: 700, color: T.textPrimary, borderBottom: `2px solid ${T[SEV_COLOR[f]]}` }}>{f}</span>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ color: T.textSecondary, marginTop: 4 }}>Click a dot to open the report</div>
     </TipBox>
   );
 }
 
-function LabChart({ T, p, data, range, ticks, changeMarks, limits, trend, onOpenSample }) {
-  const points = data.filter((d) => !d.change);
-  const latest = points[points.length - 1];
-  const dot = (props) => {
+// One chart per topic (Viscosity, Wear, …), one line per value, like the
+// Oil Analysis Report. Each line keeps its own colour; a value the lab marked
+// gets a bigger dot with a Caution / Alert ring and a C / A letter.
+function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, colorOf, onOpenSample }) {
+  const [hidden, setHidden] = useState(() => new Set());
+  const withData = items.filter((x) => rows.some((r) => r[x.p.key] !== null && r[x.p.key] !== undefined && r[x.p.key] !== 0));
+  const notDetected = items.filter((x) => !withData.includes(x));
+  const shown = withData.filter((x) => !hidden.has(x.p.key));
+  const single = withData.length === 1;
+  const units = [...new Set(withData.map((x) => x.p.unit))];
+  const toggle = (k) =>
+    setHidden((h) => {
+      const n = new Set(h);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+  const dotFor = (p) => (props) => {
     const { cx, cy, payload, key } = props;
-    if (cx == null || cy == null || payload.v == null) return <g key={key} />;
-    const fill = payload.flag ? T[SEV_COLOR[payload.flag]] : T.accent;
+    const v = payload[p.key];
+    if (cx == null || cy == null || v === null || v === undefined) return <g key={key} />;
+    const f = payload[`${p.key}__f`];
     return (
       <g key={key} style={{ cursor: "pointer" }} onClick={() => onOpenSample?.(payload.sample)} data-testid={`lab-dot-${p.key}`}>
         <circle cx={cx} cy={cy} r={12} fill="transparent" />
-        <circle cx={cx} cy={cy} r={payload.flag ? 5 : 4} fill={fill} stroke={T.cardBg} strokeWidth={2} />
+        {f && <circle cx={cx} cy={cy} r={8} fill="none" stroke={T[SEV_COLOR[f]]} strokeWidth={2.5} />}
+        <circle cx={cx} cy={cy} r={f ? 5 : 4} fill={colorOf(p)} stroke={T.cardBg} strokeWidth={2} />
+        {f && (
+          <text x={cx} y={cy - 12} textAnchor="middle" fontSize={9.5} fontWeight={700} fill={T.textPrimary}>
+            {f[0]}
+          </text>
+        )}
       </g>
     );
   };
+  const limitLines = shown.flatMap((x) =>
+    [["caution", "Caution", T.warning], ["alert", "Alert", T.danger]]
+      .filter(([k]) => x.limits?.[k] !== null && x.limits?.[k] !== undefined)
+      .map(([k, label, color]) => ({ key: `${x.p.key}-${k}`, y: x.limits[k], text: `${single ? "" : `${x.p.key} `}${label} ${fmtNum(x.limits[k])}`, color }))
+  );
+  // Viscosity floats; everything else starts at 0 with round ticks.
+  const yMax = Math.max(0, ...shown.flatMap((x) => rows.map((r) => r[x.p.key]).filter((v) => typeof v === "number")), ...limitLines.map((l) => l.y));
+  const yTicks = group === "Viscosity" ? null : zeroTicks(yMax);
+  const slug = group.replace(/\s+/g, "-");
   return (
-    <div data-testid={`lab-chart-${p.key}`} style={{ border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 8px 4px" }}>
+    <div data-testid={`lab-chart-${slug}`} style={{ border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 8px 8px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, padding: "0 6px 4px" }}>
-        <span style={{ fontWeight: 700, fontSize: 12.5 }}>
-          {p.label}
-          {p.unit && <span style={{ color: T.textSecondary, fontWeight: 500 }}> · {p.unit}</span>}
+        <span style={{ fontWeight: 700, fontSize: 13 }}>
+          {group}
+          {units.length === 1 && <span style={{ color: T.textSecondary, fontWeight: 500 }}> · {units[0]}</span>}
         </span>
-        <span style={{ fontSize: 11.5, color: T.textSecondary, whiteSpace: "nowrap" }}>
-          {trend && (
-            <span style={{ color: T.textPrimary, fontWeight: 700, marginRight: 6 }}>
-              <i className={`ti ${trend.direction === "rising" ? "ti-trending-up" : "ti-trending-down"}`} aria-hidden="true" style={{ color: T.warning }} /> {trend.direction}
+        {single && (() => {
+          const x = withData[0];
+          const last = [...rows].reverse().find((r) => r[x.p.key] !== null && r[x.p.key] !== undefined);
+          const f = last?.[`${x.p.key}__f`];
+          return (
+            <span style={{ fontSize: 11.5, color: T.textSecondary }}>
+              {x.trend && <strong style={{ color: T.textPrimary, marginRight: 6 }}>{x.trend.direction}</strong>}
+              Latest <strong style={{ color: T.textPrimary }}>{last ? fmtNum(last[x.p.key]) : "—"}</strong>
+              {f && <span style={{ color: T.textPrimary }}> ({f})</span>}
             </span>
-          )}
-          Latest <strong style={{ color: T.textPrimary }}>{latest ? fmtNum(latest.v) : "—"}</strong>
-          {latest?.flag && <span style={{ marginLeft: 4, color: T.textPrimary }}>({latest.flag})</span>}
-        </span>
+          );
+        })()}
       </div>
-      <ResponsiveContainer width="100%" height={150}>
-        <LineChart data={data} margin={M}>
-          <CartesianGrid stroke={T.border2} vertical={false} />
-          <XAxis
-            type="number"
-            dataKey="t"
-            scale="time"
-            domain={[range.start, range.end]}
-            ticks={ticks}
-            tickFormatter={tickLabel}
-            allowDataOverflow
-            tick={{ fontSize: 10.5, fill: T.textSecondary }}
-            axisLine={{ stroke: T.border }}
-            tickLine={false}
-          />
-          <YAxis
-            width={YW}
-            domain={p.key === "Visc" ? ["auto", "auto"] : [0, "auto"]}
-            tick={{ fontSize: 10.5, fill: T.textSecondary }}
-            axisLine={false}
-            tickLine={false}
-            tickFormatter={fmtNum}
-            interval={0}
-          />
-          {changeMarks.map((c) => (
-            <ReferenceLine key={c.t} x={c.t} stroke={T.textMuted} strokeWidth={1} ifOverflow="hidden" />
-          ))}
-          {limits?.caution != null && (
-            <ReferenceLine
-              y={limits.caution}
-              stroke={T.warning}
-              strokeDasharray="5 4"
-              strokeWidth={1.5}
-              ifOverflow="extendDomain"
-              label={{ value: `Caution ${fmtNum(limits.caution)}`, position: "insideTopLeft", fill: T.textSecondary, fontSize: 10 }}
+      {withData.length === 0 ? (
+        <p style={{ color: T.textSecondary, fontSize: 12, margin: "6px" }}>Nothing detected in this period.</p>
+      ) : (
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={rows} margin={{ ...M, top: 16 }}>
+            <CartesianGrid stroke={T.border2} vertical={false} />
+            <XAxis
+              type="number"
+              dataKey="t"
+              scale="time"
+              domain={[range.start, range.end]}
+              ticks={ticks}
+              tickFormatter={tickLabel}
+              allowDataOverflow
+              tick={{ fontSize: 10.5, fill: T.textSecondary }}
+              axisLine={{ stroke: T.border }}
+              tickLine={false}
             />
-          )}
-          {limits?.alert != null && (
-            <ReferenceLine
-              y={limits.alert}
-              stroke={T.danger}
-              strokeDasharray="5 4"
-              strokeWidth={1.5}
-              ifOverflow="extendDomain"
-              label={{ value: `Alert ${fmtNum(limits.alert)}`, position: "insideTopLeft", fill: T.textSecondary, fontSize: 10 }}
+            <YAxis
+              width={YW}
+              domain={yTicks ? [0, yTicks[yTicks.length - 1]] : ["auto", "auto"]}
+              ticks={yTicks || undefined}
+              tick={{ fontSize: 10.5, fill: T.textSecondary }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={fmtNum}
+              interval={0}
             />
-          )}
-          <Tooltip content={<LabTooltip T={T} p={p} />} cursor={{ stroke: T.textMuted, strokeWidth: 1 }} isAnimationActive={false} />
-          <Line type="linear" dataKey="v" stroke={T.accent} strokeWidth={2} dot={dot} activeDot={false} connectNulls={false} isAnimationActive={false} />
-        </LineChart>
-      </ResponsiveContainer>
-      {limits?.source === "same oil" && (
-        <div style={{ fontSize: 10.5, color: T.textSecondary, padding: "0 6px 4px" }}>Limits from other points on the same oil</div>
+            {changeMarks.map((m) => (
+              <ReferenceLine key={m.t} x={m.t} stroke={T.textMuted} strokeWidth={1} ifOverflow="hidden" />
+            ))}
+            {limitLines.map((l, i) => (
+              <ReferenceLine
+                key={l.key}
+                y={l.y}
+                stroke={l.color}
+                strokeDasharray="5 4"
+                strokeWidth={1.5}
+                ifOverflow="extendDomain"
+                label={{ value: l.text, position: i % 2 ? "insideTopRight" : "insideTopLeft", fill: T.textSecondary, fontSize: 10 }}
+              />
+            ))}
+            <Tooltip content={<TopicTooltip T={T} series={shown} colorOf={colorOf} />} cursor={{ stroke: T.textMuted, strokeWidth: 1 }} isAnimationActive={false} />
+            {shown.map((x) => (
+              <Line
+                key={x.p.key}
+                type="linear"
+                dataKey={x.p.key}
+                name={x.p.label}
+                stroke={colorOf(x.p)}
+                strokeWidth={2}
+                dot={dotFor(x.p)}
+                activeDot={false}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      )}
+      {!single && withData.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "6px 6px 0" }}>
+          {withData.map((x) => {
+            const off = hidden.has(x.p.key);
+            return (
+              <button
+                key={x.p.key}
+                type="button"
+                onClick={() => toggle(x.p.key)}
+                aria-pressed={!off}
+                title={off ? "Show this line" : "Hide this line"}
+                data-testid={`lab-series-${x.p.key}`}
+                style={{ ...s.btn, padding: "3px 9px", fontSize: 11.5, minHeight: 26, opacity: off ? 0.45 : 1, color: T.textPrimary }}
+              >
+                <span style={{ width: 12, height: 3, background: colorOf(x.p), display: "inline-block" }} />
+                {x.p.label}
+                {x.trend && <strong style={{ marginLeft: 2 }}>· {x.trend.direction}</strong>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {notDetected.length > 0 && (
+        <div style={{ fontSize: 11, color: T.textSecondary, padding: "6px 6px 0" }}>Not detected: {notDetected.map((x) => x.p.key).join(", ")}</div>
+      )}
+      {withData.some((x) => x.limits?.source === "same oil") && (
+        <div style={{ fontSize: 11, color: T.textSecondary, padding: "4px 6px 0" }}>
+          Limits for {withData.filter((x) => x.limits?.source === "same oil").map((x) => x.p.key).join(", ")} come from other points on the same oil.
+        </div>
       )}
     </div>
   );
@@ -413,7 +519,6 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
   const isMobile = useIsMobile();
   const [period, setPeriod] = useState("2y");
   const [view, setView] = useState("chart");
-  const [group, setGroup] = useState(null);
   const [types, setTypes] = useState({ Change: true, Sample: true, TopUp: true });
   const [now] = useState(() => Date.now());
 
@@ -457,23 +562,27 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
     }).filter(Boolean);
   }, [samplesAsc, sameOilSamples, lastChangeTime]);
 
-  const lookParams = lab.filter((x) => x.trend || samplesAsc.some((sm) => inRange(sm._t) && flagFor(sm, x.p)));
-  const groups = [
-    { id: "look", label: "Needs a look", items: lookParams },
-    ...LAB_GROUPS.map((g) => ({ id: g, label: g, items: lab.filter((x) => x.p.group === g) })),
-  ].filter((g) => g.id === "look" || g.items.length);
-  const activeGroup = groups.find((g) => g.id === group) || (lookParams.length ? groups[0] : groups.find((g) => g.id !== "look")) || groups[0];
+  const topics = LAB_GROUPS.map((g) => ({ group: g, items: lab.filter((x) => x.p.group === g) })).filter((g) => g.items.length);
   const trends = lab.filter((x) => x.trend);
+  const series = isDarkSurface(T.cardBg) ? SERIES_DARK : SERIES_LIGHT;
+  const colorOf = (p) => (p.slot === null || p.slot === undefined ? T.textSecondary : series[p.slot]);
 
   const changeMarks = changesAsc.filter((c) => inRange(c._t)).map((c) => ({ t: c._t, change: c }));
-  const chartData = (p) => {
-    const pts = samplesAsc
+  // One row per sample (every value and its lab mark), plus an empty row at
+  // each oil change so the lines break there.
+  const labRows = [
+    ...samplesAsc
       .filter((sm) => inRange(sm._t))
-      .map((sm) => ({ t: sm._t, v: paramValue(sm, p), flag: flagFor(sm, p), sample: sm }))
-      .filter((d) => d.v !== null);
-    // A gap at each oil change, so a fill's line doesn't run into the next.
-    return [...pts, ...changeMarks.map((c) => ({ t: c.t, v: null, change: c.change }))].sort((a, b) => a.t - b.t);
-  };
+      .map((sm) => {
+        const row = { t: sm._t, sample: sm };
+        lab.forEach(({ p }) => {
+          row[p.key] = paramValue(sm, p);
+          row[`${p.key}__f`] = flagFor(sm, p);
+        });
+        return row;
+      }),
+    ...changeMarks.map((m) => ({ t: m.t, change: m.change })),
+  ].sort((a, b) => a.t - b.t);
 
   // Timeline events.
   const prevCycleOf = (c) => cycles.find((x) => x.nextChange === c) || null;
@@ -563,7 +672,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
 
       {sampled && (
         <>
-          {sectionTitle("Lab values", "Dots are coloured by the lab's own marks on each report. Limit lines show the lowest value the lab marked Caution / Alert.")}
+          {sectionTitle("Lab values", "One chart per topic, as on the Oil Analysis Report. Ringed dots are values the lab marked on its report; dashed limit lines are the lowest value it marked. Tap a name under a chart to hide or show its line.")}
           {lab.length === 0 ? (
             <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No lab values recorded yet.</p>
           ) : (
@@ -579,92 +688,86 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
                   ))}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                {groups.map((g) => (
-                  <Seg key={g.id} T={T} s={s} active={activeGroup?.id === g.id} onClick={() => setGroup(g.id)} testid={`ph-group-${g.id.replace(/\s+/g, "-")}`}>
-                    {g.label} <span style={{ color: T.textSecondary, fontWeight: 500 }}>{g.items.length}</span>
-                  </Seg>
-                ))}
-              </div>
               {view === "chart" ? (
                 <>
                   <Key
                     T={T}
                     items={[
-                      { dot: T.accent, label: "Not marked" },
-                      { dot: T.warning, label: "Lab marked Caution" },
-                      { dot: T.danger, label: "Lab marked Alert" },
+                      { ring: T.warning, label: "C = lab marked Caution" },
+                      { ring: T.danger, label: "A = lab marked Alert" },
                       { line: T.warning, dashed: true, label: "Caution limit" },
                       { line: T.danger, dashed: true, label: "Alert limit" },
                       { line: T.textMuted, label: "Oil change" },
                     ]}
                   />
-                  {activeGroup.items.length === 0 ? (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5 }}>Nothing marked by the lab in this period and no rising values. Pick a group to see its values.</p>
-                  ) : (
-                    <div data-testid="lab-charts" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 10 }}>
-                      {activeGroup.items.map((x) => (
-                        <LabChart
-                          key={x.p.key}
-                          T={T}
-                          p={x.p}
-                          data={chartData(x.p)}
-                          range={range}
-                          ticks={ticks}
-                          changeMarks={changeMarks}
-                          limits={x.limits}
-                          trend={x.trend}
-                          onOpenSample={onOpenSample}
-                        />
-                      ))}
-                    </div>
-                  )}
+                  <div data-testid="lab-charts" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(100%,440px),1fr))", gap: 12 }}>
+                    {topics.map((g) => (
+                      <TopicChart
+                        key={g.group}
+                        T={T}
+                        s={s}
+                        group={g.group}
+                        items={g.items}
+                        rows={labRows}
+                        range={range}
+                        ticks={ticks}
+                        changeMarks={changeMarks}
+                        colorOf={colorOf}
+                        onOpenSample={onOpenSample}
+                      />
+                    ))}
+                  </div>
                 </>
               ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ ...s.table, fontSize: 12 }} data-testid="lab-table">
-                    <thead>
-                      <tr>
-                        <th style={s.th}>Date</th>
-                        <th style={s.th}>Sample</th>
-                        <th style={s.th}>Result</th>
-                        {activeGroup.items.map((x) => (
-                          <th key={x.p.key} style={s.th}>
-                            {x.p.key}
-                            {x.p.unit ? ` (${x.p.unit})` : ""}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...samplesAsc].filter((sm) => inRange(sm._t)).reverse().map((sm) => (
-                        <tr key={sm._id || sm.sampleId} onClick={() => onOpenSample?.(sm)} style={{ cursor: "pointer" }}>
-                          <td style={s.td}>{formatDate(sm.sampledDate)}</td>
-                          <td style={s.td}>{sm.sampleId}</td>
-                          <td style={s.td}>{sm.reportStatus || "—"}</td>
-                          {activeGroup.items.map((x) => {
-                            const f = flagFor(sm, x.p);
-                            return (
-                              <td key={x.p.key} style={{ ...s.td, background: f ? `${T[SEV_COLOR[f]]}22` : undefined, fontWeight: f ? 700 : undefined }}>
-                                {fmtNum(paramValue(sm, x.p))}
-                                {f ? ` ${f}` : ""}
+                <div data-testid="lab-table" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {topics.map((g) => (
+                    <div key={g.group} style={{ overflowX: "auto" }}>
+                      <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 4 }}>{g.group}</div>
+                      <table style={{ ...s.table, fontSize: 12 }}>
+                        <thead>
+                          <tr>
+                            <th style={s.th}>Date</th>
+                            <th style={s.th}>Sample</th>
+                            <th style={s.th}>Result</th>
+                            {g.items.map((x) => (
+                              <th key={x.p.key} style={s.th}>
+                                {x.p.key}
+                                {x.p.unit ? ` (${x.p.unit})` : ""}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...samplesAsc].filter((sm) => inRange(sm._t)).reverse().map((sm) => (
+                            <tr key={sm._id || sm.sampleId} onClick={() => onOpenSample?.(sm)} style={{ cursor: "pointer" }}>
+                              <td style={s.td}>{formatDate(sm.sampledDate)}</td>
+                              <td style={s.td}>{sm.sampleId}</td>
+                              <td style={s.td}>{sm.reportStatus || "—"}</td>
+                              {g.items.map((x) => {
+                                const f = flagFor(sm, x.p);
+                                return (
+                                  <td key={x.p.key} style={{ ...s.td, background: f ? `${T[SEV_COLOR[f]]}22` : undefined, fontWeight: f ? 700 : undefined }}>
+                                    {fmtNum(paramValue(sm, x.p))}
+                                    {f ? ` ${f}` : ""}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                          <tr>
+                            <td style={{ ...s.td, color: T.textSecondary }} colSpan={3}>
+                              Limits (Caution / Alert)
+                            </td>
+                            {g.items.map((x) => (
+                              <td key={x.p.key} style={{ ...s.td, color: T.textSecondary }}>
+                                {x.limits ? `${fmtNum(x.limits.caution)} / ${fmtNum(x.limits.alert)}` : "—"}
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                      <tr>
-                        <td style={{ ...s.td, color: T.textSecondary }} colSpan={3}>
-                          Limits (Caution / Alert)
-                        </td>
-                        {activeGroup.items.map((x) => (
-                          <td key={x.p.key} style={{ ...s.td, color: T.textSecondary }}>
-                            {x.limits ? `${fmtNum(x.limits.caution)} / ${fmtNum(x.limits.alert)}` : "—"}
-                          </td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
                 </div>
               )}
             </>

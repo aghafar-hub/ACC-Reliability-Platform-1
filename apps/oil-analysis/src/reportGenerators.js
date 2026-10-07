@@ -3,7 +3,7 @@ import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
-import { LAB_PARAMS, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
+import { LAB_GROUPS, LAB_PARAMS, SERIES_LIGHT, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
 
 // Four printable-to-PDF reports, generated entirely client-side from the
 // same live data the rest of the app already has in memory — no server
@@ -1871,24 +1871,37 @@ function pdfNum(v) {
   return Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 100) / 100);
 }
 
-// A small hand-drawn line chart for one lab value over the whole history.
-function labMiniChart(doc, { x, y, w, h, p, samples, changeTimes, limits, start, end }) {
+const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+
+// One hand-drawn chart per topic (Viscosity, Wear, …), one line per value,
+// the same colours as the page. A value the lab marked gets a Caution /
+// Alert ring and a C / A letter. Returns the height used.
+function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, start, end }) {
+  const series = items.filter((it) => samples.some((s) => { const v = paramValue(s, it.p); return v !== null && v !== 0; }));
   doc.setDrawColor(...BRAND.border);
   doc.setLineWidth(0.6);
   doc.roundedRect(x, y, w, h, 3, 3);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(...BRAND.navy);
-  doc.text(`${p.label}${p.unit ? ` (${p.unit})` : ""}`, x + 8, y + 13);
-  const px = x + 30;
-  const pw = w - 40;
-  const py = y + 22;
-  const ph = h - 40;
-  const pts = samples.map((s) => ({ t: s._t, v: paramValue(s, p), f: flagFor(s, p) })).filter((d) => d.v !== null);
-  const vals = [...pts.map((d) => d.v), limits?.caution, limits?.alert].filter((v) => v !== null && v !== undefined);
-  let lo = p.key === "Visc" ? Math.min(...vals) * 0.9 : 0;
-  let hi = Math.max(...vals, 1) * 1.1;
-  if (hi === lo) hi = lo + 1;
+  const units = [...new Set(series.map((it) => it.p.unit))];
+  doc.text(`${group}${units.length === 1 ? ` (${units[0]})` : ""}`, x + 8, y + 13);
+  const px = x + 32;
+  const pw = w - 42;
+  const py = y + 24;
+  const ph = h - 58;
+  const vals = series.flatMap((it) => [...samples.map((s) => paramValue(s, it.p)), it.limits?.caution, it.limits?.alert]).filter((v) => v !== null && v !== undefined);
+  if (!vals.length) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...BRAND.muted);
+    doc.text("Nothing detected.", px, py + 20);
+    doc.setTextColor(20, 26, 33);
+    return;
+  }
+  const lo = group === "Viscosity" ? Math.min(...vals) * 0.95 : 0;
+  let hi = Math.max(...vals) * 1.15;
+  if (hi <= lo) hi = lo + 1;
   const sx = (t) => px + ((t - start) / Math.max(1, end - start)) * pw;
   const sy = (v) => py + ph - ((v - lo) / (hi - lo)) * ph;
   doc.setFont("helvetica", "normal");
@@ -1900,39 +1913,72 @@ function labMiniChart(doc, { x, y, w, h, p, samples, changeTimes, limits, start,
     doc.line(px, sy(v), px + pw, sy(v));
     doc.text(pdfNum(v), px - 4, sy(v) + 2, { align: "right" });
   });
-  doc.text(new Date(start).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px, y + h - 8);
-  doc.text(new Date(end).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px + pw, y + h - 8, { align: "right" });
-  // Oil changes.
+  const axisY = py + ph + 9;
+  doc.text(new Date(start).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px, axisY);
+  doc.text(new Date(end).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px + pw, axisY, { align: "right" });
   doc.setDrawColor(...BRAND.muted);
   doc.setLineWidth(0.4);
   changeTimes.filter((t) => t >= start && t <= end).forEach((t) => doc.line(sx(t), py, sx(t), py + ph));
-  // Limits (dashed).
-  [["caution", BRAND.warning, "Caution"], ["alert", BRAND.danger, "Alert"]].forEach(([k, color, label]) => {
-    const v = limits?.[k];
-    if (v === null || v === undefined) return;
-    doc.setDrawColor(...color);
-    doc.setLineWidth(0.8);
-    doc.setLineDashPattern([3, 2], 0);
-    doc.line(px, sy(v), px + pw, sy(v));
-    doc.setLineDashPattern([], 0);
-    doc.setTextColor(...BRAND.muted);
-    doc.text(`${label} ${pdfNum(v)}`, px + pw - 2, sy(v) - 2, { align: "right" });
+  series.forEach((it) => {
+    [["caution", BRAND.warning, "Caution"], ["alert", BRAND.danger, "Alert"]].forEach(([k, color, label]) => {
+      const v = it.limits?.[k];
+      if (v === null || v === undefined) return;
+      doc.setDrawColor(...color);
+      doc.setLineWidth(0.8);
+      doc.setLineDashPattern([3, 2], 0);
+      doc.line(px, sy(v), px + pw, sy(v));
+      doc.setLineDashPattern([], 0);
+      doc.setTextColor(...BRAND.muted);
+      doc.text(`${series.length > 1 ? `${it.p.key} ` : ""}${label} ${pdfNum(v)}`, px + 3, sy(v) - 2);
+    });
   });
-  // The line, broken at each oil change, then the dots.
-  doc.setDrawColor(...BRAND.teal);
-  doc.setLineWidth(1.2);
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1];
-    const b = pts[i];
-    if (changeTimes.some((t) => t > a.t && t <= b.t)) continue;
-    doc.line(sx(a.t), sy(a.v), sx(b.t), sy(b.v));
+  series.forEach((it) => {
+    const rgb = it.p.slot === null ? BRAND.muted : hexRgb(SERIES_LIGHT[it.p.slot]);
+    const pts = samples.map((s) => ({ t: s._t, v: paramValue(s, it.p), f: flagFor(s, it.p) })).filter((d) => d.v !== null);
+    doc.setDrawColor(...rgb);
+    doc.setLineWidth(1.2);
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      if (changeTimes.some((t) => t > a.t && t <= b.t)) continue;
+      doc.line(sx(a.t), sy(a.v), sx(b.t), sy(b.v));
+    }
+    pts.forEach((d) => {
+      if (d.f) {
+        doc.setDrawColor(...PDF_SEV[d.f]);
+        doc.setLineWidth(1.2);
+        doc.circle(sx(d.t), sy(d.v), 4.2, "S");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(20, 26, 33);
+        doc.text(d.f[0], sx(d.t), sy(d.v) - 6, { align: "center" });
+        doc.setFont("helvetica", "normal");
+      }
+      doc.setFillColor(...rgb);
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.6);
+      doc.circle(sx(d.t), sy(d.v), d.f ? 2.6 : 2, "FD");
+    });
+  });
+  // Legend (two or more lines).
+  if (series.length > 1) {
+    let lx = px;
+    let ly = y + h - 10;
+    doc.setFontSize(7);
+    series.forEach((it) => {
+      const label = it.p.key + (it.trend ? ` (${it.trend.direction})` : "");
+      const wLabel = doc.getTextWidth(label) + 18;
+      if (lx + wLabel > x + w - 6) {
+        lx = px;
+        ly += 9;
+      }
+      doc.setFillColor(...(it.p.slot === null ? BRAND.muted : hexRgb(SERIES_LIGHT[it.p.slot])));
+      doc.rect(lx, ly - 3, 9, 2.4, "F");
+      doc.setTextColor(20, 26, 33);
+      doc.text(label, lx + 12, ly);
+      lx += wLabel;
+    });
   }
-  pts.forEach((d) => {
-    doc.setFillColor(...(d.f ? PDF_SEV[d.f] : BRAND.teal));
-    doc.setDrawColor(255, 255, 255);
-    doc.setLineWidth(0.8);
-    doc.circle(sx(d.t), sy(d.v), d.f ? 2.8 : 2.2, "FD");
-  });
   doc.setTextColor(20, 26, 33);
 }
 
@@ -1985,7 +2031,6 @@ export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, ch
       const x = lab.find((l) => l.p.key === k);
       if (x && !picked.includes(x)) picked.push(x);
     });
-    const chartParams = picked.slice(0, 4);
     const tableParams = picked.slice(0, 6);
 
     y = needsNewPage(doc, y, 200);
@@ -1996,7 +2041,7 @@ export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, ch
       (trends.length
         ? trends.map((x) => `${x.p.label} ${x.trend.direction} ${x.trend.values.length} samples in a row since the last oil change (${x.trend.values.map(pdfNum).join(", ")} ${x.p.unit}).`).join(" ") + " "
         : "") +
-        "Dots in red / amber are values the lab marked Alert / Caution; dashed lines are the lowest values it marked (from this point, or from other points on the same oil); grey lines are oil changes.",
+        "One chart per topic. Ringed dots with C / A are values the lab marked Caution / Alert; dashed lines are the lowest values it marked (from this point, or from other points on the same oil); grey lines are oil changes.",
       y
     );
     const start = samplesAsc[0]._t;
@@ -2004,11 +2049,12 @@ export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, ch
     const changeTimes = changesAsc.map((c) => c._t);
     const pageWidth = doc.internal.pageSize.getWidth();
     const cw = (pageWidth - 72 - 12) / 2;
-    const chH = 120;
-    chartParams.forEach((x, i) => {
+    const chH = 150;
+    const topics = LAB_GROUPS.map((g) => ({ group: g, items: lab.filter((x) => x.p.group === g) })).filter((g) => g.items.length);
+    topics.forEach((g, i) => {
       if (i % 2 === 0) y = needsNewPage(doc, y, chH + 50);
-      labMiniChart(doc, { x: 36 + (i % 2) * (cw + 12), y, w: cw, h: chH, p: x.p, samples: samplesAsc, changeTimes, limits: x.limits, start, end });
-      if (i % 2 === 1 || i === chartParams.length - 1) y += chH + 12;
+      labTopicChart(doc, { x: 36 + (i % 2) * (cw + 12), y, w: cw, h: chH, group: g.group, items: g.items, samples: samplesAsc, changeTimes, start, end });
+      if (i % 2 === 1 || i === topics.length - 1) y += chH + 12;
     });
     y += 8;
 
