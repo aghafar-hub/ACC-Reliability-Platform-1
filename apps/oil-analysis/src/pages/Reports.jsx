@@ -14,50 +14,50 @@ import {
 const FOCUS_STATUSES = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 const ALL = "All";
 
-function ReportCard({
-  T, s, icon, iconColor, title, description, contractor, onContractorChange, contractorList,
-  stats, busy, onGenerate, extraControls, secondaryLabel, onSecondaryAction,
-}) {
+// One stacked bar (parts of a whole) with its legend underneath, so a
+// report card shows what the PDF will be about before you download it.
+function SplitBar({ T, parts, total, testid }) {
+  const sum = total ?? parts.reduce((n, p) => n + p.value, 0);
   return (
-    <div style={{ ...s.card, display: "flex", flexDirection: "column", gap: 14, marginBottom: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div
-          style={{
-            width: 38, height: 38, borderRadius: 10, background: T[iconColor] + "22", color: T[iconColor],
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}
-        >
-          <i className={`ti ${icon}`} style={{ fontSize: 19 }} aria-hidden="true" />
-        </div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{title}</div>
-          <div style={{ fontSize: 12, color: T.textSecondary }}>{description}</div>
-        </div>
+    <div data-testid={testid}>
+      <div style={{ display: "flex", gap: 2, height: 12, borderRadius: 6, overflow: "hidden", background: `${T.textMuted || T.textSecondary}33` }}>
+        {parts.map((p) =>
+          p.value > 0 ? <span key={p.label} title={`${p.label}: ${p.value}`} style={{ width: `${(p.value / Math.max(1, sum)) * 100}%`, background: p.color }} /> : null
+        )}
       </div>
-
-      <div>
-        <label style={s.label}>Contractor</label>
-        <select style={s.select} value={contractor} onChange={(e) => onContractorChange(e.target.value)}>
-          {contractorList.map((c) => (
-            <option key={c} value={c}>
-              {c === ALL ? "All Contractors" : c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {extraControls}
-
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${stats.length},1fr)`, gap: 8 }}>
-        {stats.map((st) => (
-          <div key={st.label} style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 12px" }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: st.color ? T[st.color] : T.textPrimary }}>{st.value}</div>
-            <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>{st.label}</div>
-          </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10 }}>
+        {parts.map((p) => (
+          <span key={p.label} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: T.textSecondary }}>
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: p.color }} />
+            <b style={{ color: T.textPrimary, fontSize: 15 }}>{p.value}</b> {p.label}
+          </span>
         ))}
       </div>
+    </div>
+  );
+}
 
-      <div style={{ display: "flex", gap: 8 }}>
+function ReportCard({ T, s, icon, iconColor, title, description, contents, children, busy, onGenerate, extraControls, secondaryLabel, onSecondaryAction, testid }) {
+  const c = T[iconColor] || T.accent;
+  return (
+    <div style={{ ...s.card, display: "flex", flexDirection: "column", gap: 14, marginBottom: 0, borderTop: `3px solid ${c}` }} data-testid={testid}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 11, background: c + "1F", color: c, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 20 }} aria-hidden="true" />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>{title}</div>
+          <div style={{ fontSize: 12.5, color: T.textSecondary }}>{description}</div>
+        </div>
+      </div>
+      {extraControls}
+      <div style={{ background: T.appBg, borderRadius: 10, padding: "12px 14px" }}>{children}</div>
+      {contents && (
+        <div style={{ fontSize: 12, color: T.textSecondary, lineHeight: 1.5 }}>
+          <i className="ti ti-file-text" aria-hidden="true" /> In the PDF: {contents}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, marginTop: "auto", flexWrap: "wrap" }}>
         <button style={s.btnPrimary} onClick={onGenerate} disabled={busy}>
           <i className={`ti ${busy ? "ti-loader" : "ti-download"}`} aria-hidden="true" /> {busy ? "Generating…" : "Download PDF"}
         </button>
@@ -71,37 +71,37 @@ function ReportCard({
   );
 }
 
-// "+ New Report" used to be a page-header button; the user asked for it to
-// be a card like the other four instead, living in the same grid — so this
-// is styled the same way as ReportCard's own header (icon badge, title,
-// description) with a single CTA button taking its place of
-// contractor-select + stats + Download PDF.
+// "New Report" — the build-your-own report, as a wide banner above the
+// ready-made ones.
 function NewReportCard({ T, s, onClick }) {
+  const steps = [
+    { icon: "ti-list-check", text: "Pick topics — condition / time based oil, inventory, forecast" },
+    { icon: "ti-building-factory-2", text: "Choose a contractor or both" },
+    { icon: "ti-file-download", text: "One PDF with charts, or a data-only Excel workbook" },
+  ];
   return (
-    <div style={{ ...s.card, display: "flex", flexDirection: "column", gap: 14, marginBottom: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div
-          style={{
-            width: 38, height: 38, borderRadius: 10, background: T.accent + "22", color: T.accent,
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-          }}
-        >
-          <i className="ti ti-plus" style={{ fontSize: 19 }} aria-hidden="true" />
-        </div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>New Report</div>
-          <div style={{ fontSize: 12, color: T.textSecondary }}>Combine any topics into one PDF or Excel workbook</div>
-        </div>
+    <div
+      style={{ ...s.card, marginBottom: 20, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", background: `linear-gradient(120deg, ${T.accent}14, ${T.cardBg} 60%)`, border: `1px solid ${T.accent}44` }}
+      data-testid="report-new"
+    >
+      <div style={{ width: 48, height: 48, borderRadius: 13, background: T.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <i className="ti ti-plus" style={{ fontSize: 24 }} aria-hidden="true" />
       </div>
-      <p style={{ fontSize: 12, color: T.textSecondary, margin: 0 }}>
-        Pick any combination of sections across Condition Based Oil, Time Based Oil, Inventory Status, and Forecast, choose a contractor
-        (or both), then generate one PDF with charts or one data-only Excel workbook.
-      </p>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button style={s.btnPrimary} onClick={onClick}>
-          <i className="ti ti-arrow-right" aria-hidden="true" /> Build Report
-        </button>
+      <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary }}>New Report</div>
+        <div style={{ fontSize: 12.5, color: T.textSecondary }}>Combine any topics into one PDF or Excel workbook</div>
       </div>
+      <ol style={{ display: "flex", gap: 14, flexWrap: "wrap", listStyle: "none", padding: 0, margin: 0, flex: "2 1 420px" }}>
+        {steps.map((st, i) => (
+          <li key={st.text} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: T.textSecondary, flex: "1 1 180px" }}>
+            <span style={{ width: 24, height: 24, borderRadius: "50%", border: `1.5px solid ${T.accent}`, color: T.accent, fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
+            {st.text}
+          </li>
+        ))}
+      </ol>
+      <button style={s.btnPrimary} onClick={onClick}>
+        <i className="ti ti-arrow-right" aria-hidden="true" /> Build Report
+      </button>
     </div>
   );
 }
@@ -125,10 +125,12 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
   const { T, s } = useTheme();
   const [view, setView] = useState("landing"); // "landing" | "new"
   const [generating, setGenerating] = useState(null); // "action" | "oilchange" | "sample" | "monthly" | null
-  const [actionContractor, setActionContractor] = useState(ALL);
-  const [oilChangeContractor, setOilChangeContractor] = useState(ALL);
-  const [sampleContractor, setSampleContractor] = useState(ALL);
-  const [monthlyContractor, setMonthlyContractor] = useState(ALL);
+  // One contractor choice for every ready-made report on the page.
+  const [contractor, setContractor] = useState(ALL);
+  const actionContractor = contractor;
+  const oilChangeContractor = contractor;
+  const sampleContractor = contractor;
+  const monthlyContractor = contractor;
   const [month, setMonth] = useState(() => currentMonth());
 
   const registryByCode = useMemo(() => {
@@ -214,78 +216,130 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
     );
   }
 
+  const blue = (pct) => `color-mix(in srgb, ${T.accent} ${pct}%, ${T.cardBg})`;
+  const sampleOk = Math.max(0, samplePreview.total - samplePreview.missing - samplePreview.overdue);
+  const ocOk = Math.max(0, oilChangePreview.totalPoints - oilChangePreview.overdue);
   return (
     <div>
-      <div style={{ marginBottom: 6 }}>
-        <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Reports</p>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ flex: "1 1 360px" }}>
+          <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Reports</p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "4px 0 0" }}>
+            Clean, printable PDFs straight from the current data — nothing is saved or sent anywhere.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }} role="group" aria-label="Contractor" data-testid="reports-contractor">
+          <span style={{ fontSize: 12.5, color: T.textSecondary, fontWeight: 600 }}>Reports for</span>
+          {contractorList.map((c) => {
+            const on = contractor === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setContractor(c)}
+                style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderColor: on ? T.accent : T.border, background: on ? T.accent : T.cardBg, color: on ? "#fff" : T.textSecondary, fontWeight: on ? 700 : 500 }}
+              >
+                {c === ALL ? "All contractors" : c}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 20px" }}>
-        Generate a clean, printable PDF straight from current data — nothing is saved or sent anywhere. Choose one contractor or all of
-        them before generating, or use the "New Report" card to combine any topics across Condition Based Oil, Time Based Oil,
-        Inventory, and Forecast into one PDF or Excel workbook.
-      </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(340px,1fr))", gap: 16 }}>
-        <NewReportCard T={T} s={s} onClick={() => setView("new")} />
+      <NewReportCard T={T} s={s} onClick={() => setView("new")} />
 
+      <p style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, margin: "0 0 10px" }}>Ready-made reports</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 16 }}>
         <ReportCard
           T={T} s={s} icon="ti-clipboard-list" iconColor="danger" title="Contractor Action Status"
-          description="Draft · Open · Waiting Stoppage · Closure Requested"
-          contractor={actionContractor} onContractorChange={setActionContractor} contractorList={contractorList}
-          stats={[
-            { value: actionPreview.open, label: "Open", color: "danger" },
-            { value: actionPreview.draft, label: "Draft", color: "warning" },
-            { value: actionPreview.waiting, label: "Waiting Stoppage", color: "accent" },
-            { value: actionPreview.closure, label: "Closure Requested", color: "info" },
-          ]}
+          description="Every action not yet closed, by stage"
+          contents="actions grouped by stage, with age and owner"
           busy={generating === "action"}
           onGenerate={() => handleGenerate("action")}
-        />
+          testid="report-card-action"
+        >
+          <SplitBar
+            T={T}
+            testid="report-action-bar"
+            parts={[
+              { label: "Draft", value: actionPreview.draft, color: blue(30) },
+              { label: "Open", value: actionPreview.open, color: blue(55) },
+              { label: "Waiting stoppage", value: actionPreview.waiting, color: blue(78) },
+              { label: "Closure requested", value: actionPreview.closure, color: blue(100) },
+            ]}
+          />
+        </ReportCard>
 
         <ReportCard
           T={T} s={s} icon="ti-droplet" iconColor="warning" title="Oil Change Contractor Performance"
           description="On-time % and closure rate, plus overdue equipment"
-          contractor={oilChangeContractor} onContractorChange={setOilChangeContractor} contractorList={contractorList}
-          stats={[
-            { value: oilChangePreview.overdue, label: "Overdue Points", color: "danger" },
-            { value: oilChangePreview.totalPoints, label: "Total Points" },
-          ]}
+          contents="on-time share per contractor and the list of overdue points"
           busy={generating === "oilchange"}
           onGenerate={() => handleGenerate("oilchange")}
-        />
+          testid="report-card-oilchange"
+        >
+          <SplitBar
+            T={T}
+            testid="report-oilchange-bar"
+            parts={[
+              { label: "Overdue points", value: oilChangePreview.overdue, color: T.danger },
+              { label: "On schedule", value: ocOk, color: T.success },
+            ]}
+          />
+        </ReportCard>
 
         <ReportCard
           T={T} s={s} icon="ti-flask" iconColor="accent" title="Oil Sample Missing / Overdue"
           description="Equipment overdue or missing against its sampling interval"
-          contractor={sampleContractor} onContractorChange={setSampleContractor} contractorList={contractorList}
-          stats={[
-            { value: samplePreview.missing, label: "Missing", color: "danger" },
-            { value: samplePreview.overdue, label: "Overdue", color: "warning" },
-          ]}
+          contents="each missing or overdue point with its interval and last sample"
           busy={generating === "sample"}
           onGenerate={() => handleGenerate("sample")}
-        />
+          testid="report-card-sample"
+        >
+          <SplitBar
+            T={T}
+            testid="report-sample-bar"
+            parts={[
+              { label: "Missing", value: samplePreview.missing, color: T.danger },
+              { label: "Overdue", value: samplePreview.overdue, color: T.warning },
+              { label: "Up to date", value: sampleOk, color: T.success },
+            ]}
+          />
+        </ReportCard>
 
         <ReportCard
           T={T} s={s} icon="ti-calendar-stats" iconColor="success" title="Monthly Activity Summary"
-          description="What actually got done this month — not a snapshot of today"
-          contractor={monthlyContractor} onContractorChange={setMonthlyContractor} contractorList={contractorList}
+          description="What actually got done in a month — not a snapshot of today"
+          contents="samples taken, oil changes done and actions closed, item by item"
           extraControls={
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>Month</div>
-              <input type="month" style={{ ...s.input, maxWidth: 180 }} value={month} onChange={(e) => setMonth(e.target.value)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <label style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary }} htmlFor="report-month">
+                Month
+              </label>
+              <input id="report-month" type="month" style={{ ...s.input, maxWidth: 180 }} value={month} onChange={(e) => setMonth(e.target.value)} />
             </div>
           }
-          stats={[
-            { value: monthlyPreview.samplesTaken, label: "Samples Taken", color: "accent" },
-            { value: monthlyPreview.oilChangesDone, label: "Oil Changes Done", color: "warning" },
-            { value: monthlyPreview.actionsClosed, label: "Actions Closed", color: "success" },
-          ]}
           busy={generating === "monthly"}
           onGenerate={() => handleGenerate("monthly")}
           secondaryLabel="Export CSV"
           onSecondaryAction={handleExportMonthlyCsv}
-        />
+          testid="report-card-monthly"
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+            {[
+              { icon: "ti-flask", label: "Samples taken", value: monthlyPreview.samplesTaken, color: T.accent },
+              { icon: "ti-droplet", label: "Oil changes done", value: monthlyPreview.oilChangesDone, color: T.warning },
+              { icon: "ti-circle-check", label: "Actions closed", value: monthlyPreview.actionsClosed, color: T.success },
+            ].map((k) => (
+              <div key={k.label} style={{ textAlign: "center" }}>
+                <i className={`ti ${k.icon}`} aria-hidden="true" style={{ color: k.color, fontSize: 18 }} />
+                <div style={{ fontSize: 22, fontWeight: 800, color: T.textPrimary }}>{k.value}</div>
+                <div style={{ fontSize: 12, color: T.textSecondary }}>{k.label}</div>
+              </div>
+            ))}
+          </div>
+        </ReportCard>
       </div>
     </div>
   );
