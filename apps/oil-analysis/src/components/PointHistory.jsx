@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CartesianGrid, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
+import { ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { pickSamples } from "../labReport";
 import LabTrendCharts, { LabCountControls } from "./LabTrendCharts";
@@ -36,13 +36,12 @@ import {
 // buttons — 1 year, 2 years… — apply to the timeline and cycles).
 
 const M = { top: 8, right: 16, left: 0, bottom: 0 };
-const YW = 64; // every chart's y-axis band — keeps the plot areas aligned
 const SEV_COLOR = { Alert: "danger", Caution: "warning" };
 const SAMPLE_STATUS = { Alert: "Alert", Caution: "Caution", Warning: "Caution", Normal: "Normal" };
 const STATUS_COLOR = { Alert: "danger", Caution: "warning", Normal: "success" };
 const CYCLE_COLOR = { "On time": "success", Late: "warning", Overdue: "danger", Current: "accent" };
-const LANES = { Change: 3, Sample: 2, TopUp: 1 };
-const LANE_LABEL = { 3: "Changes", 2: "Samples", 1: "Top-ups" };
+// One timeline line: every event sits on it, told apart by its symbol.
+const LANE_Y = 1;
 const TYPE_LABEL = { Change: "Oil changes", Sample: "Samples", TopUp: "Top-ups" };
 const TYPE_ICON = { Change: "ti-droplet", Sample: "ti-flask", TopUp: "ti-droplet-plus" };
 
@@ -76,6 +75,7 @@ function Key({ T, items }) {
     <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
       {items.map((it) => (
         <span key={it.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {it.symbol && <SymbolIcon T={T} kind={it.symbol} />}
           {it.dot && <span style={{ width: 9, height: 9, borderRadius: "50%", background: it.dot, display: "inline-block" }} />}
           {it.ring && <span style={{ width: 8, height: 8, borderRadius: "50%", border: `2.5px solid ${it.ring}`, display: "inline-block" }} />}
           {it.line && <span style={{ width: 16, height: 0, borderTop: `2px ${it.dashed ? "dashed" : "solid"} ${it.line}`, display: "inline-block" }} />}
@@ -84,6 +84,45 @@ function Key({ T, items }) {
         </span>
       ))}
     </div>
+  );
+}
+
+// The symbol for an event: Normal ●, Caution ▲, Alert ◆ (lab result),
+// no result ○, oil change = an oil drop (same as on the lab charts),
+// top-up = a small ⊕. `kind` comes from symbolKind(event).
+function symbolKind(e) {
+  if (e.type === "Change") return "change";
+  if (e.type === "TopUp") return "topup";
+  return e.status === "Alert" ? "alert" : e.status === "Caution" ? "caution" : e.status === "Normal" ? "normal" : "none";
+}
+function EventSymbol({ T, kind, x = 0, y = 0, size = 1 }) {
+  const k = size;
+  if (kind === "change")
+    return (
+      <path
+        d={`M ${x} ${y - 9 * k} C ${x + 6.5 * k} ${y - 2 * k}, ${x + 6.5 * k} ${y + 3 * k}, ${x} ${y + 6 * k} C ${x - 6.5 * k} ${y + 3 * k}, ${x - 6.5 * k} ${y - 2 * k}, ${x} ${y - 9 * k} Z`}
+        fill={T.warning}
+        stroke={T.cardBg}
+        strokeWidth={1.5}
+      />
+    );
+  if (kind === "alert") return <rect x={x - 5.5 * k} y={y - 5.5 * k} width={11 * k} height={11 * k} transform={`rotate(45 ${x} ${y})`} fill={T.danger} stroke={T.cardBg} strokeWidth={1.5} />;
+  if (kind === "caution") return <path d={`M ${x} ${y - 7 * k} L ${x + 7 * k} ${y + 5.5 * k} L ${x - 7 * k} ${y + 5.5 * k} Z`} fill={T.warning} stroke={T.cardBg} strokeWidth={1.5} />;
+  if (kind === "normal") return <circle cx={x} cy={y} r={5.5 * k} fill={T.success} stroke={T.cardBg} strokeWidth={1.5} />;
+  if (kind === "topup")
+    return (
+      <g>
+        <circle cx={x} cy={y} r={5 * k} fill={T.cardBg} stroke={T.accent} strokeWidth={1.6} />
+        <path d={`M ${x - 2.6 * k} ${y} H ${x + 2.6 * k} M ${x} ${y - 2.6 * k} V ${y + 2.6 * k}`} stroke={T.accent} strokeWidth={1.6} />
+      </g>
+    );
+  return <circle cx={x} cy={y} r={5 * k} fill={T.cardBg} stroke={T.textSecondary} strokeWidth={1.6} />;
+}
+function SymbolIcon({ T, kind }) {
+  return (
+    <svg width="16" height="16" viewBox="-8 -9 16 16" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <EventSymbol T={T} kind={kind} size={0.85} />
+    </svg>
   );
 }
 
@@ -114,13 +153,12 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
   const shape = (props) => {
     const { cx, cy, payload } = props;
     if (cx == null || cy == null) return <g />;
-    const color = T[payload.color] || T.accent;
     return (
-      <g style={{ cursor: "pointer" }} onClick={() => onOpenEvent(payload)} data-testid={`tl-${payload.type}`}>
+      <g style={{ cursor: "pointer" }} onClick={() => onOpenEvent(payload)} data-testid={`tl-${payload.type}`} data-symbol={symbolKind(payload)}>
         <circle cx={cx} cy={cy} r={12} fill="transparent" />
-        <circle cx={cx} cy={cy} r={payload.type === "Change" ? 6 : 5} fill={color} stroke={T.cardBg} strokeWidth={2} />
+        <EventSymbol T={T} kind={symbolKind(payload)} x={cx} y={cy} size={payload.type === "Change" ? 1.15 : 1} />
         {payload.tag && (
-          <text x={cx} y={cy - 11} textAnchor="middle" fontSize={10} fill={T.textSecondary}>
+          <text x={cx} y={cy - 15} textAnchor="middle" fontSize={10} fontWeight={payload.color === "warning" ? 700 : 400} fill={payload.color === "warning" ? T.warning : T.textSecondary}>
             {payload.tag}
           </text>
         )}
@@ -130,13 +168,12 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
   const plannedShape = (props) => {
     const { cx, cy } = props;
     if (cx == null || cy == null) return <g />;
-    return <line x1={cx} x2={cx} y1={cy - 9} y2={cy + 9} stroke={T.textSecondary} strokeWidth={2} strokeDasharray="3 2" />;
+    return <line x1={cx} x2={cx} y1={cy - 11} y2={cy + 11} stroke={T.textSecondary} strokeWidth={2} strokeDasharray="3 2" />;
   };
   const byType = (type) => events.filter((e) => e.type === type);
   return (
-    <ResponsiveContainer width="100%" height={170}>
-      <ScatterChart margin={{ ...M, top: 18 }}>
-        <CartesianGrid stroke={T.border2} vertical={false} />
+    <ResponsiveContainer width="100%" height={120}>
+      <ScatterChart margin={{ ...M, top: 22 }}>
         <XAxis
           type="number"
           dataKey="t"
@@ -149,24 +186,15 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
           axisLine={{ stroke: T.border }}
           tickLine={false}
         />
-        <YAxis
-          type="number"
-          dataKey="y"
-          width={YW}
-          domain={[0.5, 3.5]}
-          ticks={[1, 2, 3]}
-          tickFormatter={(v) => LANE_LABEL[v] || ""}
-          tick={{ fontSize: 12, fill: T.textSecondary }}
-          axisLine={false}
-          tickLine={false}
-        />
+        <YAxis type="number" dataKey="y" width={12} domain={[0.4, 1.6]} ticks={[]} axisLine={false} tickLine={false} />
+        <ReferenceLine y={LANE_Y} stroke={T.border2} strokeWidth={3} ifOverflow="visible" />
         {leaks.map((w) => (
           <ReferenceArea
             key={w.from}
             x1={w.from - 2 * DAY}
             x2={w.to + 2 * DAY}
-            y1={0.55}
-            y2={1.45}
+            y1={0.6}
+            y2={1.4}
             fill={T.danger}
             fillOpacity={0.15}
             stroke="none"
@@ -182,9 +210,9 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
         )}
         <Tooltip content={<TimelineTooltip T={T} />} cursor={false} isAnimationActive={false} />
         <Scatter data={plannedMarks} shape={plannedShape} isAnimationActive={false} />
-        <Scatter data={byType("Change")} shape={shape} isAnimationActive={false} />
-        <Scatter data={byType("Sample")} shape={shape} isAnimationActive={false} />
         <Scatter data={byType("TopUp")} shape={shape} isAnimationActive={false} />
+        <Scatter data={byType("Sample")} shape={shape} isAnimationActive={false} />
+        <Scatter data={byType("Change")} shape={shape} isAnimationActive={false} />
       </ScatterChart>
     </ResponsiveContainer>
   );
@@ -287,7 +315,9 @@ function TimelineList({ T, events, onOpenEvent }) {
           onClick={() => onOpenEvent(e)}
           style={{ position: "relative", textAlign: "left", background: "none", border: "none", padding: "4px 0", cursor: "pointer", color: T.textPrimary, minHeight: 32 }}
         >
-          <span style={{ position: "absolute", left: -21, top: 9, width: 10, height: 10, borderRadius: "50%", background: T[e.color] || T.accent, border: `2px solid ${T.cardBg}` }} />
+          <span style={{ position: "absolute", left: -23, top: 6, background: T.cardBg, lineHeight: 0 }}>
+            <SymbolIcon T={T} kind={symbolKind(e)} />
+          </span>
           <div style={{ fontSize: 12, color: T.textSecondary }}>{formatDate(e.t)}</div>
           <div style={{ fontSize: 13, fontWeight: 700 }}>
             <i className={`ti ${TYPE_ICON[e.type]}`} aria-hidden="true" /> {e.title}
@@ -374,7 +404,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
         id: `c${i}`,
         type: "Change",
         t: c._t,
-        y: LANES.Change,
+        y: LANE_Y,
         title: switched ? `Oil change — switched to ${c.oilBrandType}` : "Oil change",
         lines,
         color: judged ? (judged.status === "Late" ? "warning" : "success") : "accent",
@@ -390,17 +420,18 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
         id: `s${i}`,
         type: "Sample",
         t: sm._t,
-        y: LANES.Sample,
+        y: LANE_Y,
         title: `Sample ${sm.sampleId || ""} — ${sm.reportStatus || "no result"}`,
         lines: flags ? [`Lab marks: ${flags}`] : [],
         color: STATUS_COLOR[st] || "textSecondary",
+        status: st,
         ref: sm,
       });
     });
     (topUps || []).forEach((tu, i) => {
       const t = toTime(tu.eventDate);
       if (t === null) return;
-      out.push({ id: `t${i}`, type: "TopUp", t, y: LANES.TopUp, title: `Top-up ${tu.quantity || "—"} L`, lines: [tu.reason, tu.oilBrandType].filter(Boolean), color: "accent", ref: tu });
+      out.push({ id: `t${i}`, type: "TopUp", t, y: LANE_Y, title: `Top-up ${tu.quantity || "—"} L`, lines: [tu.reason, tu.oilBrandType].filter(Boolean), color: "accent", ref: tu });
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -408,7 +439,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
   const shownEvents = events.filter((e) => types[e.type] && inRange(e.t));
   const leaks = leakWindows(topUps).filter((w) => w.to >= range.start && w.from <= range.end);
   const plannedMarks = types.Change
-    ? cycles.filter((c) => !c.current && c.planned !== null && inRange(c.planned)).map((c) => ({ t: c.planned, y: LANES.Change, type: "", planned: true }))
+    ? cycles.filter((c) => !c.current && c.planned !== null && inRange(c.planned)).map((c) => ({ t: c.planned, y: LANE_Y, type: "", planned: true }))
     : [];
 
   function openEvent(e) {
@@ -608,10 +639,11 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
           <Key
             T={T}
             items={[
-              { dot: T.success, label: "On time / Normal" },
-              { dot: T.warning, label: "Late / Caution" },
-              { dot: T.danger, label: "Alert" },
-              { dot: T.accent, label: "Change or top-up" },
+              { symbol: "normal", label: "Normal" },
+              { symbol: "caution", label: "Caution" },
+              { symbol: "alert", label: "Alert" },
+              { symbol: "change", label: "Oil change (+d = late)" },
+              { symbol: "topup", label: "Top-up" },
               { line: T.textSecondary, dashed: true, label: "Planned change" },
               { line: T.accent, dashed: true, label: "Next due" },
               { area: `${T.danger}33`, label: "Possible leak" },
