@@ -202,7 +202,12 @@ function parseHeaderFields(rows) {
     unitId: /^Unit ID:$/i,
     assetId: /^Asset ID:$/i,
     description: /^Description:$/i,
+    accountId: /^ID:$/i,
     accountName: /^Name:$/i,
+    accountAddress: /^Address:$/i,
+    serviceLevel: /^Service Level:$/i,
+    bottleId: /^Bottle ID:$/i,
+    testedLubricant: /^Tested Lubricant:$/i,
     assetClass: /^Asset Class:$/i,
     manufacturer: /^Manufacturer:$/i,
     model: /^Model:$/i,
@@ -335,9 +340,19 @@ export async function parsePdfReport(file) {
     throw new Error(`${file.name}: no sample columns found.`);
   }
 
+  // The report header's account and equipment details apply to every
+  // column; its sample panel (service level, bottle, tested lubricant)
+  // describes the newest one only — set after the table is read.
   const samples = anchors.map(() => ({
     unitId: header.unitId,
     description: header.description || "",
+    accountId: header.accountId || "",
+    accountName: header.accountName || "",
+    accountAddress: header.accountAddress || "",
+    assetId: header.assetId || "",
+    assetClass: header.assetClass || "",
+    manufacturer: header.manufacturer || "",
+    model: header.model || "",
     wear: {},
     contaminants: {},
     additives: {},
@@ -385,6 +400,11 @@ export async function parsePdfReport(file) {
       }
     });
   }
+
+  const newest = samples[samples.length - 1];
+  newest.serviceLevel = header.serviceLevel || "";
+  newest.bottleId = header.bottleId || "";
+  newest.testedLubricant = header.testedLubricant || "";
 
   // Only the newest (rightmost) sample gets recommendation text — the PDF
   // doesn't print it for older history-table columns.

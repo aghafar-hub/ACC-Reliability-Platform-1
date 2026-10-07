@@ -340,8 +340,20 @@ No Apps Script change for E3 / E4.
   table) and the 12-month tracker strip (see Sample Tracker).
 - **PDF** (landscape): header, status strip, latest recommendations, the
   table with tinted A / C cells and oil change columns, and trend charts.
+- **Report details from the report itself.** The PDF import reads the lab
+  report's header — account ID, name, address; asset ID, asset class,
+  manufacturer, model; and, for the newest sample, service level, bottle
+  ID and tested lubricant — and the server saves them in new Data_Entry
+  columns AW–BF (Account ID … Model, headers added automatically, after
+  Returned Date). The report page shows them; the account block uses this
+  point's latest report, else the newest report that has them. Nothing is
+  typed into the app any more. Reports imported before this show "—" until
+  a newer report is imported. If a column there is already used for
+  something else, the details are not written (the report itself still
+  saves).
 
-No Apps Script change.
+Apps Script (Oil Lubrication test script): replace `Code` and
+`LabReports`, then deploy a new version.
 
 ## Test copy: files to paste (Apps Script editor)
 

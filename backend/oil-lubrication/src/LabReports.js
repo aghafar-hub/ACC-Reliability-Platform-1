@@ -44,6 +44,56 @@ function ensureLabHeaders_(sheet) {
   if (needs) range.setValues([LAB_HEADERS]);
 }
 
+// The lab report's own header (account, sample and equipment panels), read
+// by the PDF import and saved with each new sample — so the Oil Analysis
+// Report shows them from the report, not typed into the app. Data_Entry
+// columns after Returned Date (0-based 48–57).
+var LAB_INFO_COL = 48;
+var LAB_INFO_FIELDS = [
+  ["accountId", "Account ID"],
+  ["accountName", "Account Name"],
+  ["accountAddress", "Account Address"],
+  ["assetId", "Asset ID"],
+  ["serviceLevel", "Service Level"],
+  ["bottleId", "Bottle ID"],
+  ["testedLubricant", "Tested Lubricant"],
+  ["assetClass", "Asset Class"],
+  ["manufacturer", "Manufacturer"],
+  ["model", "Model"]
+];
+
+function ensureLabInfoHeaders_(sheet) {
+  var headers = LAB_INFO_FIELDS.map(function (f) { return f[1]; });
+  var range = sheet.getRange(LAB_HEADER_ROW, LAB_INFO_COL + 1, 1, headers.length);
+  var current = range.getValues()[0];
+  var needs = false;
+  for (var i = 0; i < headers.length; i++) {
+    var v = String(current[i] || "").trim();
+    if (!v) { needs = true; continue; }
+    if (v !== headers[i]) {
+      throw new Error("Data_Entry column " + columnLetter_(LAB_INFO_COL + 1 + i) + " already holds \"" + v + "\". Move it before importing report details.");
+    }
+  }
+  if (needs) range.setValues([headers]);
+}
+
+// Plain text only — a value starting with = + - @ would otherwise be taken
+// by Sheets as a formula.
+function labInfoText_(v) {
+  var s = String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, 200);
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+function writeLabReportInfo_(ss, row, info) {
+  if (!row || !info) return;
+  var values = LAB_INFO_FIELDS.map(function (f) { return labInfoText_(info[f[0]]); });
+  if (!values.some(function (v) { return v; })) return;
+  var found = findSampleRow_(ss, { sampleUid: row[LAB_COL.UID], equipmentCode: row[0], sampleId: row[3] });
+  if (found.error) return;
+  ensureLabInfoHeaders_(found.sheet);
+  found.sheet.getRange(found.rowIdx, LAB_INFO_COL + 1, 1, values.length).setValues([values]);
+}
+
 function findSampleRow_(ss, data) {
   var sheet = ss.getSheetByName("Data_Entry");
   if (!sheet) return { error: "Data_Entry sheet not found" };

@@ -825,6 +825,18 @@ export function rowToSample(row) {
     returnReason: row[45] || "",
     returnedBy: row[46] || "",
     returnedDate: formatDate(row[47]),
+    // The lab report's own header (saved by the server at import, columns
+    // 48–57): account, asset, bottle, tested lubricant, equipment details.
+    accountId: row[48] || "",
+    accountName: row[49] || "",
+    accountAddress: row[50] || "",
+    assetId: row[51] || "",
+    serviceLevel: row[52] || "",
+    bottleId: row[53] || "",
+    testedLubricant: row[54] || "",
+    assetClass: row[55] || "",
+    manufacturer: row[56] || "",
+    model: row[57] || "",
     _id: sampleUid ? `uid_${sampleUid}` : `${unitId}_${sampleId}_${sampledDate}`,
     // Patch 6: a sample created after the Sample_UID column existed gets
     // matched by that alone — always unique, no ambiguity possible. A

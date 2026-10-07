@@ -751,10 +751,18 @@ export async function getOilChangesForLp(webhookUrl, lpId) {
 // future edit/delete instead of by the ambiguous (equipmentCode, sampleId)
 // pair described below. newId() (parsers.js) is the same id generator
 // Routines/Oil Inventory already use for exactly this reason.
+const LAB_INFO_KEYS = ["accountId", "accountName", "accountAddress", "assetId", "serviceLevel", "bottleId", "testedLubricant", "assetClass", "manufacturer", "model"];
+
 export async function saveSample(webhookUrl, sample, headers) {
   const sampleUid = sample.sampleUid || newId("SMP");
   const row = sampleToRow({ ...sample, sampleUid });
-  await postBlind(webhookUrl, { action: "append", sheet: "Data_Entry", row, headers });
+  // The report header's details (from a PDF import) — the server writes
+  // them to their own columns.
+  const labInfo = {};
+  LAB_INFO_KEYS.forEach((k) => {
+    if (sample[k]) labInfo[k] = String(sample[k]);
+  });
+  await postBlind(webhookUrl, { action: "append", sheet: "Data_Entry", row, headers, ...(Object.keys(labInfo).length ? { labInfo } : {}) });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
   const savedRow = findRowByMatch(verify.samples, [SAMPLE_UID_COL], [sampleUid]);

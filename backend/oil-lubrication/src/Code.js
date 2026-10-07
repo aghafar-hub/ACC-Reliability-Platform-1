@@ -434,6 +434,10 @@ function doPost(e) {
         // validation (the Caution/Alert Draft action comes at validation).
         if (data.sheet === "Data_Entry") {
           try { onLabReportSaved_(ss, data.row, actingUser, true); } catch (labErr) { logError("onLabReportSaved_", labErr, {sheet: data.sheet}); }
+          // The report's own header details (account, asset, bottle…).
+          if (data.labInfo) {
+            try { writeLabReportInfo_(ss, data.row, data.labInfo); } catch (infoErr) { logError("writeLabReportInfo_", infoErr, {sheet: data.sheet}); }
+          }
         }
         recordAudit_(ss, data.sheet, appendLpId, "create", actingUser, scope || resolveLpContractor_(appendLpId), "New " + data.sheet + " entry added");
         return jsonOut({status:"ok"});

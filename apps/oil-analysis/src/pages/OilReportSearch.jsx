@@ -175,6 +175,12 @@ export default function OilReportSearch({
     }
   }
 
+  // Account details as printed on the lab's report: this point's latest
+  // report, else the newest report anywhere that carries them.
+  const account = useMemo(() => {
+    if (latest?.accountId || latest?.accountName) return latest;
+    return [...(samples || [])].filter((sm) => sm.accountId || sm.accountName).sort((a, b) => new Date(b.sampledDate) - new Date(a.sampledDate))[0] || null;
+  }, [latest, samples]);
   const card = { background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 20 };
   const cardHead = { padding: "10px 16px", background: T.infoBarBg, borderBottom: `1px solid ${T.border}` };
   const headerColor = T[statusKey(latest?.reportStatus)] || T.textSecondary;
@@ -388,18 +394,18 @@ export default function OilReportSearch({
                 {
                   title: "Account Information",
                   rows: [
-                    ["ID", "208948"],
-                    ["Name", "Arabian Cement Company"],
-                    ["Address", "Kattameya-Sokhna Road, Suez, EG"],
+                    ["ID", account?.accountId],
+                    ["Name", account?.accountName],
+                    ["Address", account?.accountAddress],
                   ],
                 },
                 {
                   title: "Sample Information",
                   rows: [
                     ["Sample ID", latest.sampleId],
-                    ["Service Level", latest.serviceLevel || "Enhanced"],
-                    ["Bottle ID", latest.bottleId || "—"],
-                    ["Tested Lubricant", latest.lubricant || lastEvent?.oilBrandType || reg?.lubricant],
+                    ["Service Level", latest.serviceLevel],
+                    ["Bottle ID", latest.bottleId],
+                    ["Tested Lubricant", latest.testedLubricant],
                   ],
                 },
                 {
