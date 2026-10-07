@@ -332,18 +332,25 @@ export default function Equipment({
     if (!lpCode || !webhookUrl) return;
     let cancelled = false;
     setLoadingHistory(true);
+    // Each piece loads on its own: the point's routes and suggestions are
+    // extras — if one of them fails (e.g. an older backend without that
+    // action) the history and the rest of the page still show, quietly.
     Promise.all([api.getOilChangesForLp(webhookUrl, lpCode), api.getTopUpsForLp(webhookUrl, lpCode)])
       .then(([changes, tops]) => {
         if (cancelled) return;
         setChangeHistory(changes);
         setTopUps(tops);
       })
-      .then(() => api.getRoutesForLp(webhookUrl, lpCode))
-      .then((routes) => { if (!cancelled) setRoutesForLp(routes || []); })
-      .then(() => api.getSuggestions(webhookUrl))
-      .then((list) => { if (!cancelled) setSuggestionsForLp((list || []).filter((sg) => sg.lpId === lpCode)); })
       .catch((err) => pushToast?.(err.message, "error"))
       .finally(() => { if (!cancelled) setLoadingHistory(false); });
+    api
+      .getRoutesForLp(webhookUrl, lpCode)
+      .then((routes) => { if (!cancelled) setRoutesForLp(routes || []); })
+      .catch(() => { if (!cancelled) setRoutesForLp([]); });
+    api
+      .getSuggestions(webhookUrl)
+      .then((list) => { if (!cancelled) setSuggestionsForLp((list || []).filter((sg) => sg.lpId === lpCode)); })
+      .catch(() => { if (!cancelled) setSuggestionsForLp([]); });
     return () => { cancelled = true; };
   }, [lpCode, webhookUrl, pushToast]);
 
