@@ -46,16 +46,16 @@
   display: flex;
 }
 .module-tab-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  inset-inline-start: 0;
+  /* drawn on <body> (ModuleTabs.tsx sets top/left) so the scrolling tab
+     row can't clip it */
+  position: fixed;
   min-width: 200px;
   background: var(--shell-card-bg, #fff);
   border: 1px solid var(--shell-border, #d9e0e8);
   border-radius: 10px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
   padding: 6px;
-  z-index: 150;
+  z-index: 600;
 }
 .module-tab-menu-item {
   display: flex;

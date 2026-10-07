@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmbeddedNav } from "../embeddedNav";
 import { tapHaptic } from "../haptics";
@@ -41,23 +42,43 @@ export default function ModuleTabs() {
   const embeddedNav = useEmbeddedNav();
   const cfg = MODULE_TABS.find((m) => location.pathname.startsWith(m.route));
   const { groups, more } = useVisibleTabs(cfg);
-  const [moreOpen, setMoreOpen] = useState(false);
+  // The tab row scrolls sideways on narrow screens, which would clip a
+  // dropdown inside it — so the More menu is drawn on <body>, placed under
+  // its button.
+  const [moreAt, setMoreAt] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+  const moreOpen = moreAt !== null;
+  const setMoreOpen = (open: boolean) => {
+    if (!open) return setMoreAt(null);
+    const r = moreRef.current?.getBoundingClientRect();
+    if (r) setMoreAt({ top: r.bottom + 4, left: r.left });
+  };
+  const menuRef = useRef<HTMLDivElement>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!moreOpen) return;
     const close = (e: MouseEvent) => {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node))
-        setMoreOpen(false);
+      const t = e.target as Node;
+      if (!moreRef.current?.contains(t) && !menuRef.current?.contains(t))
+        setMoreAt(null);
     };
+    const dismiss = () => setMoreAt(null);
     document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
   }, [moreOpen]);
 
   useEffect(() => {
     setSheetOpen(false);
-    setMoreOpen(false);
+    setMoreAt(null);
   }, [location.pathname]);
 
   if (!cfg || groups.length === 0) return null;
@@ -108,31 +129,38 @@ export default function ModuleTabs() {
               aria-expanded={moreOpen}
               aria-haspopup="menu"
               data-page="more"
-              onClick={() => setMoreOpen((o) => !o)}
+              onClick={() => setMoreOpen(!moreOpen)}
             >
               {activeMore ? activeMore.label : "More"}{" "}
               <Icon name="chevronDown" size={14} />
             </button>
-            {moreOpen && (
-              <div className="module-tab-menu" role="menu">
-                {more.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    role="menuitem"
-                    className={
-                      m.id === active
-                        ? "module-tab-menu-item module-tab-menu-item--active"
-                        : "module-tab-menu-item"
-                    }
-                    data-page={m.id}
-                    onClick={() => go(m.id)}
-                  >
-                    <TablerIcon className={m.icon} size={16} /> {m.label}
-                  </button>
-                ))}
-              </div>
-            )}
+            {moreAt &&
+              createPortal(
+                <div
+                  className="module-tab-menu"
+                  role="menu"
+                  ref={menuRef}
+                  style={{ top: moreAt.top, left: moreAt.left }}
+                >
+                  {more.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      role="menuitem"
+                      className={
+                        m.id === active
+                          ? "module-tab-menu-item module-tab-menu-item--active"
+                          : "module-tab-menu-item"
+                      }
+                      data-page={m.id}
+                      onClick={() => go(m.id)}
+                    >
+                      <TablerIcon className={m.icon} size={16} /> {m.label}
+                    </button>
+                  ))}
+                </div>,
+                document.body,
+              )}
           </div>
         )}
       </nav>

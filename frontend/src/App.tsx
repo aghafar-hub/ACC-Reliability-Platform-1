@@ -97,6 +97,14 @@ function ShellRoot() {
     '--shell-grid-strength': topbarIsInverse ? '10%' : '55%',
   } as CSSProperties;
 
+  // Menus and full-screen panels drawn on <body> (the More menu, the phone
+  // search) sit outside the element carrying these, so <body> gets them too.
+  useEffect(() => {
+    const style = document.body.style;
+    for (const [k, v] of Object.entries(themeVars)) style.setProperty(k, String(v));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [palette, topbarIsInverse]);
+
   return (
     <div className="app-shell" style={themeVars}>
       <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
