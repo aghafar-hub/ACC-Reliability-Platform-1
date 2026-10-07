@@ -232,7 +232,7 @@ function appendRow(ss, sheetName, row, headers) {
     if (headers && headers.length) sheet.appendRow(headers);
     sheet.appendRow(row);
     stampLastModified(sheet, sheetName, sheet.getLastRow());
-    return;
+    return sheet.getLastRow();
   }
 
   // Find the first truly empty row after the data-start row.
@@ -250,6 +250,7 @@ function appendRow(ss, sheetName, row, headers) {
   // firstEmpty is now the row number directly after the last non-empty row in col A
   sheet.getRange(firstEmpty, 1, 1, row.length).setValues([row]);
   stampLastModified(sheet, sheetName, firstEmpty);
+  return firstEmpty;
 }
 
 

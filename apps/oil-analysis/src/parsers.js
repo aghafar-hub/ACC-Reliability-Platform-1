@@ -1093,6 +1093,8 @@ export function rowToOilMovement(row) {
     movementType: row[2] || "",
     quantity: row[3] === "" || row[3] == null ? null : Number(row[3]),
     movementDate: formatDate(row[4]),
+    // for sorting / the date-range filter
+    movementTime: row[4] ? new Date(row[4]).getTime() || null : null,
     linkedLpId: row[5] || "",
     linkedEventId: row[6] || "",
     contractor: row[7] || "",

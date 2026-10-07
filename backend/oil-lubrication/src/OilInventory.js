@@ -46,7 +46,37 @@ function getOilInventory(scope) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var rows = readSheet(ss, "Oil Inventory", true);
   if (scope) rows = rows.filter(function (r) { return String(r[16] || "").trim() === scope; });
-  return { products: rows, count: rows.length };
+  var all = productMovementStats_(ss, STATS_USE_DAYS);
+  var stats = {};
+  rows.forEach(function (r) {
+    var id = String(r[0] || "").trim();
+    if (all[id]) stats[id] = all[id];
+  });
+  return { products: rows, count: rows.length, stats: stats };
+}
+
+// Per product, from the movement log: the last Receipt date and how much
+// was issued in the last `useDays` days — the app turns that into "days of
+// stock left" (stock ÷ daily use). { productId: { lastReceiptDate, issuedRecent, useDays } }
+var STATS_USE_DAYS = 90;
+function productMovementStats_(ss, useDays) {
+  var since = Date.now() - useDays * 86400000;
+  var out = {};
+  readSheet(ss, "Oil Inventory LOG", true).forEach(function (r) {
+    var id = String(r[1] || "").trim();
+    if (!id) return;
+    var st = out[id] || (out[id] = { lastReceiptDate: "", issuedRecent: 0, useDays: useDays });
+    var type = String(r[2] || "").trim();
+    var d = r[4] instanceof Date ? r[4] : new Date(r[4]);
+    if (isNaN(d.getTime())) return;
+    if (type === "Receipt") {
+      var iso = d.toISOString().slice(0, 10);
+      if (iso > st.lastReceiptDate) st.lastReceiptDate = iso;
+    } else if (type === "Issue" && d.getTime() >= since) {
+      st.issuedRecent = Math.round((st.issuedRecent + Math.abs(parseFloat(r[3]) || 0)) * 100) / 100;
+    }
+  });
+  return out;
 }
 
 
@@ -371,8 +401,29 @@ function addOilProduct(ss, data) {
     "", // EquivalentToType/Brand — Phase 8: set through setOilEquivalent (Code.js calls it after this when asked)
     "",
   ];
-  appendRow(ss, "Oil Inventory", row);
+  var newRow = appendRow(ss, "Oil Inventory", row);
+  copyStockFormulas_(ss.getSheetByName("Oil Inventory"), newRow);
   return { status: "ok", productId: productId };
+}
+
+// Current_Stock (G) and Last_Movement_Date (M) are sheet formulas. A new
+// product's row gets them copied from the nearest product row above that
+// has them (R1C1, so they point at the new row exactly as a copy-down
+// would) — no more copying them down by hand.
+var STOCK_FORMULA_COLS = [7, 13];
+function copyStockFormulas_(sheet, rowIdx) {
+  if (!sheet || !rowIdx) return;
+  var start = dataStartRowFor("Oil Inventory");
+  STOCK_FORMULA_COLS.forEach(function (col) {
+    if (sheet.getRange(rowIdx, col).getFormulaR1C1()) return;
+    for (var r = rowIdx - 1; r >= start; r--) {
+      var f = sheet.getRange(r, col).getFormulaR1C1();
+      if (f) {
+        sheet.getRange(rowIdx, col).setFormulaR1C1(f);
+        return;
+      }
+    }
+  });
 }
 
 

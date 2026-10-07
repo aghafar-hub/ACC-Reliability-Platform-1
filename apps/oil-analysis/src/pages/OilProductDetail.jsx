@@ -4,6 +4,7 @@ import { useTheme } from "../ThemeContext";
 import { useSessionEmail, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
 import { todayISO } from "../parsers";
+import { fmtNum, fmtQty, fmtSigned, signedQty } from "../inventoryLogic";
 
 // Phase 5: receipts, adjustments and the one-off opening balance are the
 // contractor's engineer's; Issue stays available as before.
@@ -212,7 +213,7 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
       <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px", borderLeft: `3px solid ${low ? T.danger : T.success}` }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: low ? T.danger : T.textPrimary }}>
-            {product.currentStock != null ? `${product.currentStock} ${product.unit || ""}` : "—"}
+            {fmtQty(product.currentStock, product.unit)}
           </div>
           <div style={{ fontSize: 11, color: T.textSecondary }}>Current Stock{low ? " — below reorder level" : ""}</div>
         </div>
@@ -276,7 +277,7 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
                 <tr key={m.movementId}>
                   <td style={s.td}>{m.movementDate || "—"}</td>
                   <td style={s.td}>{m.movementType}</td>
-                  <td style={s.td}>{m.quantity}</td>
+                  <td style={{ ...s.td, whiteSpace: "nowrap", fontWeight: 700 }}>{fmtSigned(signedQty(m.movementType, m.quantity), product.unit || "L")}</td>
                   <td style={s.td}>{m.linkedLpId || "—"}</td>
                   <td style={s.td}>{m.contractor || "—"}</td>
                   <td style={s.td}>{m.doneBy || "—"}</td>
@@ -340,7 +341,7 @@ function LowStockLevelCard({ webhookUrl, product, pushToast, onSaved }) {
         </div>
       ) : (
         <div style={{ fontSize: 22, fontWeight: 800 }}>
-          {product.recorderLevel != null ? `${product.recorderLevel} ${product.unit || ""}` : "—"}
+          {fmtQty(product.recorderLevel, product.unit)}
           {canEdit && (
             <button style={{ ...s.btn, marginLeft: 8, padding: "2px 8px", fontSize: 11 }} onClick={() => setEditing(true)} aria-label="Change low-stock level">
               <i className="ti ti-pencil" aria-hidden="true" /> Edit
@@ -377,19 +378,19 @@ function StockChart({ movements, level, unit }) {
           <LineChart data={data} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid stroke={T.border} strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="date" tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={{ stroke: T.border }} />
-            <YAxis tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+            <YAxis tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={false} width={44} tickFormatter={fmtNum} />
             <Tooltip
               contentStyle={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, color: T.textPrimary }}
               labelStyle={{ color: T.textSecondary }}
               itemStyle={{ color: T.textPrimary }}
-              formatter={(v, _n, item) => [`${v} ${u}`, `Stock after ${item?.payload?.kind || "movement"}`]}
+              formatter={(v, _n, item) => [fmtQty(v, u), `Stock after ${item?.payload?.kind || "movement"}`]}
             />
             {level != null && (
               <ReferenceLine
                 y={level}
                 stroke={T.danger}
                 strokeDasharray="5 4"
-                label={{ value: `Low-stock level ${level} ${u}`, position: "insideTopRight", fill: T.textSecondary, fontSize: 11 }}
+                label={{ value: `Low-stock level ${fmtQty(level, u)}`, position: "insideTopRight", fill: T.textSecondary, fontSize: 11 }}
               />
             )}
             <Line type="stepAfter" dataKey="stock" stroke={T.accent} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />

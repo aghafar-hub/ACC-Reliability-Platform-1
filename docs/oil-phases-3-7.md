@@ -553,3 +553,42 @@ Manage deployments.
   service worker kept serving old modules. `frontend/vite.config.ts` now
   adds the test checkout's own commit to a `test-…` build id; live builds
   are unchanged.
+
+## Oil Inventory review (I1)
+
+- **Numbers** are rounded to 1 decimal with thousands separators everywhere
+  (stock, need, shortfall, consumption, movements, product page) —
+  `inventoryLogic.js` `fmtQty`. Movements show direction and unit
+  (+200 L receipt, −20 L issue, signed adjustment).
+- **Overview**
+  - Cards: "This month so far" (with the average of the full months) and
+    "Shortfalls (next N days)"; the period (15 days … 1 year) is chosen on
+    Upcoming Shortfalls and shared with the Forecast tab.
+  - Consumption trend: straight lines with a dot per month; the month in
+    progress is dashed with a hollow dot and labelled "(so far)".
+  - Upcoming Shortfalls: one column per oil. With All Contractors the same
+    oil at RHI and ASEC is one column (the tooltip shows each contractor);
+    each contractor's stock only covers its own work, so the merged
+    shortfall is the sum of each contractor's own shortfall. Picking a
+    contractor shows only theirs. Oils not needed in the period are left
+    out, the brand isn't repeated when the name already carries it, and the
+    legend explains the colours (green covers / red short / blue need /
+    dashed low-stock level).
+  - Low Stock: location, below level by, **days left** (stock ÷ the daily
+    use over the last 90 days) and last receipt, most urgent first. A note
+    counts products with no low-stock level and opens the Stock List on them.
+- **Stock List**: filters Active (default — discontinued hidden) / Low / No
+  low-stock level / Discontinued / All, and a Days Left column.
+- **Consumption**: contractors in the categorical palette (not the
+  warning/danger colours); the month in progress is a pale column; a
+  "% of Total" column.
+- **Forecast**: a product the plan needs that isn't in the inventory shows a
+  "No stock product" badge.
+- **Movements**: date range, 50 per page, Export (CSV that opens in Excel)
+  of everything the filter shows.
+- **Server** (`OilInventory.js`): `getOilInventory` also returns `stats` per
+  product (last receipt date, issued in the last 90 days), scoped like the
+  products; `addOilProduct` copies the Current_Stock / Last_Movement_Date
+  formulas (R1C1) from the nearest product row above into the new row —
+  nobody copies them by hand any more (`appendRow` now returns the row it
+  wrote).

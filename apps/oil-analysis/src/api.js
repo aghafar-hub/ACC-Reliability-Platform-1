@@ -1142,7 +1142,16 @@ export async function addRoutineComment(webhookUrl, routineId, commentText, comm
 
 export async function getOilInventory(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getOilInventory" });
-  return (json.products || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilProduct);
+  // stats: last receipt date and recent issues per product (OilInventory.js
+  // productMovementStats_) — for "days of stock left".
+  const stats = json.stats || {};
+  return (json.products || [])
+    .filter((r) => Array.isArray(r) && r[0])
+    .map(rowToOilProduct)
+    .map((p) => {
+      const st = stats[p.productId];
+      return st ? { ...p, lastReceiptDate: st.lastReceiptDate || "", issuedRecent: Number(st.issuedRecent) || 0, useDays: Number(st.useDays) || 0 } : p;
+    });
 }
 
 // Phase 5 — low-stock level (contractor's engineer or ACC Engineer).

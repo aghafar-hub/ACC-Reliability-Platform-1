@@ -1,9 +1,38 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
-import { newId } from "../parsers";
+import { formatDate, newId } from "../parsers";
+import useIsMobile from "../hooks/useIsMobile";
+import { SERIES_DARK, SERIES_LIGHT, isDarkSurface } from "../pointHistory";
+import {
+  SHORTAGE_PERIODS,
+  daysLeft,
+  fmtNum,
+  fmtQty,
+  fmtSigned,
+  isCurrentMonth,
+  isLow,
+  lowStockSorted,
+  periodLabel,
+  shortfallBars,
+  signedQty,
+  toCsv,
+} from "../inventoryLogic";
 import OilProductDetail from "./OilProductDetail";
 
 const CONTAINER_TYPES = ["Drum", "Pail", "Bulk Tank", "IBC"];
@@ -71,10 +100,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
   // Phase 8: only the contractor's own engineer approves an equivalent.
   const canApproveEquivalent = useIsRouteEngineerFor(form.contractor || "");
   const [selectedEquivalentKey, setSelectedEquivalentKey] = useState("");
-  const knownOilsForContractor = useMemo(
-    () => knownOils.filter((o) => o.contractor === form.contractor),
-    [knownOils, form.contractor]
-  );
+  const knownOilsForContractor = useMemo(() => knownOils.filter((o) => o.contractor === form.contractor), [knownOils, form.contractor]);
 
   function set(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -115,7 +141,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
         payload.equivalentToBrand = "";
       }
       const saved = await api.addOilProduct(webhookUrl, payload);
-      pushToast("Product added. Remember to copy the Current_Stock / Last_Movement_Date formulas down into its row.", "success");
+      pushToast("Product added.", "success");
       onCreated(saved.productId);
     } catch (err) {
       pushToast(err.message, "error");
@@ -156,8 +182,8 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
               </select>
             )}
             <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
-              Picking from the registry guarantees the exact spelling already used on equipment, so it always matches for auto-deduction
-              and the forecast — typing it yourself (even a small spacing difference) can silently create a second, unmatched product.
+              Picking from the registry guarantees the exact spelling already used on equipment, so it always matches for auto-deduction and
+              the forecast — typing it yourself (even a small spacing difference) can silently create a second, unmatched product.
             </p>
           </div>
         )}
@@ -165,56 +191,68 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
           <>
             <div>
               <label style={s.label}>Lubricant Type</label>
-              <input style={s.input} type="text" placeholder="e.g. Mobil SHC 630" value={form.lubricantType} onChange={(e) => set("lubricantType", e.target.value)} />
+              <input
+                style={s.input}
+                type="text"
+                placeholder="e.g. Mobil SHC 630"
+                value={form.lubricantType}
+                onChange={(e) => set("lubricantType", e.target.value)}
+              />
             </div>
             <div>
               <label style={s.label}>Lubricant Brand</label>
-              <input style={s.input} type="text" placeholder="e.g. Mobil" value={form.lubricantBrand} onChange={(e) => set("lubricantBrand", e.target.value)} />
+              <input
+                style={s.input}
+                type="text"
+                placeholder="e.g. Mobil"
+                value={form.lubricantBrand}
+                onChange={(e) => set("lubricantBrand", e.target.value)}
+              />
             </div>
           </>
         )}
         {canApproveEquivalent && (
-        <div style={{ gridColumn: "1 / -1" }}>
-          <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-            <input type="checkbox" checked={equivalentEnabled} onChange={(e) => setEquivalentEnabled(e.target.checked)} />
-            Approve as an equivalent for another oil (used when that oil is short; the ACC engineers and managers are told)
-          </label>
-          {equivalentEnabled && (
-            <div style={{ marginTop: 6 }}>
-              {knownOilsForContractor.length > 0 ? (
-                <select style={s.select} value={selectedEquivalentKey} onChange={(e) => handleSelectEquivalent(e.target.value)}>
-                  <option value="">Select the original oil this product replaces…</option>
-                  {knownOilsForContractor.map((o) => (
-                    <option key={oilKeyFor(o)} value={oilKeyFor(o)}>
-                      {o.lubricant}
-                      {o.lubricantBrand ? ` (${o.lubricantBrand})` : ""}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div style={{ display: "flex", gap: 10 }}>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Original Lubricant Type"
-                    value={form.equivalentToType}
-                    onChange={(e) => set("equivalentToType", e.target.value)}
-                  />
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="Original Brand"
-                    value={form.equivalentToBrand}
-                    onChange={(e) => set("equivalentToBrand", e.target.value)}
-                  />
-                </div>
-              )}
-              <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
-                Routes use this product for that oil's points when the main oil is short, and the forecast counts it as cover.
-              </p>
-            </div>
-          )}
-        </div>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ fontSize: 12.5, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input type="checkbox" checked={equivalentEnabled} onChange={(e) => setEquivalentEnabled(e.target.checked)} />
+              Approve as an equivalent for another oil (used when that oil is short; the ACC engineers and managers are told)
+            </label>
+            {equivalentEnabled && (
+              <div style={{ marginTop: 6 }}>
+                {knownOilsForContractor.length > 0 ? (
+                  <select style={s.select} value={selectedEquivalentKey} onChange={(e) => handleSelectEquivalent(e.target.value)}>
+                    <option value="">Select the original oil this product replaces…</option>
+                    {knownOilsForContractor.map((o) => (
+                      <option key={oilKeyFor(o)} value={oilKeyFor(o)}>
+                        {o.lubricant}
+                        {o.lubricantBrand ? ` (${o.lubricantBrand})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <input
+                      style={s.input}
+                      type="text"
+                      placeholder="Original Lubricant Type"
+                      value={form.equivalentToType}
+                      onChange={(e) => set("equivalentToType", e.target.value)}
+                    />
+                    <input
+                      style={s.input}
+                      type="text"
+                      placeholder="Original Brand"
+                      value={form.equivalentToBrand}
+                      onChange={(e) => set("equivalentToBrand", e.target.value)}
+                    />
+                  </div>
+                )}
+                <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
+                  Routes use this product for that oil's points when the main oil is short, and the forecast counts it as cover.
+                </p>
+              </div>
+            )}
+          </div>
         )}
         <div>
           <label style={s.label}>Container Type</label>
@@ -242,7 +280,14 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
         </div>
         <div>
           <label style={s.label}>Low-stock Level (alert at or below)</label>
-          <input style={s.input} type="number" min="0" aria-label="Low-stock level" value={form.recorderLevel} onChange={(e) => set("recorderLevel", e.target.value)} />
+          <input
+            style={s.input}
+            type="number"
+            min="0"
+            aria-label="Low-stock level"
+            value={form.recorderLevel}
+            onChange={(e) => set("recorderLevel", e.target.value)}
+          />
         </div>
         <div>
           <label style={s.label}>Storage Location</label>
@@ -254,7 +299,13 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
         </div>
         <div>
           <label style={s.label}>Unit Cost</label>
-          <input style={s.input} type="text" placeholder="Optional" value={form.unitCost} onChange={(e) => set("unitCost", e.target.value)} />
+          <input
+            style={s.input}
+            type="text"
+            placeholder="Optional"
+            value={form.unitCost}
+            onChange={(e) => set("unitCost", e.target.value)}
+          />
         </div>
         <div>
           <label style={s.label}>Status</label>
@@ -282,8 +333,8 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
         </div>
       </div>
       <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 14 }}>
-        Current Stock and Last Movement Date are computed by a formula on the sheet itself, from every receipt/issue logged for this
-        product — they'll show blank here until that formula is copied down into the new row.
+        Current Stock and Last Movement Date are calculated on the sheet from every receipt/issue logged for this product — the new row gets
+        those formulas automatically.
       </p>
       <button style={s.btnPrimary} onClick={handleCreate} disabled={saving}>
         {saving ? "Adding…" : "Add Product"}
@@ -331,138 +382,268 @@ function TabBar({ T, s, activeTab, setActiveTab }) {
 
 function ChartTooltip({ T, active, payload, label, unit = "L" }) {
   if (!active || !payload?.length) return null;
+  const items = payload.filter((p) => p.value != null);
+  if (!items.length) return null;
   return (
     <div style={{ background: T.cardBg || T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
       <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>
-      {payload.map((p) => (
-        <div key={p.dataKey} style={{ color: p.color || T.textPrimary, fontWeight: 700 }}>
+      {items.map((p) => (
+        <div key={p.dataKey} style={{ color: T.textPrimary, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+          {p.color && <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, flexShrink: 0 }} />}
           {p.name ? `${p.name}: ` : ""}
-          {p.value} {unit}
+          {fmtQty(p.value, unit)}
         </div>
       ))}
     </div>
   );
 }
 
+function PeriodSelect({ s, value, onChange, label = "Shortage check" }) {
+  return (
+    <select
+      style={{ ...s.select, width: 160, fontSize: 12 }}
+      value={value}
+      aria-label={label}
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
+      {SHORTAGE_PERIODS.map((p) => (
+        <option key={p.days} value={p.days}>
+          {p.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 // Recomputes a contractor-filtered monthly trend from byProduct's own
 // per-product `monthly` arrays (already returned by
-// getOilInventoryConsumption, see OilInventory.js's own comment on that
-// shape) — entirely client-side, no new backend endpoint needed, since
-// each product row already carries its own contractor. Mirrors the
-// backend's own totalsByMonth aggregation (sum each month index across
-// matching products), just scoped to whichever contractor is picked.
+// getOilInventoryConsumption) — client-side, since each product row
+// carries its own contractor.
 function monthlyTotalsFor(byProduct, monthKeys, contractor) {
   const rows = contractor && contractor !== "All" ? byProduct.filter((p) => p.contractor === contractor) : byProduct;
   return monthKeys.map((_, idx) => Math.round(rows.reduce((sum, p) => sum + (p.monthly[idx] || 0), 0) * 100) / 100);
 }
 
-// Shared by the Forecast tab and the Overview tab's own "Upcoming
-// Shortfalls" section — a vertical grouped-column chart (Current Stock
-// vs. Projected Need per oil). Went through two earlier shapes the user
-// didn't like: a paired horizontal-bar Recharts layout ("the side bar
-// view"), then a horizontal bullet/coverage bar — both read sideways; this
-// is a standard upright column chart instead, with the Stock column
-// colored red the moment it falls short of Need so the comparison doesn't
-// rely on reading two bar lengths against each other.
-function ForecastChart({ T, rows }) {
-  if (rows.length === 0) return null;
-  const sorted = rows
-    .map((r) => ({
-      label: r.lubricantBrand ? `${r.lubricant} · ${r.lubricantBrand}` : r.lubricant,
-      contractor: r.contractor,
-      stock: r.currentStock ?? 0,
-      need: r.quantityNeeded || 0,
-      level: r.level ?? null,
-      short: r.shortfall != null && r.shortfall > 0,
-    }))
-    .sort((a, b) => b.need - b.stock - (a.need - a.stock));
-
-  const chartWidth = Math.max(480, sorted.length * 100);
+// ─── Shortfall chart (Overview + Forecast) ──────────────────────────────
+// Upright columns per oil: its stock (green when it covers the need, red
+// when it won't) next to the projected need (blue), with the oil's
+// low-stock level as a dashed line across both. With no contractor picked
+// the same oil's RHI and ASEC figures are one column (see
+// inventoryLogic.js's shortfallBars); the tooltip shows the split.
+function ShortfallLegend({ T }) {
+  const item = (swatch, text) => (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: T.textSecondary }}>
+      {swatch}
+      {text}
+    </span>
+  );
+  const box = (color) => <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: "inline-block" }} />;
   return (
-    <div style={{ overflowX: "auto" }}>
-      <ResponsiveContainer width={chartWidth} height={300}>
-        <ComposedChart data={sorted} margin={{ top: 10, right: 10, bottom: 55, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 11, fill: T.textSecondary }}
-            axisLine={{ stroke: T.border }}
-            tickLine={false}
-            angle={-30}
-            textAnchor="end"
-            interval={0}
-            height={60}
-          />
-          <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={40} />
-          <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
-          <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" />
-          <Bar dataKey="stock" name="Current Stock" fill={T.success} radius={[4, 4, 0, 0]}>
-            {sorted.map((d, i) => (
-              <Cell key={i} fill={d.short ? T.danger : T.success} />
-            ))}
-          </Bar>
-          <Bar dataKey="need" name="Projected Need" fill={T.accent} radius={[4, 4, 0, 0]} />
-          {/* Each oil's own low-stock level, as a marker over its bars. */}
-          <Line
-            dataKey="level"
-            name="Low-stock Level"
-            stroke={T.warning}
-            strokeWidth={0}
-            legendType="plainline"
-            isAnimationActive={false}
-            activeDot={false}
-            dot={(p) =>
-              p.value == null || p.cx == null || p.cy == null ? (
-                <g key={p.index} />
-              ) : (
-                <line key={p.index} x1={p.cx - 34} x2={p.cx + 34} y1={p.cy} y2={p.cy} stroke={T.warning} strokeWidth={2.5} strokeDasharray="6 3" />
-              )
-            }
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginBottom: 8 }} data-testid="shortfall-legend">
+      {item(box(T.success), "Stock — covers the need")}
+      {item(box(T.danger), "Stock — short")}
+      {item(box(T.accent), "Projected need")}
+      {item(<span style={{ width: 18, borderTop: `2px dashed ${T.textPrimary}`, display: "inline-block" }} />, "Low-stock level")}
     </div>
   );
 }
 
-// ─── Overview tab (Patch 24) ─────────────────────────────────────────────
-//
-// KPI summary + a 6-month consumption trend + a low-stock quick list —
-// pulls from getOilInventoryConsumption and getOilInventoryForecast on its
-// own (products come in as a prop, already loaded by the parent for the
-// Stock List tab) rather than re-fetching what's already in hand.
-function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, onNavigateTab }) {
+function ShortfallTooltip({ T, active, payload }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  const line = (k, v, color) => (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 14 }}>
+      <span style={{ color: T.textSecondary }}>{k}</span>
+      <span style={{ fontWeight: 700, color: color || T.textPrimary }}>{v}</span>
+    </div>
+  );
+  return (
+    <div
+      style={{
+        background: T.cardBg || T.bg,
+        border: `1px solid ${T.border}`,
+        borderRadius: 6,
+        padding: "8px 10px",
+        fontSize: 12,
+        minWidth: 190,
+      }}
+    >
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>{d.label}</div>
+      {line("Projected need", fmtQty(d.need))}
+      {line("In stock", d.hasStock ? fmtQty(d.stock) : "No stock product")}
+      {line(d.short ? "Short by" : "Covered", d.short ? fmtQty(d.shortBy) : "✓", d.short ? T.danger : T.success)}
+      {d.level != null && line("Low-stock level", fmtQty(d.level))}
+      {d.parts.length > 1 && (
+        <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 6, paddingTop: 6 }}>
+          {d.parts.map((p) => (
+            <div key={p.contractor} style={{ color: T.textSecondary }}>
+              <strong style={{ color: T.textPrimary }}>{p.contractor}</strong>: need {fmtQty(p.need)}, stock{" "}
+              {p.stock == null ? "none" : fmtQty(p.stock)}
+              {p.shortBy > 0 ? <span style={{ color: T.danger, fontWeight: 700 }}> — short {fmtQty(p.shortBy)}</span> : ""}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ForecastChart({ T, rows, merge }) {
+  const bars = useMemo(() => shortfallBars(rows, { merge }), [rows, merge]);
+  if (bars.length === 0) return <p style={{ color: T.textSecondary, margin: 0 }}>No oil is needed in this period.</p>;
+  // fills the card; scrolls sideways only when there are many oils
+  const minWidth = Math.max(320, bars.length * 92);
+  const half = Math.min(40, 92 * 0.4);
+  return (
+    <div data-testid="shortfall-chart">
+      <ShortfallLegend T={T} />
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth }}>
+          <ResponsiveContainer width="100%" height={300}>
+            <ComposedChart data={bars} margin={{ top: 10, right: 10, bottom: 55, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: T.textSecondary }}
+                tickFormatter={(v) => (v.length > 32 ? `${v.slice(0, 31)}…` : v)}
+                axisLine={{ stroke: T.border }}
+                tickLine={false}
+                angle={-30}
+                textAnchor="end"
+                interval={0}
+                height={60}
+              />
+              <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
+              <Tooltip content={<ShortfallTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
+              <Bar maxBarSize={40} dataKey="stock" name="Stock" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                {bars.map((d, i) => (
+                  <Cell key={i} fill={d.short ? T.danger : T.success} />
+                ))}
+              </Bar>
+              <Bar maxBarSize={40} dataKey="need" name="Projected need" fill={T.accent} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              <Line
+                dataKey="level"
+                name="Low-stock level"
+                stroke={T.textPrimary}
+                strokeWidth={0}
+                isAnimationActive={false}
+                activeDot={false}
+                dot={(p) =>
+                  p.value == null || p.cx == null || p.cy == null ? (
+                    <g key={p.index} />
+                  ) : (
+                    <line
+                      key={p.index}
+                      x1={p.cx - half}
+                      x2={p.cx + half}
+                      y1={p.cy}
+                      y2={p.cy}
+                      stroke={T.textPrimary}
+                      strokeWidth={2}
+                      strokeDasharray="5 3"
+                    />
+                  )
+                }
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Overview tab ───────────────────────────────────────────────────────
+function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod, onOpenProduct, onNavigateTab, onOpenStock }) {
   const { T, s } = useTheme();
   const [consumption, setConsumption] = useState(null);
   const [forecast, setForecast] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingC, setLoadingC] = useState(true);
+  const [loadingF, setLoadingF] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    Promise.all([api.getOilInventoryConsumption(webhookUrl, 6), api.getOilInventoryForecast(webhookUrl, 3)])
-      .then(([c, f]) => {
-        if (cancelled) return;
-        setConsumption(c);
-        setForecast(f);
+    setLoadingC(true);
+    api
+      .getOilInventoryConsumption(webhookUrl, 6)
+      .then((c) => {
+        if (!cancelled) setConsumption(c);
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingC(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [webhookUrl]);
 
-  const lowStock = products.filter((p) => p.currentStock != null && p.recorderLevel != null && p.currentStock <= p.recorderLevel);
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingF(true);
+    api
+      .getOilInventoryForecast(webhookUrl, { days: period })
+      .then((f) => {
+        if (!cancelled) setForecast(f);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingF(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [webhookUrl, period]);
+
+  const lowStock = lowStockSorted(products);
+  const noLevel = products.filter((p) => p.status !== "Discontinued" && p.recorderLevel == null).length;
   const forecastRows = (forecast?.forecast || []).filter((r) => contractorFilter === "All" || r.contractor === contractorFilter);
-  const shortfallRows = forecastRows.filter((r) => r.shortfall != null && r.shortfall > 0);
-  const openShortfalls = shortfallRows.length;
-  const monthlyTotals = consumption ? monthlyTotalsFor(consumption.byProduct, consumption.months, contractorFilter) : [];
-  const thisMonthTotal = monthlyTotals.length ? monthlyTotals[monthlyTotals.length - 1] : 0;
-  const chartData = (consumption?.months || []).map((m, i) => ({ month: monthLabel(m), total: monthlyTotals[i] }));
+  const levelById = Object.fromEntries(products.map((p) => [p.productId, p.recorderLevel]));
+  const chartRows = forecastRows.map((r) => ({
+    ...r,
+    level: r.productId && levelById[r.productId] != null ? levelById[r.productId] : null,
+  }));
+  const bars = shortfallBars(chartRows, { merge: contractorFilter === "All" });
+  const shortCount = bars.filter((b) => b.short).length;
+
+  const monthKeys = consumption?.months || [];
+  const monthlyTotals = consumption ? monthlyTotalsFor(consumption.byProduct, monthKeys, contractorFilter) : [];
+  const lastIdx = monthKeys.length - 1;
+  const partial = lastIdx >= 0 && isCurrentMonth(monthKeys[lastIdx]);
+  const thisMonthTotal = partial ? monthlyTotals[lastIdx] : 0;
+  const complete = partial ? monthlyTotals.slice(0, -1) : monthlyTotals;
+  const avgMonth = complete.length ? complete.reduce((a, b) => a + b, 0) / complete.length : null;
+  // complete months solid; the month we're in dashed (its total is only so far)
+  const chartData = monthKeys.map((m, i) => ({
+    month: monthLabel(m) + (partial && i === lastIdx ? " (so far)" : ""),
+    total: partial && i === lastIdx ? null : monthlyTotals[i],
+    soFar: partial && i >= lastIdx - 1 ? monthlyTotals[i] : null,
+  }));
 
   const kpis = [
     { label: "Total Products", value: products.length, color: "accent", icon: "ti-box" },
-    { label: "Low Stock", value: lowStock.length, color: lowStock.length ? "danger" : "success", icon: "ti-alert-triangle", onClick: () => onNavigateTab("stock") },
-    { label: "This Month's Consumption", value: `${thisMonthTotal} L`, color: "textPrimary", icon: "ti-chart-bar", onClick: () => onNavigateTab("consumption") },
-    { label: "Open Shortfalls (3mo)", value: openShortfalls, color: openShortfalls ? "warning" : "success", icon: "ti-alert-circle", onClick: () => onNavigateTab("forecast") },
+    {
+      label: "Low Stock",
+      value: lowStock.length,
+      color: lowStock.length ? "danger" : "success",
+      icon: "ti-alert-triangle",
+      onClick: () => onOpenStock("low"),
+    },
+    {
+      label: "This month so far",
+      value: fmtQty(thisMonthTotal),
+      sub: avgMonth != null ? `avg ${fmtQty(avgMonth)} / month` : "",
+      color: "textPrimary",
+      icon: "ti-chart-bar",
+      onClick: () => onNavigateTab("consumption"),
+    },
+    {
+      label: `Shortfalls (${periodLabel(period)})`,
+      value: loadingF ? "…" : shortCount,
+      color: shortCount ? "warning" : "success",
+      icon: "ti-alert-circle",
+      onClick: () => onNavigateTab("forecast"),
+    },
   ];
 
   return (
@@ -475,7 +656,17 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
               key={m.label}
               type={m.onClick ? "button" : undefined}
               onClick={m.onClick}
-              style={{ ...s.metricCard, display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", font: "inherit", cursor: m.onClick ? "pointer" : "default" }}
+              data-testid={`inv-kpi-${m.icon}`}
+              style={{
+                ...s.metricCard,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                width: "100%",
+                textAlign: "left",
+                font: "inherit",
+                cursor: m.onClick ? "pointer" : "default",
+              }}
             >
               <span
                 style={{
@@ -495,7 +686,8 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
               </span>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-                <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+                <div style={{ fontSize: 11, color: T.textSecondary }}>{m.label}</div>
+                {m.sub && <div style={{ fontSize: 10.5, color: T.textMuted || T.textSecondary }}>{m.sub}</div>}
               </div>
             </Tag>
           );
@@ -503,58 +695,98 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
       </div>
 
       <div style={{ ...s.card, marginBottom: 20 }}>
-        <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Consumption Trend (6 months)</p>
-        {loading ? (
+        <p style={{ fontWeight: 700, margin: "0 0 2px" }}>Consumption Trend (6 months)</p>
+        <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
+          Oil issued per month{partial ? " — the dashed end is this month so far" : ""}.
+        </p>
+        {loadingC ? (
           <p style={{ color: T.textSecondary, margin: 0 }}>Loading…</p>
-        ) : chartData.every((d) => !d.total) ? (
+        ) : monthlyTotals.every((v) => !v) ? (
           <p style={{ color: T.textSecondary, margin: 0 }}>No logged Issue movements in this window yet.</p>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="invConsumptionFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={T.accent} stopOpacity={0.35} />
-                  <stop offset="95%" stopColor={T.accent} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+            <LineChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={34} />
+              <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
               <Tooltip content={<ChartTooltip T={T} />} />
-              <Area type="monotone" dataKey="total" stroke={T.accent} strokeWidth={2} fill="url(#invConsumptionFill)" />
-            </AreaChart>
+              <Line
+                type="linear"
+                dataKey="total"
+                name="Issued"
+                stroke={T.accent}
+                strokeWidth={2}
+                dot={{ r: 4, fill: T.accent, strokeWidth: 0 }}
+                isAnimationActive={false}
+              />
+              <Line
+                type="linear"
+                dataKey="soFar"
+                name="So far"
+                stroke={T.accent}
+                strokeWidth={2}
+                strokeDasharray="5 4"
+                isAnimationActive={false}
+                dot={(p) =>
+                  p.index === lastIdx && p.cx != null && p.cy != null ? (
+                    <circle key={p.index} cx={p.cx} cy={p.cy} r={5} fill={T.cardBg} stroke={T.accent} strokeWidth={2} />
+                  ) : (
+                    <g key={p.index} />
+                  )
+                }
+              />
+            </LineChart>
           </ResponsiveContainer>
         )}
       </div>
 
       <div style={{ ...s.card, marginBottom: 20 }}>
-        <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Upcoming Shortfalls (next 3 months)</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
+          <p style={{ fontWeight: 700, margin: 0 }}>Upcoming Shortfalls</p>
+          <PeriodSelect s={s} value={period} onChange={setPeriod} />
+        </div>
         <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
-          Current Stock vs. Projected Need per oil — the Stock column turns red when it won't cover the need, worst shortfall first.
+          Stock vs. the oil the planned work needs in the {periodLabel(period)}, worst shortfall first.
+          {contractorFilter === "All" ? " The same oil at RHI and ASEC is one column — pick a contractor to see theirs alone." : ""}
         </p>
-        {loading ? (
+        {loadingF ? (
           <p style={{ color: T.textSecondary, margin: 0 }}>Loading…</p>
-        ) : forecastRows.length === 0 ? (
-          <p style={{ color: T.textSecondary, margin: 0 }}>Nothing projected as due in this window.</p>
         ) : (
-          <ForecastChart T={T} rows={forecastRows} />
+          <ForecastChart T={T} rows={chartRows} merge={contractorFilter === "All"} />
         )}
       </div>
 
-      <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Low Stock</p>
+      <div
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", margin: "0 0 10px" }}
+      >
+        <p style={{ fontWeight: 700, margin: 0 }}>Low Stock</p>
+        {noLevel > 0 && (
+          <span style={{ fontSize: 12, color: T.textSecondary }} data-testid="inv-no-level">
+            <i className="ti ti-info-circle" aria-hidden="true" /> {noLevel} product{noLevel === 1 ? " has" : "s have"} no low-stock level,
+            so {noLevel === 1 ? "it's" : "they're"} never flagged.{" "}
+            <button type="button" style={{ ...s.btn, padding: "2px 8px", fontSize: 11.5 }} onClick={() => onOpenStock("nolevel")}>
+              Set levels
+            </button>
+          </span>
+        )}
+      </div>
       {lowStock.length === 0 ? (
         <div style={s.card}>
-          <p style={{ color: T.textSecondary, margin: 0 }}>Nothing below its reorder level right now.</p>
+          <p style={{ color: T.textSecondary, margin: 0 }}>Nothing at or below its low-stock level right now.</p>
         </div>
       ) : (
         <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={s.table}>
+          <table style={s.table} data-testid="inv-low-table">
             <thead>
               <tr>
                 <th style={s.th}>Type / Brand</th>
+                <th style={s.th}>Location</th>
+                <th style={s.th}>Contractor</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Low-stock Level</th>
-                <th style={s.th}>Contractor</th>
+                <th style={s.th}>Below Level By</th>
+                <th style={s.th}>Days Left</th>
+                <th style={s.th}>Last Receipt</th>
               </tr>
             </thead>
             <tbody>
@@ -564,13 +796,17 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
                     <div style={{ fontWeight: 700 }}>{p.lubricantType}</div>
                     <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
                   </td>
-                  <td style={s.td}>
-                    <span style={{ color: T.danger, fontWeight: 700 }}>
-                      {p.currentStock} {p.unit}
-                    </span>
-                  </td>
-                  <td style={s.td}>{p.recorderLevel} {p.unit}</td>
+                  <td style={s.td}>{p.storageLocation || "—"}</td>
                   <td style={s.td}>{p.contractor}</td>
+                  <td style={s.td}>
+                    <span style={{ color: T.danger, fontWeight: 700 }}>{fmtQty(p.currentStock, p.unit)}</span>
+                  </td>
+                  <td style={s.td}>{fmtQty(p.recorderLevel, p.unit)}</td>
+                  <td style={s.td}>{fmtQty(p.belowBy, p.unit)}</td>
+                  <td style={s.td}>
+                    <DaysLeft T={T} days={p.daysLeft} />
+                  </td>
+                  <td style={s.td}>{p.lastReceiptDate ? formatDate(p.lastReceiptDate) : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -581,7 +817,23 @@ function OverviewTab({ webhookUrl, products, contractorFilter, onOpenProduct, on
   );
 }
 
-// ─── Stock List tab (the original flat product list + search) ───────────
+// "12 days" — red under 15, amber under 45; "—" with no recent use.
+function DaysLeft({ T, days }) {
+  if (days == null)
+    return (
+      <span style={{ color: T.textSecondary }} title="Nothing issued in the last 90 days">
+        —
+      </span>
+    );
+  const color = days < 15 ? T.danger : days < 45 ? T.warning : T.textPrimary;
+  return (
+    <span style={{ color, fontWeight: days < 45 ? 700 : 400 }} title="At the rate used over the last 90 days">
+      {days} day{days === 1 ? "" : "s"}
+    </span>
+  );
+}
+
+// ─── Stock List tab ─────────────────────────────────────────────────────
 // Low-stock level, editable right in the Stock List (the contractor's
 // engineer or an ACC engineer) — same save as the product page's card.
 function LowStockCell({ webhookUrl, product, pushToast, onSaved }) {
@@ -615,7 +867,14 @@ function LowStockCell({ webhookUrl, product, pushToast, onSaved }) {
   if (editing) {
     return (
       <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
-        <input style={{ ...s.input, width: 80 }} type="number" min="0" aria-label={`Low-stock level for ${product.productId}`} value={value} onChange={(e) => setValue(e.target.value)} />
+        <input
+          style={{ ...s.input, width: 80 }}
+          type="number"
+          min="0"
+          aria-label={`Low-stock level for ${product.productId}`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
         <button style={s.btnPrimary} disabled={saving} onClick={save}>
           {saving ? "…" : "Save"}
         </button>
@@ -627,7 +886,7 @@ function LowStockCell({ webhookUrl, product, pushToast, onSaved }) {
   }
   return (
     <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-      {product.recorderLevel != null ? `${product.recorderLevel} ${product.unit || ""}` : <span style={{ color: T.textMuted }}>Not set</span>}
+      {product.recorderLevel != null ? fmtQty(product.recorderLevel, product.unit) : <span style={{ color: T.textMuted }}>Not set</span>}
       {canEdit && (
         <button
           style={{ ...s.btn, padding: "2px 8px", fontSize: 11 }}
@@ -645,20 +904,32 @@ function LowStockCell({ webhookUrl, product, pushToast, onSaved }) {
   );
 }
 
-function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, error, onAdd, onOpenProduct }) {
+const STOCK_FILTERS = [
+  { key: "active", label: "Active", test: (p) => p.status !== "Discontinued" },
+  { key: "low", label: "Low", test: (p) => p.status !== "Discontinued" && isLow(p) },
+  { key: "nolevel", label: "No low-stock level", test: (p) => p.status !== "Discontinued" && p.recorderLevel == null },
+  { key: "discontinued", label: "Discontinued", test: (p) => p.status === "Discontinued" },
+  { key: "all", label: "All", test: () => true },
+];
+
+function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, error, onAdd, onOpenProduct, filter, setFilter }) {
   const { T, s } = useTheme();
   const [search, setSearch] = useState("");
   const q = search.trim().toLowerCase();
+  const f = STOCK_FILTERS.find((x) => x.key === filter) || STOCK_FILTERS[0];
   const visible = products.filter((p) => {
+    if (!f.test(p)) return false;
     if (!q) return true;
-    return [p.productId, p.lubricantType, p.lubricantBrand, p.storageLocation, p.supplier].filter(Boolean).some((f) => f.toLowerCase().includes(q));
+    return [p.productId, p.lubricantType, p.lubricantBrand, p.storageLocation, p.supplier]
+      .filter(Boolean)
+      .some((v) => v.toLowerCase().includes(q));
   });
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
         <input
-          style={{ ...s.input, maxWidth: 420 }}
+          style={{ ...s.input, maxWidth: 420, flex: "1 1 220px" }}
           type="search"
           placeholder="Search by type, brand, location, or supplier…"
           value={search}
@@ -668,6 +939,31 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
           <i className="ti ti-plus" aria-hidden="true" /> Add Product
         </button>
       </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }} role="group" aria-label="Show">
+        {STOCK_FILTERS.map((x) => {
+          const n = products.filter(x.test).length;
+          const on = x.key === f.key;
+          return (
+            <button
+              key={x.key}
+              type="button"
+              aria-pressed={on}
+              data-testid={`stock-filter-${x.key}`}
+              onClick={() => setFilter(x.key)}
+              style={{
+                ...s.btn,
+                padding: "4px 10px",
+                fontSize: 12,
+                background: on ? T.accent : "transparent",
+                color: on ? T.accentText : T.textSecondary,
+                borderColor: on ? T.accent : T.border,
+              }}
+            >
+              {x.label} ({n})
+            </button>
+          );
+        })}
+      </div>
 
       {loading ? (
         <p style={{ color: T.textSecondary }}>Loading inventory…</p>
@@ -675,16 +971,17 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
         <p style={{ color: T.danger }}>{error}</p>
       ) : visible.length === 0 ? (
         <div style={s.card}>
-          <p style={{ color: T.textSecondary, margin: 0 }}>No products match the search.</p>
+          <p style={{ color: T.textSecondary, margin: 0 }}>No products match.</p>
         </div>
       ) : (
         <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={s.table}>
+          <table style={s.table} data-testid="stock-table">
             <thead>
               <tr>
                 <th style={s.th}>Type / Brand</th>
                 <th style={s.th}>Contractor</th>
                 <th style={s.th}>Stock</th>
+                <th style={s.th}>Days Left</th>
                 <th style={s.th}>Low-stock Level</th>
                 <th style={s.th}>Location</th>
                 <th style={s.th}>Status</th>
@@ -693,7 +990,7 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
             </thead>
             <tbody>
               {visible.map((p) => {
-                const low = p.currentStock != null && p.recorderLevel != null && p.currentStock <= p.recorderLevel;
+                const low = isLow(p);
                 return (
                   <tr key={p.productId} style={{ cursor: "pointer" }} onClick={() => onOpenProduct(p.productId)}>
                     <td style={s.td}>
@@ -707,15 +1004,16 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
                       )}
                     </td>
                     <td style={s.td}>{p.contractor || "—"}</td>
-                    <td style={s.td}>
-                      <span style={low ? { color: T.danger, fontWeight: 700 } : undefined}>
-                        {p.currentStock != null ? `${p.currentStock} ${p.unit || ""}` : "—"}
-                      </span>
+                    <td style={{ ...s.td, whiteSpace: "nowrap" }}>
+                      <span style={low ? { color: T.danger, fontWeight: 700 } : undefined}>{fmtQty(p.currentStock, p.unit)}</span>
                       {low && (
                         <span style={{ ...s.badge("Overdue"), marginLeft: 6 }}>
                           <i className="ti ti-alert-triangle" aria-hidden="true" /> Low
                         </span>
                       )}
+                    </td>
+                    <td style={{ ...s.td, whiteSpace: "nowrap" }}>
+                      <DaysLeft T={T} days={daysLeft(p)} />
                     </td>
                     <td style={s.td}>
                       <LowStockCell webhookUrl={webhookUrl} product={p} pushToast={pushToast} onSaved={onChanged} />
@@ -736,10 +1034,8 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
   );
 }
 
-// ─── Consumption tab (Patch 24, backed by Patch 21's aggregation) ────────
+// ─── Consumption tab ────────────────────────────────────────────────────
 const CONSUMPTION_MONTHS_OPTIONS = [3, 6, 12];
-
-const CONSUMPTION_SERIES_COLORS = ["accent", "warning", "danger", "success"];
 
 function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
   const { T, s } = useTheme();
@@ -754,43 +1050,57 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
     setError(null);
     api
       .getOilInventoryConsumption(webhookUrl, months)
-      .then((res) => { if (!cancelled) setData(res); })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [webhookUrl, months]);
 
   const byProductAll = useMemo(() => data?.byProduct || [], [data]);
   const monthKeys = useMemo(() => data?.months || [], [data]);
-  // More than one contractor actually has consumption in this window AND
-  // no single contractor is picked — split the trend into one series per
-  // contractor (stacked) instead of one blended bar, same "breakdown by
-  // contractor" pattern as everywhere else in the app; narrows back down
-  // to a single series the moment a specific contractor is picked.
+  // With no contractor picked and both present, one stacked series per
+  // contractor, in the categorical palette (never the warning/danger
+  // colours, which mean "something is wrong").
   const presentContractors = useMemo(
     () => Array.from(new Set(byProductAll.map((p) => p.contractor).filter(Boolean))).sort(),
     [byProductAll]
   );
   const splitChart = contractorFilter === "All" && presentContractors.length > 1;
+  const palette = isDarkSurface(T.cardBg) ? SERIES_DARK : SERIES_LIGHT;
+  const lastIdx = monthKeys.length - 1;
+  const partial = lastIdx >= 0 && isCurrentMonth(monthKeys[lastIdx]);
 
   const chartData = useMemo(() => {
     if (!monthKeys.length) return [];
+    const label = (m, i) => monthLabel(m) + (partial && i === lastIdx ? " (so far)" : "");
     if (splitChart) {
       const totalsByContractor = presentContractors.map((c) => monthlyTotalsFor(byProductAll, monthKeys, c));
       return monthKeys.map((m, i) => {
-        const row = { month: monthLabel(m) };
-        presentContractors.forEach((c, ci) => { row[c] = totalsByContractor[ci][i]; });
+        const row = { month: label(m, i) };
+        presentContractors.forEach((c, ci) => {
+          row[c] = totalsByContractor[ci][i];
+        });
         return row;
       });
     }
     const totals = monthlyTotalsFor(byProductAll, monthKeys, contractorFilter);
-    return monthKeys.map((m, i) => ({ month: monthLabel(m), total: totals[i] }));
-  }, [monthKeys, splitChart, presentContractors, byProductAll, contractorFilter]);
+    return monthKeys.map((m, i) => ({ month: label(m, i), total: totals[i] }));
+  }, [monthKeys, splitChart, presentContractors, byProductAll, contractorFilter, partial, lastIdx]);
   const hasChartData = chartData.some((d) => Object.keys(d).some((k) => k !== "month" && d[k] > 0));
 
   const byProduct = (contractorFilter === "All" ? byProductAll : byProductAll.filter((p) => p.contractor === contractorFilter))
     .slice()
     .sort((a, b) => b.total - a.total);
+  const grandTotal = byProduct.reduce((sum, p) => sum + (p.total || 0), 0);
+  const opacity = (i) => (partial && i === lastIdx ? 0.45 : 1);
 
   return (
     <div>
@@ -812,7 +1122,10 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
       ) : (
         <>
           <div style={{ ...s.card, marginBottom: 20 }}>
-            <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Total Consumption by Month{splitChart ? " — by Contractor" : ""}</p>
+            <p style={{ fontWeight: 700, margin: "0 0 2px" }}>Total Consumption by Month{splitChart ? " — by Contractor" : ""}</p>
+            {partial && (
+              <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>The pale last column is this month so far.</p>
+            )}
             {!hasChartData ? (
               <p style={{ color: T.textSecondary, margin: 0 }}>No logged Issue movements in this window.</p>
             ) : (
@@ -820,24 +1133,37 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={34} />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: T.textSecondary }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={44}
+                    tickFormatter={fmtNum}
+                  />
                   <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
+                  {splitChart && <Legend wrapperStyle={{ fontSize: 11 }} />}
                   {splitChart ? (
-                    <>
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      {presentContractors.map((c, idx) => (
-                        <Bar
-                          key={c}
-                          dataKey={c}
-                          name={c}
-                          stackId="a"
-                          fill={T[CONSUMPTION_SERIES_COLORS[idx % CONSUMPTION_SERIES_COLORS.length]]}
-                          radius={idx === presentContractors.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                        />
-                      ))}
-                    </>
+                    presentContractors.map((c, idx) => (
+                      <Bar
+                        key={c}
+                        dataKey={c}
+                        name={c}
+                        stackId="a"
+                        fill={palette[idx % palette.length]}
+                        radius={idx === presentContractors.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                        isAnimationActive={false}
+                      >
+                        {chartData.map((_, i) => (
+                          <Cell key={i} fillOpacity={opacity(i)} />
+                        ))}
+                      </Bar>
+                    ))
                   ) : (
-                    <Bar dataKey="total" fill={T.accent} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="total" name="Issued" fill={palette[0]} radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                      {chartData.map((_, i) => (
+                        <Cell key={i} fillOpacity={opacity(i)} />
+                      ))}
+                    </Bar>
                   )}
                 </BarChart>
               </ResponsiveContainer>
@@ -851,13 +1177,14 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
             </div>
           ) : (
             <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-              <table style={s.table}>
+              <table style={s.table} data-testid="consumption-table">
                 <thead>
                   <tr>
                     <th style={s.th}>Type / Brand</th>
                     <th style={s.th}>Contractor</th>
                     <th style={s.th}>Total</th>
                     <th style={s.th}>Avg / Month</th>
+                    <th style={s.th}>% of Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -868,8 +1195,9 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
                         <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
                       </td>
                       <td style={s.td}>{p.contractor}</td>
-                      <td style={s.td}>{p.total} L</td>
-                      <td style={s.td}>{p.averageMonthly} L</td>
+                      <td style={s.td}>{fmtQty(p.total)}</td>
+                      <td style={s.td}>{fmtQty(p.averageMonthly)}</td>
+                      <td style={s.td}>{grandTotal ? `${fmtNum((p.total / grandTotal) * 100)}%` : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -882,28 +1210,12 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
   );
 }
 
-// ─── Forecast tab ─────────────────────────────────────────────────────────
-//
-// Projected consumption vs. current stock over the next N months — see
-// backend/oil-lubrication/src/OilInventory.js's getOilInventoryForecast
-// for how this is computed (registry interval projection for scheduled
-// equipment, a historical-average rate for condition-based equipment —
-// Patch 22). A Contractor Engineer only ever sees their own contractor's
-// lines (enforced server-side); ACC/Admin sees every contractor's, one row
-// per oil per contractor.
-// Phase 5 — shortage check period (days).
-const FORECAST_PERIODS = [
-  { days: 15, label: "Next 15 days" },
-  { days: 30, label: "Next 30 days" },
-  { days: 60, label: "Next 60 days" },
-  { days: 90, label: "Next 90 days" },
-  { days: 182, label: "Next 6 months" },
-  { days: 365, label: "Next 1 year" },
-];
-
-function ForecastTab({ webhookUrl, contractorFilter, products }) {
+// ─── Forecast tab ───────────────────────────────────────────────────────
+// Projected need vs. current stock for the chosen period — see
+// backend/oil-lubrication/src/OilInventory.js's getOilInventoryForecast.
+// The period is shared with the Overview's Upcoming Shortfalls.
+function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod }) {
   const { T, s } = useTheme();
-  const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -913,12 +1225,20 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
     setLoading(true);
     setError(null);
     api
-      .getOilInventoryForecast(webhookUrl, { days })
-      .then((res) => { if (!cancelled) setData(res); })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [webhookUrl, days]);
+      .getOilInventoryForecast(webhookUrl, { days: period })
+      .then((res) => {
+        if (!cancelled) setData(res);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [webhookUrl, period]);
 
   const levelById = useMemo(() => Object.fromEntries((products || []).map((p) => [p.productId, p.recorderLevel])), [products]);
   const rows = (data?.forecast || [])
@@ -927,7 +1247,8 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
       const level = r.productId != null && levelById[r.productId] != null ? levelById[r.productId] : null;
       const after = r.currentStock != null ? Math.round((r.currentStock - (r.quantityNeeded || 0)) * 100) / 100 : null;
       return { ...r, level, after, belowLevel: after != null && level != null && after <= level };
-    });
+    })
+    .sort((a, b) => (b.currentStock == null) - (a.currentStock == null) || (b.shortfall || 0) - (a.shortfall || 0));
   const shortCount = rows.filter((r) => r.shortfall == null || r.shortfall > 0).length;
   const insufficientHistory = (data?.insufficientHistory || []).filter(
     (e) => contractorFilter === "All" || e.contractor === contractorFilter
@@ -935,24 +1256,18 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         <label style={s.label}>Shortage check</label>
-        <select style={{ ...s.select, width: 160 }} value={days} aria-label="Shortage check period" onChange={(e) => setDays(Number(e.target.value))}>
-          {FORECAST_PERIODS.map((p) => (
-            <option key={p.days} value={p.days}>
-              {p.label}
-            </option>
-          ))}
-        </select>
-        {data?.windowEnd && (
-          <span style={{ fontSize: 12, color: T.textSecondary }}>through {data.windowEnd}</span>
-        )}
+        <PeriodSelect s={s} value={period} onChange={setPeriod} />
+        {data?.windowEnd && <span style={{ fontSize: 12, color: T.textSecondary }}>through {formatDate(data.windowEnd)}</span>}
       </div>
       {!loading && !error && shortCount > 0 && (
         <div style={{ ...s.card, borderColor: T.danger, marginBottom: 14, fontSize: 13 }}>
           <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, marginRight: 6 }} />
-          <strong>{shortCount} oil{shortCount === 1 ? "" : "s"} won't cover the scheduled work in this period.</strong> Obtain stock, reschedule the
-          work, or use an approved equivalent oil.
+          <strong>
+            {shortCount} oil{shortCount === 1 ? "" : "s"} won't cover the planned work in this period.
+          </strong>{" "}
+          Obtain stock, reschedule the work, or use an approved equivalent oil.
         </div>
       )}
 
@@ -973,70 +1288,80 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
             <>
               <div style={{ ...s.card, marginBottom: 20 }}>
                 <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Current Stock vs. Projected Need</p>
-                <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 14px" }}>
-                  The Stock column turns red when it won't cover the Need column next to it — worst shortfall first. The dashed line is
-                  each oil's low-stock level.
+                <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
+                  Worst shortfall first.
+                  {contractorFilter === "All"
+                    ? " The same oil at RHI and ASEC is one column (hover for each contractor) — pick a contractor to see theirs alone."
+                    : ""}
                 </p>
-                <ForecastChart T={T} rows={rows} />
+                <ForecastChart T={T} rows={rows} merge={contractorFilter === "All"} />
               </div>
               <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-              <table style={s.table}>
-                <thead>
-                  <tr>
-                    <th style={s.th}>Oil</th>
-                    <th style={s.th}>Contractor</th>
-                    <th style={s.th}>LPs Contributing</th>
-                    <th style={s.th}>Projected Need</th>
-                    <th style={s.th}>Current Stock</th>
-                    <th style={s.th}>Shortfall</th>
-                    <th style={s.th}>Low-stock Level</th>
-                    <th style={s.th}>Stock After Work</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => {
-                    const short = r.shortfall != null && r.shortfall > 0;
-                    return (
-                      <tr key={`${r.contractor}|${r.lubricant}|${r.lubricantBrand}`}>
-                        <td style={s.td}>
-                          <div style={{ fontWeight: 700 }}>{r.lubricant}</div>
-                          <div style={{ fontSize: 11.5, color: T.textSecondary }}>{r.lubricantBrand}</div>
-                        </td>
-                        <td style={s.td}>{r.contractor}</td>
-                        <td style={s.td}>{r.lpCount}</td>
-                        <td style={s.td}>{r.quantityNeeded} L</td>
-                        <td style={s.td}>
-                          {r.currentStock != null ? `${r.currentStock} L` : "No matching product"}
-                          {(r.coveredBy || []).length > 1 && (
-                            <div style={{ fontSize: 11, color: T.textSecondary }}>incl. {r.coveredBy.slice(1).join(", ")}</div>
-                          )}
-                        </td>
-                        <td style={s.td}>
-                          {r.shortfall == null ? (
-                            "—"
-                          ) : short ? (
-                            <span style={{ ...s.badge("Overdue") }}>
-                              <i className="ti ti-alert-triangle" aria-hidden="true" /> {r.shortfall} L short
-                            </span>
-                          ) : (
-                            <span style={{ color: T.success }}>Covered</span>
-                          )}
-                        </td>
-                        <td style={s.td}>{r.level != null ? `${r.level} L` : "—"}</td>
-                        <td style={s.td}>
-                          {r.after == null ? (
-                            "—"
-                          ) : (
-                            <span style={r.belowLevel ? { color: T.warning, fontWeight: 700 } : undefined}>
-                              {r.after} L{r.belowLevel ? " — at/below low-stock level" : ""}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                <table style={s.table} data-testid="forecast-table">
+                  <thead>
+                    <tr>
+                      <th style={s.th}>Oil</th>
+                      <th style={s.th}>Contractor</th>
+                      <th style={s.th}>LPs Contributing</th>
+                      <th style={s.th}>Projected Need</th>
+                      <th style={s.th}>Current Stock</th>
+                      <th style={s.th}>Shortfall</th>
+                      <th style={s.th}>Low-stock Level</th>
+                      <th style={s.th}>Stock After Work</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const noProduct = r.currentStock == null;
+                      const short = !noProduct && r.shortfall > 0;
+                      return (
+                        <tr key={`${r.contractor}|${r.lubricant}|${r.lubricantBrand}`}>
+                          <td style={s.td}>
+                            <div style={{ fontWeight: 700 }}>{r.lubricant}</div>
+                            <div style={{ fontSize: 11.5, color: T.textSecondary }}>{r.lubricantBrand}</div>
+                          </td>
+                          <td style={s.td}>{r.contractor}</td>
+                          <td style={s.td}>{r.lpCount}</td>
+                          <td style={s.td}>{fmtQty(r.quantityNeeded)}</td>
+                          <td style={s.td}>
+                            {noProduct ? "—" : fmtQty(r.currentStock)}
+                            {(r.coveredBy || []).length > 1 && (
+                              <div style={{ fontSize: 11, color: T.textSecondary }}>incl. {r.coveredBy.slice(1).join(", ")}</div>
+                            )}
+                          </td>
+                          <td style={s.td}>
+                            {noProduct ? (
+                              <span
+                                style={{ ...s.badge("Overdue") }}
+                                data-testid="forecast-no-product"
+                                title="No product for this oil in the inventory — add it, or approve an equivalent"
+                              >
+                                <i className="ti ti-package-off" aria-hidden="true" /> No stock product
+                              </span>
+                            ) : short ? (
+                              <span style={{ ...s.badge("Overdue") }}>
+                                <i className="ti ti-alert-triangle" aria-hidden="true" /> {fmtQty(r.shortfall)} short
+                              </span>
+                            ) : (
+                              <span style={{ color: T.success }}>Covered</span>
+                            )}
+                          </td>
+                          <td style={s.td}>{r.level != null ? fmtQty(r.level) : "—"}</td>
+                          <td style={s.td}>
+                            {r.after == null ? (
+                              "—"
+                            ) : (
+                              <span style={r.belowLevel ? { color: T.warning, fontWeight: 700 } : undefined}>
+                                {fmtQty(r.after)}
+                                {r.belowLevel ? " — at/below low-stock level" : ""}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </>
           )}
@@ -1052,7 +1377,10 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
               </p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {insufficientHistory.map((e) => (
-                  <span key={e.code} style={{ fontSize: 11.5, color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: 4, padding: "3px 8px" }}>
+                  <span
+                    key={e.code}
+                    style={{ fontSize: 11.5, color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: 4, padding: "3px 8px" }}
+                  >
                     {e.code} — {e.lubricant}
                     {e.lubricantBrand ? ` (${e.lubricantBrand})` : ""}
                     {e.area ? ` · ${e.area}` : ""}
@@ -1067,9 +1395,10 @@ function ForecastTab({ webhookUrl, contractorFilter, products }) {
   );
 }
 
-// ─── Movements tab (Patch 23's unified all-products ledger) ──────────────
+// ─── Movements tab ──────────────────────────────────────────────────────
 const MOVEMENT_TYPE_FILTERS = ["All", "Receipt", "Issue", "Adjustment"];
-const MOVEMENTS_DISPLAY_CAP = 200;
+const MOVEMENTS_PAGE = 50;
+const dayStart = (v) => (v ? new Date(`${v}T00:00:00`).getTime() : null);
 
 function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct }) {
   const { T, s } = useTheme();
@@ -1078,6 +1407,9 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
   const [error, setError] = useState(null);
   const [typeFilter, setTypeFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -1085,40 +1417,110 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
     setError(null);
     api
       .getAllOilInventoryMovements(webhookUrl)
-      .then((res) => { if (!cancelled) setMovements(res); })
-      .catch((err) => { if (!cancelled) setError(err.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((res) => {
+        if (!cancelled) setMovements(res);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [webhookUrl]);
 
-  const productById = useMemo(() => {
-    const map = new Map();
-    products.forEach((p) => map.set(p.productId, p));
-    return map;
-  }, [products]);
+  useEffect(() => setPage(0), [typeFilter, search, from, to, contractorFilter]);
+
+  const productById = useMemo(() => new Map(products.map((p) => [p.productId, p])), [products]);
 
   const q = search.trim().toLowerCase();
+  const fromT = dayStart(from);
+  const toT = to ? dayStart(to) + 86400000 : null;
   const visible = movements.filter((m) => {
     if (contractorFilter !== "All" && m.contractor !== contractorFilter) return false;
     if (typeFilter !== "All" && m.movementType !== typeFilter) return false;
+    if (fromT != null && (m.movementTime == null || m.movementTime < fromT)) return false;
+    if (toT != null && (m.movementTime == null || m.movementTime >= toT)) return false;
     if (!q) return true;
     const product = productById.get(m.productId);
     return [m.productId, m.linkedLpId, m.doneBy, m.reference, m.contractor, product?.lubricantType, product?.lubricantBrand]
       .filter(Boolean)
-      .some((f) => f.toLowerCase().includes(q));
+      .some((v) => v.toLowerCase().includes(q));
   });
-  const shown = visible.slice(0, MOVEMENTS_DISPLAY_CAP);
+  const pages = Math.max(1, Math.ceil(visible.length / MOVEMENTS_PAGE));
+  const cur = Math.min(page, pages - 1);
+  const shown = visible.slice(cur * MOVEMENTS_PAGE, (cur + 1) * MOVEMENTS_PAGE);
+
+  function exportCsv() {
+    const rows = [
+      ["Date", "Product ID", "Oil", "Brand", "Type", "Quantity", "Unit", "Issued To", "Contractor", "Done By", "Reference", "Notes"],
+    ];
+    visible.forEach((m) => {
+      const p = productById.get(m.productId);
+      rows.push([
+        m.movementDate,
+        m.productId,
+        p?.lubricantType || "",
+        p?.lubricantBrand || "",
+        m.movementType,
+        signedQty(m.movementType, m.quantity) ?? "",
+        p?.unit || "L",
+        m.linkedLpId,
+        m.contractor,
+        m.doneBy,
+        m.reference,
+        m.notes,
+      ]);
+    });
+    const blob = new Blob([toCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Oil-Movements${contractorFilter !== "All" ? `-${contractorFilter}` : ""}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-        <select style={{ ...s.select, width: 140, fontSize: 12 }} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+        <select
+          style={{ ...s.select, width: 140, fontSize: 12 }}
+          value={typeFilter}
+          aria-label="Movement type"
+          onChange={(e) => setTypeFilter(e.target.value)}
+        >
           {MOVEMENT_TYPE_FILTERS.map((t) => (
             <option key={t} value={t}>
               {t === "All" ? "All Types" : t}
             </option>
           ))}
         </select>
+        <label style={{ fontSize: 12, color: T.textSecondary, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          From
+          <input
+            style={{ ...s.input, width: 150, fontSize: 12 }}
+            type="date"
+            value={from}
+            max={to || undefined}
+            aria-label="From date"
+            onChange={(e) => setFrom(e.target.value)}
+          />
+        </label>
+        <label style={{ fontSize: 12, color: T.textSecondary, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          To
+          <input
+            style={{ ...s.input, width: 150, fontSize: 12 }}
+            type="date"
+            value={to}
+            min={from || undefined}
+            aria-label="To date"
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </label>
         <input
           style={{ ...s.input, flex: 1, minWidth: 200 }}
           type="search"
@@ -1126,6 +1528,9 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button type="button" style={s.btn} onClick={exportCsv} disabled={!visible.length} data-testid="movements-export">
+          <i className="ti ti-file-spreadsheet" aria-hidden="true" /> Export (Excel)
+        </button>
       </div>
 
       {loading ? (
@@ -1139,7 +1544,7 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
       ) : (
         <>
           <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-            <table style={s.table}>
+            <table style={s.table} data-testid="movements-table">
               <thead>
                 <tr>
                   <th style={s.th}>Date</th>
@@ -1155,9 +1560,14 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
               <tbody>
                 {shown.map((m) => {
                   const product = productById.get(m.productId);
+                  const qty = signedQty(m.movementType, m.quantity);
                   return (
-                    <tr key={m.movementId} style={{ cursor: product ? "pointer" : "default" }} onClick={() => product && onOpenProduct(m.productId)}>
-                      <td style={s.td}>{m.movementDate || "—"}</td>
+                    <tr
+                      key={m.movementId}
+                      style={{ cursor: product ? "pointer" : "default" }}
+                      onClick={() => product && onOpenProduct(m.productId)}
+                    >
+                      <td style={{ ...s.td, whiteSpace: "nowrap" }}>{m.movementDate || "—"}</td>
                       <td style={s.td}>
                         {product ? (
                           <>
@@ -1169,7 +1579,9 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
                         )}
                       </td>
                       <td style={s.td}>{m.movementType}</td>
-                      <td style={s.td}>{m.quantity}</td>
+                      <td style={{ ...s.td, whiteSpace: "nowrap", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                        {fmtSigned(qty, product?.unit || "L")}
+                      </td>
                       <td style={s.td}>{m.linkedLpId || "—"}</td>
                       <td style={s.td}>{m.contractor || "—"}</td>
                       <td style={s.td}>{m.doneBy || "—"}</td>
@@ -1180,11 +1592,27 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
               </tbody>
             </table>
           </div>
-          {visible.length > MOVEMENTS_DISPLAY_CAP && (
-            <p style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 10 }}>
-              Showing the first {MOVEMENTS_DISPLAY_CAP} of {visible.length} matching movements — narrow the filter or search to see more.
-            </p>
-          )}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: T.textSecondary }} data-testid="movements-range">
+              {cur * MOVEMENTS_PAGE + 1}–{cur * MOVEMENTS_PAGE + shown.length} of {visible.length}
+            </span>
+            {pages > 1 && (
+              <span style={{ display: "inline-flex", gap: 6 }}>
+                <button type="button" style={s.btn} disabled={cur === 0} onClick={() => setPage(cur - 1)}>
+                  <i className="ti ti-chevron-left" aria-hidden="true" /> Previous
+                </button>
+                <button
+                  type="button"
+                  style={s.btn}
+                  disabled={cur >= pages - 1}
+                  onClick={() => setPage(cur + 1)}
+                  data-testid="movements-next"
+                >
+                  Next <i className="ti ti-chevron-right" aria-hidden="true" />
+                </button>
+              </span>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -1193,18 +1621,19 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
 
 export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
   const [view, setView] = useState("tabs"); // "tabs" | "add" | "detail"
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedProductId, setSelectedProductId] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Stock is owned per-contractor, not pooled — same reasoning
-  // CONTRACTOR_OPTIONS' own comment gives — so every tab here benefits from
-  // the same shared Contractor filter every other redesigned page in this
-  // app already has. Locked to the account's own org for a scoped caller
-  // (same pattern as Dashboard.jsx's scopedContractor), since their data is
-  // already scoped server-side and a dropdown would be a no-op for them.
+  // One shortage-check period for the Overview's Upcoming Shortfalls and
+  // the Forecast tab, so the count on the card is the count you land on.
+  const [period, setPeriod] = useState(90);
+  const [stockFilter, setStockFilter] = useState("active");
+  // Stock is owned per-contractor, not pooled. Locked to the account's own
+  // org for a scoped caller (their data is already scoped server-side).
   const scopedContractor = useSessionContractor();
   const [contractorFilter, setContractorFilter] = useState(scopedContractor || "All");
   const visibleProducts = useMemo(
@@ -1276,7 +1705,12 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Inventory</p>
         {!scopedContractor && (
-          <select style={{ ...s.select, width: 170, fontSize: 12 }} value={contractorFilter} onChange={(e) => setContractorFilter(e.target.value)}>
+          <select
+            style={{ ...s.select, width: isMobile ? "100%" : 170, fontSize: 12 }}
+            value={contractorFilter}
+            aria-label="Contractor"
+            onChange={(e) => setContractorFilter(e.target.value)}
+          >
             <option value="All">All Contractors</option>
             {CONTRACTOR_OPTIONS.map((c) => (
               <option key={c} value={c}>
@@ -1288,7 +1722,19 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
       </div>
       <TabBar T={T} s={s} activeTab={activeTab} setActiveTab={setActiveTab} />
       {activeTab === "overview" && (
-        <OverviewTab webhookUrl={webhookUrl} products={visibleProducts} contractorFilter={contractorFilter} onOpenProduct={openProduct} onNavigateTab={setActiveTab} />
+        <OverviewTab
+          webhookUrl={webhookUrl}
+          products={visibleProducts}
+          contractorFilter={contractorFilter}
+          period={period}
+          setPeriod={setPeriod}
+          onOpenProduct={openProduct}
+          onNavigateTab={setActiveTab}
+          onOpenStock={(f) => {
+            setStockFilter(f);
+            setActiveTab("stock");
+          }}
+        />
       )}
       {activeTab === "stock" && (
         <StockListTab
@@ -1300,10 +1746,22 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
           error={error}
           onAdd={() => setView("add")}
           onOpenProduct={openProduct}
+          filter={stockFilter}
+          setFilter={setStockFilter}
         />
       )}
-      {activeTab === "consumption" && <ConsumptionTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} onOpenProduct={openProduct} />}
-      {activeTab === "forecast" && <ForecastTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} products={products} />}
+      {activeTab === "consumption" && (
+        <ConsumptionTab webhookUrl={webhookUrl} contractorFilter={contractorFilter} onOpenProduct={openProduct} />
+      )}
+      {activeTab === "forecast" && (
+        <ForecastTab
+          webhookUrl={webhookUrl}
+          contractorFilter={contractorFilter}
+          products={products}
+          period={period}
+          setPeriod={setPeriod}
+        />
+      )}
       {activeTab === "movements" && (
         <MovementsTab webhookUrl={webhookUrl} products={visibleProducts} contractorFilter={contractorFilter} onOpenProduct={openProduct} />
       )}
