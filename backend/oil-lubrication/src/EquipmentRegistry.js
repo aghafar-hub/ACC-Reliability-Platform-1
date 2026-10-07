@@ -114,3 +114,40 @@ function readEquipmentRegistry() {
   }
   return { equipment: equipment, count: equipment.length };
 }
+
+// ─── Learning a lab report's Unit ID ─────────────────────────────────────
+// A lab report names its point by "Unit ID", which the import looks up in
+// column C (Report Equipment ID), ignoring spaces and case. When no point
+// has it, the user picks the point by hand; after the samples are saved the
+// app sends that pick here so the next report from the point matches by
+// itself. Only an EMPTY Report Equipment ID is filled — an existing one is
+// never replaced from an import (change it in the registry) — and one Unit
+// ID never goes to two points.
+function squashReportId_(v) {
+  return String(v == null ? "" : v).replace(/\s+/g, "").toUpperCase();
+}
+
+function learnReportEquipmentId_(ss, lpId, unitId) {
+  var id = String(lpId || "").trim();
+  var text = labInfoText_(unitId);
+  var key = squashReportId_(text);
+  if (!id || !key) return { error: "LP_ID and Report Equipment ID are required" };
+  var sheet = ss.getSheetByName("Equipment Registry");
+  if (!sheet) return { error: "Sheet 'Equipment Registry' not found" };
+  var vals = sheet.getDataRange().getValues();
+  var rowIdx = -1;
+  for (var i = 2; i < vals.length; i++) {
+    var code = String(vals[i][0] || "").trim();
+    if (!code) continue;
+    if (code === id) { rowIdx = i; continue; }
+    if (squashReportId_(vals[i][2]) === key) {
+      return { error: "Report Equipment ID " + text + " already belongs to " + code };
+    }
+  }
+  if (rowIdx === -1) return { error: "Lubrication point " + id + " not found in the Equipment Registry" };
+  var current = String(vals[rowIdx][2] || "").trim();
+  if (current) return { learned: false, current: current };
+  sheet.getRange(rowIdx + 1, 3).setValue(text);
+  sheet.getRange(rowIdx + 1, 21).setValue(new Date());
+  return { learned: true, current: text };
+}

@@ -97,10 +97,24 @@ function withStatus(candidates, existingIds, remap) {
   });
 }
 
-function PointPicker({ T, s, equipmentRegistry, value, onChange }) {
+// The equipment part of a lab Unit ID ("462.LQ145Gearbox" → "462.LQ145"),
+// used to suggest that equipment's points before anything is typed.
+const equipmentPart = (unitId) => (String(unitId || "").toUpperCase().match(/\d{3}\.[A-Z]{2}\d{3}/) || [""])[0];
+
+function PointPicker({ T, s, equipmentRegistry, value, onChange, hint }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const matches = !q ? [] : (equipmentRegistry || []).filter((r) => r.code.toLowerCase().includes(q) || (r.description || "").toLowerCase().includes(q)).slice(0, 8);
+  const base = equipmentPart(hint).toLowerCase();
+  const matches = q
+    ? (equipmentRegistry || [])
+        .filter((r) => [r.code, r.description, r.reportEquipmentId].some((v) => String(v || "").toLowerCase().includes(q)))
+        .slice(0, 8)
+    : !value && base
+      ? (equipmentRegistry || [])
+          .filter((r) => r.code.toLowerCase().includes(base))
+          .sort((a, b) => (b.oilAnalysisRequired === "Yes") - (a.oilAnalysisRequired === "Yes"))
+          .slice(0, 8)
+      : [];
   return (
     <div style={{ marginTop: 6 }}>
       <input
@@ -126,6 +140,7 @@ function PointPicker({ T, s, equipmentRegistry, value, onChange }) {
               style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 8px", fontSize: 12, border: "none", borderBottom: `1px solid ${T.border2}`, background: "none", color: T.textPrimary, cursor: "pointer" }}
             >
               <span style={{ fontFamily: "monospace", color: T.accent }}>{r.code}</span> — {r.description}
+              {r.reportEquipmentId && <span style={{ color: T.textSecondary }}> · Report ID {r.reportEquipmentId}</span>}
             </button>
           ))}
         </div>
@@ -188,6 +203,14 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
     .filter((f) => Object.keys(f.labInfo).length);
   const fillKeys = new Set(fillable.map((f) => f.key));
   const fills = fillDetails ? fillable : [];
+  // The registry "learns" a report's Unit ID: when the user picks the point
+  // for an ID no point has, saving writes it as that point's Report
+  // Equipment ID (only if the point has none) so the next import matches it.
+  const registryByCode = useMemo(() => new Map((equipmentRegistry || []).map((r) => [r.code, r])), [equipmentRegistry]);
+  const learns = files
+    .filter((f) => remap[f.fileIdx] && !f.items[0].pointOptions?.length && f.items.some((c) => c.include))
+    .map((f) => ({ lpId: remap[f.fileIdx], reportEquipmentId: f.reportId }))
+    .filter((l) => l.reportEquipmentId && !String(registryByCode.get(l.lpId)?.reportEquipmentId || "").trim());
 
   const update = (key, fn) => setRaw((prev) => prev.map((c) => (c._key === key ? fn(c) : c)));
   const toggle = (key, on) => update(key, (c) => ({ ...c, selected: on }));
@@ -220,7 +243,8 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
         reportEquipmentId: c.sample.reportEquipmentId || c.sample.unitId,
         recommendations: (c.sample.recommendations || []).map((r) => String(r).trim()).filter(Boolean),
       })),
-      fills.map(({ sampleId, labInfo }) => ({ sampleId, labInfo }))
+      fills.map(({ sampleId, labInfo }) => ({ sampleId, labInfo })),
+      learns
     );
   }
 
@@ -373,6 +397,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               file={currentFile}
               equipmentRegistry={equipmentRegistry}
               remapValue={remap[current.fileIdx]}
+              remapPoint={registryByCode.get(remap[current.fileIdx])}
               onRemap={(code) => setRemap((m) => ({ ...m, [current.fileIdx]: code }))}
               onToggle={(on) => toggle(current._key, on)}
               onOpen={(key) => setView({ type: "sample", key })}
@@ -390,7 +415,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
 
 // One sample: the point's report as the lab printed it (every sample of this
 // file as a column, this one outlined), with the new samples' cells editable.
-function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onToggle, onOpen, onField, onMark, onText, canFill }) {
+function SampleView({ T, s, c, file, equipmentRegistry, remapValue, remapPoint, onRemap, onToggle, onOpen, onField, onMark, onText, canFill }) {
   const columns = file.items;
   const groups = visibleGroups(columns.map((x) => x.sample)).map((g) => ({ ...g, rows: g.rows.filter((r) => r.field) }));
   const border = `1px solid ${T.border}`;
@@ -522,9 +547,20 @@ function SampleView({ T, s, c, file, equipmentRegistry, remapValue, onRemap, onT
               </>
             ) : (
               <>
-                Unit ID <strong>{smp.unitId}</strong> isn't a Report Equipment ID in the Equipment Registry. Pick the point these results belong to (and
-                add the Report Equipment ID to the registry so the next import finds it):
-                <PointPicker T={T} s={s} equipmentRegistry={equipmentRegistry} value={remapValue} onChange={onRemap} />
+                Unit ID <strong>{smp.unitId}</strong> isn't a Report Equipment ID in the Equipment Registry. Pick the point these results belong to:
+                <PointPicker T={T} s={s} equipmentRegistry={equipmentRegistry} value={remapValue} onChange={onRemap} hint={smp.unitId} />
+                {remapPoint &&
+                  (String(remapPoint.reportEquipmentId || "").trim() ? (
+                    <div style={{ marginTop: 6, color: T.textSecondary }} data-testid="import-learn-note">
+                      {remapPoint.code} already has Report Equipment ID <strong>{remapPoint.reportEquipmentId}</strong> — kept as it is, so this Unit ID
+                      will need picking again next time (change it in the Equipment Registry if the lab now uses {smp.unitId}).
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 6, color: T.success }} data-testid="import-learn-note">
+                      <i className="ti ti-bulb" aria-hidden="true" /> On submit, <strong>{smp.unitId}</strong> is saved as {remapPoint.code}'s Report Equipment
+                      ID, so the next report from this point is matched automatically.
+                    </div>
+                  ))}
               </>
             )}
           </div>

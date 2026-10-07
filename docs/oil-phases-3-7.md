@@ -387,8 +387,18 @@ Apps Script (Oil Lubrication test script): replace `Code` and
   "431.KB102(4)" finds "431.KB102 (4)" → LP-431.KB102-KB-B4); the sample is
   saved under that LP_ID with the Unit ID kept as its Report Equipment ID.
   Only when no point has it as its Report Equipment ID is an LP_ID equal to
-  the Unit ID used; otherwise the point must be picked first (and the
-  Report Equipment ID should be added to the registry for next time). Right: the open sample — its report
+  the Unit ID used; otherwise the point must be picked first — the picker
+  already lists that equipment's points (e.g. "462.LQ145Gearbox" lists the
+  462.LQ145 points).
+- **The registry learns report IDs.** When the point is picked by hand and
+  the samples are submitted, the report's Unit ID is written to that
+  point's Report Equipment ID (Equipment Registry column C, Modified_Date
+  stamped, audit-logged; server action `learnReportEquipmentId`, same
+  access as importing). The next report from the point then matches by
+  itself. Only an empty Report Equipment ID is filled — an existing one is
+  kept (the review says so; change it in the registry if the lab changed
+  its ID) — and the server refuses a Unit ID that already belongs to
+  another point (spaces/case ignored) or a point of another contractor. Right: the open sample — its report
   details and the report table (every sample of that report as a column,
   this one outlined). New samples' values can be corrected in place and the
   lab mark beside each value set (· → C → A); edited samples say "Edited".

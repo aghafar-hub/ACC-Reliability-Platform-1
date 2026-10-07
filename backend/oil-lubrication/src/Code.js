@@ -455,6 +455,16 @@ function doPost(e) {
         return jsonOut({status: "ok", filled: fillCount});
       }
 
+      if (data.action === "learnReportEquipmentId") {
+        requirePermission_(auth.session, "Edit");
+        requireLpContractorMatch_(auth.session, data.lpId);
+        var learn = learnReportEquipmentId_(ss, data.lpId, data.reportEquipmentId);
+        logError("doPost:learnReportEquipmentId", learn.error || (learn.learned ? "learned" : "kept"), {lpId: data.lpId, reportEquipmentId: data.reportEquipmentId, actingUser: actingUser});
+        if (learn.error) return jsonOut({status: "error", message: learn.error});
+        if (learn.learned) recordAudit_(ss, "Equipment Registry", data.lpId, "update", actingUser, scope || resolveLpContractor_(data.lpId), "Report Equipment ID set to " + learn.current + " (matched by hand on a lab report import)");
+        return jsonOut({status: "ok", learned: learn.learned, reportEquipmentId: learn.current});
+      }
+
       if (data.action === "updateSampleTracker") {
         requirePermission_(auth.session, "Edit");
         requireLpContractorMatch_(auth.session, data.equipmentCode);

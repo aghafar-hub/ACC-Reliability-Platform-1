@@ -114,6 +114,7 @@ var MA_CONFIG = {
     setOilEquivalent: ["inventory"],
     returnLabReport: ["oilreport", "upload", "tracker"],
     fillLabInfo: ["upload"],
+    learnReportEquipmentId: ["upload"],
     rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
     submitRoutineItem: ["routines", "mywork"],

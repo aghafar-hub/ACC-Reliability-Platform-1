@@ -7,7 +7,7 @@ const MAX_FILES = 30;
 
 // Upload + parse; the review then opens as its own tab on the Add Report page
 // (view === "review", see AddSample.jsx) instead of a pop-up.
-export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, view = "upload", onReviewReady }) {
+export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, onLearnReportIds, view = "upload", onReviewReady }) {
   const { T, s } = useTheme();
   const [files, setFiles] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -39,7 +39,7 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
     }
   }
 
-  async function handleConfirm(selectedSamples, fills = []) {
+  async function handleConfirm(selectedSamples, fills = [], learns = []) {
     setSaving(true);
     setSaveProgress({ done: 0, total: selectedSamples.length, errors: 0 });
     try {
@@ -47,12 +47,15 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
         ? await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }))
         : { saved: 0, failed: 0 };
       const filled = fills.length && onFillLabInfo ? await onFillLabInfo(fills) : 0;
+      // only after the samples are in: teach the registry the report IDs the user matched by hand
+      const learned = learns.length && result.saved && onLearnReportIds ? await onLearnReportIds(learns) : 0;
       setParsedReports(null);
       setFiles([]);
       onReviewReady?.(null);
       setResultMsg(
         `✓ Added ${result.saved} sample${result.saved === 1 ? "" : "s"}` +
           (filled ? ` · filled in report details for ${filled} saved sample${filled === 1 ? "" : "s"}` : "") +
+          (learned ? ` · ${learned} Report Equipment ID${learned === 1 ? "" : "s"} saved to the registry` : "") +
           (result.failed ? ` — ${result.failed} failed, see toasts for details` : "")
       );
     } finally {

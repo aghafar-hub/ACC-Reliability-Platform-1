@@ -1396,3 +1396,9 @@ export async function listOrgUsers(platformCoreUrl, sessionToken) {
 export async function fillLabInfo(webhookUrl, sampleId, labInfo) {
   await postBlind(webhookUrl, { action: "fillLabInfo", sampleId, labInfo });
 }
+
+// A lab Unit ID matched to a point by hand on import: saved as that point's
+// Report Equipment ID when it has none (EquipmentRegistry.js).
+export async function learnReportEquipmentId(webhookUrl, lpId, reportEquipmentId) {
+  await postBlind(webhookUrl, { action: "learnReportEquipmentId", lpId, reportEquipmentId });
+}

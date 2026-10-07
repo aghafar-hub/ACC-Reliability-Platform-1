@@ -805,6 +805,35 @@ function AppShell({ config, setConfig, navBridge }) {
     [config.webhookUrl, pushToast, runSync]
   );
 
+  // A report whose Unit ID no point had, matched to a point by hand on
+  // import: the Unit ID becomes that point's Report Equipment ID (the server
+  // only fills an empty one), so the next import matches it by itself.
+  const onLearnReportIds = useCallback(
+    async (learns) => {
+      const done = [];
+      for (const l of learns) {
+        try {
+          await api.learnReportEquipmentId(config.webhookUrl, l.lpId, l.reportEquipmentId);
+          done.push(l);
+        } catch (err) {
+          pushToast(`${l.lpId}: ${err.message}`, "error");
+        }
+      }
+      if (done.length) {
+        setEquipmentRegistry((list) => {
+          const next = list.map((r) => {
+            const l = done.find((x) => x.lpId === r.code);
+            return l && !String(r.reportEquipmentId || "").trim() ? { ...r, reportEquipmentId: l.reportEquipmentId } : r;
+          });
+          saveEquipmentRegistry(next);
+          return next;
+        });
+      }
+      return done.length;
+    },
+    [config.webhookUrl, pushToast]
+  );
+
   const onBulkAddSamples = useCallback(
     async (samplesToAdd, onProgress) => {
       const savedSamples = [];
@@ -1294,6 +1323,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 onAdd={onAddSample}
                 onBulkAdd={onBulkAddSamples}
                 onFillLabInfo={onFillLabInfo}
+                onLearnReportIds={onLearnReportIds}
               />
             </div>
           )}
