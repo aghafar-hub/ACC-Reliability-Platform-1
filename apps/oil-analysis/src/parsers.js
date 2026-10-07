@@ -838,6 +838,7 @@ export function rowToSample(row) {
     assetClass: row[55] || "",
     manufacturer: row[56] || "",
     model: row[57] || "",
+    viscTemp: String(row[58] || ""), // "40" | "100" | "" (not recorded)
     _id: sampleUid ? `uid_${sampleUid}` : `${unitId}_${sampleId}_${sampledDate}`,
     // Patch 6: a sample created after the Sample_UID column existed gets
     // matched by that alone — always unique, no ambiguity possible. A

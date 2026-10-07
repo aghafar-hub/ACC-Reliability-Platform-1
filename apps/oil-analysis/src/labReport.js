@@ -19,9 +19,9 @@ export const REPORT_GROUPS = [
   {
     title: "Sample Info",
     rows: [
-      { key: "status", label: "Report Status", kind: "status", get: (s) => s.reportStatus },
-      { key: "sampleId", label: "Sample ID", kind: "mono", get: (s) => s.sampleId },
-      { key: "sampled", label: "Sampled", kind: "date", get: (s) => s.sampledDate },
+      { key: "status", field: "reportStatus", label: "Report Status", kind: "status", get: (s) => s.reportStatus },
+      { key: "sampleId", field: "sampleId", label: "Sample ID", kind: "mono", get: (s) => s.sampleId },
+      { key: "sampled", field: "sampledDate", label: "Sampled", kind: "date", get: (s) => s.sampledDate },
       { key: "reported", label: "Reported", kind: "date", get: (s) => s.reportedDate },
       { key: "review", label: "Review", kind: "review" },
       { key: "action", label: "Action", kind: "action" },
@@ -30,18 +30,18 @@ export const REPORT_GROUPS = [
   {
     title: "Lubricant",
     rows: [
-      { key: "contRating", label: "Contamination Rating", kind: "status", get: (s) => s.contaminationRating },
-      { key: "eqRating", label: "Equipment Rating", kind: "status", get: (s) => s.equipmentRating },
-      { key: "lubRating", label: "Lubricant Rating", kind: "status", get: (s) => s.lubricantRating },
+      { key: "contRating", field: "contaminationRating", label: "Contamination Rating", kind: "status", get: (s) => s.contaminationRating },
+      { key: "eqRating", field: "equipmentRating", label: "Equipment Rating", kind: "status", get: (s) => s.equipmentRating },
+      { key: "lubRating", field: "lubricantRating", label: "Lubricant Rating", kind: "status", get: (s) => s.lubricantRating },
       { key: "iso", label: "ISO Code (4/6/14)", kind: "text", get: (s) => s.isoCode, optional: true },
-      { key: "pc4", label: "Particle Count >4µm", kind: "num", flag: "PC4", get: (s) => num(s.particleCount4um) },
-      { key: "pc6", label: "Particle Count >6µm", kind: "num", flag: "PC6", get: (s) => num(s.particleCount6um) },
-      { key: "pc14", label: "Particle Count >14µm", kind: "num", flag: "PC14", get: (s) => num(s.particleCount14um) },
-      { key: "pq", label: "PQ Index", kind: "num", flag: "PQIndex", get: (s) => num(s.pqIndex) },
-      { key: "visc", label: "Visc@40°C (cSt)", kind: "num", flag: "Visc", get: (s) => num(s.visc40C) },
-      { key: "ox", label: "Oxidation (Ab/cm)", kind: "num", flag: "Oxidation", get: (s) => num(s.oxidation) },
-      { key: "tan", label: "TAN (mg KOH/g)", kind: "num", flag: "TAN", get: (s) => num(s.tan), optional: true },
-      { key: "water", label: "Water (Vol%)", kind: "num", flag: "Water", get: (s) => num(s.water) },
+      { key: "pc4", field: "particleCount4um", label: "Particle Count >4µm", kind: "num", flag: "PC4", get: (s) => num(s.particleCount4um) },
+      { key: "pc6", field: "particleCount6um", label: "Particle Count >6µm", kind: "num", flag: "PC6", get: (s) => num(s.particleCount6um) },
+      { key: "pc14", field: "particleCount14um", label: "Particle Count >14µm", kind: "num", flag: "PC14", get: (s) => num(s.particleCount14um) },
+      { key: "pq", field: "pqIndex", label: "PQ Index", kind: "num", flag: "PQIndex", get: (s) => num(s.pqIndex) },
+      { key: "visc", field: "visc40C", label: "Viscosity (cSt)", kind: "num", flag: "Visc", get: (s) => num(s.visc40C), visc: true },
+      { key: "ox", field: "oxidation", label: "Oxidation (Ab/cm)", kind: "num", flag: "Oxidation", get: (s) => num(s.oxidation) },
+      { key: "tan", field: "tan", label: "TAN (mg KOH/g)", kind: "num", flag: "TAN", get: (s) => num(s.tan), optional: true },
+      { key: "water", field: "water", label: "Water (Vol%)", kind: "num", flag: "Water", get: (s) => num(s.water) },
     ],
   },
   {
@@ -49,16 +49,17 @@ export const REPORT_GROUPS = [
     rows: [
       ["Ag", "Silver"], ["Al", "Aluminum"], ["Cr", "Chromium"], ["Cu", "Copper"], ["Fe", "Iron"],
       ["Mo", "Molybdenum"], ["Ni", "Nickel"], ["Pb", "Lead"], ["Sn", "Tin"],
-    ].map(([k, n]) => ({ key: k, label: `${k} (${n})`, kind: "num", flag: k, get: wear(k) })),
+    ].map(([k, n]) => ({ key: k, field: `wear.${k}`, label: `${k} (${n})`, kind: "num", flag: k, get: wear(k) })),
   },
   {
     title: "Contaminants (ppm)",
-    rows: [["K", "Potassium"], ["Na", "Sodium"], ["Si", "Silicon"]].map(([k, n]) => ({ key: k, label: `${k} (${n})`, kind: "num", flag: k, get: cont(k) })),
+    rows: [["K", "Potassium"], ["Na", "Sodium"], ["Si", "Silicon"]].map(([k, n]) => ({ key: k, field: `contaminants.${k}`, label: `${k} (${n})`, kind: "num", flag: k, get: cont(k) })),
   },
   {
     title: "Additives (ppm)",
     rows: [["B", "Boron"], ["Ba", "Barium"], ["Ca", "Calcium"], ["Mg", "Magnesium"], ["P", "Phosphorus"], ["Zn", "Zinc"]].map(([k, n]) => ({
       key: k,
+      field: `additives.${k}`,
       label: `${k} (${n})`,
       kind: "num",
       flag: k,
@@ -67,12 +68,30 @@ export const REPORT_GROUPS = [
   },
 ];
 
-// Rows that only show when at least one sample has a value.
+// The viscosity test temperature the lab used: "@40°C" / "@100°C" when the
+// samples agree, "" when it's mixed or not recorded (older reports).
+export function viscTempLabel(samples) {
+  const temps = new Set((samples || []).filter((s) => num(s.visc40C) !== null).map((s) => String(s.viscTemp || "")));
+  if (temps.size !== 1) return "";
+  const t = [...temps][0];
+  return t ? `@${t}°C` : "";
+}
+
+// Rows that only show when at least one sample has a value. The viscosity
+// row is named by its test temperature.
 export function visibleGroups(samples) {
+  const vt = viscTempLabel(samples);
   return REPORT_GROUPS.map((g) => ({
     ...g,
-    rows: g.rows.filter((r) => !r.optional || samples.some((s) => r.get(s) !== null && r.get(s) !== undefined && r.get(s) !== "")),
+    rows: g.rows
+      .filter((r) => !r.optional || samples.some((s) => r.get(s) !== null && r.get(s) !== undefined && r.get(s) !== ""))
+      .map((r) => (r.visc ? { ...r, label: vt ? `Visc${vt} (cSt)` : "Viscosity (cSt)" } : r)),
   }));
+}
+
+// A viscosity cell's own temperature, shown when the row mixes them.
+export function viscCellTemp(samples, sample) {
+  return viscTempLabel(samples) || !sample.viscTemp ? "" : `@${sample.viscTemp}°C`;
 }
 
 // "Alert" | "Caution" | "" — the lab's mark on this cell.

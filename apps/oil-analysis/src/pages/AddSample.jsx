@@ -15,6 +15,7 @@ const EMPTY = {
   equipmentRating: "Normal",
   lubricantRating: "Normal",
   visc40C: "",
+  viscTemp: "40",
   tan: "",
   oxidation: "",
   water: "",
@@ -62,7 +63,8 @@ function normSampleId(v) {
 
 export default function AddSample({ equipmentOptions, equipmentRegistry, existingSamples, onAdd, onBulkAdd }) {
   const { T, s } = useTheme();
-  const [mode, setMode] = useState("manual"); // "manual" | "bulk"
+  const [mode, setMode] = useState("manual"); // "manual" | "bulk" | "review"
+  const [reviewCount, setReviewCount] = useState(null); // samples waiting in the Review tab
   const [form, setForm] = useState(EMPTY);
   const [recommendationsText, setRecommendationsText] = useState("");
   const [saved, setSaved] = useState(false);
@@ -141,7 +143,7 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
   );
 
   return (
-    <div style={{ maxWidth: 1100 }}>
+    <div style={{ maxWidth: mode === "review" ? undefined : 1100 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Add New Sample</p>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -186,9 +188,36 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
         >
           <i className="ti ti-file-upload" aria-hidden="true" /> Import Lab Reports (PDF)
         </button>
+        {reviewCount !== null && (
+          <button
+            data-testid="tab-review"
+            style={{
+              ...s.btn,
+              fontSize: 12,
+              background: mode === "review" ? T.accent : "transparent",
+              color: mode === "review" ? T.accentText : T.textSecondary,
+              borderColor: mode === "review" ? T.accent : T.warning,
+            }}
+            onClick={() => setMode("review")}
+          >
+            <i className="ti ti-list-check" aria-hidden="true" /> Review ({reviewCount})
+          </button>
+        )}
       </div>
 
-      {mode === "bulk" && <BulkImportPanel equipmentRegistry={equipmentRegistry} existingSamples={existingSamples} onBulkAdd={onBulkAdd} />}
+      {/* kept mounted while on Manual Entry so a pending review isn't lost */}
+      <div style={{ display: mode === "manual" ? "none" : undefined }}>
+        <BulkImportPanel
+          equipmentRegistry={equipmentRegistry}
+          existingSamples={existingSamples}
+          onBulkAdd={onBulkAdd}
+          view={mode === "review" ? "review" : "upload"}
+          onReviewReady={(n) => {
+            setReviewCount(n);
+            setMode(n === null ? "bulk" : "review");
+          }}
+        />
+      </div>
 
       {mode === "manual" && confirmDuplicate && (
         <div
@@ -292,7 +321,14 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
           <SectionHeader label="Lubricant Properties" icon="ti-droplet" />
           <SectionBody>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 12 }}>
-              {numField("Visc@40°C (cSt)", "visc40C")}
+              {numField(`Visc@${form.viscTemp || "40"}°C (cSt)`, "visc40C")}
+              <div>
+                <label style={s.label}>Visc test temperature</label>
+                <select style={{ ...s.input, fontSize: 12, cursor: "pointer" }} value={form.viscTemp || "40"} onChange={(e) => set("viscTemp", e.target.value)} aria-label="Viscosity test temperature">
+                  <option value="40">40 °C</option>
+                  <option value="100">100 °C</option>
+                </select>
+              </div>
               {numField("TAN (mg KOH/g)", "tan")}
               {numField("Oxidation (Ab/cm)", "oxidation")}
               {numField("Water (Vol%)", "water")}

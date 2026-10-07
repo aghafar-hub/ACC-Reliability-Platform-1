@@ -43,8 +43,8 @@ const FIELD_ROWS = [
   { match: "particle count>14um", key: "particleCount14um", type: "num", flaggable: "PC14" },
   { match: "particle count >14um", key: "particleCount14um", type: "num", flaggable: "PC14" },
   { match: "pq index", key: "pqIndex", type: "num", flaggable: "PQIndex" },
-  { match: "visc@40c", key: "visc40C", type: "num", flaggable: "Visc" },
-  { match: "visc@100c", key: "visc40C", type: "num", flaggable: "Visc" }, // reported at a different bath temp, same app field
+  { match: "visc@40c", key: "visc40C", type: "num", flaggable: "Visc", viscTemp: "40" },
+  { match: "visc@100c", key: "visc40C", type: "num", flaggable: "Visc", viscTemp: "100" }, // same app field; the temperature is kept in viscTemp
   { match: "oxidation", key: "oxidation", type: "num", flaggable: "Oxidation" },
   { match: "tan (mg koh/g)", key: "tan", type: "num", flaggable: "TAN" },
   { match: "water", key: "water", type: "num", flaggable: "Water" },
@@ -390,6 +390,7 @@ export async function parsePdfReport(file) {
         }
       }
       setPath(samples[i], field.key, value);
+      if (field.viscTemp) samples[i].viscTemp = field.viscTemp;
 
       if (field.flaggable) {
         const items = dataItemsByCol[i];

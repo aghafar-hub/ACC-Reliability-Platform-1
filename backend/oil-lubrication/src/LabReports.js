@@ -47,7 +47,8 @@ function ensureLabHeaders_(sheet) {
 // The lab report's own header (account, sample and equipment panels), read
 // by the PDF import and saved with each new sample — so the Oil Analysis
 // Report shows them from the report, not typed into the app. Data_Entry
-// columns after Returned Date (0-based 48–57).
+// columns after Returned Date (0-based 48–58; 58 = the viscosity test
+// temperature, 40 or 100 °C).
 var LAB_INFO_COL = 48;
 var LAB_INFO_FIELDS = [
   ["accountId", "Account ID"],
@@ -59,7 +60,8 @@ var LAB_INFO_FIELDS = [
   ["testedLubricant", "Tested Lubricant"],
   ["assetClass", "Asset Class"],
   ["manufacturer", "Manufacturer"],
-  ["model", "Model"]
+  ["model", "Model"],
+  ["viscTemp", "Visc Temp (°C)"]
 ];
 
 function ensureLabInfoHeaders_(sheet) {

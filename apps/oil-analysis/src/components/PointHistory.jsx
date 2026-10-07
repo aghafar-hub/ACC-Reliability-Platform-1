@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
+import { viscTempLabel } from "../labReport";
 import useIsMobile from "../hooks/useIsMobile";
 import { formatDate, intervalMonths } from "../parsers";
 import {
@@ -143,7 +144,7 @@ function TopicTooltip({ T, series, colorOf, active, payload }) {
 // One chart per topic (Viscosity, Wear, …), one line per value, like the
 // Oil Analysis Report. Each line keeps its own colour; a value the lab marked
 // gets a bigger dot with a Caution / Alert ring and a C / A letter.
-function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, colorOf, onOpenSample }) {
+function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, colorOf, onOpenSample, titleNote }) {
   const [hidden, setHidden] = useState(() => new Set());
   const withData = items.filter((x) => rows.some((r) => r[x.p.key] !== null && r[x.p.key] !== undefined && r[x.p.key] !== 0));
   const notDetected = items.filter((x) => !withData.includes(x));
@@ -189,6 +190,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, padding: "0 6px 4px" }}>
         <span style={{ fontWeight: 700, fontSize: 13 }}>
           {group}
+          {titleNote && <span style={{ fontWeight: 500 }}> {titleNote}</span>}
           {units.length === 1 && <span style={{ color: T.textSecondary, fontWeight: 500 }}> · {units[0]}</span>}
         </span>
         {single && (() => {
@@ -707,6 +709,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
                         changeMarks={changeMarks}
                         colorOf={colorOf}
                         onOpenSample={onOpenSample}
+                        titleNote={g.group === "Viscosity" ? viscTempLabel(samplesAsc) : ""}
                       />
                     ))}
                   </div>

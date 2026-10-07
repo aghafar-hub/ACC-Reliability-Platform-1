@@ -420,6 +420,8 @@ function doPost(e) {
         // Phase 2: a new action is saved as Draft or Submitted (→ Open).
         var appendGuard = null;
         if (data.sheet === "Action Tracker") {
+          var takenOnAdd = data.row ? actionForSample_(ss, data.row[ACTION_COL.LP], data.row[ACTION_COL.SAMPLE_DATE]) : null;
+          if (takenOnAdd) return jsonOut({status: "error", message: sampleActionTakenMsg_(takenOnAdd)});
           appendGuard = guardActionTrackerSave_(auth.session, null, -1, data.row, data.workflow);
           if (appendGuard.error) return jsonOut({status: "error", message: appendGuard.error});
         }
@@ -849,6 +851,10 @@ function doPost(e) {
         }
         // Phase 2: status changes on an action follow the workflow rules.
         var updateGuard = null;
+        if (data.sheet === "Action Tracker" && updateRowIdx !== -1 && data.row) {
+          var takenOnEdit = actionForSample_(ss, data.row[ACTION_COL.LP], data.row[ACTION_COL.SAMPLE_DATE], data.row[ACTION_COL.AC_NO]);
+          if (takenOnEdit) return jsonOut({status: "error", message: sampleActionTakenMsg_(takenOnEdit)});
+        }
         if (data.sheet === "Action Tracker" && updateRowIdx !== -1) {
           updateGuard = guardActionTrackerSave_(auth.session, updateSheetObj, updateRowIdx, data.row, data.workflow);
           if (updateGuard.error) {
@@ -895,6 +901,10 @@ function doPost(e) {
           ? resolveRowLpId_(deleteSheetObj, data.sheet, deleteRowIdx)
           : genericWriteLpId_(data.sheet, data.matchCols, data.matchValues);
         if (deleteLpId !== null) requireLpContractorMatch_(auth.session, deleteLpId);
+        if (data.sheet === "Action Tracker" && deleteRowIdx !== -1 &&
+            normActionStatus_(deleteSheetObj.getRange(deleteRowIdx, ACTION_COL.STATUS + 1).getValue()) === ACTION_STATUS.CLOSED) {
+          return jsonOut({status: "error", message: ACTION_CLOSED_MSG});
+        }
         var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
         invalidateDashboardCache();
         logError("doPost:deleteRow", ok2 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});

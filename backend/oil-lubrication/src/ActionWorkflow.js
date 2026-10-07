@@ -90,6 +90,32 @@ function ensureActionWorkflowHeaders_(sheet) {
   if (needsWrite) range.setValues([ACTION_WORKFLOW_HEADERS]);
 }
 
+var ACTION_CLOSED_MSG = "This action is closed — it can't be changed.";
+
+// One action per lab sample: the same point and the same sample date. More
+// work for that sample goes into the same action (its Agreed Action jobs).
+// Returns the other action's row, or null. `exceptAcNo` skips the action
+// being edited.
+function actionForSample_(ss, lpId, sampleDate, exceptAcNo) {
+  var lp = String(lpId || "").trim();
+  if (!lp || !asDate_(sampleDate)) return null;
+  var skip = String(exceptAcNo || "").trim();
+  var found = null;
+  readSheet(ss, "Action Tracker", true).some(function (r) {
+    if (String(r[ACTION_COL.LP] || "").trim() !== lp) return false;
+    if (skip && String(r[ACTION_COL.AC_NO] || "").trim() === skip) return false;
+    if (!sameDay_(r[ACTION_COL.SAMPLE_DATE], sampleDate)) return false;
+    found = r;
+    return true;
+  });
+  return found;
+}
+
+function sampleActionTakenMsg_(r) {
+  return "This sample already has action " + String(r[ACTION_COL.AC_NO] || "") + " (" + (normActionStatus_(r[ACTION_COL.STATUS]) || "Open") +
+    "). One action per sample — add the extra job (filtering, resample, …) to that action instead.";
+}
+
 function asDate_(v) {
   if (!v) return null;
   var d = v instanceof Date ? v : new Date(v);
@@ -148,6 +174,9 @@ function guardActionTrackerSave_(session, sheet, rowIdx, row, wf) {
   var next = normActionStatus_(row[ACTION_COL.STATUS]) || ACTION_STATUS.DRAFT;
   var dueEditable = current === null || current === ACTION_STATUS.DRAFT;
   var fail = function (msg) { return { error: msg, dueEditable: false }; };
+
+  // A closed action is final — nobody changes it, admin included.
+  if (current === ACTION_STATUS.CLOSED) return fail(ACTION_CLOSED_MSG);
 
   if (wf.submit) {
     if (current !== null && current !== ACTION_STATUS.DRAFT) return fail("Only a Draft can be submitted.");
@@ -461,6 +490,8 @@ function applyLabResultRule_(ss, sampleRow) {
   var lpId = String(sampleRow[0] || "").trim();
   if (!lpId) return null;
   var ref = String(sampleRow[39] || "").trim() || (lpId + "|" + String(sampleRow[3] || "").trim());
+  // this sample already has an action (made by hand, say): never a second one
+  if (actionForSample_(ss, lpId, sampleRow[4])) return null;
   var existing = openActionsForLp_(ss, lpId);
   var already = readSheet(ss, "Action Tracker", true).some(function (r) { return String(r[ACTION_COL.RULE_REF] || "").trim() === ref; });
   if (already) return null;

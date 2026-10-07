@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { parsePdfReports } from "../pdfReportParser";
-import BulkImportReview from "./BulkImportReview";
+import ImportReview from "./ImportReview";
 
 const MAX_FILES = 30;
 
-export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd }) {
+// Upload + parse; the review then opens as its own tab on the Add Report page
+// (view === "review", see AddSample.jsx) instead of a pop-up.
+export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, view = "upload", onReviewReady }) {
   const { T, s } = useTheme();
   const [files, setFiles] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -31,6 +33,7 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
     try {
       const results = await parsePdfReports(files, (done, total) => setParseProgress({ done, total }));
       setParsedReports(results);
+      onReviewReady?.(results.reduce((n, r) => n + (r.ok ? r.samples.length : 0), 0));
     } finally {
       setParsing(false);
     }
@@ -43,6 +46,7 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
       const result = await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }));
       setParsedReports(null);
       setFiles([]);
+      onReviewReady?.(null);
       setResultMsg(
         `✓ Added ${result.saved} sample${result.saved === 1 ? "" : "s"}` +
           (result.failed ? ` — ${result.failed} failed, see toasts for details` : "")
@@ -51,6 +55,23 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
       setSaving(false);
       setSaveProgress(null);
     }
+  }
+
+  if (view === "review" && parsedReports) {
+    return (
+      <ImportReview
+        parsedReports={parsedReports}
+        equipmentRegistry={equipmentRegistry}
+        existingSamples={existingSamples}
+        onSubmit={handleConfirm}
+        onDiscard={() => {
+          setParsedReports(null);
+          onReviewReady?.(null);
+        }}
+        saving={saving}
+        progress={saveProgress}
+      />
+    );
   }
 
   return (
@@ -112,15 +133,9 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
       {resultMsg && <p style={{ marginTop: 12, fontSize: 12, color: resultMsg.startsWith("✓") ? T.success : T.danger }}>{resultMsg}</p>}
 
       {parsedReports && (
-        <BulkImportReview
-          parsedReports={parsedReports}
-          equipmentRegistry={equipmentRegistry}
-          existingSamples={existingSamples}
-          onConfirm={handleConfirm}
-          onCancel={() => setParsedReports(null)}
-          saving={saving}
-          progress={saveProgress}
-        />
+        <p style={{ marginTop: 12, fontSize: 12.5, color: T.textSecondary }}>
+          <i className="ti ti-list-check" aria-hidden="true" /> These reports are waiting in the Review tab.
+        </p>
       )}
     </div>
   );

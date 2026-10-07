@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
-import { nextAcNo, formatDate, ACTION_STATUS, ACTION_DRAFT_DUE_DAYS, isActionOverdue, actionDaysOverdue, actionDueEnd } from "../parsers";
+import { nextAcNo, formatDate, sameCalendarDay, normActionStatus, ACTION_STATUS, ACTION_DRAFT_DUE_DAYS, isActionOverdue, actionDaysOverdue, actionDueEnd } from "../parsers";
 import { useActionWorkflow } from "../ActionWorkflowContext";
 import { toISODate, latestOilChangeFor, autofillFromEquipment, lastAgreedActionFor } from "../actionAutofill";
 import EquipmentSearch from "./EquipmentSearch";
@@ -125,6 +125,21 @@ export default function EditActionModal({
   }
 
   const isClosed = (form.status || "Open") === ACTION_STATUS.CLOSED;
+  // A closed action is final: shown read-only, nothing can be saved or
+  // deleted (the server refuses it too).
+  const lockedClosed = !isNew && normActionStatus(action.status) === ACTION_STATUS.CLOSED;
+  // One action per lab sample: another action already on this point's
+  // sample date blocks saving — the job goes into that action instead.
+  const sampleTakenBy = form.sampleDate
+    ? (allActions || []).find(
+        (a) =>
+          (a.equipmentCode || a.unitId) === equipCode &&
+          a._id !== action._id &&
+          !(a.acNo && a.acNo === action.acNo && !isNew) &&
+          a.sampleDate &&
+          sameCalendarDay(a.sampleDate, form.sampleDate)
+      ) || null
+    : null;
   const isDraft = isNew || form.status === ACTION_STATUS.DRAFT;
   // Waiting Stoppage is one-way: it goes on to closure, never back to Open.
   const statusLocked = form.status === ACTION_STATUS.CLOSURE_REQUESTED || isClosed || form.status === ACTION_STATUS.WAITING;
@@ -257,14 +272,14 @@ export default function EditActionModal({
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>{isNew ? "New Action" : "Edit Action"}</p>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>{isNew ? "New Action" : lockedClosed ? "Closed Action" : "Edit Action"}</p>
             <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>
               Ac. No. <strong>{isNew ? nextAcNo(allActions || []) : form.acNo}</strong>
               {isNew && <span style={{ marginLeft: 6, color: T.textMuted }}>(auto-generated)</span>}
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {!isNew && onDelete && (
+            {!isNew && onDelete && !lockedClosed && (
               <button
                 style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
                 onClick={() => window.confirm("Delete this action from the sheet?") && onDelete()}
@@ -278,6 +293,13 @@ export default function EditActionModal({
           </div>
         </div>
 
+        {lockedClosed && (
+          <div data-testid="action-closed-lock" style={{ ...s.infoBar, borderColor: T.success, marginBottom: 14, fontSize: 12.5, color: T.textPrimary }}>
+            <i className="ti ti-lock" aria-hidden="true" style={{ color: T.success, marginRight: 6 }} />
+            This action is closed — it can't be changed or deleted.
+          </div>
+        )}
+        <fieldset disabled={lockedClosed} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Identification</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
           <div>
@@ -462,11 +484,25 @@ export default function EditActionModal({
         {!isNew && <ClosureSection action={action} contractor={actionContractor} onDone={onClose} />}
 
         {submitError && <p style={{ fontSize: 12.5, color: T.danger, margin: "0 0 10px", textAlign: "right" }}>{submitError}</p>}
+        </fieldset>
+
+        {sampleTakenBy && !lockedClosed && (
+          <div data-testid="action-sample-taken" style={{ ...s.infoBar, borderColor: T.danger, marginBottom: 14, fontSize: 12.5, color: T.textPrimary }}>
+            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, marginRight: 6 }} />
+            The sample of {formatDate(form.sampleDate)} already has action <strong>{sampleTakenBy.acNo}</strong> ({sampleTakenBy.status}). One action
+            per sample — add this job (filtering, resample, …) to action {sampleTakenBy.acNo} instead.
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
           <button style={s.btn} onClick={onClose}>
-            Cancel
+            {lockedClosed ? "Close" : "Cancel"}
           </button>
-          {isDraft ? (
+          {lockedClosed ? null : sampleTakenBy ? (
+            <button style={{ ...s.btnPrimary, opacity: 0.5, cursor: "not-allowed" }} disabled>
+              Save
+            </button>
+          ) : isDraft ? (
             <>
               <button style={s.btn} onClick={() => handleSave(false)}>
                 Save as Draft

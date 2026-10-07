@@ -222,7 +222,7 @@ export default function ActionTracker({
     return (
       <div
         key={a._id}
-        draggable
+        draggable={status !== ACTION_STATUS.CLOSED}
         onDragStart={() => setDraggedId(a._id)}
         onDragEnd={() => setDraggedId(null)}
         onClick={() => setEditing({ action: a, isNew: false })}

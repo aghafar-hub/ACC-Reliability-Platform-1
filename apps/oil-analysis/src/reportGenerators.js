@@ -3,7 +3,7 @@ import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
-import { actionsForSample, cellMark, changeLabel, reviewOf, visibleGroups } from "./labReport";
+import { actionsForSample, cellMark, changeLabel, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "./labReport";
 import { LAB_GROUPS, LAB_PARAMS, SERIES_LIGHT, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
 
 // Four printable-to-PDF reports, generated entirely client-side from the
@@ -1877,7 +1877,10 @@ const hexRgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 // One hand-drawn chart per topic (Viscosity, Wear, …), one line per value,
 // the same colours as the page. A value the lab marked gets a Caution /
 // Alert ring and a C / A letter. Returns the height used.
-function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, start, end }) {
+// bySample: samples evenly spaced with every date labelled, like the charts
+// on the Oil Analysis Report page; otherwise a real time axis with a date
+// every few months.
+function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, start, end, bySample = false }) {
   const series = items.filter((it) => samples.some((s) => { const v = paramValue(s, it.p); return v !== null && v !== 0; }));
   doc.setDrawColor(...BRAND.border);
   doc.setLineWidth(0.6);
@@ -1886,11 +1889,12 @@ function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, st
   doc.setFontSize(8.5);
   doc.setTextColor(...BRAND.navy);
   const units = [...new Set(series.map((it) => it.p.unit))];
-  doc.text(`${group}${units.length === 1 ? ` (${units[0]})` : ""}`, x + 8, y + 13);
+  const vt = group === "Viscosity" ? viscTempLabel(samples) : "";
+  doc.text(`${group}${vt ? ` ${vt}` : ""}${units.length === 1 ? ` (${units[0]})` : ""}`, x + 8, y + 13);
   const px = x + 32;
   const pw = w - 42;
   const py = y + 24;
-  const ph = h - 58;
+  const ph = h - (bySample ? 72 : 58); // room for turned date labels
   const vals = series.flatMap((it) => [...samples.map((s) => paramValue(s, it.p)), it.limits?.caution, it.limits?.alert]).filter((v) => v !== null && v !== undefined);
   if (!vals.length) {
     doc.setFont("helvetica", "normal");
@@ -1903,7 +1907,19 @@ function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, st
   const lo = group === "Viscosity" ? Math.min(...vals) * 0.95 : 0;
   let hi = Math.max(...vals) * 1.15;
   if (hi <= lo) hi = lo + 1;
-  const sx = (t) => px + ((t - start) / Math.max(1, end - start)) * pw;
+  const times = samples.map((s) => s._t);
+  // by sample: the i-th sample sits at slot i; a time between two samples
+  // (an oil change) sits between their slots.
+  const slotX = (i) => px + (times.length > 1 ? (i / (times.length - 1)) * pw : pw / 2);
+  const sx = bySample
+    ? (t) => {
+        if (t <= times[0]) return slotX(0);
+        if (t >= times[times.length - 1]) return slotX(times.length - 1);
+        const i = times.findIndex((tt) => tt >= t);
+        const f = (t - times[i - 1]) / Math.max(1, times[i] - times[i - 1]);
+        return slotX(i - 1) + f * (slotX(i) - slotX(i - 1));
+      }
+    : (t) => px + ((t - start) / Math.max(1, end - start)) * pw;
   const sy = (v) => py + ph - ((v - lo) / (hi - lo)) * ph;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
@@ -1915,8 +1931,22 @@ function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, st
     doc.text(pdfNum(v), px - 4, sy(v) + 2, { align: "right" });
   });
   const axisY = py + ph + 9;
-  doc.text(new Date(start).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px, axisY);
-  doc.text(new Date(end).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px + pw, axisY, { align: "right" });
+  const fmtTick = (t) => new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+  if (bySample) {
+    // every sample's date; turned when they'd collide
+    const turn = times.length > 1 && pw / (times.length - 1) < 34;
+    times.forEach((t, i) => {
+      if (turn) doc.text(fmtTick(t), slotX(i) + 2, axisY + 1, { angle: 35, align: "right" });
+      else doc.text(fmtTick(t), slotX(i), axisY, { align: "center" });
+    });
+  } else {
+    const span = Math.max(1, end - start);
+    const n = Math.min(6, Math.max(2, Math.round(pw / 70)));
+    for (let k = 0; k <= n; k++) {
+      const t = start + (span * k) / n;
+      doc.text(new Date(t).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px + (pw * k) / n, axisY, { align: k === 0 ? "left" : k === n ? "right" : "center" });
+    }
+  }
   doc.setDrawColor(...BRAND.muted);
   doc.setLineWidth(0.4);
   changeTimes.filter((t) => t >= start && t <= end).forEach((t) => doc.line(sx(t), py, sx(t), py + ph));
@@ -2270,6 +2300,7 @@ export async function generateLabReportPdf({ reg, code, shown, columns, actions,
           if (row.kind === "num") m = cellMark(d, row);
           if (row.kind === "status" && PDF_SEV[raw]) m = raw === "Warning" ? "Caution" : raw;
           if (m && row.kind === "num") v = `${v} ${m[0]}`;
+          if (row.visc && raw !== null && raw !== undefined && raw !== "" && viscCellTemp(shown, d)) v = `${v} ${viscCellTemp(shown, d)}`;
         }
         cells.push(v);
         rowMarks.push(m);
@@ -2342,7 +2373,7 @@ export async function generateLabReportPdf({ reg, code, shown, columns, actions,
     const chH = 200;
     topics.forEach((g, i) => {
       if (i === 2) y += chH + 14;
-      labTopicChart(doc, { x: 36 + (i % 2) * (cw + 14), y, w: cw, h: chH, group: g.group, items: g.items, samples: samplesAsc, changeTimes, start, end });
+      labTopicChart(doc, { x: 36 + (i % 2) * (cw + 14), y, w: cw, h: chH, group: g.group, items: g.items, samples: samplesAsc, changeTimes, start, end, bySample: true });
     });
   }
 

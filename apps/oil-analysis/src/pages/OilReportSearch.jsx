@@ -6,7 +6,7 @@ import { formatDate, intervalMonths, sampleTrackerStatus } from "../parsers";
 import LastActionsPanel from "../components/LastActionsPanel";
 import LineChart from "../components/LineChart";
 import { seriesColor, toTime } from "../pointHistory";
-import { actionsForSample, cellMark, changeLabel, pickSamples, reportColumns, reviewOf, visibleGroups } from "../labReport";
+import { actionsForSample, cellMark, changeLabel, pickSamples, reportColumns, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "../labReport";
 
 const WEAR_METALS = ["Ag", "Al", "Cr", "Cu", "Fe", "Mo", "Ni", "Pb", "Sn"];
 const WEAR_NAMES = { Ag: "Silver", Al: "Aluminum", Cr: "Chromium", Cu: "Copper", Fe: "Iron", Mo: "Molybdenum", Ni: "Nickel", Pb: "Lead", Sn: "Tin" };
@@ -139,7 +139,7 @@ export default function OilReportSearch({
   const series = (key, label, get) => ({ key, label, color: seriesColor(T, key), data: history.map((d) => num(get(d))) });
   const hasData = (sr) => sr.data.some((v) => v !== null && v !== 0);
   const charts = [
-    { title: "Viscosity", height: 90, datasets: [series("Visc", "Visc@40°C (cSt)", (d) => d.visc40C)].filter(hasData) },
+    { title: "Viscosity", height: 90, datasets: [series("Visc", `${viscTempLabel(history) ? `Visc${viscTempLabel(history)}` : "Viscosity"} (cSt)`, (d) => d.visc40C)].filter(hasData) },
     { title: "Wear", height: 100, datasets: WEAR_METALS.map((m) => series(m, `${m} (${WEAR_NAMES[m]})`, (d) => d.wear?.[m])).filter(hasData) },
     { title: "Contaminants", height: 90, datasets: CONTAMINANTS.map((c) => series(c, `${c} (${CONTAMINANT_NAMES[c]})`, (d) => d.contaminants?.[c])).filter(hasData) },
     {
@@ -796,6 +796,7 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
         style={{ ...base, fontFamily: "monospace", fontSize: 12, fontWeight: mark ? 700 : 400, color: c || T.textPrimary, background: c ? `${c}26` : "transparent" }}
       >
         {v ?? "—"}
+        {row.visc && v !== null && v !== undefined && viscCellTemp(shown, d) && <span style={{ fontSize: 9.5, color: T.textSecondary }}> {viscCellTemp(shown, d)}</span>}
       </td>
     );
   }

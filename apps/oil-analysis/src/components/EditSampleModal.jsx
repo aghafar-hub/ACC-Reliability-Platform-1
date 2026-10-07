@@ -129,7 +129,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
 
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Lubricant Properties</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 12, marginBottom: 16 }}>
-          {field("Visc@40°C (cSt)", "visc40C", "number")}
+          {field(sample.viscTemp ? `Visc@${sample.viscTemp}°C (cSt)` : "Viscosity (cSt)", "visc40C", "number")}
           {field("TAN (mg KOH/g)", "tan", "number")}
           {field("Oxidation (Ab/cm)", "oxidation", "number")}
           {field("Water (Vol%)", "water", "number")}

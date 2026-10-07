@@ -375,6 +375,40 @@ No Apps Script change for E3 / E4.
 Apps Script (Oil Lubrication test script): replace `Code` and
 `LabReports`, then deploy a new version.
 
+## Lab import review, viscosity temperature, action rules (R2)
+
+- **Import review is a tab, not a pop-up.** After Parse Reports the Add
+  Report page opens a **Review (N)** tab (it stays while you switch to
+  Manual Entry and back). Left: a side bar with **Refused** files first,
+  then each report's samples with a tick box (a tick for the whole report
+  too); already-saved samples are greyed and can't be ticked; a point not
+  in the registry must be picked first. Right: the open sample — its report
+  details and the report table (every sample of that report as a column,
+  this one outlined). New samples' values can be corrected in place and the
+  lab mark beside each value set (· → C → A); edited samples say "Edited".
+  The short recommendations and Alert Type can be edited too. A refused
+  file shows its reason and what to do. **Submit N samples** saves every
+  ticked sample at once; Discard drops the import.
+- **Viscosity by test temperature.** The import records 40 or 100 °C (new
+  Data_Entry column BG, "Visc Temp (°C)", written by the server with the
+  other report details); Add Report has a 40 / 100 °C choice. Labels read
+  "Visc@100°C (cSt)" / "Viscosity @100°C"; when a point mixes them each
+  value shows its own; older reports with no temperature say "Viscosity".
+- **Report PDF charts** space the samples evenly and label every sample's
+  date (the time axis before only labelled the first and last date). The
+  History PDF keeps its time axis with a date every few months.
+- **One action per sample.** A point's sample (same point, same sample
+  date) has at most one action, whatever its status — more work goes into
+  that action's jobs. The server refuses a second one (add or edit), the
+  lab Draft isn't made when the sample already has an action, and the
+  action form says which action to use and won't save.
+- **A closed action is final.** Nobody — admin included — can change or
+  delete it (server refuses); the form opens it read-only, and it can't be
+  dragged on the board.
+
+Apps Script (Oil Lubrication test script): replace `Code`, `LabReports`
+and `ActionWorkflow`, then deploy a new version.
+
 ## Test copy: files to paste (Apps Script editor)
 
 Copy from the `claude/test-site` branch.
