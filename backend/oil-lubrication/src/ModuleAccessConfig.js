@@ -129,6 +129,7 @@ var MA_CONFIG = {
     logOilTopUp: ["oilchange", "routines"],
     deleteRoutine: "admin",
     updateNotificationSettings: "admin",
+    updateDashboardSettings: "admin",
     setModuleResponsibility: "admin",
     maSetStatus: "admin",
     maAddPeople: "admin",

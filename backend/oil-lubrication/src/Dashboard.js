@@ -267,3 +267,24 @@ function filterChangedSince(ss, sheetName, sinceDate) {
     return !isNaN(d.getTime()) && d.getTime() > sinceDate.getTime();
   });
 }
+
+// ─── Dashboard settings (design D4) ─────────────────────────────────────────
+// The on-time target the Oil Dashboard measures routes and sampling against
+// (agreed: one target, the same for both contractors, default 90 %). Kept in
+// Script Properties like the notification settings — platform-wide, so only
+// ROLE-ADMIN can change it (Code.js), anyone can read it.
+var DASH_ON_TIME_TARGET_PROP = "DASH_ON_TIME_TARGET";
+var DASH_ON_TIME_TARGET_DEFAULT = 90;
+
+function getDashboardSettings_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(DASH_ON_TIME_TARGET_PROP);
+  var v = Number(raw);
+  return { onTimeTarget: raw !== null && v >= 50 && v <= 100 ? v : DASH_ON_TIME_TARGET_DEFAULT };
+}
+
+function updateDashboardSettings_(data) {
+  var t = Number(data.onTimeTarget);
+  if (!(t >= 50 && t <= 100)) return { error: "The on-time target must be a number from 50 to 100." };
+  PropertiesService.getScriptProperties().setProperty(DASH_ON_TIME_TARGET_PROP, String(Math.round(t)));
+  return { status: "ok" };
+}

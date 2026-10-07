@@ -162,6 +162,13 @@
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+  /* D4: under zoom 0.9 this box's own margins and widths shrink by 0.9 too,
+     so `margin: -2rem` only cancelled 90 % of the page padding and the
+     width stopped short — leaving an empty strip down the right of every
+     module page. Divide by the zoom so it meets the edges exactly. */
+  margin: calc(-2rem / 0.9);
+  width: calc(100% + 4rem / 0.9);
+  max-width: calc(100% + 4rem / 0.9);
   /* Both embedded apps set their own font sizes in fixed px throughout —
      not something this project's source can reach (they're pre-built
      bundles, see each app's own vite.embed.config.js). zoom scales the
@@ -176,7 +183,9 @@
    what happens when the two drift apart (text clipped off the left edge). */
 @media (max-width: 860px) {
   .app-content--embedded {
-    margin: -16px;
+    margin: calc(-16px / 0.9);
+    width: calc(100% + 32px / 0.9);
+    max-width: calc(100% + 32px / 0.9);
   }
 }
 
@@ -189,7 +198,9 @@
   .app-content--embedded {
     transform: scale(0.9);
     transform-origin: top left;
-    width: calc(100% / 0.9);
+    margin: -2rem;
+    width: calc((100% + 4rem) / 0.9);
+    max-width: none;
   }
 }
 

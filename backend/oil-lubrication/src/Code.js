@@ -79,6 +79,9 @@
 //                                              (see Notifications.js) — admin-only to
 //                                              change (doPost updateNotificationSettings),
 //                                              open to read like every other GET
+//   ?action=getDashboardSettings             → the Oil Dashboard's on-time target
+//                                              (see Dashboard.js) — admin-only to change
+//                                              (doPost updateDashboardSettings)
 //   ?action=getInAppNotifications&limit=     → the caller's own in-app notification feed
 //                                              (see InAppNotifications.js) — scoped to the
 //                                              session's email, empty for an anonymous
@@ -308,6 +311,9 @@ function doGet(e) {
         break;
       case "getNotificationSettings":
         result = getNotificationSettings_();
+        break;
+      case "getDashboardSettings":
+        result = getDashboardSettings_();
         break;
       case "getModuleResponsibilities":
         result = { responsibilities: getModuleResponsibilities_() };
@@ -941,6 +947,16 @@ function doPost(e) {
         var notifyResult = updateNotificationSettings_(data);
         logError("doPost:updateNotificationSettings", notifyResult.error || "ok", {actingUser: actingUser});
         return jsonOut(notifyResult.error ? {status: "error", message: notifyResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "updateDashboardSettings") {
+        // The Oil Dashboard's on-time target (Dashboard.js) — platform-wide,
+        // so ROLE-ADMIN only, like updateNotificationSettings above.
+        requireAdmin_(auth.session);
+        var dashResult = updateDashboardSettings_(data);
+        logError("doPost:updateDashboardSettings", dashResult.error || "ok", {onTimeTarget: data.onTimeTarget, actingUser: actingUser});
+        if (!dashResult.error) recordAudit_(ss, "Dashboard Settings", "onTimeTarget", "update", actingUser, "", "On-time target set to " + data.onTimeTarget + " %");
+        return jsonOut(dashResult.error ? {status: "error", message: dashResult.error} : {status: "ok"});
       }
 
       if (data.action === "setModuleResponsibility") {

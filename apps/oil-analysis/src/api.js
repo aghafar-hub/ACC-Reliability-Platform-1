@@ -1324,6 +1324,29 @@ export async function getNotificationSettings(webhookUrl) {
   };
 }
 
+// D4 — the Oil Dashboard's on-time target (one value, both contractors).
+// Admin-only to change (backend Dashboard.js); a backend from before D4
+// answers with no value, so the agreed default (90 %) is used.
+export const DEFAULT_ON_TIME_TARGET = 90;
+export async function getDashboardSettings(webhookUrl) {
+  try {
+    const json = await getJSON(webhookUrl, { action: "getDashboardSettings" });
+    const t = Number(json.onTimeTarget);
+    return { onTimeTarget: t >= 50 && t <= 100 ? t : DEFAULT_ON_TIME_TARGET };
+  } catch {
+    return { onTimeTarget: DEFAULT_ON_TIME_TARGET };
+  }
+}
+
+export async function updateDashboardSettings(webhookUrl, { onTimeTarget }) {
+  await postBlind(webhookUrl, { action: "updateDashboardSettings", onTimeTarget: Number(onTimeTarget) });
+  const verify = await getDashboardSettings(webhookUrl);
+  if (verify.onTimeTarget !== Math.round(Number(onTimeTarget))) {
+    throw new SaveVerificationError("The on-time target wasn't confirmed saved — only an Admin can change it. Please try again.");
+  }
+  return verify;
+}
+
 export async function updateNotificationSettings(webhookUrl, settings) {
   await postBlind(webhookUrl, {
     action: "updateNotificationSettings",

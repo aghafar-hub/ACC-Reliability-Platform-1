@@ -9,6 +9,7 @@ const SETTINGS_SUB_TABS = [
   { id: "connection", label: "Connection", icon: "ti-plug" },
   { id: "registries", label: "Registries", icon: "ti-list-check" },
   { id: "notifications", label: "Notifications", icon: "ti-bell" },
+  { id: "dashboard", label: "Dashboard", icon: "ti-target" },
   { id: "system", label: "System", icon: "ti-adjustments" },
 ];
 
@@ -307,6 +308,100 @@ function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
               </button>
             </div>
           )}
+          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
+// D4 — the on-time target the Oil Dashboard measures routes and sampling
+// against. One value for both contractors (agreed), shared by everyone, so
+// Admin-only; the server re-checks (requireAdmin_).
+function DashboardTargetCard({ T, s, webhookUrl, isAdmin }) {
+  const [target, setTarget] = useState(null);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!webhookUrl) return;
+    api.getDashboardSettings(webhookUrl).then((loaded) => {
+      if (cancelled) return;
+      setTarget(loaded.onTimeTarget);
+      setDraft(String(loaded.onTimeTarget));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [webhookUrl]);
+
+  async function handleSave() {
+    const v = Number(draft);
+    if (!(v >= 50 && v <= 100)) {
+      setMsg("❌ Enter a number from 50 to 100.");
+      return;
+    }
+    setSaving(true);
+    setMsg("");
+    try {
+      const saved = await api.updateDashboardSettings(webhookUrl, { onTimeTarget: v });
+      setTarget(saved.onTimeTarget);
+      setDraft(String(saved.onTimeTarget));
+      setMsg("✓ Target saved — the dashboard uses it for everyone");
+    } catch (err) {
+      setMsg(`❌ ${err.message}`);
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMsg(""), 6000);
+    }
+  }
+
+  return (
+    <div style={{ ...s.card, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+        <i className="ti ti-target" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+        <div>
+          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>On-time target</p>
+          <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
+            The share of routes done by their due date, and of points sampled on time, that the Oil Dashboard counts as good. The same
+            target for both contractors. Admin-only — applies to everyone.
+          </p>
+        </div>
+      </div>
+      {!webhookUrl ? (
+        <p style={{ fontSize: 12, color: T.textMuted }}>Configure the Webhook URL first.</p>
+      ) : target === null ? (
+        <p style={{ fontSize: 12, color: T.textMuted }}>Loading…</p>
+      ) : (
+        <>
+          {!isAdmin && (
+            <p style={{ fontSize: 12, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
+              <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can change this — shown here read-only.
+            </p>
+          )}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textPrimary }}>
+              Target
+              <input
+                style={{ ...s.input, width: 90, fontSize: 13 }}
+                type="number"
+                min="50"
+                max="100"
+                aria-label="On-time target (%)"
+                value={draft}
+                disabled={!isAdmin}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              %
+            </label>
+            {isAdmin && (
+              <button style={s.btnPrimary} onClick={handleSave} disabled={saving || Number(draft) === target}>
+                <i className={`ti ${saving ? "ti-loader" : "ti-device-floppy"}`} aria-hidden="true" /> {saving ? "Saving…" : "Save"}
+              </button>
+            )}
+          </div>
           {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
         </>
       )}
@@ -633,6 +728,8 @@ export default function Settings({
           </div>
         </>
       )}
+
+      {subTab === "dashboard" && <DashboardTargetCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />}
 
       {subTab === "system" && (
         <>

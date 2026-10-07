@@ -1,130 +1,296 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor } from "../SessionContext";
-import { sampleTrackerStatus, computeOilChangeStatus, conditionBucket } from "../parsers";
 import * as api from "../api";
+import { Donut, MiniBars, Ring, Runway, TargetBar } from "../components/DashCharts";
+import {
+  CONTRACTORS,
+  TOP_UP_RISING_MONTHS,
+  alertsWithoutAction,
+  monthlyCounts,
+  oilHealth,
+  openActionsOldest,
+  overdueOilChanges,
+  overdueRoutes,
+  periodCounts,
+  risingStreak,
+  routesOnTime,
+  samplingOnTime,
+  scopeRegistry,
+  stockRunway,
+  stockShortages,
+} from "../dashboardLogic";
+import { fmtNum } from "../inventoryLogic";
 
-const PERIOD_OPTIONS = [
-  { days: 30, label: "Last 30 Days" },
-  { days: 90, label: "Last 3 Months" },
-  { days: 180, label: "Last 6 Months" },
+// Oil Dashboard (design D4). Top to bottom it answers: what needs doing now
+// (four "Needs attention" cards, most urgent first, each opening the list
+// behind it), how the plant is doing this period vs the one before (Plant
+// health), how activity is trending, and the three lists behind the cards.
+// Chart type follows the question — donut for the oil-health split, a ring
+// for sampling on time, target bars for routes, small bars per month, a
+// runway for days of stock. Phone: the cards become rows, the numbers a
+// two-column grid and the long lists fold away.
+
+const PERIODS = [
+  { days: 30, label: "30 days", long: "last 30 days", prev: "the 30 days before" },
+  { days: 90, label: "3 months", long: "last 3 months", prev: "the 3 months before" },
+  { days: 180, label: "6 months", long: "last 6 months", prev: "the 6 months before" },
 ];
 
-function daysAgo(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d;
+function useIsPhone() {
+  const q = "(max-width: 760px)";
+  const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.matchMedia?.(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia?.(q);
+    if (!m) return;
+    const on = () => setPhone(m.matches);
+    m.addEventListener("change", on);
+    return () => m.removeEventListener("change", on);
+  }, []);
+  return phone;
 }
 
-function ChartTooltip({ T, active, payload, label }) {
-  if (!active || !payload?.length) return null;
+function Seg({ options, value, onChange, label }) {
   return (
-    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
-      {label && <div style={{ color: T.textSecondary, marginBottom: 2 }}>{label}</div>}
-      {payload.map((p) => (
-        <div key={p.dataKey || p.name} style={{ color: T.textPrimary, fontWeight: 700 }}>
-          <span style={{ color: p.color || p.payload?.fill }}>●</span> {p.name}: {p.value}
+    <div className="odb-seg" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.value} type="button" aria-pressed={value === o.value} className={value === o.value ? "on" : ""} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ▲ 12 % — `goodWhenUp` false for things where less is better (top-ups).
+function Delta({ T, change, goodWhenUp = true, suffix = "%" }) {
+  if (change == null || change === 0) return null;
+  const up = change > 0;
+  const good = up === goodWhenUp;
+  return (
+    <span style={{ color: good ? T.success : T.danger, fontWeight: 700 }}>
+      {up ? "▲" : "▼"} {Math.abs(change)}
+      {suffix === "%" ? " %" : ` ${suffix}`}
+    </span>
+  );
+}
+
+function SplitBars({ T, values }) {
+  const max = Math.max(1, ...CONTRACTORS.map((c) => values[c] || 0));
+  return (
+    <div className="odb-split">
+      {CONTRACTORS.map((c) => (
+        <div key={c} className="odb-split-row">
+          <span>{c}</span>
+          <div className="odb-split-track">
+            <div style={{ width: `${((values[c] || 0) / max) * 100}%`, background: T.accent }} />
+          </div>
+          <b>{fmtNum(values[c] || 0)}</b>
         </div>
       ))}
     </div>
   );
 }
 
-// Period-over-period count for one event log — real counts over real date
-// ranges (not a fabricated delta), confirmed directly by the user ("make
-// it a real working control for both"). Returns this period's total, the
-// RHI/ASEC breakdown, and % change vs the immediately-preceding period of
-// the same length.
-function periodStats(rows, dateKey, contractorKey, periodDays, scopeCodes, codeKey) {
-  const now = new Date();
-  const periodStart = daysAgo(periodDays);
-  const prevStart = daysAgo(periodDays * 2);
-  let total = 0;
-  let prevTotal = 0;
-  const byContractor = { RHI: 0, ASEC: 0 };
-  rows.forEach((r) => {
-    if (scopeCodes && !scopeCodes.has(r[codeKey])) return;
-    const d = new Date(r[dateKey]);
-    if (isNaN(d.getTime())) return;
-    if (d >= periodStart && d <= now) {
-      total++;
-      const c = r[contractorKey];
-      if (c === "RHI" || c === "ASEC") byContractor[c]++;
-    } else if (d >= prevStart && d < periodStart) {
-      prevTotal++;
-    }
-  });
-  const pctChange = prevTotal > 0 ? Math.round(((total - prevTotal) / prevTotal) * 100) : total > 0 ? 100 : 0;
-  return { total, byContractor, pctChange };
+// "1954 d" is hard to read — a year or more is shown in years.
+function fmtLate(days) {
+  return days >= 365 ? `${(days / 365).toFixed(1)} y` : `${days} d`;
 }
 
-// `onClick` is what makes each KPI a chip to somewhere else in the app —
-// every KPI below has one except Emergency Top Ups, which has no owning
-// page of its own to send to (flagged rather than wired to a link that
-// wouldn't make sense). Rendered as a real <button> (not a div with an
-// onClick) so it's keyboard/focus accessible like every other clickable
-// card in this app.
-function KpiCard({ T, s, icon, color, label, value, sub, pctChange, breakdown, onClick }) {
-  const Tag = onClick ? "button" : "div";
+const TONE_ICON = { danger: "ti-alert-triangle", warning: "ti-clock", success: "ti-circle-check" };
+
+function AttentionCard({ T, tone, tag, count, title, rows, more, primary, onPrimary, split, empty, onRow, testid }) {
+  const t = count > 0 ? tone : "success";
+  const color = T[t];
   return (
-    <Tag
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
-      style={{
-        ...s.metricCard,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        textAlign: "left",
-        fontFamily: "inherit",
-        width: "100%",
-        cursor: onClick ? "pointer" : "default",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span
-          style={{
-            width: 34, height: 34, borderRadius: "50%", background: T[color] + "22", color: T[color],
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0,
-          }}
-        >
-          <i className={`ti ${icon}`} aria-hidden="true" />
-        </span>
-        <div style={{ fontSize: 12, color: T.textSecondary }}>{label}</div>
-      </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-        <span style={{ fontSize: 22, fontWeight: 800, color: T.textPrimary }}>{value}</span>
-        {pctChange != null && (
-          <span style={{ fontSize: 12, fontWeight: 700, color: pctChange >= 0 ? T.success : T.danger }}>
-            <i className={`ti ti-arrow-${pctChange >= 0 ? "up" : "down"}`} aria-hidden="true" /> {Math.abs(pctChange)}%
-          </span>
-        )}
-      </div>
-      {sub && <div style={{ fontSize: 12, color: T.textSecondary }}>{sub}</div>}
-      {breakdown && (
-        <div style={{ display: "flex", gap: 10, fontSize: 12 }}>
-          <span style={{ color: T.accent, fontWeight: 700 }}>RHI {breakdown.RHI}</span>
-          <span style={{ color: T.warning, fontWeight: 700 }}>ASEC {breakdown.ASEC}</span>
-        </div>
+    <section className="odb-card odb-att" style={{ borderTopColor: color }} data-testid={testid}>
+      <span className="odb-tag" style={{ color, background: color + "1A" }}>
+        <i className={`ti ${TONE_ICON[t]}`} aria-hidden="true" /> {tag}
+      </span>
+      <p className="odb-att-head">
+        <b style={{ color: count > 0 ? T.textPrimary : color }}>{count}</b> {title}
+      </p>
+      {count === 0 ? (
+        <p className="odb-muted" style={{ margin: "6px 0 0" }}>
+          {empty}
+        </p>
+      ) : (
+        <ul className="odb-att-list">
+          {rows.slice(0, 3).map((r) => (
+            <li key={r.key}>
+              <button type="button" onClick={() => onRow?.(r)} title={r.left}>
+                <span className={r.mono ? "odb-mono" : ""}>{r.left}</span>
+                <b style={{ color: r.tone ? T[r.tone] : color }}>{r.right}</b>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
-    </Tag>
+      <div className="odb-att-foot">
+        <button type="button" className={count > 0 && (tone === "danger") ? "odb-btn odb-btn--primary" : "odb-btn"} onClick={onPrimary}>
+          {primary}
+        </button>
+        <span className="odb-muted">{more || split}</span>
+      </div>
+    </section>
   );
 }
 
+// Phone: one tappable row per attention card.
+function AttentionRow({ T, tone, count, title, detail, onClick, testid }) {
+  const color = T[count > 0 ? tone : "success"];
+  return (
+    <button type="button" className="odb-att-row" style={{ borderLeftColor: color }} onClick={onClick} data-testid={testid}>
+      <b style={{ color }}>{count}</b>
+      <span>
+        <strong>{title}</strong>
+        <small>{detail}</small>
+      </span>
+      <i className="ti ti-chevron-right" aria-hidden="true" />
+    </button>
+  );
+}
+
+function Panel({ title, link, onLink, sub, children, phone, count, testid }) {
+  if (phone) {
+    return (
+      <details className="odb-card odb-fold" data-testid={testid}>
+        <summary>
+          <span>{title}</span>
+          <span className="odb-muted">{count}</span>
+        </summary>
+        <div style={{ marginTop: 10 }}>{children}</div>
+      </details>
+    );
+  }
+  return (
+    <section className="odb-card" data-testid={testid}>
+      <div className="odb-panel-head">
+        <h3>{title}</h3>
+        {link && (
+          <button type="button" className="odb-link" onClick={onLink}>
+            {link} <i className="ti ti-arrow-right" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      {sub && <p className="odb-muted" style={{ margin: "2px 0 12px" }}>{sub}</p>}
+      {children}
+    </section>
+  );
+}
+
+function styleSheet(T) {
+  return `
+.odb { --c-card:${T.cardBg}; --c-border:${T.border}; --c-text:${T.textPrimary}; --c-sub:${T.textSecondary}; --c-accent:${T.accent}; --c-accent-text:${T.accentText}; --c-track:${(T.textMuted || T.textSecondary) + "33"};
+  color: var(--c-text); font-family: 'IBM Plex Sans','Segoe UI',Roboto,sans-serif; max-width: 1480px; }
+.odb h2 { font-family: 'Space Grotesk','IBM Plex Sans',sans-serif; font-size: 26px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.odb h3 { font-size: 16px; font-weight: 700; margin: 0; }
+.odb-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.odb-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.odb-seg { display: inline-flex; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; padding: 3px; }
+.odb-seg button { border: 0; background: none; color: var(--c-text); font: 600 13.5px inherit; font-family: inherit; padding: 7px 13px; border-radius: 7px; cursor: pointer; }
+.odb-seg button.on { background: var(--c-text); color: var(--c-card); }
+.odb-select { height: 38px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-card); color: var(--c-text); padding: 0 10px; font: 500 13.5px inherit; font-family: inherit; }
+.odb-btn { border: 1px solid var(--c-border); background: var(--c-card); color: var(--c-accent); font: 600 13.5px inherit; font-family: inherit; padding: 8px 14px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
+.odb-btn--primary { background: var(--c-accent); color: var(--c-accent-text); border-color: var(--c-accent); }
+.odb-link { border: 0; background: none; color: var(--c-accent); font: 600 13.5px inherit; font-family: inherit; cursor: pointer; padding: 0; }
+.odb-muted { color: var(--c-sub); font-size: 13px; }
+.odb-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12.5px; }
+.odb-section { display: flex; align-items: baseline; gap: 12px; margin: 22px 0 10px; flex-wrap: wrap; }
+.odb-section h3 { font-size: 17px; }
+.odb-card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 14px; padding: 16px 18px; min-width: 0; }
+.odb-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
+.odb-att { border-top: 4px solid; display: flex; flex-direction: column; }
+.odb-tag { align-self: flex-start; display: inline-flex; gap: 5px; align-items: center; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+.odb-att-head { margin: 10px 0 6px; font-size: 15px; font-weight: 600; }
+.odb-att-head b { font-family: 'Space Grotesk',sans-serif; font-size: 30px; margin-right: 4px; vertical-align: -3px; }
+.odb-att-list { list-style: none; margin: 0 0 10px; padding: 0; flex: 1; }
+.odb-att-list button { display: flex; justify-content: space-between; gap: 10px; width: 100%; border: 0; background: none; color: var(--c-text); padding: 5px 0; font: 400 13.5px inherit; font-family: inherit; cursor: pointer; text-align: left; }
+.odb-att-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.odb-att-list button:hover span { text-decoration: underline; }
+.odb-att-list b { white-space: nowrap; }
+.odb-att-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+.odb-kpis { display: grid; grid-template-columns: 1.45fr repeat(5, minmax(0,1fr)); gap: 14px; }
+.odb-kpi { display: flex; flex-direction: column; gap: 6px; text-align: left; font-family: inherit; color: var(--c-text); cursor: pointer; }
+.odb-kpi:hover { border-color: var(--c-accent); }
+.odb-kpi-label { font-size: 14px; font-weight: 600; }
+.odb-kpi-value { font-family: 'Space Grotesk',sans-serif; font-size: 30px; font-weight: 700; line-height: 1.1; }
+.odb-kpi-value small { font-size: 15px; color: var(--c-sub); font-weight: 600; }
+.odb-kpi-sub { font-size: 13px; color: var(--c-sub); }
+.odb-split { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.odb-split-row { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 8px; font-size: 12.5px; color: var(--c-sub); }
+.odb-split-row b { text-align: right; color: var(--c-text); }
+.odb-split-track { height: 7px; border-radius: 4px; background: var(--c-track); overflow: hidden; }
+.odb-split-track div { height: 100%; border-radius: 4px; }
+.odb-legend { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; }
+.odb-legend span { display: flex; align-items: center; gap: 7px; }
+.odb-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.odb-row2 { display: grid; grid-template-columns: 1.75fr 1fr; gap: 14px; margin-top: 14px; }
+.odb-row3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-top: 14px; }
+.odb-panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.odb-trend { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 18px; margin-top: 4px; }
+.odb-trend > div + div { border-left: 1px solid var(--c-border); padding-left: 18px; }
+.odb-trend-title { font-weight: 600; font-size: 14px; margin: 0; }
+.odb-trend-now { margin: 2px 0 10px; font-size: 13px; color: var(--c-sub); }
+.odb-trend-now b { font-family: 'Space Grotesk',sans-serif; font-size: 22px; color: var(--c-text); margin-right: 4px; }
+.odb-target-row { margin-bottom: 14px; }
+.odb-target-line { display: flex; align-items: center; gap: 12px; }
+.odb-target-line > b:first-child { width: 44px; font-size: 14px; }
+.odb-target-line > b:last-child { width: 46px; text-align: right; font-size: 15px; }
+.odb-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.odb-table th { text-align: left; font-weight: 600; color: var(--c-sub); font-size: 12.5px; padding: 6px 8px; border-bottom: 1px solid var(--c-border); }
+.odb-table td { padding: 9px 8px; border-bottom: 1px solid var(--c-border); vertical-align: top; }
+.odb-table tr:last-child td { border-bottom: 0; }
+.odb-table tbody tr { cursor: pointer; }
+.odb-table tbody tr:hover td { background: color-mix(in srgb, var(--c-accent) 6%, transparent); }
+.odb-table small { display: block; color: var(--c-sub); font-size: 12.5px; }
+.odb-pill { display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.odb-att-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--c-card); border: 1px solid var(--c-border); border-left: 4px solid; border-radius: 12px; padding: 12px 14px; color: var(--c-text); font-family: inherit; cursor: pointer; }
+.odb-att-row > b { font-family: 'Space Grotesk',sans-serif; font-size: 28px; min-width: 34px; text-align: center; }
+.odb-att-row span { flex: 1; min-width: 0; }
+.odb-att-row strong { display: block; font-size: 15px; }
+.odb-att-row small { display: block; font-size: 13px; color: var(--c-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.odb-att-row .ti { color: var(--c-accent); font-size: 18px; }
+.odb-fold summary { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; cursor: pointer; list-style: none; }
+.odb-fold summary::-webkit-details-marker { display: none; }
+@media (max-width: 1280px) {
+  .odb-kpis { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .odb-row3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 1080px) {
+  .odb-grid4 { grid-template-columns: 1fr 1fr; }
+  .odb-row2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .odb h2 { font-size: 22px; }
+  .odb-controls { width: 100%; }
+  .odb-kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .odb-kpis .odb-health { grid-column: 1 / -1; }
+  .odb-kpi-value { font-size: 26px; }
+  .odb-card { padding: 14px; }
+  .odb-row3 { grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
+  .odb-row2 { gap: 10px; margin-top: 10px; }
+  .odb-trend { grid-template-columns: 1fr; }
+  .odb-trend > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--c-border); padding-top: 12px; }
+  .odb-hide-phone { display: none; }
+}
+`;
+}
+
 export default function Dashboard({ samples, actions, oilChangeEvents, oilChanges, trackerByEquip, equipmentRegistry, webhookUrl, navigate }) {
-  const { T, s } = useTheme();
+  const { T } = useTheme();
   const scopedContractor = useSessionContractor();
-  const [contractorFilter, setContractorFilter] = useState(scopedContractor || "All");
-  const [areaFilter, setAreaFilter] = useState("All");
+  const phone = useIsPhone();
+  const [contractor, setContractor] = useState(scopedContractor || "All");
+  const [area, setArea] = useState("All");
   const [periodDays, setPeriodDays] = useState(90);
-  const [activityType, setActivityType] = useState("All"); // Activities Trend toggle
+  const [exporting, setExporting] = useState(false);
 
   const [topUps, setTopUps] = useState([]);
-  const [routineItems, setRoutineItems] = useState([]);
-  const [inventoryProducts, setInventoryProducts] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [products, setProducts] = useState([]);
   const [forecast, setForecast] = useState(null);
-  const [consumption, setConsumption] = useState(null);
+  const [target, setTarget] = useState(api.DEFAULT_ON_TIME_TARGET);
   const [loadingExtra, setLoadingExtra] = useState(true);
 
   useEffect(() => {
@@ -132,505 +298,499 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
     let cancelled = false;
     setLoadingExtra(true);
     Promise.all([
-      api.getAllTopUps(webhookUrl),
-      api.getRoutinesOverview(webhookUrl),
-      api.getOilInventory(webhookUrl),
-      api.getOilInventoryForecast(webhookUrl, 3),
-      api.getOilInventoryConsumption(webhookUrl, 6),
+      api.getAllTopUps(webhookUrl).catch(() => []),
+      api.getRoutines(webhookUrl).catch(() => []),
+      api.getOilInventory(webhookUrl).catch(() => []),
+      api.getDashboardSettings(webhookUrl),
     ])
-      .then(([tu, ro, prod, fc, cons]) => {
+      .then(([tu, ro, prod, settings]) => {
         if (cancelled) return;
         setTopUps(tu);
-        setRoutineItems(ro);
-        setInventoryProducts(prod);
-        setForecast(fc);
-        setConsumption(cons);
+        setRoutes(ro);
+        setProducts(prod);
+        setTarget(settings.onTimeTarget);
       })
-      .finally(() => { if (!cancelled) setLoadingExtra(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setLoadingExtra(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [webhookUrl]);
 
+  // The stock card looks ahead as far as the period looks back.
+  useEffect(() => {
+    if (!webhookUrl) return;
+    let cancelled = false;
+    api
+      .getOilInventoryForecast(webhookUrl, { days: periodDays })
+      .then((fc) => !cancelled && setForecast(fc))
+      .catch(() => !cancelled && setForecast({ forecast: [] }));
+    return () => {
+      cancelled = true;
+    };
+  }, [webhookUrl, periodDays]);
+
+  const period = PERIODS.find((p) => p.days === periodDays) || PERIODS[1];
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   const areaOptions = useMemo(() => ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean))).sort()], [registry]);
-  const contractorOptions = ["All", "RHI", "ASEC"];
+  const scoped = useMemo(() => scopeRegistry(registry, { contractor, area }), [registry, contractor, area]);
+  const codes = useMemo(() => (contractor === "All" && area === "All" ? null : new Set(scoped.map((r) => r.code))), [scoped, contractor, area]);
+  const contractorOf = useMemo(() => new Map(registry.map((r) => [r.code, r.contractor])), [registry]);
 
-  const scopeCodes = useMemo(() => {
-    const matchesContractor = (r) => contractorFilter === "All" || r.contractor === contractorFilter;
-    const matchesArea = (r) => areaFilter === "All" || r.area === areaFilter;
-    if (contractorFilter === "All" && areaFilter === "All") return null;
-    return new Set(registry.filter((r) => matchesContractor(r) && matchesArea(r)).map((r) => r.code));
-  }, [registry, contractorFilter, areaFilter]);
-
-  const scopedRegistry = scopeCodes ? registry.filter((r) => scopeCodes.has(r.code)) : registry;
-  const totalEquipment = useMemo(() => new Set(scopedRegistry.map((r) => r.equipmentId || r.code)).size, [scopedRegistry]);
-  const totalLpPoints = scopedRegistry.length;
-
-  // Raw oil-change events carry no equipmentCode/contractor of their own in
-  // the row shape rowToOilChangeEvent builds (lpId + contractor only) — map
-  // to the same {date,contractor,code} shape periodStats expects.
-  const ocRows = useMemo(
-    () => (oilChangeEvents || []).map((e) => ({ date: e.eventDate, contractor: e.contractor, code: e.lpId })),
-    [oilChangeEvents]
-  );
-  const sampleRows = useMemo(() => {
-    const byCode = new Map(registry.map((r) => [r.code, r.contractor]));
-    return (samples || []).map((sm) => ({ date: sm.sampledDate, contractor: byCode.get(sm.unitId) || "", code: sm.unitId }));
-  }, [samples, registry]);
-  const topUpRows = useMemo(() => (topUps || []).map((t) => ({ date: t.eventDate, contractor: t.contractor, code: t.lpId })), [topUps]);
-
-  const ocStats = periodStats(ocRows, "date", "contractor", periodDays, scopeCodes, "code");
-  const sampleStats = periodStats(sampleRows, "date", "contractor", periodDays, scopeCodes, "code");
-  const topUpStats = periodStats(topUpRows, "date", "contractor", periodDays, scopeCodes, "code");
-
-  const scopedActions = useMemo(
-    () => (scopeCodes ? (actions || []).filter((a) => scopeCodes.has(a.equipmentCode)) : actions || []),
-    [actions, scopeCodes]
-  );
-  const openActions = scopedActions.filter((a) => a.status !== "Closed");
-  const openActionsByContractor = { RHI: 0, ASEC: 0 };
-  openActions.forEach((a) => { if (a.contractor === "RHI" || a.contractor === "ASEC") openActionsByContractor[a.contractor]++; });
-
-  const equipByContractor = useMemo(() => {
-    const out = { RHI: new Set(), ASEC: new Set() };
-    scopedRegistry.forEach((r) => { if (out[r.contractor]) out[r.contractor].add(r.equipmentId || r.code); });
-    return { RHI: out.RHI.size, ASEC: out.ASEC.size };
-  }, [scopedRegistry]);
-  const lpByContractor = useMemo(() => {
-    const out = { RHI: 0, ASEC: 0 };
-    scopedRegistry.forEach((r) => { if (out[r.contractor] != null) out[r.contractor]++; });
-    return out;
-  }, [scopedRegistry]);
-
-  // How many LPs are currently overdue — current URGENCY, not period
-  // activity volume like the KPIs above. Same "Overdue" definition each
-  // owning page's own board uses: computeOilChangeStatus for Oil Change
-  // (the exact function OilChangeLog.jsx's own history preview already
-  // calls), sampleTrackerStatus for sampling (same as Oil Sampling Log's
-  // board). "Due Soon" isn't surfaced here — it depends on a window the
-  // user picks on that page's own board, which doesn't fit a single KPI
-  // number; Overdue/Missing are the two states that are urgent regardless
-  // of any window.
-  const oilChangeOverdue = useMemo(
-    () => (oilChanges || []).filter((oc) => (!scopeCodes || scopeCodes.has(oc.equipmentCode)) && computeOilChangeStatus(oc.nextDueDate) === "Overdue").length,
-    [oilChanges, scopeCodes]
-  );
-  const samplingAttention = useMemo(
-    () =>
-      scopedRegistry.filter((eq) => {
-        const lastDate = (trackerByEquip?.[eq.code] || [])[0]?.date || "";
-        const label = sampleTrackerStatus(lastDate, eq.interval).label;
-        return label === "OVERDUE" || label === "MISSING";
-      }).length,
-    [scopedRegistry, trackerByEquip]
+  const ocRows = useMemo(() => (oilChangeEvents || []).map((e) => ({ date: e.eventDate, contractor: e.contractor || contractorOf.get(e.lpId), code: e.lpId })), [oilChangeEvents, contractorOf]);
+  const sampleRows = useMemo(() => (samples || []).map((sm) => ({ date: sm.sampledDate, contractor: contractorOf.get(sm.unitId) || "", code: sm.unitId })), [samples, contractorOf]);
+  const topUpRows = useMemo(() => (topUps || []).map((t) => ({ date: t.eventDate, contractor: t.contractor || contractorOf.get(t.lpId), code: t.lpId })), [topUps, contractorOf]);
+  const scopedRoutes = useMemo(
+    () => (routes || []).filter((r) => (contractor === "All" || r.contractor === contractor) && (area === "All" || !r.area || r.area === area)),
+    [routes, contractor, area]
   );
 
-  // Oil Health — % of real lab results (within the selected period,
-  // same scoping as every other KPI) that came back Normal, using the
-  // exact same Normal/Caution/Alert classification Oil Sampling Log's own
-  // Condition Trend chart uses (conditionBucket, imported from there
-  // rather than copied, so the two can never silently disagree).
-  const fleetHealth = useMemo(() => {
-    const counts = { Normal: 0, Caution: 0, Alert: 0 };
-    const periodStart = daysAgo(periodDays);
-    scopedRegistry.forEach((eq) => {
-      (trackerByEquip?.[eq.code] || []).forEach((entry) => {
-        const d = new Date(entry.sortDate);
-        if (isNaN(d) || d < periodStart) return;
-        const bucket = conditionBucket(entry.status);
-        if (bucket) counts[bucket]++;
-      });
-    });
-    const total = counts.Normal + counts.Caution + counts.Alert;
-    return { ...counts, total, normalPct: total > 0 ? Math.round((counts.Normal / total) * 100) : null };
-  }, [scopedRegistry, trackerByEquip, periodDays]);
-
-  // Activities Trend (last 6 months) — stacked by type, filtered to the
-  // active toggle (All shows all 3 stacked, a single type isolates it).
-  const trendData = useMemo(() => {
-    const months = [];
+  const m = useMemo(() => {
     const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: d.toLocaleDateString(undefined, { month: "short" }), "Oil Change": 0, "Oil Sample": 0, "Top Up": 0 });
-    }
-    const idx = {};
-    months.forEach((m, i) => { idx[m.key] = i; });
-    function bucket(rows, field) {
-      rows.forEach((r) => {
-        if (scopeCodes && !scopeCodes.has(r.code)) return;
-        const d = new Date(r.date);
-        if (isNaN(d.getTime())) return;
-        const i = idx[`${d.getFullYear()}-${d.getMonth()}`];
-        if (i === undefined) return;
-        months[i][field]++;
-      });
-    }
-    bucket(ocRows, "Oil Change");
-    bucket(sampleRows, "Oil Sample");
-    bucket(topUpRows, "Top Up");
-    return months;
-  }, [ocRows, sampleRows, topUpRows, scopeCodes]);
-
-  // Routine Compliance Rate (split by type, confirmed directly by the
-  // user) + Overdue Routines by Contractor — both derived from the
-  // already-fetched unified Routines overview (Patch 20), scoped the same
-  // way as everything else on this page.
-  const scopedRoutineItems = useMemo(
-    () => (contractorFilter === "All" ? routineItems : routineItems.filter((i) => i.contractor === contractorFilter)),
-    [routineItems, contractorFilter]
-  );
-  function complianceFor(routeType) {
-    const items = routeType === "Overall" ? scopedRoutineItems : scopedRoutineItems.filter((i) => i.routeType === routeType);
-    const relevant = items.filter((i) => i.dueStatus !== "Paused");
-    if (relevant.length === 0) return null;
-    const onTrack = relevant.filter((i) => i.dueStatus !== "Overdue").length;
-    return Math.round((onTrack / relevant.length) * 100);
-  }
-  const overdueByContractor = useMemo(() => {
-    const out = { RHI: 0, ASEC: 0 };
-    routineItems.forEach((i) => { if (i.dueStatus === "Overdue" && out[i.contractor] != null) out[i.contractor]++; });
-    return out;
-  }, [routineItems]);
-
-  // Activities by Contractor donuts — RHI vs ASEC split, one donut per
-  // activity type, shown side by side so all three are visible at once.
-  const contractorDonuts = useMemo(
-    () =>
-      [
-        { label: "Oil Change", stats: ocStats },
-        { label: "Oil Sample", stats: sampleStats },
-        { label: "Top Up", stats: topUpStats },
-      ].map(({ label, stats }) => ({
-        label,
-        data: [
-          { name: "RHI", value: stats.byContractor.RHI, color: T.accent },
-          { name: "ASEC", value: stats.byContractor.ASEC, color: T.warning },
-        ].filter((d) => d.value > 0),
-      })),
-    [ocStats, sampleStats, topUpStats, T.accent, T.warning]
-  );
-
-  // Condensed Oil Inventory widget — Inventory Status donut by stock-level
-  // tier, confirmed directly by the user as the simplified replacement for
-  // the mockup's full Reorder Requests tab.
-  const inventoryStatus = useMemo(() => {
-    const scoped = contractorFilter === "All" ? inventoryProducts : inventoryProducts.filter((p) => p.contractor === contractorFilter);
-    const tiers = { Sufficient: 0, Watch: 0, Low: 0, "Out of Stock": 0 };
-    scoped.forEach((p) => {
-      if (p.currentStock == null) return;
-      if (p.currentStock <= 0) tiers["Out of Stock"]++;
-      else if (p.recorderLevel != null && p.currentStock <= p.recorderLevel) tiers.Low++;
-      else if (p.recorderLevel != null && p.currentStock <= p.recorderLevel * 1.5) tiers.Watch++;
-      else tiers.Sufficient++;
+    const oc = periodCounts(ocRows, codes, periodDays, now);
+    const smp = periodCounts(sampleRows, codes, periodDays, now);
+    const tu = periodCounts(topUpRows, codes, periodDays, now);
+    const sampledPoints = new Set(
+      sampleRows.filter((r) => (!codes || codes.has(r.code)) && r.date && new Date(r.date) >= new Date(now.getTime() - periodDays * 86400000)).map((r) => r.code)
+    ).size;
+    const actionsOpen = openActionsOldest(actions, codes, now);
+    const equipBy = { RHI: new Set(), ASEC: new Set() };
+    const lpBy = { RHI: 0, ASEC: 0 };
+    scoped.forEach((r) => {
+      if (equipBy[r.contractor]) equipBy[r.contractor].add(r.equipmentId || r.code);
+      if (lpBy[r.contractor] != null) lpBy[r.contractor]++;
     });
-    return tiers;
-  }, [inventoryProducts, contractorFilter]);
-  const inventoryStatusData = [
-    { name: "Sufficient", value: inventoryStatus.Sufficient, color: T.success },
-    { name: "Watch (≤ moderate)", value: inventoryStatus.Watch, color: T.warning },
-    { name: "Low", value: inventoryStatus.Low, color: T.danger },
-    { name: "Out of Stock", value: inventoryStatus["Out of Stock"], color: T.textMuted },
-  ].filter((d) => d.value > 0);
+    const trendOc = monthlyCounts(ocRows, codes, 6, now);
+    const trendSmp = monthlyCounts(sampleRows, codes, 6, now);
+    const trendTu = monthlyCounts(topUpRows, codes, 6, now);
+    return {
+      oc,
+      smp,
+      tu,
+      sampledPoints,
+      equipment: new Set(scoped.map((r) => r.equipmentId || r.code)).size,
+      points: scoped.length,
+      equipBy: { RHI: equipBy.RHI.size, ASEC: equipBy.ASEC.size },
+      lpBy,
+      overdueOc: overdueOilChanges(oilChanges, codes, now),
+      labAlerts: alertsWithoutAction(samples, actions, codes),
+      lateRoutes: overdueRoutes(scopedRoutes, "All", now),
+      health: oilHealth(samples, codes, periodDays, now),
+      sampling: samplingOnTime(scoped, trackerByEquip),
+      routesOT: routesOnTime(scopedRoutes, periodDays, now),
+      actionsOpen,
+      actionsPastDue: actionsOpen.filter((a) => a.stage.label === "Past due").length,
+      actionsBy: actionsOpen.reduce((acc, a) => ((acc[a.contractor] = (acc[a.contractor] || 0) + 1), acc), { RHI: 0, ASEC: 0 }),
+      trendOc,
+      trendSmp,
+      trendTu,
+      tuRising: risingStreak(trendTu),
+    };
+  }, [ocRows, sampleRows, topUpRows, codes, periodDays, actions, scoped, oilChanges, samples, scopedRoutes, trackerByEquip]);
 
-  // Tables
-  const topOverdueRoutines = useMemo(() => {
-    const now = Date.now();
-    return (contractorFilter === "All" ? routineItems : routineItems.filter((i) => i.contractor === contractorFilter))
-      .filter((i) => i.dueStatus === "Overdue" && i.nextDueDate)
-      .map((i) => ({ ...i, daysOverdue: Math.floor((now - new Date(i.nextDueDate).getTime()) / 86400000) }))
-      .sort((a, b) => b.daysOverdue - a.daysOverdue)
-      .slice(0, 10);
-  }, [routineItems, contractorFilter]);
-
-  const upcomingForecastAlerts = useMemo(() => {
-    if (!forecast) return [];
-    const shortfalls = forecast.forecast.filter((f) => f.shortfall != null && f.shortfall > 0).map((f) => ({
-      oilType: f.lubricant, contractor: f.contractor, status: "Shortfall", detail: `${f.shortfall} L short`,
-    }));
-    const insufficient = (forecast.insufficientHistory || []).map((e) => ({
-      oilType: e.lubricant, contractor: e.contractor, status: "No History", detail: e.code,
-    }));
-    return [...shortfalls, ...insufficient].slice(0, 10);
-  }, [forecast]);
+  const shortages = useMemo(() => stockShortages(forecast?.forecast, contractor), [forecast, contractor]);
+  const runway = useMemo(() => stockRunway(products, forecast?.forecast, contractor).slice(0, 6), [products, forecast, contractor]);
+  const lowCount = useMemo(
+    () => products.filter((p) => (contractor === "All" || p.contractor === contractor) && p.currentStock != null && p.recorderLevel != null && p.currentStock <= p.recorderLevel).length,
+    [products, contractor]
+  );
 
   if (!webhookUrl) {
     return <p style={{ color: T.textSecondary }}>Add your Apps Script webhook URL in Settings first.</p>;
   }
 
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-        {!scopedContractor && (
-          <select style={{ ...s.select, width: 150 }} value={contractorFilter} onChange={(e) => setContractorFilter(e.target.value)}>
-            {contractorOptions.map((c) => (
-              <option key={c} value={c}>{c === "All" ? "All Contractors" : c}</option>
+  const splitText = (list, key = "contractor") => {
+    const by = { RHI: 0, ASEC: 0 };
+    list.forEach((x) => {
+      const c = x[key] || contractorOf.get(x.code);
+      if (by[c] != null) by[c]++;
+    });
+    return contractor === "All" ? `RHI ${by.RHI} · ASEC ${by.ASEC}` : "";
+  };
+  const go = (page, rec) => navigate?.(page, rec);
+  const planOilChanges = () => go("routines", { newRoute: { lpId: "", routeType: "Oil Change", workType: "Oil Change", contractor: contractor === "All" ? "" : contractor, reason: "" } });
+
+  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+  const att = [
+    {
+      key: "oc",
+      testid: "att-oilchanges",
+      tone: "danger",
+      tag: "Overdue",
+      count: m.overdueOc.length,
+      title: m.overdueOc.length === 1 ? "oil change overdue" : "oil changes overdue",
+      rows: m.overdueOc.map((r) => ({ key: r.code, left: r.code, right: fmtLate(r.days), mono: true, code: r.code })),
+      primary: "Plan oil changes",
+      onPrimary: planOilChanges,
+      onRow: (r) => go("equipment", r.code),
+      split: splitText(m.overdueOc),
+      empty: "Every oil change is on schedule.",
+      phoneDetail: m.overdueOc[0] ? `Worst: ${m.overdueOc[0].code} · ${fmtLate(m.overdueOc[0].days)} late` : "All on schedule",
+      phoneGo: () => go("oilchange"),
+    },
+    {
+      key: "lab",
+      testid: "att-labalerts",
+      tone: "danger",
+      tag: "Lab alert",
+      count: m.labAlerts.length,
+      title: m.labAlerts.length === 1 ? "sample in Alert, no action yet" : "samples in Alert, no action yet",
+      rows: m.labAlerts.map((r) => ({ key: r.code, left: r.code, right: r.reason, mono: true, code: r.code })),
+      primary: "Raise actions",
+      onPrimary: () => (m.labAlerts[0] ? go("oilreport", m.labAlerts[0].code) : go("actions")),
+      onRow: (r) => go("oilreport", r.code),
+      split: splitText(m.labAlerts),
+      empty: "Every Alert result has an action.",
+      phoneDetail: m.labAlerts.length ? m.labAlerts.slice(0, 3).map((r) => r.code.replace(/^LP-/, "")).join(" · ") : "Every Alert has an action",
+      phoneGo: () => (m.labAlerts[0] ? go("oilreport", m.labAlerts[0].code) : go("actions")),
+    },
+    {
+      key: "routes",
+      testid: "att-routes",
+      tone: "warning",
+      tag: "Late routes",
+      count: m.lateRoutes.length,
+      title: m.lateRoutes.length === 1 ? "route overdue" : "routes overdue",
+      rows: m.lateRoutes.map((r) => ({ key: r.routineId, left: r.routeName || r.routineId, right: `${r.days} d`, id: r.routineId })),
+      primary: "Open routes",
+      onPrimary: () => go("routines"),
+      onRow: (r) => go("routines", r.id),
+      split: splitText(m.lateRoutes),
+      empty: "No route is past due.",
+      phoneDetail: m.lateRoutes[0] ? `${m.lateRoutes[0].routeName || m.lateRoutes[0].routineId} ${m.lateRoutes[0].days} days late` : "None past due",
+      phoneGo: () => go("routines"),
+    },
+    {
+      key: "stock",
+      testid: "att-stock",
+      tone: "warning",
+      tag: "Stock",
+      count: forecast ? shortages.length : 0,
+      title: `${shortages.length === 1 ? "oil" : "oils"} short for the next ${period.days === 180 ? "6 months" : period.days === 90 ? "90 days" : "30 days"}`,
+      rows: shortages.map((b) => ({ key: b.label, left: b.label, right: b.noProduct && !b.hasStock ? "No stock product" : `${fmtNum(b.shortBy)} L short`, tone: b.noProduct && !b.hasStock ? "warning" : "danger" })),
+      primary: "Open inventory",
+      onPrimary: () => go("inventory"),
+      onRow: () => go("inventory"),
+      more: lowCount ? `${lowCount} below low-stock` : "",
+      empty: forecast ? "Stock covers the planned work." : "Checking stock…",
+      phoneDetail: shortages[0] ? `${shortages[0].label} · ${shortages[0].noProduct && !shortages[0].hasStock ? "no stock product" : `${fmtNum(shortages[0].shortBy)} L short`}` : "Stock covers the planned work",
+      phoneGo: () => go("inventory"),
+    },
+  ];
+
+  const h = m.health;
+  const healthSegs = [
+    { label: "Normal", value: h.Normal, color: T.success },
+    { label: "Caution", value: h.Caution, color: T.warning },
+    { label: "Alert", value: h.Alert, color: T.danger },
+  ];
+  const s = m.sampling;
+  const rot = m.routesOT;
+
+  async function exportPdf() {
+    setExporting(true);
+    try {
+      const { generateDashboardPdf } = await import("../reportGenerators");
+      await generateDashboardPdf({
+        contractor,
+        area,
+        periodLabel: period.long,
+        prevLabel: period.prev,
+        target,
+        m,
+        attention: att.map((a) => ({ tag: a.tag, count: a.count, title: a.title, rows: a.rows.slice(0, 5), empty: a.empty })),
+        shortages,
+        runway,
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const kpis = (
+    <div className="odb-kpis">
+      <button type="button" className="odb-card odb-kpi odb-health" onClick={() => go("oilreport")} data-testid="kpi-health">
+        <span className="odb-kpi-label">Oil health — latest sample per point</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <Donut
+            T={T}
+            segments={healthSegs}
+            size={phone ? 112 : 128}
+            center={h.normalPct == null ? "—" : `${h.normalPct}%`}
+            sub="Normal"
+            ariaLabel={`Oil health: ${h.Normal} Normal, ${h.Caution} Caution, ${h.Alert} Alert`}
+          />
+          <div className="odb-legend">
+            {healthSegs.map((x) => (
+              <span key={x.label}>
+                <i style={{ background: x.color }} />
+                <b>{x.value}</b> {x.label}
+              </span>
             ))}
-          </select>
+          </div>
+        </div>
+        {h.deltaPts != null && h.deltaPts !== 0 && (
+          <span className="odb-kpi-sub">
+            <Delta T={T} change={h.deltaPts} suffix="pts" /> Normal vs {period.prev}
+          </span>
         )}
-        <select style={{ ...s.select, width: 150 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
-          {areaOptions.map((a) => (
-            <option key={a} value={a}>{a === "All" ? "All Areas" : a}</option>
-          ))}
-        </select>
-        <select style={{ ...s.select, width: 170 }} value={periodDays} onChange={(e) => setPeriodDays(Number(e.target.value))}>
-          {PERIOD_OPTIONS.map((p) => (
-            <option key={p.days} value={p.days}>{p.label}</option>
-          ))}
-        </select>
-      </div>
+      </button>
 
-      {/* "Right Now" — current urgency, not period activity volume. This is
-          the genuinely new data this page didn't surface before: Oil
-          Change Log's and Oil Sampling Log's own Overdue/Missing boards,
-          and Oil Sampling Log's Condition Trend, condensed to one number
-          each. Each links straight to its owning page. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 12 }}>
-        <KpiCard
-          T={T} s={s} icon="ti-droplet-filled" color="warning" label="Oil Changes Overdue" value={oilChangeOverdue}
-          onClick={() => navigate?.("oilchange")}
-        />
-        <KpiCard
-          T={T} s={s} icon="ti-flask-2" color="danger" label="Samples Needing Attention" value={samplingAttention}
-          sub="Overdue or Missing"
-          onClick={() => navigate?.("tracker")}
-        />
-        <KpiCard
-          T={T} s={s} icon="ti-heart-rate-monitor" color="success"
-          label={`Oil Health (${periodDays}d)`}
-          value={fleetHealth.normalPct == null ? "—" : `${fleetHealth.normalPct}%`}
-          sub={
-            fleetHealth.total === 0
-              ? "No lab results in this period"
-              : `Normal · ${fleetHealth.Caution} Caution, ${fleetHealth.Alert} Alert`
-          }
-          onClick={() => navigate?.("tracker")}
-        />
-      </div>
+      <button type="button" className="odb-card odb-kpi" onClick={() => go("oilchange")} data-testid="kpi-oilchanges">
+        <span className="odb-kpi-label">Oil changes</span>
+        <span className="odb-kpi-value">{m.oc.total}</span>
+        <span className="odb-kpi-sub">
+          <Delta T={T} change={m.oc.change} /> {m.oc.change ? "· " : ""}
+          {m.overdueOc.length} overdue
+        </span>
+        {contractor === "All" && !phone && <SplitBars T={T} values={m.oc.byContractor} />}
+      </button>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(190px,1fr))", gap: 12, marginBottom: 20 }}>
-        <KpiCard T={T} s={s} icon="ti-building-factory-2" color="accent" label="Total Equipment" value={totalEquipment} breakdown={equipByContractor} onClick={() => navigate?.("equipment")} />
-        <KpiCard T={T} s={s} icon="ti-droplet" color="info" label="Total LP Points" value={totalLpPoints} breakdown={lpByContractor} onClick={() => navigate?.("equipment")} />
-        <KpiCard T={T} s={s} icon="ti-droplet-filled" color="success" label={`Oil Changes (${periodDays}d)`} value={ocStats.total} pctChange={ocStats.pctChange} breakdown={ocStats.byContractor} onClick={() => navigate?.("oilchange")} />
-        <KpiCard T={T} s={s} icon="ti-flask" color="accent" label={`Oil Samples (${periodDays}d)`} value={sampleStats.total} pctChange={sampleStats.pctChange} breakdown={sampleStats.byContractor} onClick={() => navigate?.("tracker")} />
-        <KpiCard T={T} s={s} icon="ti-droplet-plus" color="danger" label={`Emergency Top Ups (${periodDays}d)`} value={topUpStats.total} pctChange={topUpStats.pctChange} breakdown={topUpStats.byContractor} onClick={() => navigate?.("activity")} />
-        <KpiCard T={T} s={s} icon="ti-checklist" color="warning" label="Open Actions" value={openActions.length} breakdown={openActionsByContractor} onClick={() => navigate?.("actions")} />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div style={s.card}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-            <p style={{ fontWeight: 700, margin: 0 }}>Activities Trend (Last 6 Months)</p>
-            <div style={{ display: "flex", gap: 6 }}>
-              {["All", "Oil Change", "Oil Sample", "Top Up"].map((t) => (
-                <button
-                  key={t}
-                  style={{ ...s.btn, fontSize: 12, padding: "4px 10px", background: activityType === t ? T.accent : "transparent", color: activityType === t ? T.accentText : T.textSecondary, borderColor: activityType === t ? T.accent : T.border }}
-                  onClick={() => setActivityType(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={trendData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={28} />
-              <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              {(activityType === "All" || activityType === "Oil Change") && <Bar dataKey="Oil Change" stackId={activityType === "All" ? "s" : undefined} fill={T.accent} />}
-              {(activityType === "All" || activityType === "Oil Sample") && <Bar dataKey="Oil Sample" stackId={activityType === "All" ? "s" : undefined} fill={T.info || T.accent} />}
-              {(activityType === "All" || activityType === "Top Up") && <Bar dataKey="Top Up" stackId={activityType === "All" ? "s" : undefined} fill={T.danger} radius={activityType === "All" ? [4, 4, 0, 0] : undefined} />}
-            </BarChart>
-          </ResponsiveContainer>
+      <button type="button" className="odb-card odb-kpi" onClick={() => go("tracker")} data-testid="kpi-sampling">
+        <span className="odb-kpi-label">Sampling on time</span>
+        <div style={{ display: "flex", alignItems: "center", gap: phone ? 8 : 12 }}>
+          <Ring T={T} pct={s.pct} target={target} size={phone ? 68 : 88} color={s.pct != null && s.pct >= target ? T.success : T.accent} label={`${s.pct ?? "—"} % of points sampled on time, target ${target} %`} />
+          <span className="odb-kpi-sub" style={{ lineHeight: 1.5, minWidth: 0 }}>
+            <b style={{ color: T.textPrimary, fontSize: 18 }}>{m.smp.total}</b> taken
+            {m.smp.change ? (
+              <>
+                <br />
+                <Delta T={T} change={m.smp.change} />
+              </>
+            ) : null}
+            <br />
+            target {target} %
+          </span>
         </div>
+        <span className="odb-kpi-sub">
+          {s.late} of {s.due} points overdue
+        </span>
+      </button>
 
-        <div style={s.card}>
-          <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Routine Compliance Rate</p>
-          {["Oil Change", "Sampling", "Overall"].map((rt) => {
-            const rate = complianceFor(rt);
-            return (
-              <div key={rt} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
-                  <span style={{ color: T.textSecondary }}>{rt}</span>
-                  <span style={{ fontWeight: 700 }}>{rate == null ? "—" : `${rate}%`}</span>
-                </div>
-                <div style={{ height: 6, borderRadius: 3, background: T.border, overflow: "hidden" }}>
-                  <div style={{ width: `${rate || 0}%`, height: "100%", background: rate >= 90 ? T.success : rate >= 70 ? T.warning : T.danger }} />
-                </div>
-              </div>
-            );
-          })}
-          <p style={{ fontWeight: 700, margin: "16px 0 10px" }}>Overdue Routines by Contractor</p>
-          {["RHI", "ASEC"].map((c) => (
-            <div key={c} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0" }}>
-              <span style={{ color: T.textSecondary }}>{c}</span>
-              <span style={{ fontWeight: 700, color: overdueByContractor[c] > 0 ? T.danger : T.success }}>{overdueByContractor[c]}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <button type="button" className="odb-card odb-kpi" onClick={() => go("activity")} data-testid="kpi-topups">
+        <span className="odb-kpi-label">Emergency top-ups</span>
+        <span className="odb-kpi-value">{m.tu.total}</span>
+        <span className="odb-kpi-sub">
+          <Delta T={T} change={m.tu.change} goodWhenUp={false} /> {m.tu.change ? "· " : ""}lower is better
+        </span>
+        {contractor === "All" && !phone && <SplitBars T={T} values={m.tu.byContractor} />}
+      </button>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <div style={s.card}>
-          <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Activities by Contractor</p>
-          <div style={{ display: "flex", gap: 8 }}>
-            {contractorDonuts.map(({ label, data }) => (
-              <div key={label} style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: T.textSecondary, margin: "0 0 2px" }}>{label}</p>
-                {data.length === 0 ? (
-                  <p style={{ color: T.textMuted, fontSize: 12, margin: "30px 0" }}>No activity</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={130}>
-                    <PieChart>
-                      <Pie data={data} dataKey="value" nameKey="name" innerRadius={28} outerRadius={50} paddingAngle={2} label={({ value }) => value}>
-                        {data.map((d) => <Cell key={d.name} fill={d.color} />)}
-                      </Pie>
-                      <Tooltip content={<ChartTooltip T={T} />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 2, fontSize: 12 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, display: "inline-block" }} />
-              <span style={{ color: T.textSecondary }}>RHI</span>
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: T.warning, display: "inline-block" }} />
-              <span style={{ color: T.textSecondary }}>ASEC</span>
-            </span>
-          </div>
-        </div>
+      <button type="button" className="odb-card odb-kpi" onClick={() => go("actions")} data-testid="kpi-actions">
+        <span className="odb-kpi-label">Open actions</span>
+        <span className="odb-kpi-value">{m.actionsOpen.length}</span>
+        <span className="odb-kpi-sub" style={{ color: m.actionsPastDue ? T.danger : undefined, fontWeight: m.actionsPastDue ? 700 : 400 }}>
+          {m.actionsPastDue} past due
+        </span>
+        {contractor === "All" && !phone && <SplitBars T={T} values={m.actionsBy} />}
+      </button>
 
-        <div style={s.card}>
-          <p style={{ fontWeight: 700, margin: "0 0 12px" }}>Oil Inventory & Forecast</p>
-          {loadingExtra ? (
-            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
-          ) : inventoryStatusData.length === 0 ? (
-            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No products to report on.</p>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <ResponsiveContainer width="50%" height={160}>
-                <PieChart>
-                  <Pie data={inventoryStatusData} dataKey="value" nameKey="name" innerRadius={38} outerRadius={65} paddingAngle={2}>
-                    {inventoryStatusData.map((d) => <Cell key={d.name} fill={d.color} />)}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip T={T} />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12 }}>
-                {inventoryStatusData.map((d) => (
-                  <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 }} />
-                    <span style={{ color: T.textPrimary }}>{d.name}</span>
-                    <span style={{ color: T.textSecondary }}>{d.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {consumption?.totalsByMonth?.length > 0 && (
-            <p style={{ fontSize: 12, color: T.textMuted, margin: "10px 0 0" }}>
-              This month's consumption: {consumption.totalsByMonth[consumption.totalsByMonth.length - 1]} L
+      <button type="button" className="odb-card odb-kpi" onClick={() => go("equipment")} data-testid="kpi-equipment">
+        <span className="odb-kpi-label">Equipment / LP points</span>
+        <span className="odb-kpi-value">
+          {fmtNum(m.equipment)} <small>/ {fmtNum(m.points)}</small>
+        </span>
+        <span className="odb-kpi-sub">{m.sampledPoints} points sampled</span>
+        {contractor === "All" && !phone && <SplitBars T={T} values={m.lpBy} />}
+      </button>
+    </div>
+  );
+
+  const trend = (
+    <div className="odb-trend">
+      {[
+        { title: "Oil changes", data: m.trendOc, color: T.accent },
+        { title: "Samples", data: m.trendSmp, color: T.accent },
+        { title: "Emergency top-ups", data: m.trendTu, color: T.accent, rising: m.tuRising >= TOP_UP_RISING_MONTHS ? m.tuRising : 0 },
+      ].map((t) => (
+        <div key={t.title} data-testid={`trend-${t.title}`}>
+          <p className="odb-trend-title">{t.title}</p>
+          <p className="odb-trend-now">
+            <b>{t.data[t.data.length - 1].value}</b> this month so far
+          </p>
+          <MiniBars T={T} data={t.data} color={t.color} ariaLabel={`${t.title} per month: ${t.data.map((d) => `${d.label} ${d.value}`).join(", ")}`} />
+          {t.rising > 0 && (
+            <p style={{ margin: "8px 0 0", color: T.warning, fontWeight: 700, fontSize: 13 }} data-testid="topup-rising">
+              <i className="ti ti-trending-up" aria-hidden="true" /> Rising {t.rising} months in a row — check for leaks
             </p>
           )}
         </div>
+      ))}
+    </div>
+  );
+
+  const routesCard = (
+    <div data-testid="routes-ontime">
+      {[...(contractor === "All" ? CONTRACTORS : [contractor]), ...(contractor === "All" ? ["All"] : [])].map((c) => {
+        const b = rot[c] || { due: 0, onTime: 0, overdueNow: 0, pct: null };
+        return (
+          <div key={c} className="odb-target-row">
+            <div className="odb-target-line">
+              <b>{c}</b>
+              <TargetBar T={T} pct={b.pct} target={target} color={c === "All" ? T.textSecondary : b.pct != null && b.pct < target ? T.warning : T.accent} />
+              <b>{b.pct == null ? "—" : `${b.pct}%`}</b>
+            </div>
+            <p className="odb-muted" style={{ margin: "4px 0 0 56px" }}>
+              {b.due ? `${b.onTime} of ${b.due} on time` : "No routes due in this period"}
+              {b.overdueNow > 0 && <span style={{ color: T.danger, fontWeight: 700 }}> · {b.overdueNow} overdue now</span>}
+            </p>
+          </div>
+        );
+      })}
+      <p className="odb-muted" style={{ margin: 0, display: "flex", gap: 14 }}>
+        <span>
+          <i style={{ display: "inline-block", width: 14, height: 8, borderRadius: 4, background: T.accent, marginRight: 5 }} />
+          On time
+        </span>
+        <span>
+          <i style={{ display: "inline-block", width: 3, height: 12, background: T.textPrimary, marginRight: 5, verticalAlign: -2 }} />
+          Target {target} %
+        </span>
+      </p>
+    </div>
+  );
+
+  const routesTable =
+    m.lateRoutes.length === 0 ? (
+      <p className="odb-muted">No route is past due.</p>
+    ) : (
+      <table className="odb-table">
+        <thead>
+          <tr>
+            <th>Route</th>
+            <th>Contractor</th>
+            <th>Late</th>
+          </tr>
+        </thead>
+        <tbody>
+          {m.lateRoutes.slice(0, 5).map((r) => (
+            <tr key={r.routineId} onClick={() => go("routines", r.routineId)}>
+              <td>
+                {r.routeName || r.routineId}
+                <small>
+                  {r.itemsTotal ? `${r.itemsTotal} points · ` : ""}
+                  {r.assignedTo || "no technician"}
+                </small>
+              </td>
+              <td>{r.contractor}</td>
+              <td style={{ color: T.danger, fontWeight: 700, whiteSpace: "nowrap" }}>{r.days} d</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+
+  const actionsTable =
+    m.actionsOpen.length === 0 ? (
+      <p className="odb-muted">No open actions.</p>
+    ) : (
+      <table className="odb-table">
+        <thead>
+          <tr>
+            <th>Equipment / action</th>
+            <th>Status</th>
+            <th>Age</th>
+          </tr>
+        </thead>
+        <tbody>
+          {m.actionsOpen.slice(0, 5).map((a, i) => (
+            <tr key={a.acNo || i} onClick={() => go("actions")}>
+              <td>
+                <span className="odb-mono">{a.equipmentCode}</span>
+                <small>{a.agreedAction || a.accAction || a.contractorAction || a.sampleAnalysis || "—"}</small>
+              </td>
+              <td>
+                <span className="odb-pill" style={{ color: T[a.stage.tone] || T.textSecondary, background: (T[a.stage.tone] || T.textSecondary) + "1A" }}>
+                  {a.stage.label}
+                </span>
+              </td>
+              <td style={{ whiteSpace: "nowrap" }}>{a.age == null ? "—" : `${a.age} d`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+
+  const runwayBody = loadingExtra && !runway.length ? <p className="odb-muted">Loading…</p> : runway.length === 0 ? <p className="odb-muted">No stock usage recorded yet.</p> : <Runway T={T} rows={runway} />;
+
+  return (
+    <div className="odb" data-testid="oil-dashboard">
+      <style>{styleSheet(T)}</style>
+      <div className="odb-top">
+        <div>
+          <h2>Oil Dashboard</h2>
+          <p className="odb-muted" style={{ margin: "4px 0 0", fontSize: 14 }}>
+            {today} · {fmtNum(m.equipment)} equipment · {fmtNum(m.points)} lubrication points · {m.sampledPoints} sampled
+          </p>
+        </div>
+        <div className="odb-controls">
+          {!scopedContractor && (
+            <Seg label="Contractor" value={contractor} onChange={setContractor} options={["All", ...CONTRACTORS].map((c) => ({ value: c, label: c }))} />
+          )}
+          {areaOptions.length > 2 && (
+            <select className="odb-select" aria-label="Dashboard area" value={area} onChange={(e) => setArea(e.target.value)}>
+              {areaOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a === "All" ? "All areas" : a}
+                </option>
+              ))}
+            </select>
+          )}
+          <Seg label="Period" value={periodDays} onChange={setPeriodDays} options={PERIODS.map((p) => ({ value: p.days, label: p.label }))} />
+          <button type="button" className="odb-btn odb-hide-phone" onClick={exportPdf} disabled={exporting} data-testid="dashboard-pdf">
+            <i className={`ti ${exporting ? "ti-loader" : "ti-file-download"}`} aria-hidden="true" /> {exporting ? "Preparing…" : "Export PDF"}
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 16 }}>
-        <div style={{ ...s.card, padding: 0, overflow: "hidden" }}>
-          <p style={{ fontWeight: 700, margin: 0, padding: "14px 16px 0" }}>Top Overdue Routines</p>
-          {topOverdueRoutines.length === 0 ? (
-            <p style={{ color: T.textSecondary, fontSize: 12, padding: "10px 16px 16px" }}>None overdue.</p>
-          ) : (
-            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 10 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Routine</th>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 8px" }}>Contractor</th>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Days Overdue</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topOverdueRoutines.map((r) => (
-                  <tr
-                    key={r.id}
-                    style={{ borderTop: `1px solid ${T.border}`, cursor: navigate ? "pointer" : "default" }}
-                    onClick={() => navigate?.("routines", r.id)}
-                  >
-                    <td style={{ padding: "6px 16px" }}>{r.routeName || r.id}</td>
-                    <td style={{ padding: "6px 8px" }}>{r.contractor}</td>
-                    <td style={{ padding: "6px 16px", color: T.danger, fontWeight: 700 }}>{r.daysOverdue}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+      <div className="odb-section">
+        <h3>Needs attention</h3>
+        <span className="odb-muted">{phone ? "tap to open" : "most urgent first · each card opens the list behind it"}</span>
+      </div>
+      {phone ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {att.map((a) => (
+            <AttentionRow key={a.key} T={T} tone={a.tone} count={a.count} title={a.title.charAt(0).toUpperCase() + a.title.slice(1)} detail={a.phoneDetail} onClick={a.phoneGo} testid={a.testid} />
+          ))}
         </div>
+      ) : (
+        <div className="odb-grid4">
+          {att.map((a) => (
+            <AttentionCard key={a.key} T={T} {...a} />
+          ))}
+        </div>
+      )}
 
-        <div style={{ ...s.card, padding: 0, overflow: "hidden" }}>
-          <p style={{ fontWeight: 700, margin: 0, padding: "14px 16px 0" }}>Open Actions</p>
-          {openActions.length === 0 ? (
-            <p style={{ color: T.textSecondary, fontSize: 12, padding: "10px 16px 16px" }}>None open.</p>
-          ) : (
-            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 10 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Equipment</th>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 8px" }}>Status</th>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {openActions.slice(0, 10).map((a, i) => (
-                  <tr
-                    key={a._id || i}
-                    style={{ borderTop: `1px solid ${T.border}`, cursor: navigate ? "pointer" : "default" }}
-                    onClick={() => navigate?.("actions")}
-                  >
-                    <td style={{ padding: "6px 16px" }}>{a.equipmentCode}</td>
-                    <td style={{ padding: "6px 8px" }}>{a.status}</td>
-                    <td style={{ padding: "6px 16px" }}>{a.agreedAction || a.accAction || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      <div className="odb-section">
+        <h3>Plant health · {period.long}</h3>
+        <span className="odb-muted">compared with {period.prev}</span>
+      </div>
+      {kpis}
 
-        <div style={{ ...s.card, padding: 0, overflow: "hidden" }}>
-          <p style={{ fontWeight: 700, margin: 0, padding: "14px 16px 0" }}>Upcoming Forecast Alerts</p>
-          {upcomingForecastAlerts.length === 0 ? (
-            <p style={{ color: T.textSecondary, fontSize: 12, padding: "10px 16px 16px" }}>Nothing flagged.</p>
-          ) : (
-            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 10 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Oil Type</th>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 8px" }}>Status</th>
-                  <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Detail</th>
-                </tr>
-              </thead>
-              <tbody>
-                {upcomingForecastAlerts.map((a, i) => (
-                  <tr
-                    key={i}
-                    style={{ borderTop: `1px solid ${T.border}`, cursor: navigate ? "pointer" : "default" }}
-                    onClick={() => navigate?.("inventory")}
-                  >
-                    <td style={{ padding: "6px 16px" }}>{a.oilType}</td>
-                    <td style={{ padding: "6px 8px", color: a.status === "Shortfall" ? T.danger : T.warning, fontWeight: 700 }}>{a.status}</td>
-                    <td style={{ padding: "6px 16px" }}>{a.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      <div className="odb-row2">
+        <Panel title="Activity trend · 6 months" link="Activity log" onLink={() => go("activity")} phone={phone} count="6 months ›" testid="panel-trend"
+          sub="One small chart per activity, each on its own scale, so the few top-ups aren't flattened by the oil changes. Pale bar = this month so far.">
+          {trend}
+        </Panel>
+        <Panel title="Routes done on time" link="Routes" onLink={() => go("routines")} phone={phone} count={rot.All?.pct != null ? `${rot.All.pct} % ›` : "›"} testid="panel-routes"
+          sub={`Share of routes finished by their due date · target ${target} %`}>
+          {routesCard}
+        </Panel>
+      </div>
+
+      <div className="odb-row3">
+        <Panel title="Overdue routes" link={m.lateRoutes.length ? `All ${m.lateRoutes.length}` : "Routes"} onLink={() => go("routines")} phone={phone} count={`${m.lateRoutes.length} ›`} testid="panel-overdue-routes">
+          {routesTable}
+        </Panel>
+        <Panel title="Open actions · oldest first" link={`All ${m.actionsOpen.length}`} onLink={() => go("actions")} phone={phone} count={`${m.actionsOpen.length} ›`} testid="panel-actions">
+          {actionsTable}
+        </Panel>
+        <Panel title="Days of stock left" link="Inventory" onLink={() => go("inventory")} phone={phone} count={shortages.length ? `${shortages.length} short ›` : "›"} testid="panel-stock"
+          sub="At the recent rate of use · lines at 30 / 60 / 90 days">
+          {runwayBody}
+        </Panel>
       </div>
     </div>
   );

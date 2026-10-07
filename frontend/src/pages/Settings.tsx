@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
 import ModuleAccessPanel from '../components/ModuleAccessPanel';
@@ -58,6 +58,14 @@ export default function Settings() {
   // here for anyone whose access hides it.
   const tabs = TABS.filter((t) => t.id === 'general' || tabLevel(access[t.id], 'settings') !== 'Hidden');
   const generalSubTabs = GENERAL_SUB_TABS.filter((t) => t.id !== 'module-access' || isAppOwner);
+
+  // Opened straight on a module's tab (a link, or a reload on that tab):
+  // send that module to its own settings page too, not just on a click.
+  // navigateTo waits for the module if it hasn't loaded yet.
+  useEffect(() => {
+    if (activeTab !== 'general') embeddedNav.navigateTo(activeTab, 'settings');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   function selectTab(tabId: SettingsTabId) {
     if (tabId === 'general') {

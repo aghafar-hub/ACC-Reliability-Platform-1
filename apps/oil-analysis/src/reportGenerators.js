@@ -144,15 +144,15 @@ function addFooter(doc) {
   }
 }
 
-function sectionTitle(doc, text, y) {
+function sectionTitle(doc, text, y, x = 36) {
   const upper = text.toUpperCase();
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(...BRAND.navy);
-  doc.text(upper, 36, y);
+  doc.text(upper, x, y);
   doc.setDrawColor(...BRAND.teal);
   doc.setLineWidth(1.6);
-  doc.line(36, y + 4, 36 + doc.getTextWidth(upper), y + 4);
+  doc.line(x, y + 4, x + doc.getTextWidth(upper), y + 4);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(20, 26, 33);
@@ -2380,4 +2380,214 @@ export async function generateLabReportPdf({ reg, code, shown, columns, actions,
   addFooter(doc);
   doc.save(`Oil-Analysis-Report-${String(code).replace(/[^a-z0-9.-]+/gi, "_")}-${toFileDate()}.pdf`);
   return doc;
+}
+
+// ── Oil Dashboard PDF (design D4) ─────────────────────────────────────────
+// The same numbers the dashboard shows (the page passes its computed model
+// in), laid out for A4 landscape: the four attention cards, plant health
+// with the oil-health donut and the period comparison, routes on time
+// against the target, then the activity trend and the three lists.
+export async function generateDashboardPdf({ contractor = "All", area = "All", periodLabel, prevLabel, target, m, attention, runway }) {
+  const scope = `${scopeLineFor(contractor)}${area !== "All" ? ` · Area: ${area}` : ""} · ${periodLabel}`;
+  const doc = await newDoc("Oil Dashboard", scope, "landscape");
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const L = 36;
+  const W = pageWidth - 72;
+  let y = 98;
+
+  // Needs attention
+  y = sectionTitle(doc, "Needs attention", y);
+  const gap = 12;
+  const boxW = (W - gap * 3) / 4;
+  const boxH = 118;
+  attention.forEach((a, i) => {
+    const x = L + i * (boxW + gap);
+    const tone = a.count === 0 ? BRAND.success : i < 2 ? BRAND.danger : BRAND.warning;
+    doc.setDrawColor(...BRAND.border);
+    doc.setLineWidth(0.75);
+    doc.roundedRect(x, y, boxW, boxH, 4, 4, "S");
+    doc.setFillColor(...tone);
+    doc.rect(x, y, boxW, 4, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...tone);
+    doc.text(a.tag.toUpperCase(), x + 10, y + 18);
+    doc.setFontSize(20);
+    doc.setTextColor(20, 26, 33);
+    doc.text(String(a.count), x + 10, y + 42);
+    const countW = doc.getTextWidth(String(a.count));
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const titleLines = doc.splitTextToSize(a.title, boxW - 26 - countW);
+    doc.text(titleLines.slice(0, 2), x + 16 + countW, titleLines.length > 1 ? y + 33 : y + 40);
+    let ry = y + 60;
+    if (a.count === 0) {
+      doc.setTextColor(...BRAND.muted);
+      doc.text(doc.splitTextToSize(a.empty, boxW - 20), x + 10, ry);
+    } else {
+      a.rows.slice(0, 4).forEach((r) => {
+        const right = String(r.right);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...tone);
+        const rw = doc.getTextWidth(right);
+        doc.text(right, x + boxW - 10, ry, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(20, 26, 33);
+        let left = String(r.left);
+        while (left.length > 4 && doc.getTextWidth(left) > boxW - 28 - rw) left = left.slice(0, -2);
+        if (left !== String(r.left)) left += "…";
+        doc.text(left, x + 10, ry);
+        ry += 14;
+      });
+    }
+  });
+  y += boxH + 26;
+
+  // Plant health: donut + comparison table
+  y = sectionTitle(doc, `Plant health · ${periodLabel} (compared with ${prevLabel})`, y);
+  const h = m.health;
+  donutWithLegend(doc, {
+    x: L + 4,
+    y: y + 4,
+    radius: 42,
+    legendX: L + 104,
+    slices: [
+      { label: "Normal", value: h.Normal, color: BRAND.success },
+      { label: "Caution", value: h.Caution, color: BRAND.warning },
+      { label: "Alert", value: h.Alert, color: BRAND.danger },
+    ],
+  });
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.setTextColor(20, 26, 33);
+  doc.text(h.normalPct == null ? "—" : `${h.normalPct}%`, L + 46, y + 50, { align: "center" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("Oil health — latest sample per point", L, y + 108);
+  const chg = (c) => (c == null ? "new" : c === 0 ? "—" : `${c > 0 ? "+" : ""}${c} %`);
+  const split = (o) => (contractor === "All" ? [o.RHI ?? 0, o.ASEC ?? 0] : ["", ""]);
+  autoTable(doc, {
+    startY: y - 6,
+    margin: { left: L + 230, right: 36 },
+    head: [["Measure", "This period", "Previous", "Change", "RHI", "ASEC"]],
+    body: [
+      ["Oil changes", m.oc.total, m.oc.prev, chg(m.oc.change), ...split(m.oc.byContractor)],
+      ["Samples taken", m.smp.total, m.smp.prev, chg(m.smp.change), ...split(m.smp.byContractor)],
+      ["Emergency top-ups (lower is better)", m.tu.total, m.tu.prev, chg(m.tu.change), ...split(m.tu.byContractor)],
+      ["Points sampled on time (now)", m.sampling.pct == null ? "—" : `${m.sampling.pct}%`, "", `target ${target}%`, ...(contractor === "All" ? ["RHI", "ASEC"].map((c) => {
+        const b = m.sampling.byContractor[c];
+        return b.due ? `${Math.round((b.ok / b.due) * 100)}%` : "—";
+      }) : ["", ""])],
+      ["Open actions", m.actionsOpen.length, "", `${m.actionsPastDue} past due`, ...split(m.actionsBy)],
+      ["Oil changes overdue (now)", m.overdueOc.length, "", "", "", ""],
+      ["Equipment / LP points", `${m.equipment} / ${m.points}`, "", `${m.sampledPoints} sampled`, ...split(m.lpBy)],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.5 },
+  });
+  y = Math.max(doc.lastAutoTable.finalY, y + 112) + 24;
+
+  // Routes on time vs target
+  y = needsNewPage(doc, y, 120);
+  y = sectionTitle(doc, `Routes done on time · target ${target}%`, y);
+  const rows = (contractor === "All" ? ["RHI", "ASEC", "All"] : [contractor]).map((c) => ({ c, b: m.routesOT[c] || { due: 0, onTime: 0, overdueNow: 0, pct: null } }));
+  const barX = L + 60;
+  const barW = 360;
+  rows.forEach(({ c, b }) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    doc.setTextColor(20, 26, 33);
+    doc.text(c, L, y + 9);
+    doc.setFillColor(...BRAND.border);
+    doc.roundedRect(barX, y, barW, 11, 5, 5, "F");
+    if (b.pct) {
+      doc.setFillColor(...(c === "All" ? BRAND.muted : b.pct < target ? BRAND.warning : [30, 91, 184]));
+      doc.roundedRect(barX, y, (barW * b.pct) / 100, 11, 5, 5, "F");
+    }
+    doc.setDrawColor(20, 26, 33);
+    doc.setLineWidth(1.5);
+    doc.line(barX + (barW * target) / 100, y - 3, barX + (barW * target) / 100, y + 14);
+    doc.text(b.pct == null ? "—" : `${b.pct}%`, barX + barW + 12, y + 9);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...BRAND.muted);
+    doc.text(`${b.due ? `${b.onTime} of ${b.due} on time` : "No routes due in this period"}${b.overdueNow ? ` · ${b.overdueNow} overdue now` : ""}`, barX + barW + 52, y + 9);
+    y += 24;
+  });
+
+  // Page 2 — trend and lists
+  doc.addPage();
+  y = 44;
+  y = sectionTitle(doc, "Activity trend · last 6 months (this month so far)", y);
+  const months = m.trendOc.map((x) => x.label + (x.partial ? " *" : ""));
+  autoTable(doc, {
+    startY: y,
+    margin: { left: L, right: 36 },
+    head: [["Activity", ...months]],
+    body: [
+      ["Oil changes", ...m.trendOc.map((x) => x.value)],
+      ["Samples", ...m.trendSmp.map((x) => x.value)],
+      ["Emergency top-ups", ...m.trendTu.map((x) => x.value)],
+    ],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.5, halign: "center" },
+    columnStyles: { 0: { halign: "left" } },
+  });
+  y = doc.lastAutoTable.finalY + 12;
+  doc.setFontSize(8.5);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("* this month so far", L, y);
+  if (m.tuRising >= 3) {
+    doc.setTextColor(...BRAND.warning);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Emergency top-ups rising ${m.tuRising} months in a row — check for leaks`, L + 110, y);
+    doc.setFont("helvetica", "normal");
+  }
+  y += 24;
+
+  const half = (W - 16) / 2;
+  const startY = y;
+  y = sectionTitle(doc, "Overdue routes", y);
+  autoTable(doc, {
+    startY: y,
+    margin: { left: L, right: pageWidth - L - half },
+    head: [["Route", "Contractor", "Technician", "Late"]],
+    body: m.lateRoutes.length ? m.lateRoutes.slice(0, 12).map((r) => [r.routeName || r.routineId, r.contractor, r.assignedTo || "—", `${r.days} d`]) : [["No route is past due", "", "", ""]],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.5 },
+  });
+  const leftEnd = doc.lastAutoTable.finalY;
+  const ry = sectionTitle(doc, "Days of stock left", startY, L + half + 16);
+  doc.setFont("helvetica", "normal");
+  autoTable(doc, {
+    startY: ry,
+    margin: { left: L + half + 16, right: 36 },
+    head: [["Oil", "Contractor", "Days left"]],
+    body: runway.length ? runway.map((r) => [r.label, r.contractor || "", r.noProduct ? "No stock product" : `${r.days} d`]) : [["No stock usage recorded yet", "", ""]],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.5 },
+  });
+  y = Math.max(leftEnd, doc.lastAutoTable.finalY) + 24;
+  y = needsNewPage(doc, y, 120);
+  y = sectionTitle(doc, "Open actions · oldest first", y);
+  autoTable(doc, {
+    startY: y,
+    margin: { left: L, right: 36 },
+    head: [["Equipment", "Contractor", "Action", "Status", "Age"]],
+    body: m.actionsOpen.length
+      ? m.actionsOpen.slice(0, 10).map((a) => [a.equipmentCode, a.contractor || "", a.agreedAction || a.accAction || a.contractorAction || a.sampleAnalysis || "—", a.stage.label, a.age == null ? "—" : `${a.age} d`])
+      : [["No open actions", "", "", "", ""]],
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 8.5 },
+    styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.5 },
+    columnStyles: { 2: { cellWidth: 380 } },
+  });
+
+  addFooter(doc);
+  doc.save(`Oil-Dashboard${fileSuffixFor(contractor)}-${toFileDate()}.pdf`);
 }
