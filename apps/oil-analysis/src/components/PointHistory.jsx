@@ -193,7 +193,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
   const yTicks = group === "Viscosity" ? null : zeroTicks(yMax);
   const slug = group.replace(/\s+/g, "-");
   return (
-    <div data-testid={`lab-chart-${slug}`} style={{ border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 8px 8px" }}>
+    <div data-testid={`lab-chart-${slug}`} style={{ border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 8px 8px", minWidth: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, padding: "0 6px 4px" }}>
         <span style={{ fontWeight: 700, fontSize: 13 }}>
           {group}
@@ -215,7 +215,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
       {withData.length === 0 ? (
         <p style={{ color: T.textSecondary, fontSize: 12, margin: "6px" }}>Nothing detected in this period.</p>
       ) : (
-        <ResponsiveContainer width="100%" height={200}>
+        <ResponsiveContainer width="100%" height={200} minWidth={0}>
           <LineChart data={rows} margin={{ ...M, top: 16 }}>
             <CartesianGrid stroke={T.border2} vertical={false} />
             <XAxis
@@ -265,7 +265,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
                 strokeWidth={2}
                 dot={dotFor(x.p)}
                 activeDot={false}
-                connectNulls={false}
+                connectNulls
                 isAnimationActive={false}
               />
             ))}
@@ -568,8 +568,9 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
   const colorOf = (p) => (p.slot === null || p.slot === undefined ? T.textSecondary : series[p.slot]);
 
   const changeMarks = changesAsc.filter((c) => inRange(c._t)).map((c) => ({ t: c._t, change: c }));
-  // One row per sample (every value and its lab mark), plus an empty row at
-  // each oil change so the lines break there.
+  // One row per sample (every value and its lab mark), plus a row at each
+  // oil change for the tooltip. Lines run through as one trend; the grey
+  // line marks where the oil was changed.
   const labRows = [
     ...samplesAsc
       .filter((sm) => inRange(sm._t))

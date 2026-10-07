@@ -60,11 +60,69 @@ function ClickableCard({ s, onClick, style, children }) {
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      style={{ ...s.card, textAlign: "left", width: "100%", font: "inherit", cursor: onClick ? "pointer" : "default", ...style }}
+      style={{ ...s.card, textAlign: "left", width: "100%", font: "inherit", color: "inherit", cursor: onClick ? "pointer" : "default", ...style }}
     >
       {children}
     </Tag>
   );
+}
+
+// Point overview cards — one look for all five: a coloured top edge and
+// icon for the card's state (always with the state in words too), larger
+// text, and explicit text colours so nothing goes missing on light themes.
+function StatusCard({ T, s, color, icon, title, onClick, testid, children }) {
+  const c = T[color] || T.textSecondary;
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      data-testid={testid}
+      style={{
+        ...s.card,
+        marginBottom: 0,
+        padding: "16px 18px",
+        minHeight: 190,
+        borderTop: `4px solid ${c}`,
+        textAlign: "left",
+        width: "100%",
+        font: "inherit",
+        color: T.textPrimary,
+        cursor: onClick ? "pointer" : "default",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <span style={{ width: 34, height: 34, borderRadius: 9, background: `${c}22`, color: c, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>
+          <i className={`ti ${icon}`} aria-hidden="true" />
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>{title}</span>
+        {onClick && <i className="ti ti-chevron-right" aria-hidden="true" style={{ marginLeft: "auto", color: T.textSecondary }} />}
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>{children}</div>
+    </Tag>
+  );
+}
+function BigValue({ T, color, children }) {
+  return <div style={{ fontSize: 22, fontWeight: 800, color: color ? T[color] : T.textPrimary, lineHeight: 1.25, marginBottom: 6 }}>{children}</div>;
+}
+function StatusPill({ T, color, children }) {
+  const c = T[color] || T.textSecondary;
+  return (
+    <span style={{ alignSelf: "flex-start", fontSize: 12.5, fontWeight: 700, color: c, background: `${c}22`, borderRadius: 999, padding: "3px 12px", marginBottom: 6 }}>{children}</span>
+  );
+}
+function Detail({ T, children, testid }) {
+  return (
+    <div data-testid={testid} style={{ fontSize: 13, color: T.textSecondary, marginTop: 4, lineHeight: 1.45 }}>
+      {children}
+    </div>
+  );
+}
+function Empty({ T, children }) {
+  return <div style={{ fontSize: 13.5, color: T.textSecondary, margin: "auto 0" }}>{children}</div>;
 }
 
 function SmallBadge({ T, color, children }) {
@@ -413,6 +471,12 @@ export default function Equipment({
       setPdfBusy(false);
     }
   }
+  const whatsNextColor =
+    oilChangeOverdue || lpHealth?.sampleState?.label === "MISSING" || lpHealth?.sampleState?.label === "OVERDUE"
+      ? "danger"
+      : suggestionsForLp.length || labWaiting.length
+        ? "warning"
+        : "accent";
   const healthColor = HEALTH_COLOR[health];
   const siblingCount = isLpView ? (groups.get(reg?.equipmentId)?.length || 0) : 0;
 
@@ -1032,14 +1096,14 @@ export default function Equipment({
 
           {lpTab === "overview" && (
             <div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14, marginBottom: 20 }}>
-                <div style={s.card}>
-                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Equipment Health Status</p>
+              <div className="eq-status-cards" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))", gap: 14, marginBottom: 20 }}>
+                <StatusCard T={T} s={s} color={HEALTH_COLOR[health]} icon="ti-heart-rate-monitor" title="Equipment Health" testid="card-health">
+                  <BigValue T={T} color={HEALTH_COLOR[health]}>{health}</BigValue>
                   {[
-                    { label: "Oil Analysis", value: latest?.reportStatus || "No data", color: latest ? statusColorKey(latest.reportStatus) : "textMuted", tab: "samples" },
-                    { label: "Oil Change", value: lpOilChangeState?.status || "No data", color: oilChangeOverdue ? "danger" : "success", tab: "changes" },
-                    { label: "Top Up", value: latestTopUp ? "Logged" : "None", color: "textSecondary", tab: "topups" },
-                    { label: "Open Actions", value: String(openActions.length), color: openActions.length ? "warning" : "success", tab: "actions" },
+                    { label: "Oil analysis", value: latest?.reportStatus || "No data", color: latest ? statusColorKey(latest.reportStatus) : "textSecondary", tab: "samples" },
+                    { label: "Oil change", value: lpOilChangeState?.status || "No data", color: oilChangeOverdue ? "danger" : lpOilChangeState?.status ? "success" : "textSecondary", tab: "changes" },
+                    { label: "Top up", value: latestTopUp ? "Logged" : "None", color: "textSecondary", tab: "topups" },
+                    { label: "Open actions", value: String(openActions.length), color: openActions.length ? "warning" : "success", tab: "actions" },
                   ].map((row) => (
                     <button
                       key={row.label}
@@ -1049,24 +1113,24 @@ export default function Equipment({
                         display: "flex",
                         justifyContent: "space-between",
                         width: "100%",
-                        fontSize: 12.5,
-                        padding: "6px 0",
+                        padding: "7px 0",
                         background: "none",
                         border: "none",
-                        borderBottom: `1px solid ${T.border}`,
+                        borderTop: `1px solid ${T.border}`,
                         font: "inherit",
+                        fontSize: 13.5,
                         cursor: "pointer",
                         textAlign: "left",
+                        color: T.textPrimary,
                       }}
                     >
                       <span style={{ color: T.textSecondary }}>{row.label}</span>
                       <span style={{ color: T[row.color], fontWeight: 700 }}>{row.value}</span>
                     </button>
                   ))}
-                </div>
+                </StatusCard>
 
-                <div style={s.card} data-testid="whats-next">
-                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-calendar-event" aria-hidden="true" /> What's Next</p>
+                <StatusCard T={T} s={s} color={whatsNextColor} icon="ti-calendar-event" title="What's Next" testid="whats-next">
                   {[
                     {
                       label: "Next oil change",
@@ -1100,7 +1164,7 @@ export default function Equipment({
                   ]
                     .filter(Boolean)
                     .map((row) => (
-                      <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                      <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13.5, padding: "7px 0", borderTop: `1px solid ${T.border}` }}>
                         <span style={{ color: T.textSecondary, flexShrink: 0 }}>{row.label}</span>
                         <span
                           style={{ color: row.color ? T[row.color] : T.textPrimary, fontWeight: 700, textAlign: "right", cursor: row.tab ? "pointer" : undefined }}
@@ -1111,57 +1175,76 @@ export default function Equipment({
                         </span>
                       </div>
                     ))}
-                </div>
+                </StatusCard>
 
-                <ClickableCard s={s} onClick={() => setLpTab("samples")}>
-                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-flask" aria-hidden="true" /> Last Oil Sample</p>
+                <StatusCard T={T} s={s} color={latest ? statusColorKey(latest.reportStatus) : "textSecondary"} icon="ti-flask" title="Last Oil Sample" onClick={() => setLpTab("samples")} testid="card-sample">
                   {latest ? (
                     <>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latest.sampledDate)}</div>
-                      <SmallBadge T={T} color={statusColorKey(latest.reportStatus)}>{latest.reportStatus}</SmallBadge>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>Sample {latest.sampleId}</div>
+                      <BigValue T={T}>{formatDate(latest.sampledDate)}</BigValue>
+                      <StatusPill T={T} color={statusColorKey(latest.reportStatus)}>{latest.reportStatus || "No result"}</StatusPill>
+                      <Detail T={T}>Sample {latest.sampleId}</Detail>
                     </>
                   ) : (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No samples logged.</p>
+                    <Empty T={T}>No samples logged{reg?.oilAnalysisRequired === "Yes" ? "" : " — this point is not sampled"}.</Empty>
                   )}
-                </ClickableCard>
+                </StatusCard>
 
-                <ClickableCard s={s} onClick={() => setLpTab("changes")}>
-                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-droplet" aria-hidden="true" /> Last Oil Change</p>
+                <StatusCard
+                  T={T}
+                  s={s}
+                  color={oilChangeOverdue ? "danger" : latestChange || lpOilChangeState?.status ? "success" : "textSecondary"}
+                  icon="ti-droplet"
+                  title="Last Oil Change"
+                  onClick={() => setLpTab("changes")}
+                  testid="card-change"
+                >
                   {latestChange ? (
                     <>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latestChange.eventDate)}</div>
-                      <SmallBadge T={T} color={oilChangeOverdue ? "danger" : "success"}>{lpOilChangeState?.status || "—"}</SmallBadge>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>{latestChange.quantityUsed} L · {latestChange.oilBrandType}</div>
+                      <BigValue T={T}>{formatDate(latestChange.eventDate)}</BigValue>
+                      <StatusPill T={T} color={oilChangeOverdue ? "danger" : "success"}>{lpOilChangeState?.status || "—"}</StatusPill>
+                      <Detail T={T}>
+                        {latestChange.quantityUsed} L · {latestChange.oilBrandType}
+                      </Detail>
+                      {lpOilChangeState?.nextDueDate && <Detail T={T}>Next due {formatDate(lpOilChangeState.nextDueDate)}</Detail>}
                     </>
                   ) : loadingHistory ? (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
+                    <Empty T={T}>Loading…</Empty>
                   ) : (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No oil changes logged.</p>
+                    <Empty T={T}>No oil changes logged.</Empty>
                   )}
-                </ClickableCard>
+                </StatusCard>
 
-                <ClickableCard s={s} onClick={() => setLpTab("topups")}>
-                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-droplet-plus" aria-hidden="true" /> Last Top Up</p>
+                <StatusCard
+                  T={T}
+                  s={s}
+                  color={lpHealth?.recentTopUps >= 3 ? "danger" : latestTopUp ? "info" : "textSecondary"}
+                  icon="ti-droplet-plus"
+                  title="Last Top Up"
+                  onClick={() => setLpTab("topups")}
+                  testid="card-topup"
+                >
                   {latestTopUp ? (
                     <>
-                      <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latestTopUp.eventDate)}</div>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>{latestTopUp.quantity} L · {latestTopUp.reason}</div>
-                      <div style={{ fontSize: 11.5, marginTop: 8 }} data-testid="topup-rate">
-                        Last 90 days: <strong>{topUpRate.count}</strong> top-up{topUpRate.count === 1 ? "" : "s"}, <strong>{topUpRate.litres} L</strong> ({topUpRate.perMonth} L/month)
-                      </div>
+                      <BigValue T={T}>{formatDate(latestTopUp.eventDate)}</BigValue>
+                      <Detail T={T}>
+                        {latestTopUp.quantity} L · {latestTopUp.reason}
+                      </Detail>
+                      <Detail T={T} testid="topup-rate">
+                        Last 90 days: <strong style={{ color: T.textPrimary }}>{topUpRate.count}</strong> top-up{topUpRate.count === 1 ? "" : "s"},{" "}
+                        <strong style={{ color: T.textPrimary }}>{topUpRate.litres} L</strong> ({topUpRate.perMonth} L/month)
+                      </Detail>
                       {lpHealth?.recentTopUps >= 3 && (
-                        <div style={{ fontSize: 11.5, color: T.danger, fontWeight: 700, marginTop: 4 }}>
+                        <div style={{ fontSize: 13, color: T.danger, fontWeight: 700, marginTop: 6 }}>
                           <i className="ti ti-alert-triangle" aria-hidden="true" /> {lpHealth.recentTopUps} top-ups in 30 days — possible leak
                         </div>
                       )}
                     </>
                   ) : loadingHistory ? (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
+                    <Empty T={T}>Loading…</Empty>
                   ) : (
-                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No top-ups logged.</p>
+                    <Empty T={T}>No top-ups logged.</Empty>
                   )}
-                </ClickableCard>
+                </StatusCard>
               </div>
 
               <PointHistory

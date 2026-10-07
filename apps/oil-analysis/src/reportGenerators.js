@@ -1940,7 +1940,6 @@ function labTopicChart(doc, { x, y, w, h, group, items, samples, changeTimes, st
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1];
       const b = pts[i];
-      if (changeTimes.some((t) => t > a.t && t <= b.t)) continue;
       doc.line(sx(a.t), sy(a.v), sx(b.t), sy(b.v));
     }
     pts.forEach((d) => {

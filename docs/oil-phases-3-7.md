@@ -288,7 +288,8 @@ the table, and that clicking an item opens the right page.
     dashed Caution / Alert lines are the lowest value the lab marked on
     this point's reports — or, if it never marked that value here, on
     other points using the same oil. (For additives and a falling
-    viscosity, the highest.) Lines break at each oil change. A value
+    viscosity, the highest.) Each value is one continuous line, with a grey
+    line where the oil was changed. A value
     moving the bad way 3 samples in a row, by 20% or more, since the last
     oil change is called out. Click a dot to open the report.
   - *Oil change cycles* (points with changes): each cycle against its
