@@ -4,10 +4,9 @@ import { useTheme } from "../ThemeContext";
 import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue, actionDaysOverdue, actionDueDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditActionModal from "../components/EditActionModal";
-import GenerateMonthlyActionsModal from "../components/GenerateMonthlyActionsModal";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
-import { Donut } from "../components/DashCharts";
+import { Donut, StackedBars } from "../components/DashCharts";
 
 // Phase 2 statuses (old "In Progress" rows are read as Open).
 const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
@@ -83,7 +82,6 @@ export default function ActionTracker({
   const [areaFilter, setAreaFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
   const [editing, setEditing] = useState(null);
-  const [generating, setGenerating] = useState(false);
   const [draggedId, setDraggedId] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
   // Mobile only (<=860px, see the .dash-table-desktop/.dash-table-mobile
@@ -139,6 +137,26 @@ export default function ActionTracker({
   const stageSegs = STAGES.map((st) => ({ label: st.label, value: statusCounts[st.key] || 0, color: `color-mix(in srgb, ${T.accent} ${st.shade}%, ${T.cardBg})` }));
   const openCount = stageSegs.reduce((n, x) => n + x.value, 0);
   const overdueOpen = visible.filter((a) => isActionOverdue(a)).length;
+
+  // Open actions per area, split by stage (same blues as the donut) —
+  // where the backlog sits on the plant. Areas with nothing open are left
+  // out; "No area" goes last.
+  const areaRows = useMemo(() => {
+    const by = {};
+    visible.forEach((a) => {
+      if (a.status === ACTION_STATUS.CLOSED) return;
+      const st = STAGES.find((x) => x.key === a.status);
+      if (!st) return;
+      const area = registryByCode[a.equipmentCode || a.unitId || ""]?.area || "No area";
+      by[area] = by[area] || Object.fromEntries(STAGES.map((x) => [x.key, 0]));
+      by[area][st.key]++;
+    });
+    return Object.entries(by)
+      .map(([label, c]) => ({ label, parts: stageSegs.map((sg, i) => ({ label: sg.label, value: c[STAGES[i].key], color: sg.color })) }))
+      .map((r) => ({ ...r, total: r.parts.reduce((n, x) => n + x.value, 0) }))
+      .sort((a, b) => (a.label === "No area") - (b.label === "No area") || b.total - a.total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, registryByCode, T]);
 
   const unassignedCount = useMemo(() => visible.filter((a) => a.status !== ACTION_STATUS.CLOSED && !a.assignedTo).length, [visible]);
 
@@ -342,36 +360,67 @@ export default function ActionTracker({
 
   return (
     <div>
-      <div style={{ ...s.card, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", padding: "16px 20px" }} data-testid="action-stages">
-        {/* D5 — where the open actions are stuck: the stages follow each
-            other, so one blue from light (Draft) to dark (To approve). */}
-        <Donut
-          T={T}
-          segments={stageSegs}
-          size={120}
-          thickness={18}
-          center={openCount}
-          sub="open"
-          ariaLabel={`Open actions by stage: ${stageSegs.map((x) => `${x.value} ${x.label}`).join(", ")}`}
-        />
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Where the open actions are</div>
-          {stageSegs.map((x) => (
-            <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: T.textPrimary, width: 130, flexShrink: 0 }}>{x.label}</span>
-              <b style={{ fontSize: 13, color: T.textPrimary, minWidth: 22, textAlign: "right" }}>{x.value}</b>
-              <span style={{ fontSize: 12, color: T.textSecondary }}>{openCount ? `${Math.round((x.value / openCount) * 100)}%` : ""}</span>
-            </div>
-          ))}
-          <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 4 }}>
-            {statusCounts.Closed || 0} closed in this view{overdueOpen ? <span style={{ color: T.danger, fontWeight: 700 }}> · {overdueOpen} past due</span> : null}
+      <div
+        style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.15fr) minmax(0, 1.25fr) 170px", gap: 14 }}
+        data-testid="action-top"
+      >
+        <div style={{ ...s.card, marginBottom: 0, display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", padding: "16px 20px" }} data-testid="action-stages">
+          {/* D5 — where the open actions are stuck: the stages follow each
+              other, so one blue from light (Draft) to dark (To approve). */}
+          <Donut
+            T={T}
+            segments={stageSegs}
+            size={120}
+            thickness={18}
+            center={openCount}
+            sub="open"
+            ariaLabel={`Open actions by stage: ${stageSegs.map((x) => `${x.value} ${x.label}`).join(", ")}`}
+          />
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Where the open actions are</div>
+            {stageSegs.map((x) => (
+              <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: T.textPrimary, width: 130, flexShrink: 0 }}>{x.label}</span>
+                <b style={{ fontSize: 13, color: T.textPrimary, minWidth: 22, textAlign: "right" }}>{x.value}</b>
+                <span style={{ fontSize: 12, color: T.textSecondary }}>{openCount ? `${Math.round((x.value / openCount) * 100)}%` : ""}</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 4 }}>{statusCounts.Closed || 0} closed in this view</div>
           </div>
         </div>
-        <div style={{ textAlign: "center", minWidth: 120 }}>
-          <div style={{ fontSize: 26, fontWeight: 800, color: unassignedCount > 0 ? T.danger : T.textPrimary }}>{unassignedCount}</div>
-          <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>No Owner Assigned</div>
-          <div style={{ fontSize: 12, color: T.textMuted }}>open/in-progress</div>
+
+        <div style={{ ...s.card, marginBottom: 0, padding: "16px 20px", minWidth: 0 }} data-testid="action-area-bars">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>Open actions by area</span>
+            <span style={{ fontSize: 12, color: T.textSecondary }}>tap an area to filter</span>
+          </div>
+          {areaRows.length === 0 ? (
+            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No open actions.</p>
+          ) : (
+            <div style={{ maxHeight: 172, overflowY: "auto", paddingRight: 2 }}>
+              <StackedBars
+                T={T}
+                rows={areaRows}
+                labelWidth={isMobile ? 90 : 110}
+                activeLabel={areaFilter}
+                onRow={(r) => r.label !== "No area" && setAreaFilter(areaFilter === r.label ? "All" : r.label)}
+              />
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr", gap: 14 }}>
+          {[
+            { label: "Past due", value: overdueOpen, sub: "open, due date passed", color: overdueOpen ? T.danger : T.success, testid: "action-pastdue" },
+            { label: "No owner", value: unassignedCount, sub: "open, nobody assigned", color: unassignedCount ? T.warning : T.success, testid: "action-noowner" },
+          ].map((k) => (
+            <div key={k.label} style={{ ...s.card, marginBottom: 0, padding: "14px 16px", borderLeft: `3px solid ${k.color}` }} data-testid={k.testid}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary }}>{k.label}</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: k.value ? k.color : T.textPrimary, lineHeight: 1.2 }}>{k.value}</div>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>{k.sub}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -512,10 +561,7 @@ export default function ActionTracker({
             )}
           </>
         )}
-        <button style={{ ...s.btn, marginLeft: "auto" }} onClick={() => setGenerating(true)}>
-          <i className="ti ti-calendar-plus" aria-hidden="true" /> Generate Monthly Actions
-        </button>
-        <button style={s.btnPrimary} onClick={() => setEditing({ action: { equipmentCode: "" }, isNew: true })}>
+        <button style={{ ...s.btnPrimary, marginLeft: "auto" }} onClick={() => setEditing({ action: { equipmentCode: "" }, isNew: true })}>
           <i className="ti ti-plus" aria-hidden="true" /> Add Action
         </button>
       </div>
@@ -653,16 +699,6 @@ export default function ActionTracker({
         />
       )}
 
-      {generating && (
-        <GenerateMonthlyActionsModal
-          samples={samples}
-          actions={actions}
-          equipmentRegistry={registry}
-          oilChanges={oilChanges}
-          onAddAction={onAddAction}
-          onClose={() => setGenerating(false)}
-        />
-      )}
     </div>
   );
 }

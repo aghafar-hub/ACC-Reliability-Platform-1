@@ -15,8 +15,13 @@ const CONTAMINANTS = ["Si", "Na", "K"];
 const CONTAMINANT_NAMES = { K: "Potassium", Na: "Sodium", Si: "Silicon" };
 const LAB_COUNTS = ["5", "10", "15", "all"];
 
-// the report's own rule: blank / missing / NaN → no point (never 0)
-const num = (v) => (v === "" || v === null || v === undefined || (typeof v === "number" && isNaN(v)) ? null : Number(v));
+// the report's own rule: blank / missing / not a number (e.g. "N/A") → no
+// point (never 0)
+const num = (v) => {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 
 // history: the shown samples, oldest first.
 function buildLabCharts(T, history) {

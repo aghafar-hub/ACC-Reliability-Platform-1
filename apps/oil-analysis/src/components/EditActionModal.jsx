@@ -7,6 +7,7 @@ import { toISODate, latestOilChangeFor, autofillFromEquipment, lastAgreedActionF
 import EquipmentSearch from "./EquipmentSearch";
 import MultiSelectTags from "./MultiSelectTags";
 import TechnicianPicker from "./TechnicianPicker";
+import ModalShell, { FormSection, StepTrail } from "./ModalShell";
 
 // Phase 2: the status picker only moves between these; Closure Requested
 // and Closed are reached through the Closure section below.
@@ -203,35 +204,33 @@ export default function EditActionModal({
     onSave(payload);
   }
 
-  const field = (label, key, type = "text") => (
+  const label = (text) => <label style={{ ...s.label, fontSize: 12, fontWeight: 600 }}>{text}</label>;
+  const field = (text, key, type = "text") => (
     <div>
-      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
+      {label(text)}
       <input style={{ ...s.input, fontSize: 13 }} type={type} value={form[key] || ""} onChange={(e) => set(key, e.target.value)} />
     </div>
   );
 
-  const textarea = (label, key) => (
+  const textarea = (text, key) => (
     <div>
-      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
-      <textarea
-        style={{ ...s.input, fontSize: 13, minHeight: 56, resize: "vertical" }}
-        value={form[key] || ""}
-        onChange={(e) => set(key, e.target.value)}
-      />
+      {label(text)}
+      <textarea style={{ ...s.input, fontSize: 13, minHeight: 64, resize: "vertical" }} value={form[key] || ""} onChange={(e) => set(key, e.target.value)} />
     </div>
   );
 
-  // Prev. Month Agreed Action is a lookup of history, not an editable
-  // field — read-only, same locked-display styling the Contractor field
-  // above already uses for a scoped contractor account.
-  const lockedTextarea = (label, key) => (
+  // Last Previous Action / Closing Comment are history, not inputs.
+  const lockedTextarea = (text, key) => (
     <div>
-      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
+      {label(text)}
       <div
         style={{
-          ...s.input,
           fontSize: 13,
-          minHeight: 56,
+          minHeight: 64,
+          padding: "8px 10px",
+          borderRadius: 8,
+          border: `1px dashed ${T.border}`,
+          borderLeft: `3px solid ${T.border2 || T.border}`,
           background: T.cardSubBg,
           color: T.textSecondary,
           whiteSpace: "pre-wrap",
@@ -243,284 +242,252 @@ export default function EditActionModal({
     </div>
   );
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: T.cardBg,
-          border: `1px solid ${T.border}`,
-          borderRadius: 12,
-          width: "100%",
-          maxWidth: 760,
-          maxHeight: "92vh",
-          overflowY: "auto",
-          padding: 24,
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: T.textPrimary }}>{isNew ? "New Action" : lockedClosed ? "Closed Action" : "Edit Action"}</p>
-            <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>
-              Ac. No. <strong>{isNew ? nextAcNo(allActions || []) : form.acNo}</strong>
-              {isNew && <span style={{ marginLeft: 6, color: T.textMuted }}>(auto-generated)</span>}
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {!isNew && onDelete && !lockedClosed && (
-              <button
-                style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
-                onClick={() => window.confirm("Delete this action from the sheet?") && onDelete()}
-              >
-                <i className="ti ti-trash" aria-hidden="true" /> Delete
-              </button>
-            )}
-            <button style={{ ...s.btn, padding: "6px 10px" }} onClick={onClose}>
-              <i className="ti ti-x" aria-hidden="true" />
+  const reg = equipmentRegistry?.find((r) => r.code === equipCode);
+  const latestSample = samplesForEquip[0];
+  const statusNow = isNew ? ACTION_STATUS.DRAFT : form.status || ACTION_STATUS.OPEN;
+  const statusKey = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" }[statusNow] || "textSecondary";
+  const resultColor = (r) => {
+    const v = String(r || "").toUpperCase();
+    return v.startsWith("ALERT") || v.startsWith("CRIT") ? T.danger : v.startsWith("CAUT") ? T.warning : v.startsWith("NORM") ? T.success : T.textSecondary;
+  };
+  const pill = (text, color) => (
+    <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 9px", borderRadius: 999, background: color + "1F", color }}>{text}</span>
+  );
+  const dueEnd = actionDueEnd(form);
+  const grid = (min = 170) => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}px), 1fr))`, gap: 12 });
+  const roStyle = { ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 };
+
+  const footer = (
+    <>
+      {!isNew && onDelete && !lockedClosed && (
+        <button
+          style={{ ...s.btn, color: T.danger, borderColor: T.danger, marginRight: "auto" }}
+          onClick={() => window.confirm("Delete this action from the sheet?") && onDelete()}
+        >
+          <i className="ti ti-trash" aria-hidden="true" /> Delete
+        </button>
+      )}
+      {submitError && <span style={{ fontSize: 12.5, color: T.danger, flexBasis: "100%", textAlign: "right" }}>{submitError}</span>}
+      <button style={s.btn} onClick={onClose}>
+        {lockedClosed ? "Close" : "Cancel"}
+      </button>
+      {lockedClosed ? null : sampleTakenBy ? (
+        <button style={{ ...s.btnPrimary, opacity: 0.5, cursor: "not-allowed" }} disabled>
+          Save
+        </button>
+      ) : isDraft ? (
+        <>
+          <button style={s.btn} onClick={() => handleSave(false)}>
+            Save as Draft
+          </button>
+          {canSubmit && (
+            <button style={s.btnPrimary} onClick={() => handleSave(true)}>
+              Submit
             </button>
-          </div>
-        </div>
+          )}
+        </>
+      ) : (
+        <button style={s.btnPrimary} onClick={() => handleSave(false)}>
+          Save
+        </button>
+      )}
+    </>
+  );
 
-        {lockedClosed && (
-          <div data-testid="action-closed-lock" style={{ ...s.infoBar, borderColor: T.success, marginBottom: 14, fontSize: 12.5, color: T.textPrimary }}>
-            <i className="ti ti-lock" aria-hidden="true" style={{ color: T.success, marginRight: 6 }} />
-            This action is closed — it can't be changed or deleted.
-          </div>
-        )}
-        <fieldset disabled={lockedClosed} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Identification</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Equipment Code</label>
-            <EquipmentSearch
-              options={equipmentRegistry}
-              value={equipCode}
-              onChange={selectEquipment}
-              placeholder="Search equipment…"
-              width="100%"
-            />
-          </div>
-          {field("Description", "description")}
-          {field("Oil Type", "oilType")}
-          {field("Revision Date", "revisionDate", "date")}
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Sample Date</label>
-            <select
-              style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
-              value={form.sampleDate || ""}
-              onChange={(e) => selectSampleDate(e.target.value)}
-            >
-              <option value="">Select sample date…</option>
-              {samplesForEquip.map((sm) => (
-                <option key={sm._id} value={sm.sampledDate}>
-                  {sm.sampledDate}
-                </option>
-              ))}
-              {form.sampleDate && !samplesForEquip.some((sm) => sm.sampledDate === form.sampleDate) && (
-                <option value={form.sampleDate}>{form.sampleDate}</option>
-              )}
-            </select>
-          </div>
-          {field("Sample Result", "sampleResult")}
-        </div>
+  return (
+    <ModalShell
+      icon="clipboard-list"
+      title={isNew ? "New Action" : lockedClosed ? "Closed Action" : "Edit Action"}
+      subtitle={
+        <>
+          Ac. No. <strong>{isNew ? nextAcNo(allActions || []) : form.acNo}</strong>
+          {isNew && <span style={{ marginLeft: 6, color: T.textMuted }}>(auto-generated)</span>}
+          {equipCode && <span> · {equipCode}</span>}
+        </>
+      }
+      badge={pill(statusNow, T[statusKey] || T.textSecondary)}
+      onClose={onClose}
+      footer={footer}
+      width={820}
+      testid="action-modal"
+    >
+      <StepTrail steps={[ACTION_STATUS.DRAFT, ACTION_STATUS.OPEN, ACTION_STATUS.WAITING, ACTION_STATUS.CLOSURE_REQUESTED, ACTION_STATUS.CLOSED]} current={statusNow} testid="action-steps" />
 
-        <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Oil Change</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Last Change Date</label>
-            <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 }}>
-              {form.lastChange ? formatDate(form.lastChange) : "—"}
-            </div>
-            <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0", lineHeight: 1.5 }}>
-              {oilChangesForEquip.length > 0 ? "From the Oil Change Log (updated when an oil-change route is confirmed)." : "No oil change logged for this equipment yet."}
-            </p>
-          </div>
-          {oilChangesForEquip.length > 0 && (
+      {lockedClosed && (
+        <div data-testid="action-closed-lock" style={{ ...s.infoBar, borderColor: T.success, marginBottom: 14, fontSize: 12.5, color: T.textPrimary }}>
+          <i className="ti ti-lock" aria-hidden="true" style={{ color: T.success, marginRight: 6 }} />
+          This action is closed — it can't be changed or deleted.
+        </div>
+      )}
+      {isDraft && !lockedClosed && (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: T.warning + "14", border: `1px solid ${T.warning}55`, borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontSize: 12.5, color: T.textPrimary }}>
+          <i className="ti ti-pencil" aria-hidden="true" style={{ color: T.warning, fontSize: 16, marginTop: 1 }} />
+          <span>
+            <strong>Draft{action.createdByRule ? ` — created automatically (${action.createdByRule})` : ""}.</strong> Fill in the Agreed Action, Assigned To, Due Date
+            and Duration, then press Submit — it becomes Open. Save as Draft keeps your changes without submitting.
+          </span>
+        </div>
+      )}
+      {isActionOverdue(form) && (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", background: T.danger + "12", border: `1px solid ${T.danger}55`, borderRadius: 10, padding: "9px 12px", marginBottom: 14, fontSize: 12.5, color: T.danger, fontWeight: 600 }}>
+          <i className="ti ti-alert-triangle" aria-hidden="true" />
+          Overdue by {actionDaysOverdue(form)} day{actionDaysOverdue(form) === 1 ? "" : "s"} (due date + duration + 5 days ended{" "}
+          {dueEnd?.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}).
+        </div>
+      )}
+
+      <fieldset disabled={lockedClosed} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <FormSection icon="settings-2" title="Equipment & sample" testid="action-sec-equipment">
+          <div style={{ ...grid(200), marginBottom: equipCode ? 12 : 0 }}>
             <div>
-              <label style={{ ...s.label, fontSize: 12 }}>Lubrication Point</label>
-              <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 }}>
-                {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).lubricationPoint} —{" "}
-                {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).oilType}
-              </div>
+              {label("Equipment Code")}
+              <EquipmentSearch options={equipmentRegistry} value={equipCode} onChange={selectEquipment} placeholder="Search equipment…" width="100%" />
+            </div>
+            {field("Revision Date", "revisionDate", "date")}
+            <div>
+              {label("Sample Date")}
+              <select style={{ ...s.input, fontSize: 13, cursor: "pointer" }} value={form.sampleDate || ""} onChange={(e) => selectSampleDate(e.target.value)} aria-label="Sample Date">
+                <option value="">Select sample date…</option>
+                {samplesForEquip.map((sm) => (
+                  <option key={sm._id} value={sm.sampledDate}>
+                    {sm.sampledDate}
+                    {sm.reportStatus ? ` — ${sm.reportStatus}` : ""}
+                  </option>
+                ))}
+                {form.sampleDate && !samplesForEquip.some((sm) => sm.sampledDate === form.sampleDate) && <option value={form.sampleDate}>{form.sampleDate}</option>}
+              </select>
+            </div>
+          </div>
+          {equipCode && (
+            <div
+              data-testid="action-context"
+              style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))", gap: 10, background: T.cardSubBg, borderRadius: 10, padding: "10px 12px" }}
+            >
+              {[
+                ["Description", form.description || reg?.description || "—"],
+                ["Oil", form.oilType || reg?.lubricant || "—"],
+                ["Sample result", form.sampleResult ? pill(form.sampleResult, resultColor(form.sampleResult)) : latestSample ? <span style={{ color: T.textSecondary }}>pick a sample date</span> : "no samples"],
+                [
+                  "Last oil change",
+                  <span key="lc">
+                    {form.lastChange ? formatDate(form.lastChange) : "—"}
+                    {oilChangesForEquip.length > 0 && (
+                      <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>
+                        {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).lubricationPoint}
+                      </span>
+                    )}
+                  </span>,
+                ],
+              ].map(([k, v]) => (
+                <div key={k} style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: T.textSecondary, fontWeight: 600 }}>{k}</div>
+                  <div style={{ fontSize: 13, color: T.textPrimary, marginTop: 2, overflowWrap: "anywhere" }}>{v}</div>
+                </div>
+              ))}
             </div>
           )}
-        </div>
+          {equipCode && (
+            <p style={{ fontSize: 12, color: T.textMuted, margin: "8px 0 0" }}>
+              {oilChangesForEquip.length > 0 ? "Last oil change comes from the Oil Change Log (updated when an oil-change route is confirmed)." : "No oil change logged for this equipment yet."}
+            </p>
+          )}
+        </FormSection>
 
-        {isDraft && (
-          <div style={{ border: `1px solid ${T.danger}`, borderRadius: 8, padding: "10px 12px", marginBottom: 16, fontSize: 12.5 }}>
-            <strong style={{ color: T.danger }}>Draft{action.createdByRule ? ` — created automatically (${action.createdByRule})` : ""}.</strong>{" "}
-            Fill in the recommendations, Agreed Action, Assigned To, Due Date and Duration, then press Submit — it becomes Open.
-            Save as Draft keeps your changes without submitting.
+        <FormSection icon="flask" title="Analysis & what to do" testid="action-sec-analysis">
+          <div style={{ ...grid(260), marginBottom: 12 }}>
+            {textarea("Sample Analysis", "sampleAnalysis")}
+            {lockedTextarea("Last Previous Action", "prevMonthAgreedAction")}
           </div>
-        )}
-        {isActionOverdue(form) && (
-          <div style={{ border: `1px solid ${T.danger}`, borderRadius: 8, padding: "8px 12px", marginBottom: 16, fontSize: 12.5, color: T.danger }}>
-            Overdue by {actionDaysOverdue(form)} day{actionDaysOverdue(form) === 1 ? "" : "s"} (due date + duration + 5 days ended{" "}
-            {actionDueEnd(form)?.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}).
+          <div style={grid(220)}>
+            <MultiSelectTags label="Contractor Action" value={form.contractorAction} onChange={(v) => set("contractorAction", v)} options={actionRegistry} />
+            <MultiSelectTags label="ACC Action" value={form.accAction} onChange={(v) => set("accAction", v)} options={actionRegistry} />
           </div>
-        )}
+          <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, border: `1px solid ${T.accent}55`, background: T.accent + "0D" }}>
+            <MultiSelectTags label="Agreed Action" value={form.agreedAction} onChange={(v) => set("agreedAction", v)} options={actionRegistry} />
+            <p style={{ fontSize: 12, color: T.textSecondary, margin: "6px 0 0" }}>
+              <i className="ti ti-route" aria-hidden="true" /> Change Oil / Top Up / Sample / Resample here become route suggestions once submitted.
+            </p>
+          </div>
+          {isClosed && <div style={{ marginTop: 12 }}>{lockedTextarea("Closing Comment", "closingComment")}</div>}
+        </FormSection>
 
-        <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Status &amp; Action</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Status</label>
-            {isDraft || statusLocked ? (
-              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-                {form.status}
-              </div>
-            ) : (
-              <select
-                style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
-                value={form.status || ACTION_STATUS.OPEN}
-                onChange={(e) => set("status", e.target.value)}
-                aria-label="Status"
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o}>{o}</option>
-                ))}
-              </select>
-            )}
-            {isDraft && <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Press Submit to make it Open</p>}
-          </div>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Due Date</label>
-            {isDraft ? (
-              <input style={{ ...s.input, fontSize: 13 }} type="date" aria-label="Due Date" value={form.dueDate || ""} onChange={(e) => set("dueDate", e.target.value)} />
-            ) : (
-              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-                {form.dueDate ? formatDate(form.dueDate) : "—"}
-              </div>
-            )}
-            {!isDraft && form.originalDueDate && (
-              <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>
-                First due {form.originalDueDate}. Rescheduled{form.rescheduledBy ? ` by ${form.rescheduledBy}` : ""}: {form.rescheduleReason}
-              </p>
-            )}
-          </div>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Duration (days)</label>
-            {isDraft ? (
-              <input
-                style={{ ...s.input, fontSize: 13 }}
-                type="number"
-                min="0"
-                aria-label="Duration (days)"
-                value={form.duration ?? ""}
-                onChange={(e) => set("duration", e.target.value)}
-              />
-            ) : (
-              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-                {form.duration === "" || form.duration == null ? "—" : form.duration}
-              </div>
-            )}
-            <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Overdue after Due Date + Duration + 5 days</p>
-          </div>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Completed Date</label>
-            <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-              {isClosed ? form.completedDate || "—" : "—"}
+        <FormSection icon="user-check" title="Owner & timing" testid="action-sec-owner">
+          <div style={grid(170)}>
+            <div>
+              {label("Contractor")}
+              {scopedContractor ? (
+                <div style={roStyle}>{scopedContractor}</div>
+              ) : (
+                <select style={{ ...s.input, fontSize: 13, cursor: "pointer" }} value={form.contractor || ""} onChange={(e) => set("contractor", e.target.value)} aria-label="Contractor">
+                  <option value="">—</option>
+                  {CONTRACTOR_OPTIONS.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              )}
             </div>
-            {!isClosed && <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Set when the action is closed</p>}
+            <div style={{ gridColumn: "span 2", minWidth: 0 }}>
+              {label("Assigned To")}
+              <TechnicianPicker contractor={form.contractor} value={form.assignedTo || ""} onChange={(v) => set("assignedTo", v)} roleFilter={null} placeholder="Who owns this action?" />
+            </div>
+            <div>
+              {label("Status")}
+              {isDraft || statusLocked ? (
+                <div style={roStyle}>{form.status}</div>
+              ) : (
+                <select style={{ ...s.input, fontSize: 13, cursor: "pointer" }} value={form.status || ACTION_STATUS.OPEN} onChange={(e) => set("status", e.target.value)} aria-label="Status">
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              )}
+              {isDraft && <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Press Submit to make it Open</p>}
+            </div>
+            <div>
+              {label("Due Date")}
+              {isDraft ? (
+                <input style={{ ...s.input, fontSize: 13 }} type="date" aria-label="Due Date" value={form.dueDate || ""} onChange={(e) => set("dueDate", e.target.value)} />
+              ) : (
+                <div style={roStyle}>{form.dueDate ? formatDate(form.dueDate) : "—"}</div>
+              )}
+              {!isDraft && form.originalDueDate && (
+                <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>
+                  First due {form.originalDueDate}. Rescheduled{form.rescheduledBy ? ` by ${form.rescheduledBy}` : ""}: {form.rescheduleReason}
+                </p>
+              )}
+            </div>
+            <div>
+              {label("Duration (days)")}
+              {isDraft ? (
+                <input style={{ ...s.input, fontSize: 13 }} type="number" min="0" aria-label="Duration (days)" value={form.duration ?? ""} onChange={(e) => set("duration", e.target.value)} />
+              ) : (
+                <div style={roStyle}>{form.duration === "" || form.duration == null ? "—" : form.duration}</div>
+              )}
+            </div>
+            <div>
+              {label("Completed Date")}
+              <div style={roStyle}>{isClosed ? form.completedDate || "—" : "—"}</div>
+              {!isClosed && <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Set when the action is closed</p>}
+            </div>
           </div>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Contractor</label>
-            {scopedContractor ? (
-              <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-                {scopedContractor}
-              </div>
-            ) : (
-              <select
-                style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
-                value={form.contractor || ""}
-                onChange={(e) => set("contractor", e.target.value)}
-              >
-                <option value="">—</option>
-                {CONTRACTOR_OPTIONS.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            )}
-          </div>
-          <div>
-            <label style={{ ...s.label, fontSize: 12 }}>Assigned To</label>
-            <TechnicianPicker
-              contractor={form.contractor}
-              value={form.assignedTo || ""}
-              onChange={(v) => set("assignedTo", v)}
-              roleFilter={null}
-              placeholder="Who owns this action?"
-            />
-          </div>
-        </div>
-
-        <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Analysis &amp; Actions</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
-          {textarea("Sample Analysis", "sampleAnalysis")}
-          <MultiSelectTags
-            label="Contractor Action"
-            value={form.contractorAction}
-            onChange={(v) => set("contractorAction", v)}
-            options={actionRegistry}
-          />
-          {lockedTextarea("Last Previous Action", "prevMonthAgreedAction")}
-          <MultiSelectTags label="ACC Action" value={form.accAction} onChange={(v) => set("accAction", v)} options={actionRegistry} />
-          <MultiSelectTags label="Agreed Action" value={form.agreedAction} onChange={(v) => set("agreedAction", v)} options={actionRegistry} />
-          {isClosed && <div style={{ gridColumn: "1 / -1" }}>{lockedTextarea("Closing Comment", "closingComment")}</div>}
-        </div>
+          <p style={{ fontSize: 12, color: T.textSecondary, margin: "10px 0 0" }} data-testid="action-overdue-after">
+            <i className="ti ti-clock" aria-hidden="true" /> Overdue after Due Date + Duration + 5 days
+            {dueEnd ? ` — ${dueEnd.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}` : ""}
+          </p>
+        </FormSection>
 
         {!isNew && !isDraft && <RescheduleSection action={action} contractor={actionContractor} onDone={onClose} />}
         {!isNew && <ClosureSection action={action} contractor={actionContractor} onDone={onClose} />}
+      </fieldset>
 
-        {submitError && <p style={{ fontSize: 12.5, color: T.danger, margin: "0 0 10px", textAlign: "right" }}>{submitError}</p>}
-        </fieldset>
-
-        {sampleTakenBy && !lockedClosed && (
-          <div data-testid="action-sample-taken" style={{ ...s.infoBar, borderColor: T.danger, marginBottom: 14, fontSize: 12.5, color: T.textPrimary }}>
-            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, marginRight: 6 }} />
-            The sample of {formatDate(form.sampleDate)} already has action <strong>{sampleTakenBy.acNo}</strong> ({sampleTakenBy.status}). One action
-            per sample — add this job (filtering, resample, …) to action {sampleTakenBy.acNo} instead.
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-          <button style={s.btn} onClick={onClose}>
-            {lockedClosed ? "Close" : "Cancel"}
-          </button>
-          {lockedClosed ? null : sampleTakenBy ? (
-            <button style={{ ...s.btnPrimary, opacity: 0.5, cursor: "not-allowed" }} disabled>
-              Save
-            </button>
-          ) : isDraft ? (
-            <>
-              <button style={s.btn} onClick={() => handleSave(false)}>
-                Save as Draft
-              </button>
-              {canSubmit && (
-                <button style={s.btnPrimary} onClick={() => handleSave(true)}>
-                  Submit
-                </button>
-              )}
-            </>
-          ) : (
-            <button style={s.btnPrimary} onClick={() => handleSave(false)}>
-              Save
-            </button>
-          )}
+      {sampleTakenBy && !lockedClosed && (
+        <div data-testid="action-sample-taken" style={{ ...s.infoBar, borderColor: T.danger, marginBottom: 0, fontSize: 12.5, color: T.textPrimary }}>
+          <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, marginRight: 6 }} />
+          The sample of {formatDate(form.sampleDate)} already has action <strong>{sampleTakenBy.acNo}</strong> ({sampleTakenBy.status}). One action per sample — add
+          this job (filtering, resample, …) to action {sampleTakenBy.acNo} instead.
         </div>
-      </div>
-    </div>
+      )}
+    </ModalShell>
   );
 }
 
@@ -563,7 +530,7 @@ function ClosureSection({ action, contractor, onDone }) {
     }
   }
 
-  const box = { border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", marginBottom: 18, fontSize: 13 };
+  const box = { background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 14, fontSize: 13 };
   const muted = { fontSize: 12, color: T.textSecondary, margin: "4px 0 0" };
   const input = (placeholder, label) => (
     <textarea
@@ -587,7 +554,9 @@ function ClosureSection({ action, contractor, onDone }) {
 
   return (
     <div style={{ ...box, borderColor: approved ? T.success : waitingDecision ? T.warning : T.border }}>
-      <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: 0 }}>Closure</p>
+      <p style={{ fontSize: 13.5, fontWeight: 700, color: T.textPrimary, margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+        <i className="ti ti-circle-check" aria-hidden="true" style={{ color: T.accent, fontSize: 16 }} /> Closure
+      </p>
 
       {rejectedBefore && (
         <p style={{ ...muted, color: T.danger }}>
@@ -701,8 +670,10 @@ function RescheduleSection({ action, contractor, onDone }) {
     );
   }
   return (
-    <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, padding: "12px 14px", marginBottom: 18, fontSize: 13 }}>
-      <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 8px" }}>Reschedule</p>
+    <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "14px 16px", marginBottom: 14, fontSize: 13 }}>
+      <p style={{ fontSize: 13.5, fontWeight: 700, color: T.textPrimary, margin: "0 0 10px", display: "flex", alignItems: "center", gap: 8 }}>
+        <i className="ti ti-calendar-repeat" aria-hidden="true" style={{ color: T.accent, fontSize: 16 }} /> Reschedule
+      </p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div>
           <label style={{ ...s.label, fontSize: 12 }}>New due date</label>
