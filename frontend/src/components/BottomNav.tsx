@@ -21,7 +21,7 @@ import './BottomNav.css';
 // — also the user's own call: no second navigation UI to design/build.
 const PRIMARY_ITEMS = [
   { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
-  { to: '/oil-analysis', label: 'Oil Lub.', icon: 'droplet', end: false, moduleId: 'oil-analysis' },
+  { to: '/oil-lubrication', label: 'Oil Lub.', icon: 'droplet', end: false, moduleId: 'oil-analysis' },
   { to: '/vibration-analysis', label: 'Vibration', icon: 'graphs', end: false, moduleId: 'vibration-analysis' },
   { to: '/my-work', label: 'My Work', icon: 'action', end: false },
 ] as const;

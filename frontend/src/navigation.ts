@@ -81,7 +81,7 @@ export const NAV_ITEMS: NavItem[] = [
     subTabs: VIBRATION_SUB_TABS,
     moduleId: 'vibration-analysis',
   },
-  { label: 'Oil Lubrication', to: '/oil-analysis', icon: 'droplet', subTabs: OIL_SUB_TABS, moduleId: 'oil-analysis' },
+  { label: 'Oil Lubrication', to: '/oil-lubrication', icon: 'droplet', subTabs: OIL_SUB_TABS, moduleId: 'oil-analysis' },
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
   { label: 'Compressors', to: '/compressors', icon: 'sync' },
 ];

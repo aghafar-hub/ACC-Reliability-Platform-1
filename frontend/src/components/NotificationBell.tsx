@@ -98,7 +98,7 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
     if (n.linkPage === 'routines' && n.linkRecordId && onOpenRoutine) {
       onOpenRoutine(n.linkRecordId);
     } else if (n.linkPage) {
-      navigate('/oil-analysis');
+      navigate('/oil-lubrication');
       embeddedNav.navigateTo('oil-analysis', n.linkPage, n.linkRecordId || undefined);
     }
   }

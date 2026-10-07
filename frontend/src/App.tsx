@@ -81,6 +81,8 @@ function ShellRoot() {
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />
+            {/* The Oil Lubrication module's old address — kept so bookmarks and old links still work. */}
+            <Route path="/oil-analysis" element={<OldOilAddress />} />
             {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
             <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
               <Route index element={<Navigate to="routines" replace />} />
@@ -94,7 +96,7 @@ function ShellRoot() {
               lazily on first visit and then stays mounted (hidden via CSS)
               for the rest of the session; see their own file comments for
               why. Neither has a matching <Route> above on purpose: these ARE
-              the content for /oil-analysis and /vibration-analysis — and,
+              the content for /oil-lubrication and /vibration-analysis — and,
               since Patch 29, also the content that appears below Settings'
               own tab strip when that module's settings tab is selected
               there. Rendered AFTER <Routes> in the DOM (not before) so that
@@ -110,6 +112,11 @@ function ShellRoot() {
       <SaveBlockedToast />
     </div>
   );
+}
+
+function OldOilAddress() {
+  const { search, hash } = useLocation();
+  return <Navigate to={{ pathname: '/oil-lubrication', search, hash }} replace />;
 }
 
 function AppShell() {

@@ -19,8 +19,10 @@ type EmbeddedSession = {
 };
 type MountFn = (container: HTMLElement, options?: { navBridge?: NavBridge; session?: EmbeddedSession }) => () => void;
 
+// The module's ID stays "oil-analysis" (it keys Module Access, saved settings
+// and the backends); only its page address is named after the module.
 const MODULE_ID = 'oil-analysis';
-const BASE_ROUTE = '/oil-analysis';
+const BASE_ROUTE = '/oil-lubrication';
 
 // Loads the as-is copied app's own pre-built embed bundle (its own React
 // 18 + every dependency bundled in — see
@@ -58,7 +60,7 @@ export default function EmbeddedOilAnalysis() {
   // this module visible — in place, showing its own internal Settings page
   // — while its "Oil Lubrication" side tab is selected (?module=oil-analysis
   // on /settings), reusing this same persistent-mount instance rather than
-  // navigating away to /oil-analysis. (Patch 31 briefly did the same for the
+  // navigating away to /oil-lubrication. (Patch 31 briefly did the same for the
   // shell's top-level "/" and "/equipment" routes too — reverted in Patch 32:
   // those are meant for a future HIGH-level, platform-wide Dashboard/
   // Equipment, not this module's own LOW-level ones — see App.tsx.)
