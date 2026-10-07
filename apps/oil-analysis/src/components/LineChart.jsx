@@ -10,7 +10,10 @@ function formatTick(x) {
 // Hand-rolled SVG line chart, ported from the original app's own `pi`
 // component (viewBox 0 0 420 h, 5 horizontal gridlines, per-series
 // polylines split at gaps so null values don't connect across them).
-export default function LineChart({ datasets, labels, height = 100 }) {
+// `dataset.color` fixes a line's colour (so a legend can match it whatever
+// lines are left out); `connectNulls` draws one line through a gap (a
+// value missing from one report) instead of breaking it.
+export default function LineChart({ datasets, labels, height = 100, connectNulls = false }) {
   const { T } = useTheme();
   const colors = [T.success, T.accent, T.danger, T.warning, ...EXTRA];
 
@@ -57,12 +60,12 @@ export default function LineChart({ datasets, labels, height = 100 }) {
         </text>
       ))}
       {datasets.map((series, si) => {
-        const color = colors[si % colors.length];
+        const color = series.color || colors[si % colors.length];
         const segments = [];
         let current = [];
         series.data.forEach((v, i) => {
           if (v != null) current.push(i);
-          else {
+          else if (!connectNulls) {
             if (current.length > 1) segments.push([...current]);
             current = [];
           }

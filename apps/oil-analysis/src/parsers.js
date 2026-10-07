@@ -263,6 +263,9 @@ const PARAM_INFO = {
   Water: { unit: "%", get: (sm) => sm.water },
   TAN: { unit: "mg KOH/g", get: (sm) => sm.tan },
   PQIndex: { unit: "", get: (sm) => sm.pqIndex },
+  PC4: { unit: "", get: (sm) => sm.particleCount4um },
+  PC6: { unit: "", get: (sm) => sm.particleCount6um },
+  PC14: { unit: "", get: (sm) => sm.particleCount14um },
 };
 
 // For a Caution/Alert sample, which of its own readings actually crossed a

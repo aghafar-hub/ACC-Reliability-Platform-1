@@ -52,6 +52,14 @@ export const LAB_PARAMS = PARAMS.map((p) => {
   return { ...p, slot: i < SERIES_LIGHT.length ? i : null };
 });
 
+// Whole calendar days from b to a (so "overdue 33 d" doesn't tick to 34
+// at midday).
+function dayDiff(a, b) {
+  const da = new Date(a);
+  const db = new Date(b);
+  return Math.round((new Date(da.getFullYear(), da.getMonth(), da.getDate()) - new Date(db.getFullYear(), db.getMonth(), db.getDate())) / DAY);
+}
+
 export function toTime(d) {
   if (!d) return null;
   const t = new Date(d).getTime();
@@ -163,9 +171,9 @@ export function buildCycles({ changes, topUps, interval, now = Date.now() }) {
     const inCycle = tops.filter((x) => x.t >= t && x.t < end);
     const topUpLitres = Math.round(inCycle.reduce((n, x) => n + x.l, 0) * 10) / 10;
     const fill = parseFloat(c.quantityUsed) || 0;
-    const days = Math.round((end - t) / DAY);
-    const plannedDays = planned !== null ? Math.round((planned - t) / DAY) : null;
-    const lateDays = planned !== null ? Math.round((end - planned) / DAY) : null;
+    const days = dayDiff(end, t);
+    const plannedDays = planned !== null ? dayDiff(planned, t) : null;
+    const lateDays = planned !== null ? dayDiff(end, planned) : null;
     let status = "";
     if (next) {
       if (planned !== null) status = lateDays > ON_TIME_GRACE_DAYS ? "Late" : "On time";
@@ -278,4 +286,29 @@ export function everyText(interval) {
   if (m >= 12 && m % 12 === 0) return m === 12 ? "year" : `${m / 12} years`;
   if (m < 1) return m === 0.25 ? "week" : "day";
   return m === 1 ? "month" : `${m} months`;
+}
+
+// Lab marks on values that aren't charted (particle counts, PQ Index) —
+// the report table and the Lab Marks picker still show and set them.
+export const EXTRA_FLAGS = [
+  { key: "PQIndex", flag: "PQIndex", label: "PQ Index", short: "PQ", get: (s) => s.pqIndex },
+  { key: "PC4", flag: "PC4", label: "Particles >4µm", short: ">4µm", get: (s) => s.particleCount4um },
+  { key: "PC6", flag: "PC6", label: "Particles >6µm", short: ">6µm", get: (s) => s.particleCount6um },
+  { key: "PC14", flag: "PC14", label: "Particles >14µm", short: ">14µm", get: (s) => s.particleCount14um },
+];
+
+// Dark or light theme — picks which set of line colours to use.
+export function isDarkSurface(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const lum = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+  return lum < 128;
+}
+
+// The fixed line colour for a lab value (Fe, Si, Visc, …) in this theme.
+export function seriesColor(T, key) {
+  const p = LAB_PARAMS.find((x) => x.key === key);
+  if (!p || p.slot === null) return T.textSecondary;
+  return (isDarkSurface(T.cardBg) ? SERIES_DARK : SERIES_LIGHT)[p.slot];
 }

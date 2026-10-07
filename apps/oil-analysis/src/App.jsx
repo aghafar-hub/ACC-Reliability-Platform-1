@@ -6,7 +6,6 @@ import TopBar from "./components/TopBar";
 import Toast from "./components/Toast";
 import Dashboard from "./pages/Dashboard";
 import Equipment from "./pages/Equipment";
-import OilAnalysisReport from "./pages/OilAnalysisReport";
 import OilReportSearch from "./pages/OilReportSearch";
 import ActionTracker from "./pages/ActionTracker";
 import AddSample from "./pages/AddSample";
@@ -153,9 +152,9 @@ function AppShell({ config, setConfig, navBridge }) {
     api.setCurrentPage(page);
   }, [page]);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
-  const [reportOrigin, setReportOrigin] = useState("dashboard"); // where "Back" on the Oil Analysis Report returns to
   const [equipmentSelectedCode, setEquipmentSelectedCode] = useState(""); // sticky so Equipment restores the same equipment after Back
   const [oilReportCode, setOilReportCode] = useState("");
+  const [oilReportFocus, setOilReportFocus] = useState(null);
   // Patch 15: set when the shell's notification bell navigates here with a
   // specific record (e.g. navBridge.navigate("routines", "RT-123")) — read
   // once by Routines below to open that routine's detail view directly,
@@ -1046,14 +1045,11 @@ function AppShell({ config, setConfig, navBridge }) {
   const alertCount = useMemo(() => samples.filter((sm) => sm.reportStatus === "Alert").length, [samples]);
   const openActionsCount = useMemo(() => actions.filter((a) => a.status === "Draft" || a.status === "Open").length, [actions]);
 
-  function goToReport(sample, origin = "dashboard") {
-    setSelectedEquipment(sample);
-    setReportOrigin(origin);
-    setPage("report");
-    setMobileNavOpen(false);
-  }
-  function goToOilReport(code) {
+  // One report page for a lubrication point: opened from a chart dot (that
+  // sample's column outlined) or from Full Report.
+  function goToOilReport(code, sample) {
     setOilReportCode(code || "");
+    setOilReportFocus(code ? { code, sampleKey: sample?._id || null, n: Date.now() } : null);
     setPage("oilreport");
     setMobileNavOpen(false);
   }
@@ -1157,6 +1153,7 @@ function AppShell({ config, setConfig, navBridge }) {
           .topbar-date { display: none !important; }
 
           .report-layout { grid-template-columns: 1fr !important; }
+          .report-info-grid { grid-template-columns: 1fr !important; }
           .report-layout > div:first-child { border-right: none !important; border-bottom: 1px solid ${T.border}; }
           .dash-table-desktop { display: none !important; }
           .dash-table-mobile { display: flex !important; }
@@ -1205,7 +1202,7 @@ function AppShell({ config, setConfig, navBridge }) {
           syncState={syncState}
           onSync={runSync}
           onOpenMobileNav={() => setMobileNavOpen(true)}
-          onBack={() => navigate(reportOrigin === "equipment" ? "equipment" : "dashboard")}
+          onBack={() => navigate("equipment")}
           pendingSyncCount={pendingSyncCount}
         />
         <div className="app-content" style={{ flex: 1, overflowY: "auto", padding: 24, background: T.appBg }}>
@@ -1234,7 +1231,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 actionRegistry={actionRegistry}
                 webhookUrl={config.webhookUrl}
                 pushToast={pushToast}
-                onSelectSample={(sm) => goToReport(sm, "equipment")}
+                onSelectSample={(sm) => goToOilReport(sm.unitId, sm)}
                 onEditSample={onEditSample}
                 onDeleteSample={onDeleteSample}
                 onOpenReport={goToOilReport}
@@ -1252,31 +1249,12 @@ function AppShell({ config, setConfig, navBridge }) {
               />
             </div>
           )}
-          {visitedPages.has("report") && (
-            <div style={{ display: page === "report" ? undefined : "none" }}>
-              {selectedEquipment ? (
-                <OilAnalysisReport
-                  sample={selectedEquipment}
-                  samples={samples}
-                  actions={actions}
-                  oilChanges={oilChanges}
-                  equipmentOptions={equipmentOptions}
-                  equipmentRegistry={equipmentRegistry}
-                  actionRegistry={actionRegistry}
-                  onAddAction={onAddAction}
-                  onUpdateAction={onUpdateAction}
-                  onDeleteAction={onDeleteAction}
-                />
-              ) : (
-                <div style={{ color: T.textSecondary }}>Select a sample from the Dashboard or Equipment page first.</div>
-              )}
-            </div>
-          )}
           {visitedPages.has("oilreport") && (
             <div style={{ display: page === "oilreport" ? undefined : "none" }}>
               <OilReportSearch
                 samples={samples}
                 oilChanges={oilChanges}
+                oilChangeEvents={oilChangeEvents}
                 actions={actions}
                 equipmentRegistry={equipmentRegistry}
                 actionRegistry={actionRegistry}
@@ -1284,6 +1262,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 onAddAction={onAddAction}
                 onUpdateAction={onUpdateAction}
                 initialCode={oilReportCode}
+                focus={oilReportFocus}
               />
             </div>
           )}

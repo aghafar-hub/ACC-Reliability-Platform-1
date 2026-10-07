@@ -15,6 +15,7 @@ import {
   everyText,
   cycleSummary,
   flagFor,
+  isDarkSurface,
   leakWindows,
   limitsFor,
   monthTicks,
@@ -100,15 +101,6 @@ function TipBox({ T, children }) {
       {children}
     </div>
   );
-}
-
-// Dark or light theme — picks which set of line colours to use.
-function isDarkSurface(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
-  if (!m) return false;
-  const n = parseInt(m[1], 16);
-  const lum = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
-  return lum < 128;
 }
 
 function TopicTooltip({ T, series, colorOf, active, payload }) {

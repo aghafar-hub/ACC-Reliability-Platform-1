@@ -1,5 +1,5 @@
 import { useTheme } from "../ThemeContext";
-import { LAB_GROUPS, LAB_PARAMS } from "../pointHistory";
+import { EXTRA_FLAGS, LAB_GROUPS, LAB_PARAMS } from "../pointHistory";
 
 // The lab's own marks on a hand-entered report — the yellow (Caution) and
 // red (Alert) cells. A PDF import reads these from the cell colours; here
@@ -26,11 +26,11 @@ export default function FlagPicker({ value, onChange }) {
       <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 8px" }}>
         Tap each value the lab marked yellow (Caution) or red (Alert) on the report. Tap again to change, a third time to clear.
       </p>
-      {LAB_GROUPS.map((g) => (
+      {[...LAB_GROUPS.map((g) => ({ g, list: LAB_PARAMS.filter((p) => p.group === g) })), { g: "Particles / PQ", list: EXTRA_FLAGS }].map(({ g, list }) => (
         <div key={g} style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 11, color: T.textSecondary, marginBottom: 4 }}>{g}</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {LAB_PARAMS.filter((p) => p.group === g).map((p) => {
+            {list.map((p) => {
               const sev = sevOf(p.flag);
               const c = sev ? T[COLOR[sev]] : null;
               return (
@@ -50,7 +50,7 @@ export default function FlagPicker({ value, onChange }) {
                     fontWeight: sev ? 700 : 500,
                   }}
                 >
-                  {p.key}
+                  {p.short || p.key}
                   {sev && <span style={{ fontSize: 11 }}>· {sev}</span>}
                 </button>
               );

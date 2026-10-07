@@ -114,12 +114,16 @@ export const HOWTO_TOPICS = [
     color: "#4A90D9",
     steps: [
       {
-        title: "Selecting Equipment",
-        desc: "Use the Equipment Code dropdown to select which equipment to view. The report shows all samples for that equipment in columns, newest on the right. Use the Area filter buttons to narrow down the equipment list.",
+        title: "Picking a point",
+        desc: "With no point picked, the page lists every sampled lubrication point by its latest result — Alert first — with the values the lab marked and whether a sample is overdue or missing. Use the chips (Alert, Caution, Normal, Sample overdue / missing) or the filter box, then click a point. You can also search by LP-ID at the top.",
       },
       {
         title: "Reading the Report",
-        desc: "Left side shows all parameters in a table — Sample Info, Lubricant ratings, TAN, Viscosity, Wear metals, Contaminants, Additives. Right side shows trend charts: Viscosity, Wear, Contaminants, and Physical Properties (TAN + Water).",
+        desc: "The table shows every sample as a column, newest on the right, with a narrow blue column wherever the oil was changed. Cells the lab marked yellow or red on its report are tinted the same way. The Review row shows whether the report was validated; the Action row shows the action raised from that sample. On the right are trend charts: Viscosity, Wear, Contaminants and Physical Properties.",
+      },
+      {
+        title: "How many samples",
+        desc: "Above the table choose Last 5, 10, 15 or All, or 'Since last oil change'. The table, charts and PDF follow the choice. The PDF button downloads the report as shown.",
       },
     ],
   },

@@ -3,6 +3,7 @@ import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
+import { actionsForSample, cellMark, changeLabel, reviewOf, visibleGroups } from "./labReport";
 import { LAB_GROUPS, LAB_PARAMS, SERIES_LIGHT, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
 
 // Four printable-to-PDF reports, generated entirely client-side from the
@@ -91,8 +92,8 @@ function loadLogoDataUrl() {
   return logoDataUrlPromise;
 }
 
-async function newDoc(title, scopeLine) {
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+async function newDoc(title, scopeLine, orientation = "portrait") {
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation });
   const pageWidth = doc.internal.pageSize.getWidth();
   doc.setFillColor(...BRAND.navy);
   doc.rect(0, 0, pageWidth, 72, "F");
@@ -2203,5 +2204,149 @@ export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, ch
 
   addFooter(doc);
   doc.save(`Lubrication-History-${String(code).replace(/[^a-z0-9.-]+/gi, "_")}-${toFileDate()}.pdf`);
+  return doc;
+}
+
+// ── Oil Analysis Report as a PDF (landscape) ─────────────────────────────
+// The point's results as on the page: the samples being shown as columns
+// (oil changes between them), cells the lab marked tinted with a C / A
+// letter, the latest recommendations, and one chart per topic.
+export async function generateLabReportPdf({ reg, code, shown, columns, actions, lastEvent, nextChangeDue, samplingStatus, nextSampleDue, allSamples, registry }) {
+  const doc = await newDoc("Oil Analysis Report", `${code} — ${reg?.description || reg?.equipmentId || ""}`, "landscape");
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const latest = shown[shown.length - 1] || null;
+  let y = 92;
+  y = statStrip(doc, [
+    { label: "Latest result", value: latest?.reportStatus || "—", color: PDF_SEV[latest?.reportStatus] || (latest?.reportStatus === "Normal" ? BRAND.success : undefined) },
+    { label: "Latest sample", value: shortDate(latest?.sampledDate) },
+    { label: "Samples shown", value: shown.length },
+    { label: "Sampling", value: samplingStatus?.label || "—", color: { OVERDUE: BRAND.warning, MISSING: BRAND.danger, OK: BRAND.success }[samplingStatus?.label] },
+    { label: "Next sample due", value: shortDate(nextSampleDue) },
+    { label: "Last oil change", value: shortDate(lastEvent?.eventDate) },
+    { label: "Next change due", value: shortDate(nextChangeDue) },
+  ], y);
+  const facts = [
+    lastEvent?.oilBrandType ? `Oil in use: ${lastEvent.oilBrandType}${lastEvent.quantityUsed ? ` (${lastEvent.quantityUsed} L, ${formatDate(lastEvent.eventDate)})` : ""}` : reg?.lubricant ? `Oil: ${reg.lubricant}` : "",
+    reg?.interval ? `Sampling interval: ${reg.interval}` : "",
+    reg?.contractor ? `Contractor: ${reg.contractor}` : "",
+  ].filter(Boolean);
+  if (facts.length) y = summaryParagraph(doc, facts.join("   ·   "), y);
+  if (latest?.recommendations?.length) {
+    y = sectionTitle(doc, `Recommendations — latest sample, ${formatDate(latest.sampledDate)}`, y);
+    y = summaryParagraph(doc, latest.recommendations.join("\n\n"), y);
+  }
+
+  // Results table.
+  y = needsNewPage(doc, y, 160);
+  y = sectionTitle(doc, "Sample data", y);
+  const groups = visibleGroups(shown);
+  const head = [
+    "Parameter",
+    ...columns.map((col) => (col.type === "change" ? `Oil\nchange\n${shortDate(col.change.eventDate)}` : formatDate(col.sample.sampledDate))),
+  ];
+  const marks = []; // per body row: per column, "Alert" | "Caution" | "" | "change"
+  const body = [];
+  groups.forEach((g) => {
+    body.push([{ content: g.title.toUpperCase(), colSpan: head.length, styles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontStyle: "bold" } }]);
+    marks.push(null);
+    g.rows.forEach((row) => {
+      const rowMarks = [""];
+      const cells = [row.label];
+      columns.forEach((col) => {
+        if (col.type === "change") {
+          cells.push("");
+          rowMarks.push("change");
+          return;
+        }
+        const d = col.sample;
+        let v;
+        let m = "";
+        if (row.kind === "review") v = reviewOf(d).label;
+        else if (row.kind === "action") v = actionsForSample(actions, code, d).map((a) => `${a.acNo || "—"} ${a.status}`).join(", ") || "—";
+        else if (row.kind === "date") v = row.get(d) ? shortDate(row.get(d)) : "—";
+        else {
+          const raw = row.get(d);
+          v = raw === null || raw === undefined || raw === "" ? "—" : String(raw);
+          if (row.kind === "num") m = cellMark(d, row);
+          if (row.kind === "status" && PDF_SEV[raw]) m = raw === "Warning" ? "Caution" : raw;
+          if (m && row.kind === "num") v = `${v} ${m[0]}`;
+        }
+        cells.push(v);
+        rowMarks.push(m);
+      });
+      body.push(cells);
+      marks.push(rowMarks);
+    });
+  });
+  const sampleCols = columns.filter((c) => c.type === "sample").length;
+  const changeCols = columns.length - sampleCols;
+  const usable = pageWidth - 72 - 118;
+  const colW = Math.max(30, (usable - changeCols * 36) / Math.max(1, sampleCols));
+  const columnStyles = { 0: { cellWidth: 118, fontStyle: "bold", textColor: BRAND.navy } };
+  columns.forEach((col, i) => (columnStyles[i + 1] = { cellWidth: col.type === "change" ? 36 : colW, halign: "center" }));
+  autoTable(doc, {
+    startY: y,
+    head: [head],
+    body,
+    theme: "grid",
+    headStyles: { fillColor: BRAND.navy, textColor: 255, fontSize: 6.8, halign: "center", valign: "middle" },
+    styles: { fontSize: 6.8, cellPadding: 2.4, lineColor: BRAND.border, lineWidth: 0.4, overflow: "linebreak" },
+    columnStyles,
+    margin: { left: 36, right: 36 },
+    didParseCell: (data) => {
+      const colIdx = data.column.index - 1;
+      if (colIdx >= 0 && columns[colIdx]?.type === "change") {
+        data.cell.styles.fillColor = [226, 240, 250];
+        if (data.section === "head") data.cell.styles.textColor = BRAND.navy;
+        return;
+      }
+      if (data.section !== "body") return;
+      const rm = marks[data.row.index];
+      if (!rm) return;
+      const m = rm[data.column.index];
+      if (m === "Alert") {
+        data.cell.styles.fillColor = [250, 222, 222];
+        data.cell.styles.textColor = BRAND.danger;
+        data.cell.styles.fontStyle = "bold";
+      } else if (m === "Caution") {
+        data.cell.styles.fillColor = [252, 238, 210];
+        data.cell.styles.textColor = BRAND.warning;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+  });
+  y = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(7.5);
+  doc.setTextColor(...BRAND.muted);
+  doc.text("Red / amber cells with A / C: values the lab marked Alert / Caution on its report. Blue columns: oil changes.", 36, y + 4);
+  const shownChanges = columns.filter((c) => c.type === "change");
+  if (shownChanges.length) doc.text(shownChanges.map((c) => changeLabel(c.change)).join("   ·   "), 36, y + 14, { maxWidth: pageWidth - 72 });
+  doc.setTextColor(20, 26, 33);
+
+  // Charts — one per topic, on a real time axis over the samples shown.
+  const samplesAsc = shown.map((s) => ({ ...s, _t: toTime(s.sampledDate) })).filter((s) => s._t !== null);
+  if (samplesAsc.length) {
+    doc.addPage();
+    y = sectionTitle(doc, "Trends", 40);
+    const sameOil = reg?.lubricant
+      ? (allSamples || []).filter((s) => s.unitId !== code && (registry || []).some((r) => r.code === s.unitId && r.lubricant === reg.lubricant))
+      : [];
+    const changeTimes = columns.filter((c) => c.type === "change").map((c) => c.t);
+    const lab = LAB_PARAMS.filter((p) => samplesAsc.some((s) => paramValue(s, p) !== null)).map((p) => ({ p, limits: limitsFor(p, samplesAsc, sameOil), trend: null }));
+    const topics = ["Viscosity", "Wear", "Contaminants", "Physical properties"]
+      .map((g) => ({ group: g, items: lab.filter((x) => x.p.group === g) }))
+      .filter((g) => g.items.length);
+    const start = Math.min(samplesAsc[0]._t, ...changeTimes);
+    const end = Math.max(samplesAsc[samplesAsc.length - 1]._t, ...changeTimes) + 86400000;
+    const cw = (pageWidth - 72 - 14) / 2;
+    const chH = 200;
+    topics.forEach((g, i) => {
+      if (i === 2) y += chH + 14;
+      labTopicChart(doc, { x: 36 + (i % 2) * (cw + 14), y, w: cw, h: chH, group: g.group, items: g.items, samples: samplesAsc, changeTimes, start, end });
+    });
+  }
+
+  addFooter(doc);
+  doc.save(`Oil-Analysis-Report-${String(code).replace(/[^a-z0-9.-]+/gi, "_")}-${toFileDate()}.pdf`);
   return doc;
 }

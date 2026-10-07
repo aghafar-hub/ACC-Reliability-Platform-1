@@ -311,6 +311,38 @@ the table, and that clicking an item opens the right page.
 
 No Apps Script change for E3 / E4.
 
+## Oil Analysis Report (R1)
+
+- **Lab marks (the yellow / red cells).** Stored per sample in the
+  Data_Entry column **Flagged Parameters** (column AL) as text, e.g.
+  `Fe:Alert,Cu:Caution,PQIndex:Caution`. A PDF import fills it from the
+  cell colours; a hand-entered report from the Lab Marks picker on Add /
+  Edit Report; it can also be typed in the sheet. Names: the element
+  symbols (Fe, Cu, Si, Zn, …), `Visc`, `Oxidation`, `TAN`, `Water`,
+  `PQIndex`, `PC4`, `PC6`, `PC14` (particle counts). The report table
+  tints exactly those cells — the app's own guessed limits are gone. A
+  report with no marks shows no tinted cells.
+- **With no point picked:** every sampled point by its latest result
+  (Alert first), lab marks and sampling status, with chips and a filter.
+- **Above the table:** Last 5 / 10 / 15 / All, and Since last oil change.
+  The table, the four charts and the PDF follow it.
+- **Table:** a narrow blue column at each oil change (hover for the oil
+  and quantity); a Review row (Pending validation / Returned / Validated)
+  and an Action row (the action raised from that sample).
+- **Charts:** same four charts, same place and size. Each value keeps its
+  fixed colour (the legend now always matches), a missing value is left
+  out instead of drawn as 0, and lines run through gaps.
+- **Info bar:** the oil actually used at the last change, quantity, who,
+  next change due, sampling status and next sample due.
+- **One report page:** a dot on an Oil Equipment chart opens this page with
+  that sample's column outlined. The separate single-sample page is gone.
+- **Removed:** the ExxonMobil footer, the Sample Timeline (same as the
+  table) and the 12-month tracker strip (see Sample Tracker).
+- **PDF** (landscape): header, status strip, latest recommendations, the
+  table with tinted A / C cells and oil change columns, and trend charts.
+
+No Apps Script change.
+
 ## Test copy: files to paste (Apps Script editor)
 
 Copy from the `claude/test-site` branch.
