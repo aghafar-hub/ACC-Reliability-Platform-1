@@ -360,3 +360,13 @@
     }
   }
 }
+/* PWA item 22 — landscape iPhone: keep the rail's icons clear of the
+   Dynamic Island / rounded corner (content-box, so the rail just grows). */
+.sidebar-rail {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+@media (max-width: 860px) {
+  .sidebar-rail {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}

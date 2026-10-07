@@ -1166,8 +1166,8 @@ function AppShell({ config, setConfig, navBridge }) {
   }, [navBridge, runSync]);
   useEffect(() => {
     if (!navBridge) return;
-    navBridge.onSyncStateChange?.({ syncState, pendingSyncCount });
-  }, [navBridge, syncState, pendingSyncCount]);
+    navBridge.onSyncStateChange?.({ syncState, pendingSyncCount, lastSyncAt });
+  }, [navBridge, syncState, pendingSyncCount, lastSyncAt]);
 
   const cacheInfo = readCache("samples");
 

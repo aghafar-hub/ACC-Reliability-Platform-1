@@ -5,7 +5,8 @@ import { ORG_ACC } from '../auth/session';
 import { useEmbeddedNav, type NavRecord } from '../embeddedNav';
 import { tapHaptic } from '../haptics';
 import { Icon } from '../icons';
-import { canOpenModule, canSave, useModuleAccess } from '../moduleAccess';
+import { canOpenModule, useModuleAccess } from '../moduleAccess';
+import { OIL, OIL_ROUTE, VIB, VIB_ROUTE, useQuickActions } from '../quickActions';
 import './BottomNav.css';
 
 // The phone's bottom bar (design system D2), only visible <=860px
@@ -17,12 +18,7 @@ import './BottomNav.css';
 //   New route, Add lab report and New vibration reading — whichever this
 //   person may do (Module Access).
 // - Alerts opens the notification panel; More opens the full menu.
-const OIL = 'oil-analysis';
-const VIB = 'vibration-analysis';
-const OIL_ROUTE = '/oil-lubrication';
-const VIB_ROUTE = '/vibration-analysis';
 
-type QuickItem = { key: string; label: string; hint: string; icon: string; moduleId: string; route: string; page: string; record?: NavRecord };
 
 export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   const location = useLocation();
@@ -50,22 +46,7 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   const equipmentPage = mainModule?.id === OIL ? 'equipment' : 'equipreg';
   const equipmentActive = onMain && activePage === equipmentPage;
 
-  const quick: QuickItem[] = [
-    oil && canSave(access[OIL], 'routines') && {
-      key: 'topup', label: 'Emergency top-up', hint: 'Start a top-up route now', icon: 'droplet', moduleId: OIL, route: OIL_ROUTE, page: 'routines',
-      record: { newRoute: { lpId: '', routeType: 'Emergency Top Up', workType: 'Top Up', contractor: '', reason: '' } },
-    },
-    oil && canSave(access[OIL], 'routines') && {
-      key: 'route', label: 'New route', hint: 'Oil change, sampling, top-up…', icon: 'route', moduleId: OIL, route: OIL_ROUTE, page: 'routines',
-      record: { newRoute: { lpId: '', routeType: 'Sampling', workType: 'Sampling', contractor: '', reason: '' } },
-    },
-    oil && canSave(access[OIL], 'upload') && {
-      key: 'report', label: 'Add lab report', hint: 'Import the lab PDF or type it in', icon: 'flask', moduleId: OIL, route: OIL_ROUTE, page: 'upload',
-    },
-    vib && canSave(access[VIB], 'newreading') && {
-      key: 'reading', label: 'New vibration reading', hint: 'Record a measurement', icon: 'graphs', moduleId: VIB, route: VIB_ROUTE, page: 'newreading',
-    },
-  ].filter(Boolean) as QuickItem[];
+  const quick = useQuickActions();
 
   const slots: { key: string; label: string; icon: string; active: boolean; onClick: () => void; plus?: boolean }[] = [];
   if (contractorStaff) {

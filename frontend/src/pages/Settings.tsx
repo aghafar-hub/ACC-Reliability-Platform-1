@@ -5,6 +5,7 @@ import ModuleAccessPanel from '../components/ModuleAccessPanel';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { tabLevel, useModuleAccess } from '../moduleAccess';
+import { InstallCard } from '../components/InstallGuide';
 import ThemePicker from '../components/ThemePicker';
 import { useEmbeddedNav } from '../embeddedNav';
 import { Icon } from '../icons';
@@ -115,6 +116,7 @@ export default function Settings() {
                 Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
               </p>
               <ThemePicker />
+              <InstallCard />
             </>
           )}
           {generalSubTab === 'users' && <AccountsPanel />}

@@ -391,3 +391,19 @@
     display: flex;
   }
 }
+
+/* PWA item 22 — iPhone safe areas (14 Plus, 16 Pro, 17 Pro). Installed
+   with a "default" status bar the page already starts below it, so the top
+   inset is 0 there; it matters in Safari full-screen and landscape, where
+   the Dynamic Island sits on the left or right edge. Last in the file so
+   the phone rule's `padding: 0 12px` above doesn't undo it. */
+.shell-topbar {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+}
+@media (max-width: 860px) {
+  .shell-topbar {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+}

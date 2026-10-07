@@ -222,3 +222,9 @@
     display: none;
   }
 }
+
+/* PWA item 22 — landscape iPhone: content clear of the right-hand notch /
+   Dynamic Island (the rail handles the left edge, Sidebar.css). */
+.app-shell-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}

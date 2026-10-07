@@ -44,6 +44,10 @@ export default defineConfig({
         name: 'ACC Reliability Platform',
         short_name: 'ACC Reliability',
         description: 'Arabian Cement Company — equipment reliability platform (Oil Lubrication, Vibration Analysis, and more).',
+        // `id` keeps the installed app's identity fixed even if start_url ever
+        // changes; resolved against start_url, so the live site and the
+        // /test/ copy stay two separate installs.
+        id: '.',
         start_url: '.',
         scope: '.',
         display: 'standalone',
@@ -53,6 +57,12 @@ export default defineConfig({
           { src: 'icons/pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/pwa-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icons/pwa-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        // Long-press the app icon (Android, Windows) for these.
+        shortcuts: [
+          { name: 'My Work', short_name: 'My Work', url: 'my-work', icons: [{ src: 'icons/pwa-192.png', sizes: '192x192' }] },
+          { name: 'Log an emergency top-up', short_name: 'Top-up', url: 'quick/topup', icons: [{ src: 'icons/pwa-192.png', sizes: '192x192' }] },
+          { name: 'Add a lab report', short_name: 'Lab report', url: 'quick/report', icons: [{ src: 'icons/pwa-192.png', sizes: '192x192' }] },
         ],
       },
       workbox: {

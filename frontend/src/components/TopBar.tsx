@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { useOnlineStatus } from '../useOnlineStatus';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useEmbeddedNav } from '../embeddedNav';
@@ -25,24 +26,6 @@ function useBreadcrumb() {
   const activeSubTabId = item.moduleId ? embeddedNav.activePageFor(item.moduleId) : null;
   const subTab = item.subTabs?.find((t) => t.id === activeSubTabId);
   return { module: item.label, page: subTab?.label || '', moduleId: item.moduleId ?? null };
-}
-
-// Patch 35 ("make it one [top bar]"): the browser's own global network
-// status — not module-specific, so no bridge round-trip needed, unlike
-// Sync below.
-function useOnlineStatus() {
-  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
-    return () => {
-      window.removeEventListener('online', on);
-      window.removeEventListener('offline', off);
-    };
-  }, []);
-  return online;
 }
 
 export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {

@@ -2,6 +2,9 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
 import ModuleTabs from './components/ModuleTabs';
+import OfflineBanner from './components/OfflineBanner';
+import QuickLink from './components/QuickLink';
+import { InstallBanner } from './components/InstallGuide';
 import SaveBlockedToast from './components/SaveBlockedToast';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './auth/AuthContext';
@@ -100,6 +103,7 @@ function ShellRoot() {
       <div className="app-shell-right">
         <TopBar onOpenMenu={() => setMobileNavOpen(true)} />
         <ModuleTabs />
+        <OfflineBanner />
         <main className="shell-page-content">
           <Routes>
             {/* Patch 31 briefly pointed "/" and "/equipment" at Oil
@@ -113,6 +117,7 @@ function ShellRoot() {
                 Compressors below, until the real high-level pages are built. */}
             <Route path="/" element={<ComingSoon title="Dashboard" />} />
             <Route path="/my-work" element={<MyWork />} />
+            <Route path="/quick/:key" element={<QuickLink />} />
             <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
@@ -144,6 +149,7 @@ function ShellRoot() {
         {/* <=860px only (BottomNav.css) — fixed to the viewport bottom, so
             it's a sibling of <main>, not nested inside it. */}
         <BottomNav onOpenMore={() => setMobileNavOpen(true)} />
+        <InstallBanner />
       </div>
       <SaveBlockedToast />
     </div>

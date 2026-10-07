@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode, useRef } from 'react';
 
 /**
  * navBridge is a plain JS object (not React state) handed to an embedded
@@ -47,7 +47,9 @@ export type SearchResult = {
   recordId?: string;
 };
 
-export type SyncInfo = { syncState: string; pendingSyncCount: number };
+// lastSyncAt: ISO time of the module's last successful sync (the offline
+// banner says how old the data on screen is); optional — not every module has it.
+export type SyncInfo = { syncState: string; pendingSyncCount: number; lastSyncAt?: string | null };
 
 // 'idle': not started yet. 'loading': the embed bundle is downloading/
 // mounting (kicked off right after login now, not on first click — see
@@ -91,6 +93,19 @@ const EmbeddedNavContext = createContext<EmbeddedNavContextValue | null>(null);
 export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<Record<string, ModuleEntry>>({});
   const [loadStates, setLoadStates] = useState<Record<string, ModuleLoadState>>({});
+  // A navigation asked for before the module has mounted (an app shortcut or
+  // a link opened on a cold start) waits here until its bridge can take it.
+  const pendingNav = useRef<Record<string, { pageId: string; recordId?: NavRecord }>>({});
+  // The module wires bridge.navigate in its own effect, a moment after
+  // registering — retry for up to ~10 s.
+  function deliverWhenReady(moduleId: string, bridge: NavBridge, tries = 0) {
+    const p = pendingNav.current[moduleId];
+    if (!p) return;
+    if (bridge.navigate) {
+      delete pendingNav.current[moduleId];
+      bridge.navigate(p.pageId, p.recordId);
+    } else if (tries < 100) setTimeout(() => deliverWhenReady(moduleId, bridge, tries + 1), 100);
+  }
 
   const value = useMemo<EmbeddedNavContextValue>(
     () => ({
@@ -100,6 +115,7 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
       },
       activePageFor: (moduleId) => modules[moduleId]?.activePage ?? null,
       register: (moduleId, bridge) => {
+        if (pendingNav.current[moduleId]) deliverWhenReady(moduleId, bridge);
         setModules((prev) => ({
           ...prev,
           [moduleId]: { bridge, activePage: prev[moduleId]?.activePage ?? null, syncInfo: prev[moduleId]?.syncInfo ?? null },
@@ -118,7 +134,15 @@ export function EmbeddedNavProvider({ children }: { children: ReactNode }) {
           prev[moduleId] ? { ...prev, [moduleId]: { ...prev[moduleId], activePage: pageId } } : prev,
         );
       },
-      navigateTo: (moduleId, pageId, recordId) => modules[moduleId]?.bridge.navigate?.(pageId, recordId),
+      navigateTo: (moduleId, pageId, recordId) => {
+        const nav = modules[moduleId]?.bridge.navigate;
+        if (nav) nav(pageId, recordId);
+        else {
+          pendingNav.current[moduleId] = { pageId, recordId };
+          const bridge = modules[moduleId]?.bridge;
+          if (bridge) deliverWhenReady(moduleId, bridge); // registered, navigate not wired yet
+        }
+      },
       search: (moduleId, query) => {
         try {
           return modules[moduleId]?.bridge.search?.(query) ?? [];
