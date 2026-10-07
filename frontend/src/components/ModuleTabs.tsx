@@ -65,14 +65,21 @@ export default function ModuleTabs() {
       if (!moreRef.current?.contains(t) && !menuRef.current?.contains(t))
         setMoreAt(null);
     };
-    const dismiss = () => setMoreAt(null);
+    // A scroll or resize moves the menu with its button (opening it can
+    // itself scroll the page, to bring the focused button into view); it
+    // only closes once the button has left the screen.
+    const follow = () => {
+      const r = moreRef.current?.getBoundingClientRect();
+      if (!r || r.bottom < 0 || r.top > window.innerHeight) setMoreAt(null);
+      else setMoreAt((cur) => (cur && cur.top === r.bottom + 4 && cur.left === r.left ? cur : { top: r.bottom + 4, left: r.left }));
+    };
     document.addEventListener("mousedown", close);
-    window.addEventListener("resize", dismiss);
-    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", follow);
+    window.addEventListener("scroll", follow, true);
     return () => {
       document.removeEventListener("mousedown", close);
-      window.removeEventListener("resize", dismiss);
-      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", follow);
+      window.removeEventListener("scroll", follow, true);
     };
   }, [moreOpen]);
 

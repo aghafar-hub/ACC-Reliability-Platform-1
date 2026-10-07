@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
+import { StackedBars } from "../components/DashCharts";
 
 // Phase 7 — managers' view: per contractor, the open work and what's late.
 // Live: the backend counts it straight from the sheets on every open (no
@@ -87,6 +88,19 @@ function CompareTable({ contractors }) {
   );
 }
 
+// Route stages for the per-technician bars: not started → in progress →
+// sent for approval in one blue, light → dark; returned in amber (it needs
+// fixing). Overdue overlaps these, so it's named next to the technician.
+function techStages(T) {
+  const blue = (pct) => `color-mix(in srgb, ${T.accent} ${pct}%, ${T.cardBg})`;
+  return [
+    { key: "assigned", label: "Not started", color: blue(35) },
+    { key: "inProgress", label: "In progress", color: blue(65) },
+    { key: "waitingApproval", label: "Waiting approval", color: blue(100) },
+    { key: "returned", label: "Returned", color: T.warning },
+  ];
+}
+
 export default function TeamWorkload({ webhookUrl }) {
   const { T, s } = useTheme();
   const [data, setData] = useState(null);
@@ -156,6 +170,30 @@ export default function TeamWorkload({ webhookUrl }) {
             <Count label="Low-stock oils" value={c.lowStock} warn />
           </div>
 
+          {c.technicians.length > 0 && (
+            <div style={{ margin: "4px 0 16px" }} data-testid={`team-bars-${c.contractor}`}>
+              {/* D5 — work per technician: one bar each, by stage, same scale */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 14 }}>Routes per technician</p>
+                <span style={{ display: "flex", gap: 10, fontSize: 12, color: T.textSecondary, flexWrap: "wrap" }}>
+                  {techStages(T).map((st) => (
+                    <span key={st.key} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 2, background: st.color }} />
+                      {st.label}
+                    </span>
+                  ))}
+                </span>
+              </div>
+              <StackedBars
+                T={T}
+                labelWidth={190}
+                rows={c.technicians.map((t) => ({
+                  label: `${String(t.email).split("@")[0]}${t.overdue ? ` · ${t.overdue} overdue` : ""}`,
+                  parts: techStages(T).map((st) => ({ label: st.label, value: Number(t[st.key]) || 0, color: st.color })),
+                }))}
+              />
+            </div>
+          )}
           {c.technicians.length > 0 && (
             <div style={{ overflowX: "auto" }}>
               <table style={s.table}>
