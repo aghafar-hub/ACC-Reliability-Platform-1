@@ -5,6 +5,7 @@ import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket } from ".
 import EquipmentSearch from "../components/EquipmentSearch";
 import SampleHistoryModal from "../components/SampleHistoryModal";
 import { MonthProgress } from "../components/DashCharts";
+import ContractorChips from "../components/ContractorChips";
 
 const WEEKS_AHEAD = 8;
 
@@ -423,20 +424,14 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
             ))}
           </select>
         </div>
+        {contractors.length > 2 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
             Contractor
           </span>
-          <select
-            style={{ ...s.select, fontSize: 12, minWidth: 130 }}
-            value={contractorFilter}
-            onChange={(e) => setContractorFilter(e.target.value)}
-          >
-            {contractors.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+          <ContractorChips value={contractorFilter} onChange={setContractorFilter} options={contractors.filter((c) => c !== "All")} size="sm" testid="st-contractor" />
         </div>
+        )}
         {hasFilters && (
           <button
             style={{ ...s.btn, fontSize: 12 }}

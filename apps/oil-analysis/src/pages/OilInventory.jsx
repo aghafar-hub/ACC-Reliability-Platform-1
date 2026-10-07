@@ -36,6 +36,8 @@ import {
 import OilProductDetail from "./OilProductDetail";
 import { Donut, MiniBars, Runway, StackedBars } from "../components/DashCharts";
 import { stockRunway } from "../dashboardLogic";
+import ContractorChips, { ContractorTag } from "../components/ContractorChips";
+import ModalShell, { FormSection } from "../components/ModalShell";
 
 const CONTAINER_TYPES = ["Drum", "Pail", "Bulk Tank", "IBC"];
 const UNITS = ["L", "Drum"];
@@ -71,6 +73,8 @@ function knownOilsFromRegistry(equipmentRegistry) {
 
 function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, onCancel }) {
   const { s, T } = useTheme();
+  // A contractor's own people add to their own store only.
+  const scopedContractor = useSessionContractor();
   const knownOils = useMemo(() => knownOilsFromRegistry(equipmentRegistry), [equipmentRegistry]);
   const [oilMode, setOilMode] = useState(knownOils.length > 0 ? "registry" : "custom");
   const [selectedOilKey, setSelectedOilKey] = useState("");
@@ -86,7 +90,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
     unitCost: "",
     status: "Active",
     notes: "",
-    contractor: CONTRACTOR_OPTIONS[0],
+    contractor: scopedContractor || CONTRACTOR_OPTIONS[0],
     equivalentToType: "",
     equivalentToBrand: "",
   });
@@ -137,7 +141,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
     setSaving(true);
     try {
       const productId = newId("OIL");
-      const payload = { productId, ...form };
+      const payload = { productId, ...form, storageLocation: form.contractor };
       if (!equivalentEnabled || !canApproveEquivalent) {
         payload.equivalentToType = "";
         payload.equivalentToBrand = "";
@@ -153,14 +157,26 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
   }
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <p style={{ ...s.sectionTitle, margin: 0 }}>Add Oil Product</p>
-        <button style={s.btn} onClick={onCancel} disabled={saving}>
-          <i className="ti ti-x" aria-hidden="true" /> Cancel
-        </button>
-      </div>
-      <div style={{ ...s.card, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+    <ModalShell
+      icon="package"
+      title="Add Oil Product"
+      subtitle="A new oil in a contractor's store"
+      onClose={saving ? () => {} : onCancel}
+      width={760}
+      testid="add-product-modal"
+      footer={
+        <>
+          <button style={s.btn} onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+          <button style={s.btnPrimary} onClick={handleCreate} disabled={saving}>
+            {saving ? "Adding…" : "Add Product"}
+          </button>
+        </>
+      }
+    >
+      <FormSection icon="droplet" title="Product details" style={{ marginBottom: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 14 }}>
         {knownOils.length > 0 && (
           <div style={{ gridColumn: "1 / -1" }}>
             <label style={s.label}>Oil</label>
@@ -292,10 +308,6 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
           />
         </div>
         <div>
-          <label style={s.label}>Storage Location</label>
-          <input style={s.input} type="text" value={form.storageLocation} onChange={(e) => set("storageLocation", e.target.value)} />
-        </div>
-        <div>
           <label style={s.label}>Supplier</label>
           <input style={s.input} type="text" value={form.supplier} onChange={(e) => set("supplier", e.target.value)} />
         </div>
@@ -320,28 +332,28 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
           </select>
         </div>
         <div>
-          <label style={s.label}>Contractor</label>
-          <select style={s.select} value={form.contractor} onChange={(e) => set("contractor", e.target.value)}>
-            {CONTRACTOR_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <label style={s.label}>Location</label>
+          {scopedContractor ? (
+            <div style={{ ...s.input, background: T.cardSubBg, display: "flex", alignItems: "center" }} data-testid="add-product-location">
+              <ContractorTag name={scopedContractor} />
+              <span style={{ fontSize: 12, color: T.textSecondary, marginLeft: 8 }}>your store</span>
+            </div>
+          ) : (
+            <ContractorChips value={form.contractor} onChange={(c) => set("contractor", c)} allLabel={null} label="Location" testid="add-product-location" />
+          )}
+          <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>Each contractor's stock is kept in its own store.</div>
         </div>
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={s.label}>Notes</label>
           <input style={s.input} type="text" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
         </div>
       </div>
-      <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 14 }}>
+      <p style={{ fontSize: 12, color: T.textSecondary, margin: "12px 0 0" }}>
         Current Stock and Last Movement Date are calculated on the sheet from every receipt/issue logged for this product — the new row gets
         those formulas automatically.
       </p>
-      <button style={s.btnPrimary} onClick={handleCreate} disabled={saving}>
-        {saving ? "Adding…" : "Add Product"}
-      </button>
-    </div>
+      </FormSection>
+    </ModalShell>
   );
 }
 
@@ -837,7 +849,6 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
               <tr>
                 <th style={s.th}>Type / Brand</th>
                 <th style={s.th}>Location</th>
-                <th style={s.th}>Contractor</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Low-stock Level</th>
                 <th style={s.th}>Below Level By</th>
@@ -852,8 +863,9 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
                     <div style={{ fontWeight: 700 }}>{p.lubricantType}</div>
                     <div style={{ fontSize: 12, color: T.textSecondary }}>{p.lubricantBrand}</div>
                   </td>
-                  <td style={s.td}>{p.storageLocation || "—"}</td>
-                  <td style={s.td}>{p.contractor}</td>
+                  <td style={s.td}>
+                    <ContractorTag name={p.storageLocation} />
+                  </td>
                   <td style={s.td}>
                     <span style={{ color: T.danger, fontWeight: 700 }}>{fmtQty(p.currentStock, p.unit)}</span>
                     <StockMeter T={T} stock={p.currentStock} level={p.recorderLevel} low />
@@ -1036,11 +1048,10 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
             <thead>
               <tr>
                 <th style={s.th}>Type / Brand</th>
-                <th style={s.th}>Contractor</th>
+                <th style={s.th}>Location</th>
                 <th style={s.th}>Stock</th>
                 <th style={s.th}>Days Left</th>
                 <th style={s.th}>Low-stock Level</th>
-                <th style={s.th}>Location</th>
                 <th style={s.th}>Status</th>
                 <th style={s.th}>Last Movement</th>
               </tr>
@@ -1060,7 +1071,9 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
                         </div>
                       )}
                     </td>
-                    <td style={s.td}>{p.contractor || "—"}</td>
+                    <td style={s.td}>
+                      <ContractorTag name={p.storageLocation || p.contractor} />
+                    </td>
                     <td style={{ ...s.td, whiteSpace: "nowrap" }}>
                       <span style={low ? { color: T.danger, fontWeight: 700 } : { fontWeight: 600 }}>{fmtQty(p.currentStock, p.unit)}</span>
                       {low && (
@@ -1076,7 +1089,6 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
                     <td style={s.td}>
                       <LowStockCell webhookUrl={webhookUrl} product={p} pushToast={pushToast} onSaved={onChanged} />
                     </td>
-                    <td style={s.td}>{p.storageLocation || "—"}</td>
                     <td style={s.td}>
                       <span style={s.badge(p.status)}>{p.status}</span>
                     </td>
@@ -1835,21 +1847,6 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
     setView("detail");
   }
 
-  if (view === "add") {
-    return (
-      <AddProductForm
-        webhookUrl={webhookUrl}
-        equipmentRegistry={equipmentRegistry}
-        pushToast={pushToast}
-        onCreated={(productId) => {
-          setSelectedProductId(productId);
-          setView("detail");
-          refresh();
-        }}
-        onCancel={() => setView("tabs")}
-      />
-    );
-  }
 
   if (view === "detail" && selectedProductId) {
     return (
@@ -1883,25 +1880,23 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
           </p>
         </div>
         {!scopedContractor && (
-          <div role="group" aria-label="Contractor" style={{ display: "flex", gap: 6, flexWrap: "wrap" }} data-testid="inv-contractor">
-            {["All", ...CONTRACTOR_OPTIONS].map((c) => {
-              const on = contractorFilter === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setContractorFilter(c)}
-                  style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderRadius: 999, borderColor: on ? T.accent : T.border, background: on ? T.accent : T.cardBg, color: on ? "#fff" : T.textSecondary, fontWeight: on ? 700 : 500 }}
-                >
-                  {c === "All" ? "All contractors" : c}
-                </button>
-              );
-            })}
-          </div>
+          <ContractorChips value={contractorFilter} onChange={setContractorFilter} options={CONTRACTOR_OPTIONS} testid="inv-contractor" />
         )}
       </div>
       <TabBar T={T} activeTab={activeTab} setActiveTab={setActiveTab} counts={{ stock: { value: visibleProducts.length }, ...(lowCount ? { overview: { value: `${lowCount} low`, tone: T.danger } } : {}) }} />
+      {view === "add" && (
+        <AddProductForm
+          webhookUrl={webhookUrl}
+          equipmentRegistry={equipmentRegistry}
+          pushToast={pushToast}
+          onCreated={(productId) => {
+            setSelectedProductId(productId);
+            setView("detail");
+            refresh();
+          }}
+          onCancel={() => setView("tabs")}
+        />
+      )}
       {activeTab === "overview" && (
         <OverviewTab
           webhookUrl={webhookUrl}

@@ -21,6 +21,7 @@ import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 import { CalendarHeat, TargetBar } from "../components/DashCharts";
 import { routesOnTime } from "../dashboardLogic";
+import ContractorChips from "../components/ContractorChips";
 
 const STATUS_FILTERS = ["All", ROUTE_STATUS.DRAFT, ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.WAITING, ROUTE_STATUS.CONFIRMED];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
@@ -944,14 +945,7 @@ export default function Routines({
         <p style={{ ...s.sectionTitle, margin: 0 }}>Routines</p>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {!scopedContractor && (
-            <select style={{ ...s.select, width: 170, fontSize: 12 }} value={contractorFilter} onChange={(e) => setContractorFilter(e.target.value)}>
-              <option value="All">All Contractors</option>
-              {CONTRACTOR_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <ContractorChips value={contractorFilter} onChange={setContractorFilter} options={CONTRACTOR_OPTIONS} testid="routes-contractor" />
           )}
           {canCreateRoutines && (
             <button style={s.btnPrimary} onClick={() => { setFromSuggestion(null); setNewFrom("overview"); setView("new"); }}>

@@ -1061,7 +1061,9 @@ export function rowToOilProduct(row) {
     unit: row[5] || "",
     currentStock: row[6] === "" || row[6] == null ? null : Number(row[6]),
     recorderLevel: row[7] === "" || row[7] == null ? null : Number(row[7]),
-    storageLocation: row[8] || "",
+    // The location is the contractor's store (RHI / ASEC); older rows that
+    // were typed by hand show their contractor too.
+    storageLocation: String(row[16] || "").trim() || row[8] || "",
     supplier: row[9] || "",
     unitCost: row[10] || "",
     status: row[11] || "Active",

@@ -389,7 +389,9 @@ function addOilProduct(ss, data) {
     data.unit || "L",
     "", // Current_Stock — sheet formula; copy it down from the row above after this appends
     data.recorderLevel || "",
-    data.storageLocation || "",
+    // The storage location IS the contractor's store (RHI / ASEC) — the two
+    // stocks are told apart by it, never typed by hand.
+    data.contractor || data.storageLocation || "",
     data.supplier || "",
     data.unitCost || "",
     data.status || "Active",
@@ -454,7 +456,8 @@ function updateOilProduct(ss, data) {
   sheet.getRange(rowIdx, 5).setValue(data.containerSizeL || "");
   sheet.getRange(rowIdx, 6).setValue(data.unit || "");
   sheet.getRange(rowIdx, 8).setValue(data.recorderLevel || "");
-  sheet.getRange(rowIdx, 9).setValue(data.storageLocation || "");
+  // Location stays the product's contractor store (column 17), whatever was sent.
+  sheet.getRange(rowIdx, 9).setValue(String(sheet.getRange(rowIdx, 17).getValue() || "").trim() || data.storageLocation || "");
   sheet.getRange(rowIdx, 10).setValue(data.supplier || "");
   sheet.getRange(rowIdx, 11).setValue(data.unitCost || "");
   sheet.getRange(rowIdx, 12).setValue(data.status || "");

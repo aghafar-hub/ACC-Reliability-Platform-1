@@ -8,6 +8,7 @@ import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
 import { Donut, StackedBars } from "../components/DashCharts";
 import { SERIES_DARK, SERIES_LIGHT, isDarkSurface } from "../pointHistory";
+import ContractorChips from "../components/ContractorChips";
 
 // Phase 2 statuses (old "In Progress" rows are read as Open).
 const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
@@ -536,17 +537,7 @@ export default function ActionTracker({
               </select>
             )}
             {contractors.length > 1 && (
-              <select
-                style={{ ...s.select, minWidth: 110, fontSize: 12 }}
-                value={contractorFilter}
-                onChange={(e) => setContractorFilter(e.target.value)}
-              >
-                {contractors.map((c) => (
-                  <option key={c} value={c}>
-                    {c === "All" ? "All Contractors" : c}
-                  </option>
-                ))}
-              </select>
+              <ContractorChips value={contractorFilter} onChange={setContractorFilter} options={contractors.filter((c) => c !== "All")} size="sm" testid="actions-contractor" />
             )}
             {hasFilters && (
               <button

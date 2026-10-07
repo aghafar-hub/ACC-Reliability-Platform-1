@@ -3,6 +3,7 @@ import { useTheme } from "../ThemeContext";
 import { formatDate } from "../parsers";
 import { HEALTH_COLOR, HEALTH_RANK, healthForLp, worstHealth } from "../equipmentHealth";
 import { Donut, StackedBars } from "./DashCharts";
+import ContractorChips from "./ContractorChips";
 
 // Oil Equipment opening screen: every machine (or lubrication point) with
 // its health and why, filters, and a "Needs attention" shortcut.
@@ -256,12 +257,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
           ))}
         </select>
         {!scopedContractor && contractors.length > 1 && (
-          <select style={{ ...s.select, width: "auto" }} aria-label="Contractor" value={contractor} onChange={(e) => { setContractor(e.target.value); setLimit(PAGE); }}>
-            <option value="All">All contractors</option>
-            {contractors.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <ContractorChips value={contractor} onChange={(c) => { setContractor(c); setLimit(PAGE); }} options={contractors} testid="eq-contractor" />
         )}
       </div>
 
