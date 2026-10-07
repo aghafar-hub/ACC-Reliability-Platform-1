@@ -175,7 +175,7 @@ export default function GenerateOilChangeActionsModal({ oilChanges, actions, equ
                           disabled={running || done}
                         />
                       </td>
-                      <td style={{ ...s.td, fontFamily: "monospace" }}>{c.equipmentCode}</td>
+                      <td style={{ ...s.td, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{c.equipmentCode}</td>
                       <td style={s.td}>{c.oilChange.lubricationPoint || "—"}</td>
                       <td style={{ ...s.td, color: T.danger, fontWeight: 700 }}>{c.oilChange.nextDueDate || "—"}</td>
                       <td style={s.td}>{c.contractor || "—"}</td>

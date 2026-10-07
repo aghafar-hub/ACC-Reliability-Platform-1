@@ -47,7 +47,7 @@ export default function Sidebar({
             style={{ width: 188, height: "auto", objectFit: "contain", flexShrink: 0 }}
           />
         </div>
-        <p style={{ fontSize: 9, color: "#4A6A8A", margin: 0, letterSpacing: 0.8, textTransform: "uppercase" }}>Oil Analysis Management</p>
+        <p style={{ fontSize: 12, color: "#4A6A8A", margin: 0, letterSpacing: 0.8, textTransform: "uppercase" }}>Oil Analysis Management</p>
       </div>
       <nav style={s.nav}>
         {NAV.map((item) => {
@@ -79,7 +79,7 @@ export default function Sidebar({
                     color: "#fff",
                     borderRadius: 20,
                     padding: "1px 7px",
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: 700,
                   }}
                 >
@@ -94,7 +94,7 @@ export default function Sidebar({
                     color: T.appBg,
                     borderRadius: 20,
                     padding: "1px 7px",
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: 700,
                   }}
                 >
@@ -111,8 +111,8 @@ export default function Sidebar({
             style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}
             title="Saved on this device — will upload automatically once there's a connection"
           >
-            <i className="ti ti-cloud-upload" style={{ fontSize: 11, color: T.warning }} aria-hidden="true" />
-            <span style={{ fontSize: 10, color: T.warning, fontWeight: 600 }}>
+            <i className="ti ti-cloud-upload" style={{ fontSize: 12, color: T.warning }} aria-hidden="true" />
+            <span style={{ fontSize: 12, color: T.warning, fontWeight: 600 }}>
               {pendingSyncCount} {pendingSyncCount === 1 ? "entry" : "entries"} waiting to sync
             </span>
           </div>
@@ -128,21 +128,21 @@ export default function Sidebar({
               animation: syncState === "loading" ? "pulse 1s ease-in-out infinite" : "none",
             }}
           />
-          <span style={{ fontSize: 10, color: "#6B8CAE", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 12, color: "#6B8CAE", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {syncMsg || "Sheets connected"}
           </span>
         </div>
         {hasCache && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-            <i className="ti ti-database" style={{ fontSize: 11, color: "#4A6A8A" }} aria-hidden="true" />
-            <span style={{ fontSize: 10, color: "#4A6A8A" }}>
+            <i className="ti ti-database" style={{ fontSize: 12, color: "#4A6A8A" }} aria-hidden="true" />
+            <span style={{ fontSize: 12, color: "#4A6A8A" }}>
               {syncState === "loading" ? "Refreshing from sheet…" : `Cached data · ${Math.round(cacheAgeMinutes)}m old`}
             </span>
           </div>
         )}
         <div style={{ display: "flex", gap: 6 }}>
           <button
-            style={{ ...s.btnPrimary, flex: 1, fontSize: 11, padding: "7px 10px", opacity: syncState === "loading" ? 0.7 : 1 }}
+            style={{ ...s.btnPrimary, flex: 1, fontSize: 12, padding: "7px 10px", opacity: syncState === "loading" ? 0.7 : 1 }}
             onClick={onFullSync}
             disabled={syncState === "loading"}
             title="Full Sync — re-reads every sheet"
@@ -155,7 +155,7 @@ export default function Sidebar({
             {syncState === "loading" ? " Syncing…" : " Full Sync"}
           </button>
           <button
-            style={{ ...s.btn, fontSize: 11, padding: "7px 10px" }}
+            style={{ ...s.btn, fontSize: 12, padding: "7px 10px" }}
             onClick={onQuickSync}
             disabled={syncState === "loading"}
             title="Quick Sync — fetches only records changed since last sync (fast). Falls back to Full Sync if needed."

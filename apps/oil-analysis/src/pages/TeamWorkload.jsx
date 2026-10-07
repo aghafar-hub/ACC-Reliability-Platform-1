@@ -15,7 +15,7 @@ function Count({ label, value, warn }) {
   return (
     <div style={{ minWidth: 92, padding: "8px 10px", borderRadius: 8, background: T.bgSecondary || T.bg, border: `1px solid ${hot ? T.danger : T.border}` }}>
       <div style={{ fontSize: 20, fontWeight: 700, color: hot ? T.danger : T.textPrimary }}>{value}</div>
-      <div style={{ fontSize: 11, color: T.textSecondary }}>{label}</div>
+      <div style={{ fontSize: 12, color: T.textSecondary }}>{label}</div>
     </div>
   );
 }
@@ -82,7 +82,7 @@ function CompareTable({ contractors }) {
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "10px 0 0" }}>Red marks the contractor with more of something that should be low.</p>
+      <p style={{ fontSize: 12, color: T.textSecondary, margin: "10px 0 0" }}>Red marks the contractor with more of something that should be low.</p>
     </div>
   );
 }

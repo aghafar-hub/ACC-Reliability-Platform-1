@@ -122,10 +122,10 @@ export default function NewReport({ webhookUrl, actions, oilChanges, samples, eq
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <p style={{ fontWeight: 700, margin: 0, fontSize: 13 }}>Sections {sectionIds.length > 0 ? `(${sectionIds.length} selected)` : ""}</p>
         <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ ...s.btn, fontSize: 11.5, padding: "5px 10px" }} onClick={selectAll}>
+          <button style={{ ...s.btn, fontSize: 12, padding: "5px 10px" }} onClick={selectAll}>
             Select All
           </button>
-          <button style={{ ...s.btn, fontSize: 11.5, padding: "5px 10px" }} onClick={clearAll}>
+          <button style={{ ...s.btn, fontSize: 12, padding: "5px 10px" }} onClick={clearAll}>
             Clear
           </button>
         </div>
@@ -150,12 +150,12 @@ export default function NewReport({ webhookUrl, actions, oilChanges, samples, eq
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{group.label}</div>
-                    <div style={{ fontSize: 11, color: T.textSecondary }}>
+                    <div style={{ fontSize: 12, color: T.textSecondary }}>
                       {checkedCount} of {sections.length} selected
                     </div>
                   </div>
                 </div>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: T.textSecondary, cursor: "pointer" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.textSecondary, cursor: "pointer" }}>
                   <input type="checkbox" checked={allChecked} onChange={() => toggleGroup(group.id)} />
                   All
                 </label>
@@ -195,7 +195,7 @@ export default function NewReport({ webhookUrl, actions, oilChanges, samples, eq
           <i className={`ti ${generating === "excel" ? "ti-loader" : "ti-file-spreadsheet"}`} aria-hidden="true" />{" "}
           {generating === "excel" ? "Generating…" : "Generate Excel"}
         </button>
-        {loading && <span style={{ fontSize: 11.5, color: T.textMuted, alignSelf: "center" }}>Loading Routines/Inventory/Top Up data…</span>}
+        {loading && <span style={{ fontSize: 12, color: T.textMuted, alignSelf: "center" }}>Loading Routines/Inventory/Top Up data…</span>}
       </div>
     </div>
   );

@@ -107,7 +107,7 @@ export default function LastActionsPanel({
             <tbody>
               {filtered.map((a, i) => (
                 <tr key={a._id || i} style={{ cursor: "pointer" }} onClick={() => setViewing(a)}>
-                  <td style={{ ...s.td, fontFamily: "monospace", fontSize: 11 }}>{a.acNo || "—"}</td>
+                  <td style={{ ...s.td, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 12 }}>{a.acNo || "—"}</td>
                   <td style={{ ...s.td, whiteSpace: "nowrap" }}>{formatDate(a.revisionDate)}</td>
                   <td style={{ ...s.td, whiteSpace: "nowrap" }}>{formatDate(a.sampleDate)}</td>
                   <td style={s.td}>
@@ -118,7 +118,7 @@ export default function LastActionsPanel({
                           color: RESULT_COLOR[(a.sampleResult || "").toUpperCase()] || T.textSecondary,
                           borderRadius: 4,
                           padding: "2px 8px",
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: 700,
                         }}
                       >
@@ -133,7 +133,7 @@ export default function LastActionsPanel({
                         color: STATUS_COLOR[a.status] || T.textSecondary,
                         borderRadius: 4,
                         padding: "2px 8px",
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: 600,
                         whiteSpace: "nowrap",
                       }}
@@ -150,7 +150,7 @@ export default function LastActionsPanel({
                   <td style={{ ...s.td, whiteSpace: "nowrap" }}>{formatDate(a.completedDate)}</td>
                   <td style={s.td}>
                     <button
-                      style={{ ...s.btn, padding: "3px 7px", fontSize: 11 }}
+                      style={{ ...s.btn, padding: "3px 7px", fontSize: 12 }}
                       onClick={(e) => {
                         e.stopPropagation();
                         openEdit(a);

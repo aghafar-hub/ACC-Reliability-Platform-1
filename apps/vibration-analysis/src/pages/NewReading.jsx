@@ -199,7 +199,7 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                       <span style={{ fontWeight: 700, color: T.textHighlight, fontSize: 13 }}>{point}</span>
-                      {vibId && <span style={{ fontSize: 10.5, color: T.textMuted, fontFamily: "monospace" }}>{vibId}</span>}
+                      {vibId && <span style={{ fontSize: 12, color: T.textMuted, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{vibId}</span>}
                     </div>
                     {maxVel !== null && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -246,7 +246,7 @@ export default function NewReading({ registryList, rmsRegMap, spmRegMap, thresho
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                       <span style={{ fontWeight: 700, color: T.textHighlight, fontSize: 13 }}>{point}</span>
-                      {vibId && <span style={{ fontSize: 10.5, color: T.textMuted, fontFamily: "monospace" }}>{vibId}</span>}
+                      {vibId && <span style={{ fontSize: 12, color: T.textMuted, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{vibId}</span>}
                     </div>
                     {values.hdm && <StatusBadge status={status} colorKey={spmColorKey(status)} />}
                   </div>

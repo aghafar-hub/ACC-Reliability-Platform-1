@@ -1,10 +1,11 @@
-﻿// Shared theme palette list — drives both the platform Settings picker and
-// the shell's own chrome (Sidebar, Dashboard, every page). Both embedded
-// apps (apps/oil-analysis/src/theme.js, apps/vibration-analysis/src/theme.js)
-// define these same 10 palettes with matching names and colors — this file
-// duplicates the tokens needed here since those apps are separate builds
-// this project can't import from directly (see each app's own
-// vite.embed.config.js).
+// The platform's five themes (design system, D1) — three light (ACC Light,
+// the default; Warm Paper; High Contrast) and two dark (Navy Dark, Carbon
+// Dark). Both embedded apps (apps/oil-analysis/src/theme.js,
+// apps/vibration-analysis/src/theme.js) define the same five, generated from
+// one list so the colours never drift; this file keeps the tokens the
+// shell's own chrome needs. Only surfaces and text change between themes —
+// danger / warning / success always mean Alert / Caution / Normal and accent
+// is the one action colour; every text/background pair meets WCAG AA.
 export type ThemePalette = {
   name: string;
   appBg: string;
@@ -13,49 +14,51 @@ export type ThemePalette = {
   border: string;
   textPrimary: string;
   textSecondary: string;
-  // Text colors for the sidebar surface specifically. Every theme below
-  // keeps sidebarBg the same tone as cardBg, so textPrimary/textSecondary
-  // already have correct contrast there too — these two just mirror them.
-  // "ACC Corporate" is the one theme with a dark sidebar against a light
-  // cardBg/appBg, so it's the one theme that actually needs its own values
-  // here (textPrimary/textSecondary stay tuned for the light cardBg).
+  // Text on the sidebar/rail, which is dark in every theme (also the light ones).
   sidebarText: string;
   sidebarTextSecondary: string;
   accent: string;
   accentText: string;
+  topbarBg: string;
+  textMuted: string;
+  danger: string;
+  warning: string;
+  success: string;
+  dark: boolean;
 };
 
 export const THEME_PALETTES: ThemePalette[] = [
-  { name: 'Navy Dark', appBg: '#0A1628', sidebarBg: '#0D1E35', cardBg: '#0D1E35', border: '#1E3A5F', textPrimary: '#E8F4FD', textSecondary: '#6B8CAE', sidebarText: '#E8F4FD', sidebarTextSecondary: '#6B8CAE', accent: '#00B4D8', accentText: '#0A1628' },
-  { name: 'Midnight Blue', appBg: '#0D0F1A', sidebarBg: '#12152B', cardBg: '#12152B', border: '#252A4A', textPrimary: '#E6E8FF', textSecondary: '#7B82C0', sidebarText: '#E6E8FF', sidebarTextSecondary: '#7B82C0', accent: '#7C6FE6', accentText: '#FFFFFF' },
-  { name: 'Forest Green', appBg: '#0A1A12', sidebarBg: '#0D2019', cardBg: '#0D2019', border: '#1A3A28', textPrimary: '#E8F5EE', textSecondary: '#5A9A70', sidebarText: '#E8F5EE', sidebarTextSecondary: '#5A9A70', accent: '#2DC653', accentText: '#0A1A12' },
-  { name: 'Slate Light', appBg: '#EEF2F6', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#CBD8E4', textPrimary: '#0F1E2D', textSecondary: '#3D5470', sidebarText: '#0F1E2D', sidebarTextSecondary: '#3D5470', accent: '#0078A0', accentText: '#FFFFFF' },
-  { name: 'Warm Sand', appBg: '#F0EBE0', sidebarBg: '#FDF7EE', cardBg: '#FDF7EE', border: '#CEC0A0', textPrimary: '#1E1008', textSecondary: '#60400A', sidebarText: '#1E1008', sidebarTextSecondary: '#60400A', accent: '#B06010', accentText: '#FFFFFF' },
-  { name: 'Pearl White', appBg: '#F7F8FA', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#E2E8F0', textPrimary: '#0F172A', textSecondary: '#475569', sidebarText: '#0F172A', sidebarTextSecondary: '#475569', accent: '#2563EB', accentText: '#FFFFFF' },
-  { name: 'Sky Blue', appBg: '#EFF6FF', sidebarBg: '#DBEAFE', cardBg: '#FFFFFF', border: '#BFDBFE', textPrimary: '#1E3A5F', textSecondary: '#3B6EA5', sidebarText: '#1E3A5F', sidebarTextSecondary: '#3B6EA5', accent: '#0369A1', accentText: '#FFFFFF' },
-  { name: 'Rose Light', appBg: '#FFF1F2', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#FECDD3', textPrimary: '#3B0A14', textSecondary: '#9F3040', sidebarText: '#3B0A14', sidebarTextSecondary: '#9F3040', accent: '#BE123C', accentText: '#FFFFFF' },
-  { name: 'Mint Fresh', appBg: '#F0FDF4', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#BBF7D0', textPrimary: '#052E16', textSecondary: '#166534', sidebarText: '#052E16', sidebarTextSecondary: '#166534', accent: '#15803D', accentText: '#FFFFFF' },
-  { name: 'Carbon Dark', appBg: '#111111', sidebarBg: '#1C1C1C', cardBg: '#1C1C1C', border: '#303030', textPrimary: '#F2F2F2', textSecondary: '#A0A0A0', sidebarText: '#F2F2F2', sidebarTextSecondary: '#A0A0A0', accent: '#E63946', accentText: '#FFFFFF' },
-  // New theme (Patch 27) — matches the same palette added to both embedded
-  // apps' own theme.js files, kept in sync so the shell's own chrome looks
-  // identical to the embedded modules under this theme. Dark sidebar against
-  // a light cardBg/appBg, so sidebarText/sidebarTextSecondary are tuned
-  // separately from textPrimary/textSecondary (which stay tuned for the
-  // light surfaces) instead of reusing them — see the ThemePalette comment.
-  { name: 'ACC Corporate', appBg: '#F4F6F9', sidebarBg: '#0B2340', cardBg: '#FFFFFF', border: '#D7DEE8', textPrimary: '#0F1E2D', textSecondary: '#5B6B7F', sidebarText: '#E8F0F8', sidebarTextSecondary: '#8CA3BE', accent: '#2563EB', accentText: '#FFFFFF' },
-  // New theme (user request: "powerfull theme, all tabs, all chips/graphs
-  // colourful") — kept in sync with the exact same palette added to both
-  // embedded apps' own theme.js files (see each one's own comment), same
-  // reasoning as the ACC Corporate entry above.
-  { name: 'Vivid Spectrum', appBg: '#0B0E1C', sidebarBg: '#141937', cardBg: '#141937', border: '#2B3263', textPrimary: '#F1F3FF', textSecondary: '#9499D6', sidebarText: '#F1F3FF', sidebarTextSecondary: '#9499D6', accent: '#8B5CF6', accentText: '#FFFFFF' },
-  // Light counterpart to "Vivid Spectrum" above (user request: "another
-  // colorful theme but on light theme not dark") — kept in sync with the
-  // exact same palette added to both embedded apps' own theme.js files.
-  { name: 'Vivid Spectrum Light', appBg: '#F6F5FC', sidebarBg: '#FFFFFF', cardBg: '#FFFFFF', border: '#DEDCF2', textPrimary: '#1A1535', textSecondary: '#5B5A8C', sidebarText: '#1A1535', sidebarTextSecondary: '#5B5A8C', accent: '#7C3AED', accentText: '#FFFFFF' },
+  { name: 'ACC Light', appBg: '#F3F5F8', sidebarBg: '#0B1B2E', cardBg: '#FFFFFF', border: '#D9E0E8', textPrimary: '#0F1B2D', textSecondary: '#4A5A70', sidebarText: '#E8F0F8', sidebarTextSecondary: '#A9B8CC', accent: '#1E5BB8', accentText: '#FFFFFF', topbarBg: '#FFFFFF', textMuted: '#5F6D82', danger: '#C42B2B', warning: '#9A5500', success: '#18734A', dark: false },
+  { name: 'Warm Paper', appBg: '#F5F1E8', sidebarBg: '#2B2620', cardBg: '#FFFDF7', border: '#E2D9C6', textPrimary: '#2A2418', textSecondary: '#5A4E3C', sidebarText: '#F3ECDD', sidebarTextSecondary: '#BFB29A', accent: '#1F58A8', accentText: '#FFFFFF', topbarBg: '#FFFDF7', textMuted: '#716553', danger: '#B8322A', warning: '#995500', success: '#1E7346', dark: false },
+  { name: 'High Contrast', appBg: '#FFFFFF', sidebarBg: '#000000', cardBg: '#FFFFFF', border: '#1A1A1A', textPrimary: '#000000', textSecondary: '#1A1A1A', sidebarText: '#FFFFFF', sidebarTextSecondary: '#E0E0E0', accent: '#0A3A8C', accentText: '#FFFFFF', topbarBg: '#000000', textMuted: '#333333', danger: '#A80000', warning: '#7A4300', success: '#00602E', dark: false },
+  { name: 'Navy Dark', appBg: '#0A1628', sidebarBg: '#0D1E35', cardBg: '#0F2138', border: '#1F3A5C', textPrimary: '#E8F1FA', textSecondary: '#B6C7DA', sidebarText: '#E8F1FA', sidebarTextSecondary: '#9FB4CB', accent: '#4C9BFF', accentText: '#06142A', topbarBg: '#0D1E35', textMuted: '#8AA2BC', danger: '#FF6B6B', warning: '#F2A541', success: '#4CC38A', dark: true },
+  { name: 'Carbon Dark', appBg: '#0E0F11', sidebarBg: '#141619', cardBg: '#17191C', border: '#2A2E33', textPrimary: '#ECEDEE', textSecondary: '#BFC3C8', sidebarText: '#ECEDEE', sidebarTextSecondary: '#A4AAB1', accent: '#5B9BFF', accentText: '#0B1424', topbarBg: '#141619', textMuted: '#8E949B', danger: '#FF6B6B', warning: '#F2A541', success: '#4CC38A', dark: true },
 ];
 
+// Names from before the five-theme set map to their nearest new theme
+// (light to light, dark to dark) — anyone who had picked one keeps a close look.
+export const LEGACY_THEME_NAMES: Record<string, string> = {
+  "Midnight Blue": "Navy Dark",
+  "Forest Green": "Navy Dark",
+  "Vivid Spectrum": "Navy Dark",
+  "Slate Light": "ACC Light",
+  "Pearl White": "ACC Light",
+  "Sky Blue": "ACC Light",
+  "Mint Fresh": "ACC Light",
+  "ACC Corporate": "ACC Light",
+  "Vivid Spectrum Light": "ACC Light",
+  "Warm Sand": "Warm Paper",
+  "Rose Light": "Warm Paper",
+};
+
 export const THEME_NAMES = THEME_PALETTES.map((t) => t.name);
-export const DEFAULT_THEME = 'Navy Dark';
+export const DEFAULT_THEME = 'ACC Light';
+
+export function resolveThemeName(name: string | null | undefined): string {
+  if (name && THEME_NAMES.includes(name)) return name;
+  if (name && LEGACY_THEME_NAMES[name]) return LEGACY_THEME_NAMES[name];
+  return DEFAULT_THEME;
+}
 
 export function getThemePalette(name: string): ThemePalette {
   return THEME_PALETTES.find((t) => t.name === name) ?? THEME_PALETTES[0];
@@ -67,8 +70,7 @@ const VIBRATION_ANALYSIS_THEME_KEY = 'selected_theme'; // apps/vibration-analysi
 
 export function getPlatformTheme(): string {
   try {
-    const stored = localStorage.getItem(PLATFORM_THEME_KEY);
-    return stored && THEME_NAMES.includes(stored) ? stored : DEFAULT_THEME;
+    return resolveThemeName(localStorage.getItem(PLATFORM_THEME_KEY));
   } catch {
     return DEFAULT_THEME;
   }

@@ -77,7 +77,7 @@ export default function TopBar({ page, sample, navBridge, syncState, onSync, onO
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {pendingSyncCount > 0 && (
           <span
-            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: T.warning, fontWeight: 600 }}
+            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: T.warning, fontWeight: 600 }}
             title="Saved on this device — will upload automatically once there's a connection"
           >
             <i className="ti ti-cloud-upload" aria-hidden="true" />
@@ -87,7 +87,7 @@ export default function TopBar({ page, sample, navBridge, syncState, onSync, onO
           </span>
         )}
         <span
-          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: online ? T.success : T.danger }}
+          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: online ? T.success : T.danger }}
           title={online ? "Browser is online" : "Browser is offline — changes will sync once reconnected"}
         >
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: online ? T.success : T.danger, flexShrink: 0 }} />

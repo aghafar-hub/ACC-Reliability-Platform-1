@@ -16,7 +16,7 @@ function ReasonBadge({ T, reason }) {
     <span
       style={{
         display: "inline-block",
-        fontSize: 10,
+        fontSize: 12,
         fontWeight: 700,
         color,
         background: color + "1c",
@@ -35,11 +35,11 @@ function ReasonBadge({ T, reason }) {
 function OilToUse({ T, plan }) {
   if (!plan || !plan.use) return null;
   return (
-    <div style={{ marginTop: 4, fontSize: 11.5 }} data-testid="oil-to-use">
+    <div style={{ marginTop: 4, fontSize: 12 }} data-testid="oil-to-use">
       <span style={{ color: T.textSecondary }}>Use: </span>
       <strong style={{ color: T.accent }}>{plan.use.label}</strong>
       {plan.use.isEquivalent && (
-        <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: T.warning, background: T.warning + "1c", borderRadius: 4, padding: "1px 6px" }}>
+        <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700, color: T.warning, background: T.warning + "1c", borderRadius: 4, padding: "1px 6px" }}>
           approved equivalent
         </span>
       )}
@@ -114,8 +114,8 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
   return (
     <tr style={{ background: rowTint }}>
       <td style={s.td}>
-        <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</div>
-        <div style={{ fontSize: 11.5, color: T.textSecondary }}>{reg?.lubricationPoint || reg?.description || "—"}</div>
+        <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</div>
+        <div style={{ fontSize: 12, color: T.textSecondary }}>{reg?.lubricationPoint || reg?.description || "—"}</div>
         <ReasonBadge T={T} reason={reasonInfo} />
       </td>
       <td style={s.td}>{item.itemType}</td>
@@ -123,13 +123,13 @@ function ItemRow({ item, registryByLp, reasonInfo, locked, webhookUrl, routineId
         {requiredOilType ? (
           <>
             <div style={{ fontWeight: 600 }}>{requiredOilType}</div>
-            {requiredOilBrand && <div style={{ fontSize: 11, color: T.textSecondary }}>{requiredOilBrand}</div>}
+            {requiredOilBrand && <div style={{ fontSize: 12, color: T.textSecondary }}>{requiredOilBrand}</div>}
           </>
         ) : (
           <span style={{ color: T.textMuted }}>—</span>
         )}
         {item.oilUsed ? (
-          <div style={{ marginTop: 4, fontSize: 11.5 }}>
+          <div style={{ marginTop: 4, fontSize: 12 }}>
             <span style={{ color: T.textSecondary }}>Used: </span>
             <strong>{item.oilUsed}</strong>
           </div>

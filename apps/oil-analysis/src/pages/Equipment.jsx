@@ -129,7 +129,7 @@ function SmallBadge({ T, color, children }) {
   return (
     <span
       style={{
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: 700,
         color: T[color] || color,
         background: (T[color] || color) + "22",
@@ -150,7 +150,7 @@ function RecentTable({ T, s, title, rows, columns, headers }) {
       {rows.length === 0 ? (
         <p style={{ color: T.textSecondary, fontSize: 12, margin: 0 }}>None yet.</p>
       ) : (
-        <table style={{ width: "100%", fontSize: 11.5, borderCollapse: "collapse" }}>
+        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
           <thead>
             <tr>
               {headers.map((h) => (
@@ -568,7 +568,7 @@ export default function Equipment({
     <span
       key={text}
       style={{
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 600,
         padding: "3px 9px",
         borderRadius: 5,
@@ -598,7 +598,7 @@ export default function Equipment({
         <i className={`ti ${icon}`} style={{ color: T.accent, fontSize: 14 }} aria-hidden="true" />
         {label}
       </span>
-      {count != null && <span style={{ fontSize: 11, color: T.textMuted }}>{count}</span>}
+      {count != null && <span style={{ fontSize: 12, color: T.textMuted }}>{count}</span>}
     </div>
   );
 
@@ -652,7 +652,7 @@ export default function Equipment({
         {!selection && (
           <>
             <div
-              style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: T.textMuted, marginBottom: 8 }}
+              style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: T.textMuted, marginBottom: 8 }}
             >
               Equipment Lookup
             </div>
@@ -753,7 +753,7 @@ export default function Equipment({
                   <div
                     style={{
                       padding: "8px 16px 4px",
-                      fontSize: 10.5,
+                      fontSize: 12,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.5,
@@ -784,7 +784,7 @@ export default function Equipment({
                         }}
                       >
                         <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                        <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{eid}</span>
+                        <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{eid}</span>
                         <span
                           style={{
                             fontSize: 12,
@@ -797,7 +797,7 @@ export default function Equipment({
                         >
                           {rows[0]?.area || ""}
                         </span>
-                        <span style={{ fontSize: 10.5, color: T.textMuted, background: T.cardSubBg, borderRadius: 4, padding: "2px 7px" }}>
+                        <span style={{ fontSize: 12, color: T.textMuted, background: T.cardSubBg, borderRadius: 4, padding: "2px 7px" }}>
                           {rows.length} point{rows.length !== 1 ? "s" : ""}
                         </span>
                       </div>
@@ -810,7 +810,7 @@ export default function Equipment({
                   <div
                     style={{
                       padding: "8px 16px 4px",
-                      fontSize: 10.5,
+                      fontSize: 12,
                       fontWeight: 700,
                       textTransform: "uppercase",
                       letterSpacing: 0.5,
@@ -836,7 +836,7 @@ export default function Equipment({
                         }}
                       >
                         <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                        <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{r.code}</span>
+                        <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 13, color: T.accent }}>{r.code}</span>
                         <span
                           style={{
                             fontSize: 12,
@@ -850,7 +850,7 @@ export default function Equipment({
                           {r.lubricationPoint || r.description}
                         </span>
                         {r.area && (
-                          <span style={{ fontSize: 10.5, color: T.textMuted, background: T.cardSubBg, borderRadius: 4, padding: "2px 7px" }}>
+                          <span style={{ fontSize: 12, color: T.textMuted, background: T.cardSubBg, borderRadius: 4, padding: "2px 7px" }}>
                             {r.area}
                           </span>
                         )}
@@ -881,7 +881,7 @@ export default function Equipment({
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
+                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
                   <span style={{ ...s.badge(), background: T.cardSubBg, color: T.textMuted }}>
                     {groupRows.length} lubrication point{groupRows.length !== 1 ? "s" : ""}
                   </span>
@@ -911,7 +911,7 @@ export default function Equipment({
                 <div key={label} style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "11px 13px" }}>
                   <div
                     style={{
-                      fontSize: 10.5,
+                      fontSize: 12,
                       fontWeight: 600,
                       letterSpacing: 0.4,
                       textTransform: "uppercase",
@@ -922,7 +922,7 @@ export default function Equipment({
                     {label}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: color || T.textHighlight }}>{val}</div>
-                  {sub && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{sub}</div>}
+                  {sub && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{sub}</div>}
                 </div>
               ))}
             </div>
@@ -950,24 +950,24 @@ export default function Equipment({
                       .map((p) => (
                         <tr key={p.reg.code} style={{ cursor: "pointer" }} onClick={() => selectLp(p.reg.code)}>
                           <td style={s.td}>
-                            <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{p.reg.code}</div>
-                            <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.reg.lubricationPoint || p.reg.description}</div>
+                            <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{p.reg.code}</div>
+                            <div style={{ fontSize: 12, color: T.textSecondary }}>{p.reg.lubricationPoint || p.reg.description}</div>
                           </td>
                           <td style={s.td}>
                             {p.reg.lubricant || "—"}
-                            <div style={{ fontSize: 11, color: T.textSecondary }}>{p.reg.oilAnalysisRequired === "Yes" ? "sampled" : "time-based, not sampled"}</div>
+                            <div style={{ fontSize: 12, color: T.textSecondary }}>{p.reg.oilAnalysisRequired === "Yes" ? "sampled" : "time-based, not sampled"}</div>
                           </td>
                           <td style={s.td}>
                             <SmallBadge T={T} color={HEALTH_COLOR[p.h.health]}>{p.h.health}</SmallBadge>
                             {p.h.reasons.length > 0 && (
-                              <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 3 }}>{p.h.reasons.map((x) => x.text).join(" · ")}</div>
+                              <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 3 }}>{p.h.reasons.map((x) => x.text).join(" · ")}</div>
                             )}
                           </td>
                           <td style={s.td}>
                             {p.latest ? (
                               <>
                                 <span style={s.badge(p.latest.reportStatus)}>{p.latest.reportStatus}</span>
-                                <div style={{ fontSize: 11, color: T.textSecondary }}>{formatDate(p.latest.sampledDate)}</div>
+                                <div style={{ fontSize: 12, color: T.textSecondary }}>{formatDate(p.latest.sampledDate)}</div>
                               </>
                             ) : (
                               <span style={{ color: T.textMuted }}>{p.reg.oilAnalysisRequired === "Yes" ? "none yet" : "—"}</span>
@@ -978,7 +978,7 @@ export default function Equipment({
                               <>
                                 <div>last {formatDate(p.oilChange.changeDate)}</div>
                                 {p.oilChange.nextDueDate && (
-                                  <div style={{ fontSize: 11, color: p.oilChange.status === "Overdue" ? T.danger : T.textSecondary, fontWeight: p.oilChange.status === "Overdue" ? 700 : 400 }}>
+                                  <div style={{ fontSize: 12, color: p.oilChange.status === "Overdue" ? T.danger : T.textSecondary, fontWeight: p.oilChange.status === "Overdue" ? 700 : 400 }}>
                                     next {formatDate(p.oilChange.nextDueDate)}
                                     {p.oilChange.status === "Overdue" ? " (overdue)" : ""}
                                   </div>
@@ -990,7 +990,7 @@ export default function Equipment({
                           </td>
                           <td style={s.td}>
                             {p.openActions ? `${p.openActions} open` : "—"}
-                            {p.h.overdueActions > 0 && <div style={{ fontSize: 11, color: T.danger }}>{p.h.overdueActions} overdue</div>}
+                            {p.h.overdueActions > 0 && <div style={{ fontSize: 12, color: T.danger }}>{p.h.overdueActions} overdue</div>}
                           </td>
                           <td style={{ ...s.td, color: p.h.recentTopUps >= 3 ? T.danger : undefined, fontWeight: p.h.recentTopUps >= 3 ? 700 : undefined }}>
                             {p.h.recentTopUps || "—"}
@@ -1011,7 +1011,7 @@ export default function Equipment({
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <span style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
+                <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 22, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
                 <SmallBadge T={T} color={healthColor}>{health}</SmallBadge>
               </div>
               <div style={{ fontSize: 14, color: T.textSecondary, marginTop: 4 }}>{reg?.lubricationPoint || reg?.description || "—"}</div>
@@ -1022,7 +1022,7 @@ export default function Equipment({
               )}
               {reg?.equipmentId && (
                 <button
-                  style={{ ...s.btn, padding: "3px 8px", fontSize: 11, marginTop: 8 }}
+                  style={{ ...s.btn, padding: "3px 8px", fontSize: 12, marginTop: 8 }}
                   onClick={() => selectEquipmentGroup(reg.equipmentId)}
                 >
                   <i className="ti ti-arrow-left" aria-hidden="true" /> View all of {reg.equipmentId}
@@ -1037,7 +1037,7 @@ export default function Equipment({
               {siblingCount > 1 && (
                 <div style={{ ...s.metricCard, textAlign: "center", minWidth: 110 }}>
                   <div style={{ fontSize: 20, fontWeight: 800, color: T.accent }}>{siblingCount}</div>
-                  <div style={{ fontSize: 10, color: T.textSecondary }}>LP Points on this equipment</div>
+                  <div style={{ fontSize: 12, color: T.textSecondary }}>LP Points on this equipment</div>
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1418,7 +1418,7 @@ export default function Equipment({
                       r.item.implemented === "Yes" ? (
                         <span>
                           Done{r.item.actualQuantity ? ` · ${r.item.actualQuantity} L` : ""}
-                          {r.item.oilUsed && <div style={{ fontSize: 11, color: T.textSecondary }}>{r.item.oilUsed}</div>}
+                          {r.item.oilUsed && <div style={{ fontSize: 12, color: T.textSecondary }}>{r.item.oilUsed}</div>}
                         </span>
                       ) : r.item.implemented === "No" ? (
                         <span style={{ color: T.warning }}>Not done{r.item.notImplementedReason ? ` — ${r.item.notImplementedReason}` : ""}</span>
@@ -1461,7 +1461,7 @@ export default function Equipment({
                 ["Created Date", reg?.createdDate],
               ].map(([label, value]) => (
                 <div key={label}>
-                  <div style={{ fontSize: 10.5, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
+                  <div style={{ fontSize: 12, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.4 }}>{label}</div>
                   <div style={{ fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>{value || "—"}</div>
                 </div>
               ))}

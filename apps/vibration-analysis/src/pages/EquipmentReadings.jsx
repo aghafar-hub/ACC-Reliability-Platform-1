@@ -136,7 +136,7 @@ export default function EquipmentReadings({ registryList, rms, spm, rmsRegMap, s
                     >
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: T.textHighlight }}>{eq.equipmentId}</div>
-                        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }} title={eq.equipment}>
+                        <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }} title={eq.equipment}>
                           {eq.equipment}
                         </div>
                       </div>
@@ -144,7 +144,7 @@ export default function EquipmentReadings({ registryList, rms, spm, rmsRegMap, s
                         <Icon d={ICONS.chevDown} size={15} />
                       </span>
                     </div>
-                    <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5 }}>
+                    <div style={{ fontSize: 12, color: T.textMuted, marginTop: 5 }}>
                       {rmsRows.length} RMS · {spmRows.length} SPM readings
                     </div>
                     {isOpen && (

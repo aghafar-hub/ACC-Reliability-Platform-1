@@ -124,7 +124,7 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
             {files.map((f) => (
               <span
                 key={f.name}
-                style={{ fontSize: 11, background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 6, padding: "3px 8px" }}
+                style={{ fontSize: 12, background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 6, padding: "3px 8px" }}
               >
                 {f.name}
               </span>

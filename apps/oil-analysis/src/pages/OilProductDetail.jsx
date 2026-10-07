@@ -146,7 +146,7 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
       <button style={s.btnPrimary} onClick={handleLog} disabled={saving}>
         {saving ? "Logging…" : `Log ${movementType}`}
       </button>
-      <p style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 10 }}>
+      <p style={{ fontSize: 12, color: T.textSecondary, marginTop: 10 }}>
         Current Stock on the Oil Inventory tab updates automatically from this — no separate save needed there.
       </p>
     </div>
@@ -215,16 +215,16 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
           <div style={{ fontSize: 22, fontWeight: 800, color: low ? T.danger : T.textPrimary }}>
             {fmtQty(product.currentStock, product.unit)}
           </div>
-          <div style={{ fontSize: 11, color: T.textSecondary }}>Current Stock{low ? " — below reorder level" : ""}</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>Current Stock{low ? " — below reorder level" : ""}</div>
         </div>
         <LowStockLevelCard webhookUrl={webhookUrl} product={product} pushToast={pushToast} onSaved={refresh} />
         <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px" }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>{product.supplier || "—"}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary }}>Supplier</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>Supplier</div>
         </div>
         <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px" }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>{product.lastMovementDate || "—"}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary }}>Last Movement</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>Last Movement</div>
         </div>
       </div>
 
@@ -343,13 +343,13 @@ function LowStockLevelCard({ webhookUrl, product, pushToast, onSaved }) {
         <div style={{ fontSize: 22, fontWeight: 800 }}>
           {fmtQty(product.recorderLevel, product.unit)}
           {canEdit && (
-            <button style={{ ...s.btn, marginLeft: 8, padding: "2px 8px", fontSize: 11 }} onClick={() => setEditing(true)} aria-label="Change low-stock level">
+            <button style={{ ...s.btn, marginLeft: 8, padding: "2px 8px", fontSize: 12 }} onClick={() => setEditing(true)} aria-label="Change low-stock level">
               <i className="ti ti-pencil" aria-hidden="true" /> Edit
             </button>
           )}
         </div>
       )}
-      <div style={{ fontSize: 11, color: T.textSecondary }}>Low-stock level</div>
+      <div style={{ fontSize: 12, color: T.textSecondary }}>Low-stock level</div>
     </div>
   );
 }
@@ -377,8 +377,8 @@ function StockChart({ movements, level, unit }) {
         <ResponsiveContainer>
           <LineChart data={data} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid stroke={T.border} strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="date" tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={{ stroke: T.border }} />
-            <YAxis tick={{ fill: T.textSecondary, fontSize: 11 }} tickLine={false} axisLine={false} width={44} tickFormatter={fmtNum} />
+            <XAxis dataKey="date" tick={{ fill: T.textSecondary, fontSize: 12 }} tickLine={false} axisLine={{ stroke: T.border }} />
+            <YAxis tick={{ fill: T.textSecondary, fontSize: 12 }} tickLine={false} axisLine={false} width={44} tickFormatter={fmtNum} />
             <Tooltip
               contentStyle={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, color: T.textPrimary }}
               labelStyle={{ color: T.textSecondary }}
@@ -390,7 +390,7 @@ function StockChart({ movements, level, unit }) {
                 y={level}
                 stroke={T.danger}
                 strokeDasharray="5 4"
-                label={{ value: `Low-stock level ${fmtQty(level, u)}`, position: "insideTopRight", fill: T.textSecondary, fontSize: 11 }}
+                label={{ value: `Low-stock level ${fmtQty(level, u)}`, position: "insideTopRight", fill: T.textSecondary, fontSize: 12 }}
               />
             )}
             <Line type="stepAfter" dataKey="stock" stroke={T.accent} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
@@ -495,7 +495,7 @@ function EquivalentCard({ webhookUrl, product, equipmentRegistry, canApprove, pu
           </div>
         ))}
       {!canApprove && (
-        <p style={{ fontSize: 11.5, color: T.textSecondary, margin: 0 }}>Only {product.contractor || "the contractor"}'s engineer can approve or remove an equivalent.</p>
+        <p style={{ fontSize: 12, color: T.textSecondary, margin: 0 }}>Only {product.contractor || "the contractor"}'s engineer can approve or remove an equivalent.</p>
       )}
     </div>
   );

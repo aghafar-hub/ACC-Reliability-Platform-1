@@ -12,7 +12,7 @@ export default function ProgressBar({ done, total, width = 90 }) {
       <div style={{ width, height: 6, borderRadius: 3, background: T.border, overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 3, transition: "width 0.2s" }} />
       </div>
-      <span style={{ fontSize: 11, color: T.textSecondary, whiteSpace: "nowrap" }}>
+      <span style={{ fontSize: 12, color: T.textSecondary, whiteSpace: "nowrap" }}>
         {total > 0 ? `${done}/${total} (${pct}%)` : "No items"}
       </span>
     </div>

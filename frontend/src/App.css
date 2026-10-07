@@ -75,11 +75,11 @@
      carried into every authenticated page so the whole app reads as one
      identity instead of Login being the only screen that got real design
      attention. color-mix keeps the line faint against any of theme.ts's
-     10 palettes without needing a per-theme opacity value; attachment:fixed
+     five palettes without needing a per-theme opacity value; attachment:fixed
      keeps it locked to the viewport instead of recomputing per page height. */
   background-image:
-    linear-gradient(color-mix(in srgb, var(--shell-border) 55%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--shell-border) 55%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--shell-border) var(--shell-grid-strength, 55%), transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--shell-border) var(--shell-grid-strength, 55%), transparent) 1px, transparent 1px);
   background-size: 40px 40px;
   background-attachment: fixed;
 }
@@ -212,7 +212,7 @@
 
 @media (max-width: 860px) {
   .env-ribbon {
-    font-size: 10.5px;
+    font-size: 12px;
     padding: 1px 10px;
   }
 

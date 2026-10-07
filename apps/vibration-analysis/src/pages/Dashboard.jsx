@@ -110,7 +110,7 @@ export default function Dashboard({ lastRms, lastSpm, registryMap, rmsRegMap, sp
                   textAlign: "center",
                 }}
               >
-                <div style={{ fontSize: 10, fontWeight: 700, color: T[tile.colorKey], marginBottom: 4, letterSpacing: 0.5 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: T[tile.colorKey], marginBottom: 4, letterSpacing: 0.5 }}>
                   {tile.label.toUpperCase()}
                 </div>
                 <div style={{ fontSize: 26, fontWeight: 800, color: T.textHighlight }}>{statusCounts[tile.key]}</div>
@@ -199,7 +199,7 @@ export default function Dashboard({ lastRms, lastSpm, registryMap, rmsRegMap, sp
         <div style={{ ...s.card, textAlign: "center", color: T.textMuted, padding: 50 }}>
           No data yet — sync the app, then run <b>Backfill Last Readings</b> in Settings → System.
           {syncState && (
-            <div style={{ marginTop: 10, fontSize: 11, color: T.textMuted, opacity: 0.8 }}>
+            <div style={{ marginTop: 10, fontSize: 12, color: T.textMuted, opacity: 0.8 }}>
               Sync status: {syncState.status} — {syncState.message}
             </div>
           )}

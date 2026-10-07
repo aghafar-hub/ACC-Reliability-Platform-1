@@ -2,6 +2,15 @@ import { useShellTheme } from '../shellTheme';
 import { THEME_PALETTES } from '../theme';
 import './ThemePicker.css';
 
+// What each theme is for — shown under its name so people pick by situation.
+const THEME_HINTS: Record<string, string> = {
+  'ACC Light': 'Default · offices and everyday use',
+  'Warm Paper': 'Softer light · long reading and reports',
+  'High Contrast': 'Outdoors in sunlight · dusty screens',
+  'Navy Dark': 'Control room · wall screens',
+  'Carbon Dark': 'Night shift · easier on phone batteries',
+};
+
 // The shared theme swatch grid — used by the platform Settings page.
 // Picking a theme updates ShellThemeContext, which re-renders the Sidebar
 // and every shell page immediately, pushes live into whichever embedded
@@ -32,6 +41,7 @@ export default function ThemePicker() {
               {theme.name}
               {active && <span className="theme-swatch-check">✓</span>}
             </span>
+            {THEME_HINTS[theme.name] && <span className="theme-swatch-hint">{THEME_HINTS[theme.name]}</span>}
           </button>
         );
       })}

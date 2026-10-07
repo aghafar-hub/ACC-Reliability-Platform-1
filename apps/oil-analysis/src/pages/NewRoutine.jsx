@@ -34,7 +34,7 @@ function ReasonBadge({ T, reason }) {
     <span
       style={{
         display: "inline-block",
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: 700,
         color,
         background: color + "1c",
@@ -463,7 +463,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 <i className={`ti ${rt.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
                 <span>
                   {rt.id}
-                  <span style={{ display: "block", fontWeight: 400, fontSize: 11, opacity: 0.8 }}>{rt.desc}</span>
+                  <span style={{ display: "block", fontWeight: 400, fontSize: 12, opacity: 0.8 }}>{rt.desc}</span>
                 </span>
               </button>
             ))}
@@ -511,7 +511,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                   onChange={(e) => setDuration(e.target.value)}
                 />
               </div>
-              <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "auto 0 0" }}>
+              <p style={{ fontSize: 12, color: T.textSecondary, margin: "auto 0 0" }}>
                 Still counts as On Schedule for this many days past the Due Date before flipping to Overdue.
               </p>
             </div>
@@ -606,7 +606,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 <div style={{ maxHeight: 220, overflowY: "auto" }}>
                   {recurringPreview.map((r) => (
                     <div key={r.code} style={{ padding: "6px 0", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 }}>
-                      <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{r.code}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{r.code}</span>
                       {" — "}
                       {r.lubricationPoint || r.description}
                       <ReasonBadge T={T} reason={r.suggestionReason} />
@@ -698,7 +698,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 </table>
               </div>
               {candidates.length > shownCandidates.length && (
-                <p style={{ fontSize: 11.5, color: T.textMuted, marginTop: -10, marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: T.textMuted, marginTop: -10, marginBottom: 16 }}>
                   Showing {shownCandidates.length} of {candidates.length} — narrow your search to see more.
                 </p>
               )}
@@ -723,7 +723,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                       }}
                     >
                       <div>
-                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{sel.lpId}</span>
+                        <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{sel.lpId}</span>
                         {"  "}
                         {sel.label.replace(`${sel.lpId} — `, "")}
                         {sel.equipmentId ? ` | ${sel.equipmentId}` : ""}

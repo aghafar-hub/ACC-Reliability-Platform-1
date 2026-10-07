@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { THEMES, DEFAULT_THEME, buildStyles } from "./theme";
+import { THEMES, DEFAULT_THEME, buildStyles, resolveThemeName } from "./theme";
 
 const THEME_STORAGE_KEY = "selected_theme"; // matches the original bundle's own key exactly
 
@@ -46,7 +46,7 @@ export function ThemeProvider({ children, navBridge }) {
   const [themeName, setThemeNameState] = useState(() => {
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);
-      return stored && THEMES[stored] ? stored : DEFAULT_THEME;
+      return resolveThemeName(stored);
     } catch {
       return DEFAULT_THEME;
     }
@@ -57,10 +57,11 @@ export function ThemeProvider({ children, navBridge }) {
   }, [themeName]);
 
   const setThemeName = (name) => {
-    if (!THEMES[name]) return;
-    setThemeNameState(name);
+    if (!name) return;
+    const resolved = resolveThemeName(name);
+    setThemeNameState(resolved);
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, name);
+      localStorage.setItem(THEME_STORAGE_KEY, resolved);
     } catch {
       // localStorage may be unavailable (private browsing, quota)
     }

@@ -45,9 +45,9 @@ export default function SampleHistoryModal({ eq, status, history, oilChangedMont
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 16, color: T.accent }}>{eq.code}</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 800, fontSize: 16, color: T.accent }}>{eq.code}</span>
             <span
-              style={{ fontSize: 10, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: color + "22", color }}
+              style={{ fontSize: 12, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: color + "22", color }}
             >
               {status.label}
             </span>
@@ -94,7 +94,7 @@ export default function SampleHistoryModal({ eq, status, history, oilChangedMont
               })}
             />
             {months.length > 12 && (
-              <button style={{ ...s.btn, fontSize: 11.5, marginTop: 10 }} onClick={() => setShowAll((v) => !v)}>
+              <button style={{ ...s.btn, fontSize: 12, marginTop: 10 }} onClick={() => setShowAll((v) => !v)}>
                 {showAll ? "Show recent 12 months" : `Show all ${months.length} months`}
               </button>
             )}
@@ -119,7 +119,7 @@ export default function SampleHistoryModal({ eq, status, history, oilChangedMont
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 9,
+                        fontSize: 12,
                         fontWeight: 800,
                         flexShrink: 0,
                       }}
@@ -128,7 +128,7 @@ export default function SampleHistoryModal({ eq, status, history, oilChangedMont
                     </span>
                     <span style={{ fontSize: 12, color: T.textSecondary }}>{h.status}</span>
                     {oc && (
-                      <span style={{ fontSize: 10, color: "#7C3AED", marginLeft: "auto", fontWeight: 700 }}>
+                      <span style={{ fontSize: 12, color: "#7C3AED", marginLeft: "auto", fontWeight: 700 }}>
                         <i className="ti ti-droplet-filled-2" aria-hidden="true" /> Oil changed
                       </span>
                     )}

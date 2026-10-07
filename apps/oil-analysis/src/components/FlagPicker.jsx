@@ -23,12 +23,12 @@ export default function FlagPicker({ value, onChange }) {
   }
   return (
     <div data-testid="flag-picker">
-      <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 8px" }}>
+      <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 8px" }}>
         Tap each value the lab marked yellow (Caution) or red (Alert) on the report. Tap again to change, a third time to clear.
       </p>
       {[...LAB_GROUPS.map((g) => ({ g, list: LAB_PARAMS.filter((p) => p.group === g) })), { g: "Particles / PQ", list: EXTRA_FLAGS }].map(({ g, list }) => (
         <div key={g} style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 11, color: T.textSecondary, marginBottom: 4 }}>{g}</div>
+          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 4 }}>{g}</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {list.map((p) => {
               const sev = sevOf(p.flag);
@@ -51,7 +51,7 @@ export default function FlagPicker({ value, onChange }) {
                   }}
                 >
                   {p.short || p.key}
-                  {sev && <span style={{ fontSize: 11 }}>· {sev}</span>}
+                  {sev && <span style={{ fontSize: 12 }}>· {sev}</span>}
                 </button>
               );
             })}

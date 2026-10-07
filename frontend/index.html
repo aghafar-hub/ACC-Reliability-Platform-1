@@ -11,13 +11,17 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-    <meta name="theme-color" content="#0A1628" />
+    <!-- the top bar's colour; App.tsx updates it when the theme changes -->
+    <meta name="theme-color" content="#FFFFFF" />
     <!-- iOS doesn't read the web manifest's display:"standalone" the way
          Android/Chrome do — these are the separate iOS-specific tags
          needed for "Add to Home Screen" to actually open full-screen
-         there instead of inside Safari's own chrome. -->
+         there instead of inside Safari's own chrome. Status bar "default"
+         (dark clock on a light strip): "black-translucent" draws a white
+         clock over the app's own top bar, which is white in the default
+         ACC Light theme — the clock would disappear. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="ACC Reliability" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>ACC Reliability</title>

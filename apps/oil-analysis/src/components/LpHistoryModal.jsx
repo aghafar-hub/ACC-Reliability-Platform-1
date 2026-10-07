@@ -47,9 +47,9 @@ export default function LpHistoryModal({ oilChange, events, onClose, onLogChange
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: "monospace", fontWeight: 800, fontSize: 16, color: T.accent }}>{oilChange.equipmentCode}</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 800, fontSize: 16, color: T.accent }}>{oilChange.equipmentCode}</span>
             {isOverdue && (
-              <span style={{ fontSize: 10, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: T.dangerBg, color: T.danger }}>
+              <span style={{ fontSize: 12, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: T.dangerBg, color: T.danger }}>
                 OVERDUE
               </span>
             )}
@@ -89,7 +89,7 @@ export default function LpHistoryModal({ oilChange, events, onClose, onLogChange
                   <div style={{ paddingBottom: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 12.5, fontWeight: 700, color: T.textPrimary }}>{formatDate(ev.eventDate)}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: bg, color }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: bg, color }}>
                         {ev.eventType}
                       </span>
                     </div>
@@ -99,7 +99,7 @@ export default function LpHistoryModal({ oilChange, events, onClose, onLogChange
                       {ev.doneBy ? ` · Done by ${ev.doneBy}` : ""}
                       {ev.contractor ? ` (${ev.contractor})` : ""}
                     </p>
-                    {ev.conditionNotes && <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.textMuted }}>{ev.conditionNotes}</p>}
+                    {ev.conditionNotes && <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textMuted }}>{ev.conditionNotes}</p>}
                   </div>
                 </div>
               );

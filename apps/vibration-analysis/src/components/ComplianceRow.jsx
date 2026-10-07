@@ -48,7 +48,7 @@ export default function ComplianceRow({ row, lastStatus, expanded, onToggle, mon
             <span style={{ fontWeight: 800, color: T.accent, fontSize: 13 }}>{row.equipmentId}</span>
             <span
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: T.textSecondary,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -60,7 +60,7 @@ export default function ComplianceRow({ row, lastStatus, expanded, onToggle, mon
               {row.equipment}
             </span>
             {row.line && (
-              <span style={{ fontSize: 10, color: T.textMuted, background: T.border + "88", padding: "1px 6px", borderRadius: 999 }}>
+              <span style={{ fontSize: 12, color: T.textMuted, background: T.border + "88", padding: "1px 6px", borderRadius: 999 }}>
                 {row.line}
               </span>
             )}
@@ -69,7 +69,7 @@ export default function ComplianceRow({ row, lastStatus, expanded, onToggle, mon
         <div style={{ ...pillStyle(color), fontSize: 12 }}>{lastStatus || "Missing"}</div>
         {filteredMonth && (
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ fontSize: 10, color: T.textMuted }}>{monthFilter}:</span>
+            <span style={{ fontSize: 12, color: T.textMuted }}>{monthFilter}:</span>
             <ComplianceDot status={filteredMonth.status} size={22} />
           </div>
         )}
@@ -77,7 +77,7 @@ export default function ComplianceRow({ row, lastStatus, expanded, onToggle, mon
           {preview.map((m) => (
             <ComplianceDot key={m.month} status={m.status} size={24} />
           ))}
-          {hiddenCount > 0 && <span style={{ fontSize: 11, color: T.textMuted, marginLeft: 2, fontWeight: 700 }}>+{hiddenCount}</span>}
+          {hiddenCount > 0 && <span style={{ fontSize: 12, color: T.textMuted, marginLeft: 2, fontWeight: 700 }}>+{hiddenCount}</span>}
         </div>
         <span style={{ color: T.textMuted, transform: expanded ? "rotate(180deg)" : "none", transition: "0.15s", flexShrink: 0 }}>
           <Icon d={ICONS.chevDown} size={15} />
@@ -86,10 +86,10 @@ export default function ComplianceRow({ row, lastStatus, expanded, onToggle, mon
       {expanded && (
         <div style={{ borderTop: `1px solid ${T.border2}`, padding: "12px 14px 16px", background: T.cardSubBg }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 }}>
               Full Timeline — {row.months.length} months
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 12 }}>
               {LEGEND.map(([letter, label, colorKey]) => {
                 const legendColor = colorKey.startsWith("#") ? colorKey : T[colorKey];
                 return (
@@ -104,7 +104,7 @@ export default function ComplianceRow({ row, lastStatus, expanded, onToggle, mon
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 8,
+                        fontSize: 12,
                         fontWeight: 800,
                         color: legendColor,
                       }}

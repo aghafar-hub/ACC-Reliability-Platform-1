@@ -121,7 +121,7 @@ export default function ComplianceTracker({ compliance, lastRms, lastSpm, regist
           >
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 700,
                 color: T[tile.colorKey],
                 marginBottom: 4,

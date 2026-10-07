@@ -236,14 +236,14 @@ export default function ActionTracker({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-          <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12.5, color: T.accent }}>{code}</span>
+          <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12.5, color: T.accent }}>{code}</span>
           {reg?.area && (
-            <span style={{ fontSize: 9.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 0.3 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", letterSpacing: 0.3 }}>
               {reg.area}
             </span>
           )}
         </div>
-        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{a.description || "—"}</div>
+        <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>{a.description || "—"}</div>
         <div
           style={{
             fontSize: 12,
@@ -259,24 +259,24 @@ export default function ActionTracker({
           {a.agreedAction || (status === ACTION_STATUS.DRAFT ? a.sampleAnalysis || "—" : "—")}
         </div>
         {status === ACTION_STATUS.DRAFT && (
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: T.warning, marginTop: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.warning, marginTop: 6 }}>
             <i className="ti ti-pencil" aria-hidden="true" style={{ marginRight: 3 }} />
             Needs the agreed action{a.createdByRule ? ` · ${a.createdByRule}` : ""}
           </div>
         )}
         {status === ACTION_STATUS.CLOSURE_REQUESTED && (
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: a.closureDecision === "Approved" ? T.success : T.info, marginTop: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: a.closureDecision === "Approved" ? T.success : T.info, marginTop: 6 }}>
             {a.closureDecision === "Approved" ? "✓ Approved — ready to close" : "Waiting for ACC approval"}
           </div>
         )}
         {status !== "Closed" && (
           <div style={{ marginTop: 6 }}>
             {a.assignedTo ? (
-              <span style={{ fontSize: 10.5, color: T.textSecondary }}>
+              <span style={{ fontSize: 12, color: T.textSecondary }}>
                 <i className="ti ti-user" aria-hidden="true" style={{ marginRight: 3 }} /> {a.assignedTo}
               </span>
             ) : (
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: T.danger }}>
                 <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 3 }} /> No owner assigned
               </span>
             )}
@@ -284,11 +284,11 @@ export default function ActionTracker({
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
           {status === "Closed" ? (
-            <span style={{ fontSize: 10.5, color: T.textMuted }}>Completed {formatDate(a.completedDate) || "—"}</span>
+            <span style={{ fontSize: 12, color: T.textMuted }}>Completed {formatDate(a.completedDate) || "—"}</span>
           ) : (
             <span
               style={{
-                fontSize: 10.5,
+                fontSize: 12,
                 fontWeight: 700,
                 padding: "2px 8px",
                 borderRadius: 20,
@@ -303,7 +303,7 @@ export default function ActionTracker({
                   : days == null ? "—" : `${days}d open`}
             </span>
           )}
-          <span style={{ fontSize: 10.5, fontFamily: "monospace", color: T.textMuted }}>{a.acNo}</span>
+          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textMuted }}>{a.acNo}</span>
         </div>
       </div>
     );
@@ -374,7 +374,7 @@ export default function ActionTracker({
           {COLUMNS.map((st) => (
             <div key={st} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: T[STATUS_COLOR_KEY[st]], flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: T.textSecondary, width: 108, flexShrink: 0 }}>{st}</span>
+              <span style={{ fontSize: 12, color: T.textSecondary, width: 108, flexShrink: 0 }}>{st}</span>
               <div style={{ flex: 1, height: 7, borderRadius: 4, background: T.border, overflow: "hidden" }}>
                 <div
                   style={{
@@ -393,8 +393,8 @@ export default function ActionTracker({
         </div>
         <div style={{ textAlign: "center", minWidth: 120 }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: unassignedCount > 0 ? T.danger : T.textPrimary }}>{unassignedCount}</div>
-          <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>No Owner Assigned</div>
-          <div style={{ fontSize: 10, color: T.textMuted }}>open/in-progress</div>
+          <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>No Owner Assigned</div>
+          <div style={{ fontSize: 12, color: T.textMuted }}>open/in-progress</div>
         </div>
       </div>
 
@@ -407,8 +407,8 @@ export default function ActionTracker({
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={ageData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border2} vertical={false} />
-                <XAxis dataKey="bucket" tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+                <XAxis dataKey="bucket" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
                 <Tooltip content={<ChartTooltip T={T} />} />
                 <Bar dataKey="count" name="Actions" radius={[4, 4, 0, 0]}>
                   {ageData.map((d) => (
@@ -443,10 +443,10 @@ export default function ActionTracker({
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border2} vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 10.5, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="Opened" fill={T.accent} radius={[4, 4, 0, 0]} />
               <Bar dataKey="Closed" fill={T.success} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -539,7 +539,7 @@ export default function ActionTracker({
         </button>
       </div>
 
-      <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 10 }}>
+      <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
         {hasFilters
           ? `Showing ${visible.length} of ${actions.length} actions`
           : `${actions.length} actions · drag a card to change its status`}
@@ -603,7 +603,7 @@ export default function ActionTracker({
               {items.length === 0 && (
                 <div
                   style={{
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: T.textMuted,
                     textAlign: "center",
                     padding: "16px 6px",
@@ -642,7 +642,7 @@ export default function ActionTracker({
         {columnItems(mobileStatusTab).length === 0 ? (
           <div
             style={{
-              fontSize: 11.5,
+              fontSize: 12,
               color: T.textMuted,
               textAlign: "center",
               padding: "16px 6px",

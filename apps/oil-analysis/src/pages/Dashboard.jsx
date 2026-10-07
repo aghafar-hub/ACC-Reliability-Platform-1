@@ -91,19 +91,19 @@ function KpiCard({ T, s, icon, color, label, value, sub, pctChange, breakdown, o
         >
           <i className={`ti ${icon}`} aria-hidden="true" />
         </span>
-        <div style={{ fontSize: 11, color: T.textSecondary }}>{label}</div>
+        <div style={{ fontSize: 12, color: T.textSecondary }}>{label}</div>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontSize: 22, fontWeight: 800, color: T.textPrimary }}>{value}</span>
         {pctChange != null && (
-          <span style={{ fontSize: 11, fontWeight: 700, color: pctChange >= 0 ? T.success : T.danger }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: pctChange >= 0 ? T.success : T.danger }}>
             <i className={`ti ti-arrow-${pctChange >= 0 ? "up" : "down"}`} aria-hidden="true" /> {Math.abs(pctChange)}%
           </span>
         )}
       </div>
-      {sub && <div style={{ fontSize: 10.5, color: T.textSecondary }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: T.textSecondary }}>{sub}</div>}
       {breakdown && (
-        <div style={{ display: "flex", gap: 10, fontSize: 10.5 }}>
+        <div style={{ display: "flex", gap: 10, fontSize: 12 }}>
           <span style={{ color: T.accent, fontWeight: 700 }}>RHI {breakdown.RHI}</span>
           <span style={{ color: T.warning, fontWeight: 700 }}>ASEC {breakdown.ASEC}</span>
         </div>
@@ -424,7 +424,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
               {["All", "Oil Change", "Oil Sample", "Top Up"].map((t) => (
                 <button
                   key={t}
-                  style={{ ...s.btn, fontSize: 11, padding: "4px 10px", background: activityType === t ? T.accent : "transparent", color: activityType === t ? T.accentText : T.textSecondary, borderColor: activityType === t ? T.accent : T.border }}
+                  style={{ ...s.btn, fontSize: 12, padding: "4px 10px", background: activityType === t ? T.accent : "transparent", color: activityType === t ? T.accentText : T.textSecondary, borderColor: activityType === t ? T.accent : T.border }}
                   onClick={() => setActivityType(t)}
                 >
                   {t}
@@ -435,10 +435,10 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={28} />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={28} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
               {(activityType === "All" || activityType === "Oil Change") && <Bar dataKey="Oil Change" stackId={activityType === "All" ? "s" : undefined} fill={T.accent} />}
               {(activityType === "All" || activityType === "Oil Sample") && <Bar dataKey="Oil Sample" stackId={activityType === "All" ? "s" : undefined} fill={T.info || T.accent} />}
               {(activityType === "All" || activityType === "Top Up") && <Bar dataKey="Top Up" stackId={activityType === "All" ? "s" : undefined} fill={T.danger} radius={activityType === "All" ? [4, 4, 0, 0] : undefined} />}
@@ -452,7 +452,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
             const rate = complianceFor(rt);
             return (
               <div key={rt} style={{ marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, marginBottom: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
                   <span style={{ color: T.textSecondary }}>{rt}</span>
                   <span style={{ fontWeight: 700 }}>{rate == null ? "—" : `${rate}%`}</span>
                 </div>
@@ -464,7 +464,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
           })}
           <p style={{ fontWeight: 700, margin: "16px 0 10px" }}>Overdue Routines by Contractor</p>
           {["RHI", "ASEC"].map((c) => (
-            <div key={c} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, padding: "4px 0" }}>
+            <div key={c} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0" }}>
               <span style={{ color: T.textSecondary }}>{c}</span>
               <span style={{ fontWeight: 700, color: overdueByContractor[c] > 0 ? T.danger : T.success }}>{overdueByContractor[c]}</span>
             </div>
@@ -478,9 +478,9 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
           <div style={{ display: "flex", gap: 8 }}>
             {contractorDonuts.map(({ label, data }) => (
               <div key={label} style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: T.textSecondary, margin: "0 0 2px" }}>{label}</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: T.textSecondary, margin: "0 0 2px" }}>{label}</p>
                 {data.length === 0 ? (
-                  <p style={{ color: T.textMuted, fontSize: 10.5, margin: "30px 0" }}>No activity</p>
+                  <p style={{ color: T.textMuted, fontSize: 12, margin: "30px 0" }}>No activity</p>
                 ) : (
                   <ResponsiveContainer width="100%" height={130}>
                     <PieChart>
@@ -494,7 +494,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 2, fontSize: 10.5 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 14, marginTop: 2, fontSize: 12 }}>
             <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 8, height: 8, borderRadius: 2, background: T.accent, display: "inline-block" }} />
               <span style={{ color: T.textSecondary }}>RHI</span>
@@ -522,7 +522,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
                   <Tooltip content={<ChartTooltip T={T} />} />
                 </PieChart>
               </ResponsiveContainer>
-              <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 11 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12 }}>
                 {inventoryStatusData.map((d) => (
                   <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color, flexShrink: 0 }} />
@@ -534,7 +534,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
             </div>
           )}
           {consumption?.totalsByMonth?.length > 0 && (
-            <p style={{ fontSize: 10.5, color: T.textMuted, margin: "10px 0 0" }}>
+            <p style={{ fontSize: 12, color: T.textMuted, margin: "10px 0 0" }}>
               This month's consumption: {consumption.totalsByMonth[consumption.totalsByMonth.length - 1]} L
             </p>
           )}
@@ -547,7 +547,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
           {topOverdueRoutines.length === 0 ? (
             <p style={{ color: T.textSecondary, fontSize: 12, padding: "10px 16px 16px" }}>None overdue.</p>
           ) : (
-            <table style={{ width: "100%", fontSize: 11.5, borderCollapse: "collapse", marginTop: 10 }}>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 10 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Routine</th>
@@ -577,7 +577,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
           {openActions.length === 0 ? (
             <p style={{ color: T.textSecondary, fontSize: 12, padding: "10px 16px 16px" }}>None open.</p>
           ) : (
-            <table style={{ width: "100%", fontSize: 11.5, borderCollapse: "collapse", marginTop: 10 }}>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 10 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Equipment</th>
@@ -607,7 +607,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
           {upcomingForecastAlerts.length === 0 ? (
             <p style={{ color: T.textSecondary, fontSize: 12, padding: "10px 16px 16px" }}>Nothing flagged.</p>
           ) : (
-            <table style={{ width: "100%", fontSize: 11.5, borderCollapse: "collapse", marginTop: 10 }}>
+            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", marginTop: 10 }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", color: T.textSecondary, padding: "4px 16px" }}>Oil Type</th>

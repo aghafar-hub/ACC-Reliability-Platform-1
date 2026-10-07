@@ -30,6 +30,13 @@ import './App.css';
 // these (with the original dark-navy values as fallback) instead of
 // hardcoded colors, so the whole shell restyles the instant a theme is
 // picked, not just the two embedded modules.
+function isDarkColor(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255) < 128;
+}
+
 function ShellRoot() {
   const { palette } = useShellTheme();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -42,6 +49,17 @@ function ShellRoot() {
   useEffect(() => {
     setMobileNavOpen(false);
   }, [location.pathname]);
+
+  // A light theme with a dark top bar (High Contrast) needs light text there.
+  const topbarIsInverse = !palette.dark && isDarkColor(palette.topbarBg);
+
+  // The phone's status bar / the browser's address bar take the top bar's
+  // colour, so an installed app doesn't show a dark navy strip above a light
+  // theme (PWA item 21).
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', palette.topbarBg);
+  }, [palette.topbarBg]);
 
   const themeVars = {
     '--shell-bg': palette.appBg,
@@ -57,6 +75,22 @@ function ShellRoot() {
     '--shell-sidebar-text-secondary': palette.sidebarTextSecondary,
     '--shell-accent': palette.accent,
     '--shell-accent-text': palette.accentText,
+    '--shell-text-muted': palette.textMuted,
+    '--shell-danger': palette.danger,
+    '--shell-warning': palette.warning,
+    '--shell-success': palette.success,
+    // The top bar has its own surface: black in High Contrast, the card
+    // colour elsewhere (TopBar.css maps these onto its own --shell-* vars).
+    '--shell-topbar-bg': palette.topbarBg,
+    '--shell-topbar-text': topbarIsInverse ? '#FFFFFF' : palette.textPrimary,
+    '--shell-topbar-text-secondary': topbarIsInverse ? '#E0E0E0' : palette.textSecondary,
+    '--shell-topbar-border': topbarIsInverse ? '#3A3A3A' : palette.border,
+    // status text on the black top bar needs the light status shades
+    '--shell-topbar-success': topbarIsInverse ? '#4CC38A' : palette.success,
+    '--shell-topbar-danger': topbarIsInverse ? '#FF6B6B' : palette.danger,
+    // High Contrast's borders are near-black, so the background grid would
+    // turn into heavy lines — keep it a faint texture there.
+    '--shell-grid-strength': topbarIsInverse ? '10%' : '55%',
   } as CSSProperties;
 
   return (

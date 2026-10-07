@@ -116,7 +116,7 @@ export default function HowToUse() {
             </div>
             <div>
               <div style={{ fontSize: 16, fontWeight: 800, color: T.textPrimary }}>{topic.title}</div>
-              <div style={{ fontSize: 11, color: T.textSecondary }}>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>
                 {topic.steps.length} topic{topic.steps.length !== 1 ? "s" : ""}
               </div>
             </div>

@@ -101,7 +101,7 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
               <label style={s.label}>Due Date</label>
               {/* Phase 1: the date is changed with Reschedule, which records the reason. */}
               <div style={{ ...s.input, background: "transparent", color: s.input?.color }}>{routine.dueDate || "—"}</div>
-              <div style={{ fontSize: 11, opacity: 0.75, marginTop: 4 }}>Use Reschedule to change it.</div>
+              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>Use Reschedule to change it.</div>
             </div>
             <div>
               <label style={s.label}>Area</label>
@@ -118,7 +118,7 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
           <div style={{ marginBottom: 14 }}>
             <label style={s.label}>Grace Period (days)</label>
             <input style={s.input} type="number" min="0" placeholder="0" value={duration} onChange={(e) => setDuration(e.target.value)} />
-            <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "4px 0 0" }}>
+            <p style={{ fontSize: 12, color: T.textSecondary, margin: "4px 0 0" }}>
               Still counts as On Schedule for this many days past the Due Date before flipping to Overdue.
             </p>
           </div>
@@ -143,7 +143,7 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
                   const reg = registryByLp[item.lpId];
                   return (
                     <div key={item.routineItemId} style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border2}`, fontSize: 12 }}>
-                      <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</span>
                       {"  "}
                       {reg?.lubricationPoint || reg?.description || ""}
                     </div>

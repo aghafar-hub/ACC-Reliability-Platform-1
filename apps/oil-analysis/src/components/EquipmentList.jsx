@@ -12,9 +12,9 @@ function HealthCell({ T, health, reasons }) {
   const color = T[HEALTH_COLOR[health]];
   return (
     <div>
-      <span style={{ fontSize: 10.5, fontWeight: 700, color, background: color + "22", borderRadius: 4, padding: "2px 8px" }}>{health}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color, background: color + "22", borderRadius: 4, padding: "2px 8px" }}>{health}</span>
       {reasons.length > 0 && (
-        <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 3, lineHeight: 1.4 }}>
+        <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 3, lineHeight: 1.4 }}>
           {reasons.slice(0, 2).join(" · ")}
           {reasons.length > 2 ? ` · +${reasons.length - 2} more` : ""}
         </div>
@@ -206,27 +206,27 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
                 view === "equipment" ? (
                   <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => onOpenEquipment(r.id)} data-testid={`eq-row-${r.id}`}>
                     <td style={s.td}>
-                      <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{r.id}</div>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary }}>{r.list[0].reg.description || ""}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{r.id}</div>
+                      <div style={{ fontSize: 12, color: T.textSecondary }}>{r.list[0].reg.description || ""}</div>
                     </td>
                     <td style={s.td}>{r.area || "—"}</td>
                     {!scopedContractor && <td style={s.td}>{r.contractor || "—"}</td>}
                     <td style={s.td}>
                       {r.list.length}
-                      {r.attention > 0 && <div style={{ fontSize: 11, color: T.warning }}>{r.attention} need attention</div>}
+                      {r.attention > 0 && <div style={{ fontSize: 12, color: T.warning }}>{r.attention} need attention</div>}
                     </td>
                     <td style={s.td}><HealthCell T={T} health={r.health} reasons={r.reasons} /></td>
                     <td style={s.td}>{nextChangeCell(r.nextChange, r.changeOverdue)}</td>
                     <td style={s.td}>
                       {r.openActions || "—"}
-                      {r.overdueActions > 0 && <div style={{ fontSize: 11, color: T.danger }}>{r.overdueActions} overdue</div>}
+                      {r.overdueActions > 0 && <div style={{ fontSize: 12, color: T.danger }}>{r.overdueActions} overdue</div>}
                     </td>
                   </tr>
                 ) : (
                   <tr key={r.reg.code} style={{ cursor: "pointer" }} onClick={() => onOpenLp(r.reg.code)} data-testid={`lp-row-${r.reg.code}`}>
                     <td style={s.td}>
-                      <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{r.reg.code}</div>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary }}>{r.reg.lubricationPoint || r.reg.description || ""}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{r.reg.code}</div>
+                      <div style={{ fontSize: 12, color: T.textSecondary }}>{r.reg.lubricationPoint || r.reg.description || ""}</div>
                     </td>
                     <td style={s.td}>{r.reg.area || "—"}</td>
                     {!scopedContractor && <td style={s.td}>{r.reg.contractor || "—"}</td>}
@@ -235,7 +235,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
                       {r.h.latest ? (
                         <>
                           <span style={s.badge(r.h.latest.reportStatus)}>{r.h.latest.reportStatus || "—"}</span>
-                          <div style={{ fontSize: 11, color: T.textSecondary }}>{r.h.latest.sampledDate}</div>
+                          <div style={{ fontSize: 12, color: T.textSecondary }}>{r.h.latest.sampledDate}</div>
                         </>
                       ) : (
                         <span style={{ color: T.textMuted }}>{r.reg.oilAnalysisRequired === "Yes" ? "none yet" : "not sampled"}</span>
@@ -244,7 +244,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
                     <td style={s.td}>{nextChangeCell(r.nextChange, r.changeOverdue)}</td>
                     <td style={s.td}>
                       {r.h.openActions || "—"}
-                      {r.h.overdueActions > 0 && <div style={{ fontSize: 11, color: T.danger }}>{r.h.overdueActions} overdue</div>}
+                      {r.h.overdueActions > 0 && <div style={{ fontSize: 12, color: T.danger }}>{r.h.overdueActions} overdue</div>}
                     </td>
                   </tr>
                 )

@@ -79,13 +79,13 @@ export default function GenerateMonthlyActionsModal({ onClose, onGenerate, lastR
                   >
                     <div style={{ flex: 1 }}>
                       <span style={{ fontWeight: 700, color: T.textHighlight }}>{item.equipmentId}</span>
-                      <span style={{ color: T.textMuted, fontSize: 11, marginLeft: 6 }}>{item.equipmentName}</span>
+                      <span style={{ color: T.textMuted, fontSize: 12, marginLeft: 6 }}>{item.equipmentName}</span>
                     </div>
                     <StatusBadge status={item.status} colorKey={combinedColorKey(item.status)} />
-                    <span style={{ fontSize: 11, color: T.textMuted }}>
+                    <span style={{ fontSize: 12, color: T.textMuted }}>
                       {item.trig.type}·{item.trig.point}
                     </span>
-                    <span style={{ fontSize: 11, color: T.textSecondary }}>{item.line}</span>
+                    <span style={{ fontSize: 12, color: T.textSecondary }}>{item.line}</span>
                   </div>
                 ))}
               </div>

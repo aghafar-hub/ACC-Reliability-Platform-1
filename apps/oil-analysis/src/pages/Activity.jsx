@@ -118,14 +118,14 @@ export default function Activity({ webhookUrl }) {
                 flexWrap: "wrap",
               }}
             >
-              <span style={{ fontSize: 11.5, color: T.textMuted, minWidth: 140, flexShrink: 0 }}>{formatTimestamp(e.timestamp)}</span>
+              <span style={{ fontSize: 12, color: T.textMuted, minWidth: 140, flexShrink: 0 }}>{formatTimestamp(e.timestamp)}</span>
               <span style={s.badge(e.action)}>{ACTION_LABEL[e.action] || e.action}</span>
               <span style={{ fontSize: 12, color: T.textMuted, flexShrink: 0 }}>{e.sheet}</span>
               {e.recordId && (
-                <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12.5, color: T.accent, flexShrink: 0 }}>{e.recordId}</span>
+                <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12.5, color: T.accent, flexShrink: 0 }}>{e.recordId}</span>
               )}
               <span style={{ fontSize: 12.5, color: T.textPrimary, flex: 1, minWidth: 180 }}>{e.summary}</span>
-              <span style={{ fontSize: 11.5, color: T.textSecondary, flexShrink: 0 }}>{e.actingUser || "—"}</span>
+              <span style={{ fontSize: 12, color: T.textSecondary, flexShrink: 0 }}>{e.actingUser || "—"}</span>
             </div>
           ))}
         </div>

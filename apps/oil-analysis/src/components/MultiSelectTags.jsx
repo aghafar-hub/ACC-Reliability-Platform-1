@@ -61,7 +61,7 @@ export default function MultiSelectTags({ label, value, onChange, options }) {
 
   return (
     <div>
-      <label style={{ ...s.label, fontSize: 11 }}>{label}</label>
+      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
       <div style={{ position: "relative" }}>
         <div
           style={{

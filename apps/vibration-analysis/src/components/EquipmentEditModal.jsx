@@ -80,7 +80,7 @@ export default function EquipmentEditModal({ row, lines, onClose, onSave }) {
               onChange={(e) => set("rmsPoints", e.target.value)}
               placeholder="e.g. Motor DE, Motor NDE, Fan DE"
             />
-            <div style={{ fontSize: 11, color: T.textMuted, marginTop: 3 }}>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>
               Edit points list. Changes update the sheet Points column (col G).
             </div>
           </div>

@@ -99,10 +99,10 @@ function ChipCard({ r, color, onClick }) {
         fontFamily: "inherit",
       }}
     >
-      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
+      <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 12,
           color: T.textSecondary,
           margin: "1px 0 5px",
           overflow: "hidden",
@@ -116,7 +116,7 @@ function ChipCard({ r, color, onClick }) {
         {eq.area && (
           <span
             style={{
-              fontSize: 9.5,
+              fontSize: 12,
               fontWeight: 700,
               padding: "1px 6px",
               borderRadius: 999,
@@ -131,7 +131,7 @@ function ChipCard({ r, color, onClick }) {
         {eq.contractor && (
           <span
             style={{
-              fontSize: 9.5,
+              fontSize: 12,
               fontWeight: 700,
               padding: "1px 6px",
               borderRadius: 999,
@@ -144,7 +144,7 @@ function ChipCard({ r, color, onClick }) {
           </span>
         )}
       </div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color }}>{status.daysInfo || "—"}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color }}>{status.daysInfo || "—"}</div>
     </button>
   );
 }
@@ -320,12 +320,12 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>
             Samples Due — Next {WEEKS_AHEAD} Weeks
           </p>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>LPs due per week — see clustering before it happens.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted }}>LPs due per week — see clustering before it happens.</p>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 9.5, fill: T.textMuted }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: T.textMuted }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="Due" fill={T.accent} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -334,12 +334,12 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
 
         <div style={{ ...s.card, marginBottom: 0 }}>
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Status by Contractor</p>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Where each contractor stands right now.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted }}>Where each contractor stands right now.</p>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={contractorData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="contractor" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="contractor" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="Overdue" fill={T.warning} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Missing" fill={T.danger} radius={[3, 3, 0, 0]} />
@@ -351,12 +351,12 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
 
         <div style={{ ...s.card, marginBottom: 0 }}>
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Oil Condition Trend</p>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Last 6 months of real lab results — Normal / Caution / Alert.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted }}>Last 6 months of real lab results — Normal / Caution / Alert.</p>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="Normal" stackId="s" fill={T.success} />
               <Bar dataKey="Caution" stackId="s" fill={T.warning} />
@@ -369,7 +369,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
       {/* ====== FILTERS (Area/Asset Class/Contractor now real dropdowns) ====== */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
             Equipment
           </span>
           <EquipmentSearch
@@ -382,7 +382,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>Area</span>
+          <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>Area</span>
           <select style={{ ...s.select, fontSize: 12, minWidth: 130 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
             {areas.map((a) => (
               <option key={a}>{a}</option>
@@ -390,7 +390,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           </select>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
             Asset Class
           </span>
           <select style={{ ...s.select, fontSize: 12, minWidth: 130 }} value={classFilter} onChange={(e) => setClassFilter(e.target.value)}>
@@ -400,7 +400,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           </select>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+          <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
             Contractor
           </span>
           <select
@@ -506,7 +506,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
                   }}
                 >
                   <select
-                    style={{ ...s.select, fontSize: 11.5, width: "100%" }}
+                    style={{ ...s.select, fontSize: 12, width: "100%" }}
                     value={dueWindowMonths}
                     onChange={(e) => setDueWindowMonths(Number(e.target.value))}
                   >
@@ -531,7 +531,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
                 {groups.map(([groupName, groupList]) => (
                   <div key={groupName || "all"}>
                     {groupName && (
-                      <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "4px 0 6px" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "4px 0 6px" }}>
                         {groupName} · {groupList.length}
                       </div>
                     )}

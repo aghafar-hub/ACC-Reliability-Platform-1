@@ -168,7 +168,7 @@ function PointPicker({ T, s, equipmentRegistry, value, onChange, hint }) {
                 cursor: "pointer",
               }}
             >
-              <span style={{ fontFamily: "monospace", color: T.accent }}>{r.code}</span> — {r.description}
+              <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.accent }}>{r.code}</span> — {r.description}
               {r.reportEquipmentId && <span style={{ color: T.textSecondary }}> · Report ID {r.reportEquipmentId}</span>}
             </button>
           ))}
@@ -183,7 +183,7 @@ function StatusPill({ T, status }) {
   const c = T[key];
   return (
     <span
-      style={{ fontSize: 10.5, fontWeight: 700, color: c, background: `${c}22`, borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }}
+      style={{ fontSize: 12, fontWeight: 700, color: c, background: `${c}22`, borderRadius: 4, padding: "1px 7px", whiteSpace: "nowrap" }}
     >
       {status || "—"}
     </span>
@@ -332,7 +332,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
           <div
             style={{
               padding: "8px 10px",
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: 700,
               color: T.danger,
               background: T.cardSubBg,
@@ -379,13 +379,13 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
                 aria-label={`Tick all of ${f.unitId}`}
               />
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "monospace", color: T.textPrimary }}>{f.unitId}</div>
-                <div style={{ fontSize: 10.5, color: T.textSecondary }}>Report ID {f.reportId}</div>
-                <div style={{ fontSize: 10.5, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textPrimary }}>{f.unitId}</div>
+                <div style={{ fontSize: 12, color: T.textSecondary }}>Report ID {f.reportId}</div>
+                <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {f.fileName}
                 </div>
                 {!f.matched && !remap[f.fileIdx] && (
-                  <div style={{ fontSize: 10.5, color: T.warning, fontWeight: 700 }}>Pick the point — Report ID not in the registry</div>
+                  <div style={{ fontSize: 12, color: T.warning, fontWeight: 700 }}>Pick the point — Report ID not in the registry</div>
                 )}
               </div>
             </div>
@@ -410,35 +410,35 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
                     <span style={{ display: "block", fontWeight: 600, color: c.blocked ? T.textSecondary : undefined }}>
                       {formatDate(c.sample.sampledDate) || "No date"}
                     </span>
-                    <span style={{ display: "block", fontSize: 10.5, fontFamily: "monospace", color: T.textSecondary }}>
+                    <span style={{ display: "block", fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textSecondary }}>
                       {c.sample.sampleId || "no Sample ID"}
                     </span>
                     {c.duplicate && (
                       <span
-                        style={{ display: "block", fontSize: 10.5, color: T.danger, fontWeight: 600 }}
+                        style={{ display: "block", fontSize: 12, color: T.danger, fontWeight: 600 }}
                         data-testid={`import-dup-${c.sample.sampleId}`}
                       >
                         <i className="ti ti-alert-circle" aria-hidden="true" /> Sample ID already in the system — not added
                       </span>
                     )}
                     {c.duplicate && fillKeys.has(c._key) && fillDetails && (
-                      <span style={{ display: "block", fontSize: 10.5, color: T.textSecondary }}>
+                      <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>
                         Its missing report details will be filled in
                       </span>
                     )}
                     {c.noSampleId && (
-                      <span style={{ display: "block", fontSize: 10.5, color: T.warning, fontWeight: 700 }}>No Sample ID</span>
+                      <span style={{ display: "block", fontSize: 12, color: T.warning, fontWeight: 700 }}>No Sample ID</span>
                     )}
                     {c.latest && (
                       <span
-                        style={{ display: "block", fontSize: 10.5, color: T.textSecondary }}
+                        style={{ display: "block", fontSize: 12, color: T.textSecondary }}
                         data-testid={`import-latest-${c.sample.sampleId}`}
                       >
                         <i className="ti ti-message-2" aria-hidden="true" /> Latest — recommendations
                       </span>
                     )}
                     {c.edited.length > 0 && (
-                      <span style={{ display: "block", fontSize: 10.5, color: T.accent, fontWeight: 700 }}>Edited</span>
+                      <span style={{ display: "block", fontSize: 12, color: T.accent, fontWeight: 700 }}>Edited</span>
                     )}
                   </span>
                   <StatusPill T={T} status={c.sample.reportStatus} />
@@ -581,7 +581,7 @@ function SampleView({
     ["Tested lubricant", smp.testedLubricant],
     ["Equipment", [smp.assetClass, smp.manufacturer, smp.model].filter(Boolean).join(" · ")],
   ].filter(([, v]) => v);
-  const inputStyle = { ...s.input, fontSize: 12, padding: "3px 5px", textAlign: "center", fontFamily: "monospace", minWidth: 64 };
+  const inputStyle = { ...s.input, fontSize: 12, padding: "3px 5px", textAlign: "center", fontFamily: "'IBM Plex Mono', ui-monospace, monospace", minWidth: 64 };
 
   function cell(row, col) {
     const d = col.sample;
@@ -674,7 +674,7 @@ function SampleView({
                 border: `1px solid ${mc || T.border}`,
                 background: mc ? `${mc}33` : "transparent",
                 color: mc || T.textMuted,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 800,
                 cursor: "pointer",
                 padding: 0,
@@ -688,7 +688,7 @@ function SampleView({
               columns.map((x) => x.sample),
               d
             ) && (
-              <span style={{ fontSize: 9.5, color: T.textSecondary }}>
+              <span style={{ fontSize: 12, color: T.textSecondary }}>
                 {viscCellTemp(
                   columns.map((x) => x.sample),
                   d
@@ -706,13 +706,13 @@ function SampleView({
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
           <div>
             <p style={{ margin: 0, fontWeight: 700, fontSize: 15 }}>
-              <span style={{ fontFamily: "monospace" }}>{c.unitId}</span>
+              <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{c.unitId}</span>
               {c.unitId !== smp.unitId && (
                 <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}> (Report ID {smp.unitId})</span>
               )}{" "}
               · Sample {smp.sampleId || "—"} · {formatDate(smp.sampledDate) || "—"} <StatusPill T={T} status={smp.reportStatus} />
             </p>
-            <p style={{ margin: "2px 0 0", fontSize: 11.5, color: T.textSecondary }}>{c.fileName}</p>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textSecondary }}>{c.fileName}</p>
           </div>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: c.blocked ? "not-allowed" : "pointer" }}>
             <input type="checkbox" checked={c.include} disabled={c.blocked} onChange={(e) => onToggle(e.target.checked)} />
@@ -776,7 +776,7 @@ function SampleView({
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: "6px 14px", marginTop: 12 }}>
             {info.map(([k, v]) => (
               <div key={k}>
-                <div style={{ fontSize: 10.5, color: T.textSecondary }}>{k}</div>
+                <div style={{ fontSize: 12, color: T.textSecondary }}>{k}</div>
                 <div style={{ fontSize: 12.5 }}>{v}</div>
               </div>
             ))}
@@ -803,7 +803,7 @@ function SampleView({
               No recommendation was found in this PDF — type it in if the report has one.
             </p>
           )}
-          <label style={{ ...s.label, fontSize: 11 }}>Alert type</label>
+          <label style={{ ...s.label, fontSize: 12 }}>Alert type</label>
           <input
             style={{ ...s.input, fontSize: 13, marginBottom: 10 }}
             value={smp.alertType || ""}
@@ -811,7 +811,7 @@ function SampleView({
             onChange={(e) => onText(c._key, "alertType", e.target.value)}
             aria-label="Alert type"
           />
-          <label style={{ ...s.label, fontSize: 11 }}>One finding per line</label>
+          <label style={{ ...s.label, fontSize: 12 }}>One finding per line</label>
           <textarea
             style={{ ...s.input, fontSize: 13, minHeight: 80, resize: "vertical" }}
             value={(smp.recommendations || []).join("\n")}
@@ -837,7 +837,7 @@ function SampleView({
                     border,
                     background: T.appBg,
                     color: T.textSecondary,
-                    fontSize: 11,
+                    fontSize: 12,
                     textAlign: "left",
                     position: "sticky",
                     left: 0,
@@ -855,7 +855,7 @@ function SampleView({
                       border,
                       background: col._key === c._key ? `${T.accent}22` : T.appBg,
                       color: T.textPrimary,
-                      fontSize: 11,
+                      fontSize: 12,
                       whiteSpace: "nowrap",
                     }}
                   >
@@ -867,7 +867,7 @@ function SampleView({
                       {formatDate(col.sample.sampledDate) || "—"}
                     </button>
                     {col.blocked && (
-                      <div style={{ fontSize: 9.5, color: T.textSecondary, fontWeight: 500 }}>
+                      <div style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}>
                         {col.duplicate ? "already saved" : col.noSampleId ? "no Sample ID" : "pick point"}
                       </div>
                     )}

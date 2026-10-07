@@ -82,7 +82,7 @@ function Seg({ T, s, active, onClick, children, testid }) {
 
 function Key({ T, items }) {
   return (
-    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
+    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
       {items.map((it) => (
         <span key={it.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           {it.dot && <span style={{ width: 9, height: 9, borderRadius: "50%", background: it.dot, display: "inline-block" }} />}
@@ -198,7 +198,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
           const last = [...rows].reverse().find((r) => r[x.p.key] !== null && r[x.p.key] !== undefined);
           const f = last?.[`${x.p.key}__f`];
           return (
-            <span style={{ fontSize: 11.5, color: T.textSecondary }}>
+            <span style={{ fontSize: 12, color: T.textSecondary }}>
               {x.trend && <strong style={{ color: T.textPrimary, marginRight: 6 }}>{x.trend.direction}</strong>}
               Latest <strong style={{ color: T.textPrimary }}>{last ? fmtNum(last[x.p.key]) : "—"}</strong>
               {f && <span style={{ color: T.textPrimary }}> ({f})</span>}
@@ -220,7 +220,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
               ticks={ticks}
               tickFormatter={tickLabel}
               allowDataOverflow
-              tick={{ fontSize: 10.5, fill: T.textSecondary }}
+              tick={{ fontSize: 12, fill: T.textSecondary }}
               axisLine={{ stroke: T.border }}
               tickLine={false}
             />
@@ -228,7 +228,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
               width={YW}
               domain={yTicks ? [0, yTicks[yTicks.length - 1]] : ["auto", "auto"]}
               ticks={yTicks || undefined}
-              tick={{ fontSize: 10.5, fill: T.textSecondary }}
+              tick={{ fontSize: 12, fill: T.textSecondary }}
               axisLine={false}
               tickLine={false}
               tickFormatter={fmtNum}
@@ -245,7 +245,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
                 strokeDasharray="5 4"
                 strokeWidth={1.5}
                 ifOverflow="extendDomain"
-                label={{ value: l.text, position: i % 2 ? "insideTopRight" : "insideTopLeft", fill: T.textSecondary, fontSize: 10 }}
+                label={{ value: l.text, position: i % 2 ? "insideTopRight" : "insideTopLeft", fill: T.textSecondary, fontSize: 12 }}
               />
             ))}
             <Tooltip content={<TopicTooltip T={T} series={shown} colorOf={colorOf} />} cursor={{ stroke: T.textMuted, strokeWidth: 1 }} isAnimationActive={false} />
@@ -278,7 +278,7 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
                 aria-pressed={!off}
                 title={off ? "Show this line" : "Hide this line"}
                 data-testid={`lab-series-${x.p.key}`}
-                style={{ ...s.btn, padding: "3px 9px", fontSize: 11.5, minHeight: 26, opacity: off ? 0.45 : 1, color: T.textPrimary }}
+                style={{ ...s.btn, padding: "3px 9px", fontSize: 12, minHeight: 26, opacity: off ? 0.45 : 1, color: T.textPrimary }}
               >
                 <span style={{ width: 12, height: 3, background: colorOf(x.p), display: "inline-block" }} />
                 {x.p.label}
@@ -289,10 +289,10 @@ function TopicChart({ T, s, group, items, rows, range, ticks, changeMarks, color
         </div>
       )}
       {notDetected.length > 0 && (
-        <div style={{ fontSize: 11, color: T.textSecondary, padding: "6px 6px 0" }}>Not detected: {notDetected.map((x) => x.p.key).join(", ")}</div>
+        <div style={{ fontSize: 12, color: T.textSecondary, padding: "6px 6px 0" }}>Not detected: {notDetected.map((x) => x.p.key).join(", ")}</div>
       )}
       {withData.some((x) => x.limits?.source === "same oil") && (
-        <div style={{ fontSize: 11, color: T.textSecondary, padding: "4px 6px 0" }}>
+        <div style={{ fontSize: 12, color: T.textSecondary, padding: "4px 6px 0" }}>
           Limits for {withData.filter((x) => x.limits?.source === "same oil").map((x) => x.p.key).join(", ")} come from other points on the same oil.
         </div>
       )}
@@ -350,7 +350,7 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
           ticks={ticks}
           tickFormatter={tickLabel}
           allowDataOverflow
-          tick={{ fontSize: 10.5, fill: T.textSecondary }}
+          tick={{ fontSize: 12, fill: T.textSecondary }}
           axisLine={{ stroke: T.border }}
           tickLine={false}
         />
@@ -361,7 +361,7 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
           domain={[0.5, 3.5]}
           ticks={[1, 2, 3]}
           tickFormatter={(v) => LANE_LABEL[v] || ""}
-          tick={{ fontSize: 10.5, fill: T.textSecondary }}
+          tick={{ fontSize: 12, fill: T.textSecondary }}
           axisLine={false}
           tickLine={false}
         />
@@ -376,14 +376,14 @@ function TimelineChart({ T, events, range, ticks, leaks, plannedMarks, nextChang
             fillOpacity={0.15}
             stroke="none"
             ifOverflow="hidden"
-            label={{ value: "Possible leak", position: "insideTopLeft", fill: T.textSecondary, fontSize: 10 }}
+            label={{ value: "Possible leak", position: "insideTopLeft", fill: T.textSecondary, fontSize: 12 }}
           />
         ))}
         {nextChangeT && (
-          <ReferenceLine x={nextChangeT} stroke={T.accent} strokeDasharray="5 4" ifOverflow="hidden" label={{ value: "Next change", position: "top", fill: T.textSecondary, fontSize: 10 }} />
+          <ReferenceLine x={nextChangeT} stroke={T.accent} strokeDasharray="5 4" ifOverflow="hidden" label={{ value: "Next change", position: "top", fill: T.textSecondary, fontSize: 12 }} />
         )}
         {nextSampleT && (
-          <ReferenceLine x={nextSampleT} stroke={T.info} strokeDasharray="2 3" ifOverflow="hidden" label={{ value: "Next sample", position: "insideBottomRight", fill: T.textSecondary, fontSize: 10 }} />
+          <ReferenceLine x={nextSampleT} stroke={T.info} strokeDasharray="2 3" ifOverflow="hidden" label={{ value: "Next sample", position: "insideBottomRight", fill: T.textSecondary, fontSize: 12 }} />
         )}
         <Tooltip content={<TimelineTooltip T={T} />} cursor={false} isAnimationActive={false} />
         <Scatter data={plannedMarks} shape={plannedShape} isAnimationActive={false} />
@@ -409,7 +409,7 @@ function CyclePanel({ T, cycles, summary, asNeeded, isMobile }) {
   };
   const tile = (label, value, testid) => (
     <div data-testid={testid} style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "8px 12px", minWidth: 120 }}>
-      <div style={{ fontSize: 11, color: T.textSecondary }}>{label}</div>
+      <div style={{ fontSize: 12, color: T.textSecondary }}>{label}</div>
       <div style={{ fontSize: 16, fontWeight: 700 }}>{value}</div>
     </div>
   );
@@ -456,14 +456,14 @@ function CyclePanel({ T, cycles, summary, asNeeded, isMobile }) {
                     />
                   )}
                 </div>
-                <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 3 }}>
+                <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 3 }}>
                   <span style={{ color: T.textPrimary, fontWeight: 700 }}>{statusText(c)}</span> · {c.days} d
                   {c.plannedDays !== null && ` of ${c.plannedDays} d planned`}
                   {lifePct !== null && ` · ${lifePct}% of oil life used`}
                   {c.current && c.planned && ` · next due ${formatDate(c.planned)}`}
                 </div>
               </div>
-              <div style={{ fontSize: 11.5, color: T.textSecondary }}>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>
                 Top-ups <strong style={{ color: T.textPrimary }}>{c.topUps}</strong> · {c.topUpLitres} L
                 <br />
                 Oil used <strong style={{ color: T.textPrimary }}>{c.oilUsed} L</strong>
@@ -493,7 +493,7 @@ function TimelineList({ T, events, onOpenEvent }) {
           style={{ position: "relative", textAlign: "left", background: "none", border: "none", padding: "4px 0", cursor: "pointer", color: T.textPrimary, minHeight: 32 }}
         >
           <span style={{ position: "absolute", left: -21, top: 9, width: 10, height: 10, borderRadius: "50%", background: T[e.color] || T.accent, border: `2px solid ${T.cardBg}` }} />
-          <div style={{ fontSize: 11.5, color: T.textSecondary }}>{formatDate(e.t)}</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>{formatDate(e.t)}</div>
           <div style={{ fontSize: 13, fontWeight: 700 }}>
             <i className={`ti ${TYPE_ICON[e.type]}`} aria-hidden="true" /> {e.title}
           </div>
@@ -641,7 +641,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
   const sectionTitle = (text, sub) => (
     <div style={{ margin: "18px 0 10px" }}>
       <p style={{ fontWeight: 700, margin: 0 }}>{text}</p>
-      {sub && <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "2px 0 0" }}>{sub}</p>}
+      {sub && <p style={{ fontSize: 12, color: T.textSecondary, margin: "2px 0 0" }}>{sub}</p>}
     </div>
   );
 

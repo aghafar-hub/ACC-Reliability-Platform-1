@@ -181,7 +181,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
                 ))}
               </select>
             )}
-            <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
+            <p style={{ fontSize: 12, color: T.textSecondary, margin: "6px 0 0" }}>
               Picking from the registry guarantees the exact spelling already used on equipment, so it always matches for auto-deduction and
               the forecast — typing it yourself (even a small spacing difference) can silently create a second, unmatched product.
             </p>
@@ -247,7 +247,7 @@ function AddProductForm({ webhookUrl, equipmentRegistry, pushToast, onCreated, o
                     />
                   </div>
                 )}
-                <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "6px 0 0" }}>
+                <p style={{ fontSize: 12, color: T.textSecondary, margin: "6px 0 0" }}>
                   Routes use this product for that oil's points when the main oil is short, and the forecast counts it as cover.
                 </p>
               </div>
@@ -432,7 +432,7 @@ function monthlyTotalsFor(byProduct, monthKeys, contractor) {
 // inventoryLogic.js's shortfallBars); the tooltip shows the split.
 function ShortfallLegend({ T }) {
   const item = (swatch, text) => (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, color: T.textSecondary }}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: T.textSecondary }}>
       {swatch}
       {text}
     </span>
@@ -504,7 +504,7 @@ function ForecastChart({ T, rows, merge }) {
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: T.textSecondary }}
+                tick={{ fontSize: 12, fill: T.textSecondary }}
                 tickFormatter={(v) => (v.length > 32 ? `${v.slice(0, 31)}…` : v)}
                 axisLine={{ stroke: T.border }}
                 tickLine={false}
@@ -513,7 +513,7 @@ function ForecastChart({ T, rows, merge }) {
                 interval={0}
                 height={60}
               />
-              <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
+              <YAxis tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
               <Tooltip content={<ShortfallTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
               <Bar maxBarSize={40} dataKey="stock" name="Stock" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                 {bars.map((d, i) => (
@@ -686,8 +686,8 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
               </span>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-                <div style={{ fontSize: 11, color: T.textSecondary }}>{m.label}</div>
-                {m.sub && <div style={{ fontSize: 10.5, color: T.textMuted || T.textSecondary }}>{m.sub}</div>}
+                <div style={{ fontSize: 12, color: T.textSecondary }}>{m.label}</div>
+                {m.sub && <div style={{ fontSize: 12, color: T.textMuted || T.textSecondary }}>{m.sub}</div>}
               </div>
             </Tag>
           );
@@ -696,7 +696,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
 
       <div style={{ ...s.card, marginBottom: 20 }}>
         <p style={{ fontWeight: 700, margin: "0 0 2px" }}>Consumption Trend (6 months)</p>
-        <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
+        <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
           Oil issued per month{partial ? " — the dashed end is this month so far" : ""}.
         </p>
         {loadingC ? (
@@ -707,8 +707,8 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={44} tickFormatter={fmtNum} />
               <Tooltip content={<ChartTooltip T={T} />} />
               <Line
                 type="linear"
@@ -745,7 +745,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
           <p style={{ fontWeight: 700, margin: 0 }}>Upcoming Shortfalls</p>
           <PeriodSelect s={s} value={period} onChange={setPeriod} />
         </div>
-        <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
+        <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
           Stock vs. the oil the planned work needs in the {periodLabel(period)}, worst shortfall first.
           {contractorFilter === "All" ? " The same oil at RHI and ASEC is one column — pick a contractor to see theirs alone." : ""}
         </p>
@@ -764,7 +764,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
           <span style={{ fontSize: 12, color: T.textSecondary }} data-testid="inv-no-level">
             <i className="ti ti-info-circle" aria-hidden="true" /> {noLevel} product{noLevel === 1 ? " has" : "s have"} no low-stock level,
             so {noLevel === 1 ? "it's" : "they're"} never flagged.{" "}
-            <button type="button" style={{ ...s.btn, padding: "2px 8px", fontSize: 11.5 }} onClick={() => onOpenStock("nolevel")}>
+            <button type="button" style={{ ...s.btn, padding: "2px 8px", fontSize: 12 }} onClick={() => onOpenStock("nolevel")}>
               Set levels
             </button>
           </span>
@@ -794,7 +794,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
                 <tr key={p.productId} style={{ cursor: "pointer" }} onClick={() => onOpenProduct(p.productId)}>
                   <td style={s.td}>
                     <div style={{ fontWeight: 700 }}>{p.lubricantType}</div>
-                    <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
+                    <div style={{ fontSize: 12, color: T.textSecondary }}>{p.lubricantBrand}</div>
                   </td>
                   <td style={s.td}>{p.storageLocation || "—"}</td>
                   <td style={s.td}>{p.contractor}</td>
@@ -889,7 +889,7 @@ function LowStockCell({ webhookUrl, product, pushToast, onSaved }) {
       {product.recorderLevel != null ? fmtQty(product.recorderLevel, product.unit) : <span style={{ color: T.textMuted }}>Not set</span>}
       {canEdit && (
         <button
-          style={{ ...s.btn, padding: "2px 8px", fontSize: 11 }}
+          style={{ ...s.btn, padding: "2px 8px", fontSize: 12 }}
           aria-label={`Change low-stock level for ${product.productId}`}
           onClick={(e) => {
             e.stopPropagation();
@@ -995,9 +995,9 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
                   <tr key={p.productId} style={{ cursor: "pointer" }} onClick={() => onOpenProduct(p.productId)}>
                     <td style={s.td}>
                       <div style={{ fontWeight: 700 }}>{p.lubricantType}</div>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
+                      <div style={{ fontSize: 12, color: T.textSecondary }}>{p.lubricantBrand}</div>
                       {p.equivalentToType && (
-                        <div style={{ fontSize: 11, color: T.warning, fontWeight: 600 }}>
+                        <div style={{ fontSize: 12, color: T.warning, fontWeight: 600 }}>
                           Approved equivalent for {p.equivalentToType}
                           {p.equivalentToBrand ? ` — ${p.equivalentToBrand}` : ""}
                         </div>
@@ -1124,7 +1124,7 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
           <div style={{ ...s.card, marginBottom: 20 }}>
             <p style={{ fontWeight: 700, margin: "0 0 2px" }}>Total Consumption by Month{splitChart ? " — by Contractor" : ""}</p>
             {partial && (
-              <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>The pale last column is this month so far.</p>
+              <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>The pale last column is this month so far.</p>
             )}
             {!hasChartData ? (
               <p style={{ color: T.textSecondary, margin: 0 }}>No logged Issue movements in this window.</p>
@@ -1132,16 +1132,16 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
                   <YAxis
-                    tick={{ fontSize: 11, fill: T.textSecondary }}
+                    tick={{ fontSize: 12, fill: T.textSecondary }}
                     axisLine={false}
                     tickLine={false}
                     width={44}
                     tickFormatter={fmtNum}
                   />
                   <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "15" }} />
-                  {splitChart && <Legend wrapperStyle={{ fontSize: 11 }} />}
+                  {splitChart && <Legend wrapperStyle={{ fontSize: 12 }} />}
                   {splitChart ? (
                     presentContractors.map((c, idx) => (
                       <Bar
@@ -1192,7 +1192,7 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
                     <tr key={p.productId} style={{ cursor: "pointer" }} onClick={() => onOpenProduct(p.productId)}>
                       <td style={s.td}>
                         <div style={{ fontWeight: 700 }}>{p.lubricant}</div>
-                        <div style={{ fontSize: 11.5, color: T.textSecondary }}>{p.lubricantBrand}</div>
+                        <div style={{ fontSize: 12, color: T.textSecondary }}>{p.lubricantBrand}</div>
                       </td>
                       <td style={s.td}>{p.contractor}</td>
                       <td style={s.td}>{fmtQty(p.total)}</td>
@@ -1288,7 +1288,7 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
             <>
               <div style={{ ...s.card, marginBottom: 20 }}>
                 <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Current Stock vs. Projected Need</p>
-                <p style={{ fontSize: 11.5, color: T.textSecondary, margin: "0 0 10px" }}>
+                <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
                   Worst shortfall first.
                   {contractorFilter === "All"
                     ? " The same oil at RHI and ASEC is one column (hover for each contractor) — pick a contractor to see theirs alone."
@@ -1318,7 +1318,7 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
                         <tr key={`${r.contractor}|${r.lubricant}|${r.lubricantBrand}`}>
                           <td style={s.td}>
                             <div style={{ fontWeight: 700 }}>{r.lubricant}</div>
-                            <div style={{ fontSize: 11.5, color: T.textSecondary }}>{r.lubricantBrand}</div>
+                            <div style={{ fontSize: 12, color: T.textSecondary }}>{r.lubricantBrand}</div>
                           </td>
                           <td style={s.td}>{r.contractor}</td>
                           <td style={s.td}>{r.lpCount}</td>
@@ -1326,7 +1326,7 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
                           <td style={s.td}>
                             {noProduct ? "—" : fmtQty(r.currentStock)}
                             {(r.coveredBy || []).length > 1 && (
-                              <div style={{ fontSize: 11, color: T.textSecondary }}>incl. {r.coveredBy.slice(1).join(", ")}</div>
+                              <div style={{ fontSize: 12, color: T.textSecondary }}>incl. {r.coveredBy.slice(1).join(", ")}</div>
                             )}
                           </td>
                           <td style={s.td}>
@@ -1379,7 +1379,7 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
                 {insufficientHistory.map((e) => (
                   <span
                     key={e.code}
-                    style={{ fontSize: 11.5, color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: 4, padding: "3px 8px" }}
+                    style={{ fontSize: 12, color: T.textSecondary, border: `1px solid ${T.border}`, borderRadius: 4, padding: "3px 8px" }}
                   >
                     {e.code} — {e.lubricant}
                     {e.lubricantBrand ? ` (${e.lubricantBrand})` : ""}
@@ -1572,7 +1572,7 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
                         {product ? (
                           <>
                             <div style={{ fontWeight: 700 }}>{product.lubricantType}</div>
-                            <div style={{ fontSize: 11.5, color: T.textSecondary }}>{product.lubricantBrand}</div>
+                            <div style={{ fontSize: 12, color: T.textSecondary }}>{product.lubricantBrand}</div>
                           </>
                         ) : (
                           m.productId

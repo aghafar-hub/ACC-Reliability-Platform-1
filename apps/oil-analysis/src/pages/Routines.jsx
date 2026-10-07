@@ -105,7 +105,7 @@ function DueStatusBadge({ T, status, returned }) {
     <span
       style={{
         display: "inline-block",
-        fontSize: 10.5,
+        fontSize: 12,
         fontWeight: 700,
         color,
         background: color + "22",
@@ -122,7 +122,7 @@ function DueStatusBadge({ T, status, returned }) {
   return (
     <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
       {badge}
-      <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger, background: T.danger + "22", borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      <span style={{ fontSize: 12, fontWeight: 700, color: T.danger, background: T.danger + "22", borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap" }}>
         Returned
       </span>
     </span>
@@ -632,8 +632,8 @@ export default function Routines({
                 {list.map((sg) => (
                   <tr key={sg.suggestionId}>
                     <td style={s.td}>
-                      <div style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{sg.lpId}</div>
-                      <div style={{ fontSize: 11.5, color: T.textSecondary }}>{regByCode[sg.lpId]?.lubricationPoint || regByCode[sg.lpId]?.description || ""}</div>
+                      <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{sg.lpId}</div>
+                      <div style={{ fontSize: 12, color: T.textSecondary }}>{regByCode[sg.lpId]?.lubricationPoint || regByCode[sg.lpId]?.description || ""}</div>
                     </td>
                     <td style={s.td}>{sg.workType}</td>
                     <td style={s.td}>{sg.reason}</td>
@@ -700,7 +700,7 @@ export default function Routines({
           ].map((m) => (
             <div key={m.label} style={s.metricCard}>
               <div style={{ fontSize: m.isText ? 14 : 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-              <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>{m.label}</div>
             </div>
           ))}
         </div>
@@ -786,7 +786,7 @@ export default function Routines({
                         <td style={s.td}>{r.dueDate || "—"}</td>
                         <td style={s.td}>
                           {r.createdDate || "—"}
-                          {aging && <div style={{ fontSize: 10.5, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
+                          {aging && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{aging}</div>}
                         </td>
                       </tr>
                     );
@@ -816,7 +816,7 @@ export default function Routines({
                     <div style={{ margin: "8px 0" }}>
                       <ProgressBar done={r.itemsDone} total={r.itemsTotal} />
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textMuted }}>
                       <span>Due {r.dueDate || "—"}</span>
                       <span>
                         Created {r.createdDate || "—"}
@@ -914,7 +914,7 @@ export default function Routines({
             </span>
             <div>
               <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-              <div style={{ fontSize: 10, color: T.textSecondary }}>{m.label}</div>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>{m.label}</div>
             </div>
           </div>
         ))}
@@ -1050,7 +1050,7 @@ export default function Routines({
                         <ProgressBar done={item.itemsDone} total={item.equipmentCount} width={120} />
                       </div>
                     )}
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.textMuted, marginTop: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textMuted, marginTop: 8 }}>
                       <span>Due {formatDateShort(item.nextDueDate)}</span>
                       <span>Last done {formatDateShort(item.lastCompleted)}</span>
                     </div>
@@ -1079,7 +1079,7 @@ export default function Routines({
                       <span style={{ fontSize: 12.5, fontWeight: 700 }}>{item.routeName || item.id}</span>
                       <DueStatusBadge T={T} status={item.dueStatus} returned={item.returned} />
                     </div>
-                    <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>
+                    <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>
                       {formatDateShort(item.nextDueDate)}
                       {item.area ? ` · ${item.area}` : ""} · {item.equipmentCount} equipment
                     </div>
@@ -1100,10 +1100,10 @@ export default function Routines({
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={upcomingChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={28} />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={28} />
                 <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Overdue" stackId="s" fill={T.danger} />
                 <Bar dataKey="Due Soon" stackId="s" fill={T.warning} />
                 <Bar dataKey="On Schedule" stackId="s" fill={T.success} radius={[4, 4, 0, 0]} />
@@ -1128,7 +1128,7 @@ export default function Routines({
                   <Tooltip content={<ChartTooltip T={T} />} />
                 </PieChart>
               </ResponsiveContainer>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11.5 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
                 {areaChartData.map((d) => (
                   <div key={d.area} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 9, height: 9, borderRadius: 2, background: d.color, flexShrink: 0 }} />
@@ -1144,7 +1144,7 @@ export default function Routines({
         <div style={s.card}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <p style={{ fontWeight: 700, margin: 0 }}>Completion Rate Trend (Last 6 Months)</p>
-            <span style={{ fontSize: 10.5, color: T.danger, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 12, color: T.danger, display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ display: "inline-block", width: 14, height: 0, borderTop: `2px dashed ${T.danger}` }} /> Target 90%
             </span>
           </div>
@@ -1156,15 +1156,15 @@ export default function Routines({
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={completionChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={32} unit="%" />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={32} unit="%" />
                 <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
                 <ReferenceLine y={90} stroke={T.danger} strokeDasharray="4 4" />
                 <Bar dataKey="rate" name="Completion Rate" fill={T.accent} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
-          <p style={{ fontSize: 10.5, color: T.textMuted, margin: "8px 0 0" }}>
+          <p style={{ fontSize: 12, color: T.textMuted, margin: "8px 0 0" }}>
             Item-weighted: LP items completed on time ÷ total LP items, across routines due that month.
           </p>
         </div>

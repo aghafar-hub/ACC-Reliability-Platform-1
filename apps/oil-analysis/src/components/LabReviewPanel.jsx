@@ -86,8 +86,8 @@ function ReviewRow({ sample, contractor }) {
   return (
     <tr>
       <td style={s.td}>
-        <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent }}>{sample.unitId}</span>
-        <div style={{ fontSize: 11, color: T.textSecondary }}>{contractor || "—"}</div>
+        <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{sample.unitId}</span>
+        <div style={{ fontSize: 12, color: T.textSecondary }}>{contractor || "—"}</div>
       </td>
       <td style={s.td}>{sample.sampledDate || "—"}</td>
       <td style={s.td}>
@@ -95,12 +95,12 @@ function ReviewRow({ sample, contractor }) {
       </td>
       <td style={s.td}>
         <div style={{ fontSize: 12 }}>{sample.uploadedBy || "—"}</div>
-        <div style={{ fontSize: 11, color: T.textMuted }}>{sample.uploadedDate}</div>
+        <div style={{ fontSize: 12, color: T.textMuted }}>{sample.uploadedDate}</div>
       </td>
       <td style={s.td}>
         <span style={s.badge(sample.validationStatus)}>{sample.validationStatus}</span>
         {!pending && sample.returnReason && (
-          <div style={{ fontSize: 11.5, color: T.danger, marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: T.danger, marginTop: 4 }}>
             {sample.returnReason} — {sample.returnedBy}
             <div style={{ color: T.textSecondary }}>Correct the report and save it; it comes back here for validation.</div>
           </div>
@@ -136,7 +136,7 @@ function ReviewRow({ sample, contractor }) {
             </button>
           </div>
         )}
-        {error && <div style={{ fontSize: 11.5, color: T.danger, marginTop: 4 }}>{error}</div>}
+        {error && <div style={{ fontSize: 12, color: T.danger, marginTop: 4 }}>{error}</div>}
       </td>
     </tr>
   );

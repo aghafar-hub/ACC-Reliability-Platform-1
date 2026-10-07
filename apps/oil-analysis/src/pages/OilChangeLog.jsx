@@ -123,15 +123,15 @@ function ChipCard({ p, color, onClick }) {
         fontFamily: "inherit",
       }}
     >
-      <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{o.equipmentCode}</div>
-      <div style={{ fontSize: 11, color: T.textSecondary, margin: "1px 0 5px" }}>
+      <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{o.equipmentCode}</div>
+      <div style={{ fontSize: 12, color: T.textSecondary, margin: "1px 0 5px" }}>
         {o.lubricationPoint} · {o.oilType}
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 5, flexWrap: "wrap" }}>
         {p.area && (
           <span
             style={{
-              fontSize: 9.5,
+              fontSize: 12,
               fontWeight: 700,
               padding: "1px 6px",
               borderRadius: 999,
@@ -146,7 +146,7 @@ function ChipCard({ p, color, onClick }) {
         {p.contractor && (
           <span
             style={{
-              fontSize: 9.5,
+              fontSize: 12,
               fontWeight: 700,
               padding: "1px 6px",
               borderRadius: 999,
@@ -159,7 +159,7 @@ function ChipCard({ p, color, onClick }) {
           </span>
         )}
       </div>
-      <div style={{ fontSize: 10.5, fontWeight: 700, color }}>{dueText(p.days)}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color }}>{dueText(p.days)}</div>
     </button>
   );
 }
@@ -294,12 +294,12 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>
             Upcoming Changes — Next {WEEKS_AHEAD} Weeks
           </p>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>LPs due per week — see clustering before it happens.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted }}>LPs due per week — see clustering before it happens.</p>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 9.5, fill: T.textMuted }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: T.textMuted }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="Due" fill={T.accent} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -308,12 +308,12 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
 
         <div style={{ ...s.card, marginBottom: 0 }}>
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Status by Contractor</p>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Where each contractor stands right now.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted }}>Where each contractor stands right now.</p>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={contractorData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="contractor" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="contractor" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="Overdue" fill={T.danger} radius={[3, 3, 0, 0]} />
               <Bar dataKey="Due this week" fill={T.warning} radius={[3, 3, 0, 0]} />
@@ -325,12 +325,12 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
 
         <div style={{ ...s.card, marginBottom: 0 }}>
           <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 700, color: T.textHighlight }}>Changes Done: On Time vs Late</p>
-          <p style={{ margin: "0 0 10px", fontSize: 11, color: T.textMuted }}>Last 6 months, from real change history.</p>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: T.textMuted }}>Last 6 months, from real change history.</p>
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={trendData}>
               <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
+              <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={24} />
               <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
               <Bar dataKey="On time" stackId="s" fill={T.success} />
               <Bar dataKey="Late" stackId="s" fill={T.danger} radius={[3, 3, 0, 0]} />
@@ -351,7 +351,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
         {filtersOpen && (
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+              <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
                 Equipment
               </span>
               <EquipmentSearch
@@ -365,7 +365,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
             </div>
             {areas.length > 1 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
                   Area
                 </span>
                 <select style={{ ...s.select, fontSize: 12, minWidth: 140 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
@@ -377,7 +377,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
             )}
             {contractors.length > 1 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <span style={{ fontSize: 10, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
+                <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
                   Contractor
                 </span>
                 <select
@@ -488,7 +488,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
                 {groups.map(([groupName, groupList]) => (
                   <div key={groupName || "all"}>
                     {groupName && (
-                      <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "4px 0 6px" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "4px 0 6px" }}>
                         {groupName} · {groupList.length}
                       </div>
                     )}

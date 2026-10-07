@@ -1137,7 +1137,7 @@ function AppShell({ config, setConfig, navBridge }) {
       style={{
         display: "flex",
         height: "100vh",
-        fontFamily: "'Inter',sans-serif",
+        fontFamily: "'IBM Plex Sans','Segoe UI',Roboto,sans-serif",
         background: T.appBg,
         color: T.textPrimary,
         overflow: "hidden",

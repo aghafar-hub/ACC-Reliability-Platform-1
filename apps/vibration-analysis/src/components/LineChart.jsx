@@ -160,13 +160,13 @@ export default function LineChart({ title, series, thresholds = [], unit = "", h
       {(series.length > 1 || thresholds.length > 0) && (
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
           {series.map((sr) => (
-            <span key={sr.name} style={{ fontSize: 11.5, color: T.textSecondary, display: "flex", alignItems: "center", gap: 4 }}>
+            <span key={sr.name} style={{ fontSize: 12, color: T.textSecondary, display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 12, height: 3, background: sr.color, display: "inline-block", borderRadius: 2 }} />
               {sr.name}
             </span>
           ))}
           {thresholds.map((t, i) => (
-            <span key={i} style={{ fontSize: 11.5, color: t.color, display: "flex", alignItems: "center", gap: 4 }}>
+            <span key={i} style={{ fontSize: 12, color: t.color, display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ width: 12, height: 2, background: t.color, display: "inline-block", borderRadius: 1, opacity: 0.7 }} />
               {t.label}
             </span>

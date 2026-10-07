@@ -292,12 +292,12 @@ export default function OilReportSearch({
                     >
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 600, color: T.accent }}>{code}</div>
-                        <div style={{ fontSize: 11, color: T.textSecondary }}>{r?.description || ""}</div>
+                        <div style={{ fontSize: 12, color: T.textSecondary }}>{r?.description || ""}</div>
                       </div>
                       {last && (
                         <span
                           style={{
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: 700,
                             color,
                             background: color + "18",
@@ -426,31 +426,31 @@ export default function OilReportSearch({
                 },
               ].map((col) => (
                 <div key={col.title} style={{ padding: "12px 16px", borderRight: `1px solid ${T.border}` }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: T.accent, marginBottom: 8, letterSpacing: 0.5 }}>{col.title}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.accent, marginBottom: 8, letterSpacing: 0.5 }}>{col.title}</div>
                   {col.rows.map(([k, v]) => (
                     <div key={k} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: T.textSecondary, minWidth: 90 }}>{k}:</span>
-                      <span style={{ fontSize: 11, color: T.textPrimary, fontWeight: 500 }}>{v || "—"}</span>
+                      <span style={{ fontSize: 12, color: T.textSecondary, minWidth: 90 }}>{k}:</span>
+                      <span style={{ fontSize: 12, color: T.textPrimary, fontWeight: 500 }}>{v || "—"}</span>
                     </div>
                   ))}
                 </div>
               ))}
             </div>
             {!latest.accountId && !latest.assetId && !latest.bottleId && !latest.serviceLevel && (
-              <div data-testid="report-details-hint" style={{ padding: "8px 20px", fontSize: 11.5, color: T.textSecondary, borderBottom: `1px solid ${T.border}` }}>
+              <div data-testid="report-details-hint" style={{ padding: "8px 20px", fontSize: 12, color: T.textSecondary, borderBottom: `1px solid ${T.border}` }}>
                 <i className="ti ti-info-circle" aria-hidden="true" /> This sample was saved without the lab report's header details. Import its PDF again (Add Report →
                 Import) — it won't be added twice, and the missing details are filled in.
               </div>
             )}
             <div style={{ padding: "10px 20px", display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={{ fontSize: 11, color: T.textSecondary }}>
-                Unit ID: <span style={{ fontFamily: "monospace", fontWeight: 700, color: T.accent, fontSize: 13 }}>{latest.unitId}</span>
+              <span style={{ fontSize: 12, color: T.textSecondary }}>
+                Unit ID: <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent, fontSize: 13 }}>{latest.unitId}</span>
               </span>
-              <span style={{ fontSize: 11, color: T.textSecondary }}>
+              <span style={{ fontSize: 12, color: T.textSecondary }}>
                 Description: <span style={{ color: T.textPrimary }}>{latest.description || reg?.description}</span>
               </span>
               {reg && (
-                <span style={{ fontSize: 11, color: T.textSecondary }}>
+                <span style={{ fontSize: 12, color: T.textSecondary }}>
                   Interval: <span style={{ color: T.textPrimary }}>{reg.interval}</span>
                 </span>
               )}
@@ -462,7 +462,7 @@ export default function OilReportSearch({
               <div style={{ ...cardHead, display: "flex", alignItems: "center", gap: 8 }}>
                 <i className="ti ti-alert-triangle" style={{ color: T.danger, fontSize: 16 }} aria-hidden="true" />
                 <span style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary }}>Recommendations / Comments</span>
-                <span style={{ fontSize: 11.5, color: T.textSecondary }}>— latest sample, {formatDate(latest.sampledDate)}</span>
+                <span style={{ fontSize: 12, color: T.textSecondary }}>— latest sample, {formatDate(latest.sampledDate)}</span>
               </div>
               <div style={{ padding: "16px 20px" }}>
                 {latest.recommendations.map((r, i) => (
@@ -551,7 +551,7 @@ export default function OilReportSearch({
 function Info({ T, label, value, color, strong }) {
   return (
     <div>
-      <div style={{ fontSize: 10.5, color: T.textSecondary }}>{label}</div>
+      <div style={{ fontSize: 12, color: T.textSecondary }}>{label}</div>
       <div style={{ fontSize: strong ? 13 : 12, fontWeight: strong ? 700 : 600, color: color ? T[color] : T.textPrimary }}>{value}</div>
     </div>
   );
@@ -583,7 +583,7 @@ function Chip({ T, s, active, onClick, children, testid, disabled }) {
 
 function LegendItem({ T, color, label }) {
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: T.textSecondary }}>
+    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: T.textSecondary }}>
       <span style={{ width: 10, height: 3, background: color, display: "inline-block" }} />
       {label}
     </span>
@@ -759,7 +759,7 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
     left: 0,
     zIndex: 2,
   };
-  const headStyle = { padding: "6px 8px", background: T.appBg, color: T.textSecondary, fontSize: 11, fontWeight: 700, textAlign: "center", border, whiteSpace: "nowrap" };
+  const headStyle = { padding: "6px 8px", background: T.appBg, color: T.textSecondary, fontSize: 12, fontWeight: 700, textAlign: "center", border, whiteSpace: "nowrap" };
   const groupStyle = { padding: "8px 10px", background: T.infoBarBg, color: T.accent, fontSize: 12, fontWeight: 700, border, letterSpacing: 0.5 };
   const focusShadow = `inset 2px 0 0 ${T.accent}, inset -2px 0 0 ${T.accent}`;
   const changeCell = { border, background: `${T.accent}14`, minWidth: 18, padding: 0 };
@@ -768,7 +768,7 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
     if (col.type === "change") return <td key={i} style={changeCell} />;
     const d = col.sample;
     const isFocus = focusKey && d._id === focusKey;
-    const base = { padding: "5px 8px", border, textAlign: "center", fontSize: 11.5, color: T.textPrimary, boxShadow: isFocus ? focusShadow : undefined };
+    const base = { padding: "5px 8px", border, textAlign: "center", fontSize: 12, color: T.textPrimary, boxShadow: isFocus ? focusShadow : undefined };
     if (row.kind === "status") {
       const v = row.get(d);
       return <td key={i} style={base}>{v ? <Pill T={T} status={v} /> : <span style={{ color: T.textMuted }}>—</span>}</td>;
@@ -776,7 +776,7 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
     if (row.kind === "review") {
       const r = reviewOf(d);
       return (
-        <td key={i} style={{ ...base, fontSize: 10.5, color: T[r.color] || T.textSecondary, fontWeight: r.color === "textSecondary" ? 500 : 700 }} title={r.detail}>
+        <td key={i} style={{ ...base, fontSize: 12, color: T[r.color] || T.textSecondary, fontWeight: r.color === "textSecondary" ? 500 : 700 }} title={r.detail}>
           {r.label}
         </td>
       );
@@ -784,14 +784,14 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
     if (row.kind === "action") {
       const list = actionsForSample(actions, code, d);
       return (
-        <td key={i} style={{ ...base, fontSize: 10.5 }}>
+        <td key={i} style={{ ...base, fontSize: 12 }}>
           {list.length ? list.map((a) => `${a.acNo || "—"} · ${a.status}`).join(", ") : <span style={{ color: T.textMuted }}>—</span>}
         </td>
       );
     }
     const v = row.get(d);
     if (row.kind === "date") return <td key={i} style={{ ...base, fontWeight: 600 }}>{v ? formatDate(v) : "—"}</td>;
-    if (row.kind === "mono") return <td key={i} style={{ ...base, fontFamily: "monospace", fontSize: 10.5, color: T.textSecondary }}>{v || "—"}</td>;
+    if (row.kind === "mono") return <td key={i} style={{ ...base, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 12, color: T.textSecondary }}>{v || "—"}</td>;
     const mark = row.kind === "num" ? cellMark(d, row) : "";
     const c = mark ? T[SEV_KEY[mark]] : null;
     return (
@@ -799,10 +799,10 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
         key={i}
         title={mark ? `Lab marked ${mark}` : undefined}
         data-mark={mark || undefined}
-        style={{ ...base, fontFamily: "monospace", fontSize: 12, fontWeight: mark ? 700 : 400, color: c || T.textPrimary, background: c ? `${c}26` : "transparent" }}
+        style={{ ...base, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 12, fontWeight: mark ? 700 : 400, color: c || T.textPrimary, background: c ? `${c}26` : "transparent" }}
       >
         {v ?? "—"}
-        {row.visc && v !== null && v !== undefined && viscCellTemp(shown, d) && <span style={{ fontSize: 9.5, color: T.textSecondary }}> {viscCellTemp(shown, d)}</span>}
+        {row.visc && v !== null && v !== undefined && viscCellTemp(shown, d) && <span style={{ fontSize: 12, color: T.textSecondary }}> {viscCellTemp(shown, d)}</span>}
       </td>
     );
   }
@@ -821,7 +821,7 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
                 style={{ ...headStyle, background: `${T.accent}22`, color: T.textPrimary, minWidth: 18, maxWidth: 26, padding: "4px 2px", whiteSpace: "normal" }}
               >
                 <i className="ti ti-droplet" aria-hidden="true" style={{ color: T.accent }} />
-                <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 9.5, fontWeight: 600, margin: "4px auto 0", maxHeight: 120 }}>
+                <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 12, fontWeight: 600, margin: "4px auto 0", maxHeight: 120 }}>
                   Oil change {formatDate(col.change.eventDate)}
                 </div>
               </th>

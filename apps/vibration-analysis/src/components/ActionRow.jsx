@@ -41,11 +41,11 @@ export default function ActionRow({ action, onEdit, onDelete, onEmail }) {
       >
         <span style={{ fontWeight: 800, color: T.accent, fontSize: 13, minWidth: 60 }}>{action.actionNo}</span>
         <span style={{ fontWeight: 700, color: T.textHighlight, flex: 1, minWidth: 120 }}>
-          {action.equipmentName} <span style={{ fontWeight: 400, color: T.textMuted, fontSize: 11 }}>({action.equipmentId})</span>
+          {action.equipmentName} <span style={{ fontWeight: 400, color: T.textMuted, fontSize: 12 }}>({action.equipmentId})</span>
         </span>
         <span style={pillStyle(statusColor)}>{action.machineStatus || "—"}</span>
         <span style={pillStyle(actionStatusColor)}>{action.actionStatus || "Open"}</span>
-        {action.revisionDate && <span style={{ fontSize: 11, color: T.textMuted }}>{formatDisplayDate(action.revisionDate)}</span>}
+        {action.revisionDate && <span style={{ fontSize: 12, color: T.textMuted }}>{formatDisplayDate(action.revisionDate)}</span>}
         <span style={{ color: T.textMuted, transform: open ? "rotate(180deg)" : "none", transition: "0.15s", marginLeft: "auto" }}>
           <Icon d={ICONS.chevDown} size={15} />
         </span>
@@ -57,7 +57,7 @@ export default function ActionRow({ action, onEdit, onDelete, onEmail }) {
           >
             {DETAIL_FIELDS.map(([label, key, isDate]) => (
               <div key={key}>
-                <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginBottom: 2 }}>{label.toUpperCase()}</div>
+                <div style={{ fontSize: 12, color: T.textMuted, fontWeight: 700, marginBottom: 2 }}>{label.toUpperCase()}</div>
                 <div style={{ color: T.textPrimary, fontWeight: 600 }}>
                   {(isDate ? formatDisplayDate(action[key]) : action[key]) || "—"}
                 </div>
@@ -67,7 +67,7 @@ export default function ActionRow({ action, onEdit, onDelete, onEmail }) {
           {TEXT_FIELDS.map(([label, key]) =>
             action[key] ? (
               <div key={key} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginBottom: 2 }}>{label.toUpperCase()}</div>
+                <div style={{ fontSize: 12, color: T.textMuted, fontWeight: 700, marginBottom: 2 }}>{label.toUpperCase()}</div>
                 <div style={{ fontSize: 12.5, color: T.textPrimary, lineHeight: 1.5 }}>{action[key]}</div>
               </div>
             ) : null

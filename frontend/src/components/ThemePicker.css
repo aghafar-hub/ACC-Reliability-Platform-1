@@ -75,3 +75,12 @@
 .theme-swatch-check {
   color: var(--shell-accent, #1d4ed8);
 }
+
+.theme-swatch-hint {
+  display: block;
+  padding: 0 10px 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--shell-text-secondary, #8ea0bb);
+  text-align: start;
+}

@@ -17,7 +17,7 @@ function Toggle({ T, s, label, desc, checked, onChange }) {
     <div style={{ marginBottom: 18, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
       <div>
         <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>{label}</label>
-        {desc && <p style={{ margin: "4px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6, maxWidth: 420 }}>{desc}</p>}
+        {desc && <p style={{ margin: "4px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6, maxWidth: 420 }}>{desc}</p>}
       </div>
       <label style={{ position: "relative", display: "inline-block", width: 44, height: 24, flexShrink: 0, cursor: "pointer" }}>
         <input
@@ -108,13 +108,13 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
         <i className="ti ti-clock-hour-4" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
         <div>
           <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Sampling Intervals</p>
-          <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+          <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
             Edit how often each piece of equipment should be sampled — saved straight to the "Equipment Registry" sheet.
           </p>
         </div>
       </div>
       {!isAdmin && (
-        <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
+        <p style={{ fontSize: 12, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
           <i className="ti ti-lock" aria-hidden="true" /> Read-only — only an Admin account can edit sampling intervals.
         </p>
       )}
@@ -140,8 +140,8 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
-                <div style={{ fontSize: 11, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
+                <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {eq.description}
                 </div>
               </div>
@@ -156,17 +156,17 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
                     onKeyDown={(e) => e.key === "Enter" && saveEdit(eq)}
                     disabled={saving}
                   />
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11 }} onClick={() => saveEdit(eq)} disabled={saving}>
+                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 12 }} onClick={() => saveEdit(eq)} disabled={saving}>
                     <i className={`ti ${saving ? "ti-loader" : "ti-check"}`} aria-hidden="true" />
                   </button>
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11 }} onClick={cancelEdit} disabled={saving}>
+                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 12 }} onClick={cancelEdit} disabled={saving}>
                     <i className="ti ti-x" aria-hidden="true" />
                   </button>
                 </>
               ) : (
                 <>
                   <span style={{ fontSize: 12, color: T.textHighlight, width: 100, textAlign: "right" }}>{eq.interval || "—"}</span>
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 11 }} onClick={() => startEdit(eq)} disabled={!isAdmin}>
+                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 12 }} onClick={() => startEdit(eq)} disabled={!isAdmin}>
                     <i className="ti ti-pencil" aria-hidden="true" />
                   </button>
                 </>
@@ -176,7 +176,7 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
         )}
       </div>
       {filtered.length > 50 && (
-        <p style={{ fontSize: 11, color: T.textMuted, marginTop: 6 }}>Showing 50 of {filtered.length} — narrow your search to see more.</p>
+        <p style={{ fontSize: 12, color: T.textMuted, marginTop: 6 }}>Showing 50 of {filtered.length} — narrow your search to see more.</p>
       )}
       {msg && <p style={{ marginTop: 8, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
     </div>
@@ -194,7 +194,7 @@ function Field({ T, s, label, value, placeholder, onChange, desc, type = "text" 
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
       />
-      {desc && <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>{desc}</p>}
+      {desc && <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>{desc}</p>}
     </div>
   );
 }
@@ -254,7 +254,7 @@ function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
         <i className="ti ti-mail" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
         <div>
           <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Email Notifications</p>
-          <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+          <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
             Routine assigned/submitted/approved emails, plus the daily aging-actions and low-stock digests. Admin-only — applies to
             everyone, not just this device.
           </p>
@@ -268,7 +268,7 @@ function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
       ) : (
         <>
           {!isAdmin && (
-            <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
+            <p style={{ fontSize: 12, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
               <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can change these — shown here read-only.
             </p>
           )}
@@ -486,7 +486,7 @@ export default function Settings({
                 margin: "4px 0 0",
                 fontSize: 12,
                 color: T.textSecondary,
-                fontFamily: "monospace",
+                fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
                 wordBreak: "break-all",
                 background: T.cardSubBg,
                 border: `1px solid ${T.border}`,
@@ -496,7 +496,7 @@ export default function Settings({
             >
               {draft.webhookUrl || "Not configured"}
             </p>
-            <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+            <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
               Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
             </p>
           </div>
@@ -542,7 +542,7 @@ export default function Settings({
               <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
               <div>
                 <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
-                <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+                <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
                   Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every
                   device, nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
                 </p>
@@ -564,7 +564,7 @@ export default function Settings({
               <i className="ti ti-list-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
               <div>
                 <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
-                <p style={{ margin: 0, fontSize: 11, color: T.textSecondary }}>
+                <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
                   The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the
                   app opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
                 </p>
@@ -591,7 +591,7 @@ export default function Settings({
             </div>
 
             {!isAdmin && (
-              <p style={{ fontSize: 11.5, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
                 <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can add new actions.
               </p>
             )}

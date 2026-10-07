@@ -34,7 +34,7 @@ export default function Sidebar({ page, setPage, syncState, onSync, actionCounts
             e.target.src = DEFAULT_LOGO_URL;
           }}
         />
-        <div style={{ fontSize: 11.5, color: T.accent, marginTop: 8, fontWeight: 700, letterSpacing: 0.3 }}>
+        <div style={{ fontSize: 12, color: T.accent, marginTop: 8, fontWeight: 700, letterSpacing: 0.3 }}>
           Vibration & Condition Monitoring
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function Sidebar({ page, setPage, syncState, onSync, actionCounts
               boxShadow: syncState.status === "loading" ? `0 0 0 3px ${dotColor}33` : "none",
             }}
           />
-          <span style={{ fontSize: 11, color: T.sidebarTextSecondary, lineHeight: 1.3 }}>{syncState.message}</span>
+          <span style={{ fontSize: 12, color: T.sidebarTextSecondary, lineHeight: 1.3 }}>{syncState.message}</span>
         </div>
         <button
           onClick={onSync}

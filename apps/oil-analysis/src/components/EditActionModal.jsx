@@ -205,14 +205,14 @@ export default function EditActionModal({
 
   const field = (label, key, type = "text") => (
     <div>
-      <label style={{ ...s.label, fontSize: 11 }}>{label}</label>
+      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
       <input style={{ ...s.input, fontSize: 13 }} type={type} value={form[key] || ""} onChange={(e) => set(key, e.target.value)} />
     </div>
   );
 
   const textarea = (label, key) => (
     <div>
-      <label style={{ ...s.label, fontSize: 11 }}>{label}</label>
+      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
       <textarea
         style={{ ...s.input, fontSize: 13, minHeight: 56, resize: "vertical" }}
         value={form[key] || ""}
@@ -226,7 +226,7 @@ export default function EditActionModal({
   // above already uses for a scoped contractor account.
   const lockedTextarea = (label, key) => (
     <div>
-      <label style={{ ...s.label, fontSize: 11 }}>{label}</label>
+      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
       <div
         style={{
           ...s.input,
@@ -303,7 +303,7 @@ export default function EditActionModal({
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Identification</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Equipment Code</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Equipment Code</label>
             <EquipmentSearch
               options={equipmentRegistry}
               value={equipCode}
@@ -316,7 +316,7 @@ export default function EditActionModal({
           {field("Oil Type", "oilType")}
           {field("Revision Date", "revisionDate", "date")}
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Sample Date</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Sample Date</label>
             <select
               style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
               value={form.sampleDate || ""}
@@ -339,17 +339,17 @@ export default function EditActionModal({
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Oil Change</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Last Change Date</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Last Change Date</label>
             <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 }}>
               {form.lastChange ? formatDate(form.lastChange) : "—"}
             </div>
-            <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0", lineHeight: 1.5 }}>
               {oilChangesForEquip.length > 0 ? "From the Oil Change Log (updated when an oil-change route is confirmed)." : "No oil change logged for this equipment yet."}
             </p>
           </div>
           {oilChangesForEquip.length > 0 && (
             <div>
-              <label style={{ ...s.label, fontSize: 11 }}>Lubrication Point</label>
+              <label style={{ ...s.label, fontSize: 12 }}>Lubrication Point</label>
               <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center", minHeight: 34 }}>
                 {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).lubricationPoint} —{" "}
                 {(oilChangesForEquip.find((o) => o._id === lubPointId) || oilChangesForEquip[0]).oilType}
@@ -375,7 +375,7 @@ export default function EditActionModal({
         <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 10px" }}>Status &amp; Action</p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12, marginBottom: 18 }}>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Status</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Status</label>
             {isDraft || statusLocked ? (
               <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
                 {form.status}
@@ -392,10 +392,10 @@ export default function EditActionModal({
                 ))}
               </select>
             )}
-            {isDraft && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Press Submit to make it Open</p>}
+            {isDraft && <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Press Submit to make it Open</p>}
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Due Date</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Due Date</label>
             {isDraft ? (
               <input style={{ ...s.input, fontSize: 13 }} type="date" aria-label="Due Date" value={form.dueDate || ""} onChange={(e) => set("dueDate", e.target.value)} />
             ) : (
@@ -404,13 +404,13 @@ export default function EditActionModal({
               </div>
             )}
             {!isDraft && form.originalDueDate && (
-              <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>
+              <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>
                 First due {form.originalDueDate}. Rescheduled{form.rescheduledBy ? ` by ${form.rescheduledBy}` : ""}: {form.rescheduleReason}
               </p>
             )}
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Duration (days)</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Duration (days)</label>
             {isDraft ? (
               <input
                 style={{ ...s.input, fontSize: 13 }}
@@ -425,17 +425,17 @@ export default function EditActionModal({
                 {form.duration === "" || form.duration == null ? "—" : form.duration}
               </div>
             )}
-            <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Overdue after Due Date + Duration + 5 days</p>
+            <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Overdue after Due Date + Duration + 5 days</p>
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Completed Date</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Completed Date</label>
             <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
               {isClosed ? form.completedDate || "—" : "—"}
             </div>
-            {!isClosed && <p style={{ fontSize: 10, color: T.textMuted, margin: "3px 0 0" }}>Set when the action is closed</p>}
+            {!isClosed && <p style={{ fontSize: 12, color: T.textMuted, margin: "3px 0 0" }}>Set when the action is closed</p>}
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Contractor</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Contractor</label>
             {scopedContractor ? (
               <div style={{ ...s.input, fontSize: 13, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
                 {scopedContractor}
@@ -454,7 +454,7 @@ export default function EditActionModal({
             )}
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Assigned To</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Assigned To</label>
             <TechnicianPicker
               contractor={form.contractor}
               value={form.assignedTo || ""}
@@ -705,11 +705,11 @@ function RescheduleSection({ action, contractor, onDone }) {
       <p style={{ fontSize: 12, fontWeight: 700, color: T.accent, margin: "0 0 8px" }}>Reschedule</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div>
-          <label style={{ ...s.label, fontSize: 11 }}>New due date</label>
+          <label style={{ ...s.label, fontSize: 12 }}>New due date</label>
           <input style={{ ...s.input, fontSize: 13 }} type="date" aria-label="New due date" value={date} onChange={(e) => setDate(e.target.value)} />
         </div>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <label style={{ ...s.label, fontSize: 11 }}>Reason</label>
+          <label style={{ ...s.label, fontSize: 12 }}>Reason</label>
           <input style={{ ...s.input, fontSize: 13 }} aria-label="Reschedule reason" value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
         <button style={s.btnPrimary} disabled={busy} onClick={save}>

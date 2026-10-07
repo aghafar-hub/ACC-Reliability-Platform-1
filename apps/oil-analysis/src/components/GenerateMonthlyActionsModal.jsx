@@ -201,7 +201,7 @@ export default function GenerateMonthlyActionsModal({ samples, actions, equipmen
                           disabled={running || done}
                         />
                       </td>
-                      <td style={{ ...s.td, fontFamily: "monospace" }}>{c.equipmentCode}</td>
+                      <td style={{ ...s.td, fontFamily: "'IBM Plex Mono', ui-monospace, monospace" }}>{c.equipmentCode}</td>
                       <td style={s.td}>{c.description || "—"}</td>
                       <td style={s.td}>{c.sampleDate}</td>
                       <td style={s.td}>

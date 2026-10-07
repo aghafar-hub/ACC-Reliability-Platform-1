@@ -29,7 +29,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
 
   const field = (label, key, type = "text") => (
     <div>
-      <label style={{ ...s.label, fontSize: 11 }}>{label}</label>
+      <label style={{ ...s.label, fontSize: 12 }}>{label}</label>
       <input style={{ ...s.input, fontSize: 13 }} type={type} value={form[key] ?? ""} onChange={(e) => set(key, e.target.value)} />
     </div>
   );
@@ -78,7 +78,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
           {field("Sample Date", "sampledDate", "date")}
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Report Status</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Report Status</label>
             <select
               style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
               value={form.reportStatus || "Normal"}
@@ -90,7 +90,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
             </select>
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Equipment Rating</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Equipment Rating</label>
             <select
               style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
               value={form.equipmentRating || "Normal"}
@@ -102,7 +102,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
             </select>
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Lubricant Rating</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Lubricant Rating</label>
             <select
               style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
               value={form.lubricantRating || "Normal"}
@@ -114,7 +114,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
             </select>
           </div>
           <div>
-            <label style={{ ...s.label, fontSize: 11 }}>Contamination Rating</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Contamination Rating</label>
             <select
               style={{ ...s.input, fontSize: 13, cursor: "pointer" }}
               value={form.contaminationRating || "Normal"}
@@ -139,7 +139,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(80px,1fr))", gap: 10, marginBottom: 16 }}>
           {Object.keys(form.wear || {}).map((k) => (
             <div key={k}>
-              <label style={{ ...s.label, fontSize: 11 }}>{k}</label>
+              <label style={{ ...s.label, fontSize: 12 }}>{k}</label>
               <input
                 style={{ ...s.input, fontSize: 13 }}
                 type="number"
@@ -159,7 +159,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
         <div style={{ marginBottom: 20 }}>
           {field("Alert Type", "alertType")}
           <div style={{ marginTop: 10 }}>
-            <label style={{ ...s.label, fontSize: 11 }}>Recommendations</label>
+            <label style={{ ...s.label, fontSize: 12 }}>Recommendations</label>
             <textarea
               style={{ ...s.input, fontSize: 13, minHeight: 70, resize: "vertical" }}
               value={(form.recommendations || []).join("\n")}

@@ -217,7 +217,7 @@ export default function Settings({
                   margin: "4px 0 0",
                   fontSize: 12,
                   color: T.textSecondary,
-                  fontFamily: "monospace",
+                  fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
                   wordBreak: "break-all",
                   background: T.codeBg,
                   border: `1px solid ${T.border}`,
@@ -227,7 +227,7 @@ export default function Settings({
               >
                 {draft.webhookUrl || DEFAULT_WEBHOOK_URL}
               </p>
-              <p style={{ margin: "5px 0 0", fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+              <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
                 Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
               </p>
             </div>
@@ -273,7 +273,7 @@ export default function Settings({
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: 800,
                       }}
                     >
@@ -281,7 +281,7 @@ export default function Settings({
                     </span>
                     <div>
                       <div style={{ fontSize: 12.5, fontWeight: 700, color: T.textPrimary }}>{r.label}</div>
-                      <div style={{ fontSize: 11, color: T.textMuted, wordBreak: "break-all" }}>{r.detail}</div>
+                      <div style={{ fontSize: 12, color: T.textMuted, wordBreak: "break-all" }}>{r.detail}</div>
                     </div>
                   </div>
                 ))}

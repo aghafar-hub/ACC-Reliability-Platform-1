@@ -173,19 +173,19 @@ export default function EquipmentRegister({
     <div style={{ padding: 20 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginBottom: 16 }}>
         <div style={s.metric}>
-          <div style={{ fontSize: 10, color: T.textSecondary, marginBottom: 3 }}>Total Equipment</div>
+          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>Total Equipment</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: T.textHighlight }}>{rows.length}</div>
         </div>
         <div style={s.metric}>
-          <div style={{ fontSize: 10, color: T.textSecondary, marginBottom: 3 }}>RMS Registered</div>
+          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>RMS Registered</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>{rmsRegister.length}</div>
         </div>
         <div style={s.metric}>
-          <div style={{ fontSize: 10, color: T.textSecondary, marginBottom: 3 }}>SPM Registered</div>
+          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>SPM Registered</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: T.info }}>{spmRegister.length}</div>
         </div>
         <div style={s.metric}>
-          <div style={{ fontSize: 10, color: T.textSecondary, marginBottom: 3 }}>Lines</div>
+          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>Lines</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: T.textHighlight }}>{lines.length}</div>
         </div>
       </div>
@@ -322,7 +322,7 @@ export default function EquipmentRegister({
                   </td>
                 )}
                 <td style={tdStyle}>
-                  <button style={{ ...s.btnSm, fontSize: 11 }} onClick={() => setEditing({ row })}>
+                  <button style={{ ...s.btnSm, fontSize: 12 }} onClick={() => setEditing({ row })}>
                     <Icon d={ICONS.edit} size={12} /> Edit
                   </button>
                 </td>

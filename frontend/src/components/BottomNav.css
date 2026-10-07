@@ -65,7 +65,7 @@
     background: transparent;
     color: var(--shell-sidebar-text-secondary, #8ea0bb);
     font-family: var(--sans);
-    font-size: 10.5px;
+    font-size: 12px;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;

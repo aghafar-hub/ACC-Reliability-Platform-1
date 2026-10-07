@@ -31,7 +31,7 @@ function ReportCard({
         </div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>{title}</div>
-          <div style={{ fontSize: 11.5, color: T.textSecondary }}>{description}</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>{description}</div>
         </div>
       </div>
 
@@ -52,7 +52,7 @@ function ReportCard({
         {stats.map((st) => (
           <div key={st.label} style={{ background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 12px" }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: st.color ? T[st.color] : T.textPrimary }}>{st.value}</div>
-            <div style={{ fontSize: 10, color: T.textSecondary, marginTop: 2 }}>{st.label}</div>
+            <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>{st.label}</div>
           </div>
         ))}
       </div>
@@ -90,7 +90,7 @@ function NewReportCard({ T, s, onClick }) {
         </div>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>New Report</div>
-          <div style={{ fontSize: 11.5, color: T.textSecondary }}>Combine any topics into one PDF or Excel workbook</div>
+          <div style={{ fontSize: 12, color: T.textSecondary }}>Combine any topics into one PDF or Excel workbook</div>
         </div>
       </div>
       <p style={{ fontSize: 12, color: T.textSecondary, margin: 0 }}>
@@ -272,7 +272,7 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
           contractor={monthlyContractor} onContractorChange={setMonthlyContractor} contractorList={contractorList}
           extraControls={
             <div>
-              <div style={{ fontSize: 10.5, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>Month</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", marginBottom: 6 }}>Month</div>
               <input type="month" style={{ ...s.input, maxWidth: 180 }} value={month} onChange={(e) => setMonth(e.target.value)} />
             </div>
           }

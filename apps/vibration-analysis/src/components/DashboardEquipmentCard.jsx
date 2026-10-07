@@ -31,7 +31,7 @@ export default function DashboardEquipmentCard({ eq, expanded, onToggle, setPage
             <div style={{ fontSize: 13, fontWeight: 800, color: T.textHighlight }}>{eq.equipmentId}</div>
             <div
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: T.textSecondary,
                 marginTop: 2,
                 overflow: "hidden",
@@ -42,7 +42,7 @@ export default function DashboardEquipmentCard({ eq, expanded, onToggle, setPage
             >
               {eq.equipment}
             </div>
-            {eq.eqType && <div style={{ fontSize: 10, color: T.textMuted, marginTop: 1 }}>{eq.eqType}</div>}
+            {eq.eqType && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 1 }}>{eq.eqType}</div>}
           </div>
           <StatusBadge status={eq.status || "—"} colorKey={eq.colorKey} />
         </div>
@@ -52,7 +52,7 @@ export default function DashboardEquipmentCard({ eq, expanded, onToggle, setPage
               <span
                 key={i}
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: 700,
                   padding: "2px 7px",
                   borderRadius: 999,
@@ -87,7 +87,7 @@ export default function DashboardEquipmentCard({ eq, expanded, onToggle, setPage
           </div>
           {latestRms.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: T.textSecondary, marginBottom: 6, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.textSecondary, marginBottom: 6, textTransform: "uppercase" }}>
                 Latest RMS
               </div>
               {latestRms.map((p, i) => (
@@ -102,7 +102,7 @@ export default function DashboardEquipmentCard({ eq, expanded, onToggle, setPage
           )}
           {latestSpm.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: T.textSecondary, marginBottom: 6, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.textSecondary, marginBottom: 6, textTransform: "uppercase" }}>
                 Latest SPM
               </div>
               {latestSpm.map((p, i) => (

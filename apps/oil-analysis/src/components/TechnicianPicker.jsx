@@ -108,7 +108,7 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
       <>
         <input style={s.input} type="text" placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
         {users !== null && matches.length === 0 && (
-          <p style={{ fontSize: 11, color: T.textMuted, margin: "4px 0 0" }}>
+          <p style={{ fontSize: 12, color: T.textMuted, margin: "4px 0 0" }}>
             {loadFailed ? (
               <>
                 Couldn't load the account directory — typing a name still works, just double-check the spelling.{" "}
@@ -118,7 +118,7 @@ export default function TechnicianPicker({ contractor, value, onChange, roleFilt
                     setUsers(null);
                     setRetryNonce((n) => n + 1);
                   }}
-                  style={{ ...s.btn, padding: "1px 7px", fontSize: 11 }}
+                  style={{ ...s.btn, padding: "1px 7px", fontSize: 12 }}
                 >
                   Retry
                 </button>
