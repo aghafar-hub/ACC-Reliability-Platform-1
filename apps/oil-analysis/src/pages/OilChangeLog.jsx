@@ -170,7 +170,7 @@ function ChipCard({ p, color, onClick }) {
 // and gives up exactly the clustering view it was meant to show. That's
 // now the job of the "Upcoming Changes by Week" chart above; clicking any
 // chip opens its REAL event history instead (LpHistoryModal).
-export default function OilChangeLog({ oilChanges, oilChangeEvents, actions, equipmentRegistry, onSave, onAddAction }) {
+export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, actions, equipmentRegistry, onSave, onAddAction }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(!isMobile);
@@ -507,7 +507,7 @@ export default function OilChangeLog({ oilChanges, oilChangeEvents, actions, equ
         <div style={{ ...s.card, textAlign: "center", padding: 30, color: T.textMuted, fontSize: 13 }}>No oil change records match the filter.</div>
       )}
 
-      {editing && <EditOilChangeModal oilChange={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
+      {editing && <EditOilChangeModal webhookUrl={webhookUrl} oilChange={editing} onClose={() => setEditing(null)} onSave={handleSave} />}
 
       {viewingHistory && (
         <LpHistoryModal

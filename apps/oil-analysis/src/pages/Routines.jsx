@@ -190,6 +190,8 @@ export default function Routines({
   onDataChanged,
   initialRoutineId,
   onInitialRoutineConsumed,
+  initialNewRoute,
+  onInitialNewRouteConsumed,
 }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
@@ -267,6 +269,15 @@ export default function Routines({
     setView("detail");
     onInitialRoutineConsumed?.();
   }, [initialRoutineId, onInitialRoutineConsumed]);
+
+  // Oil Equipment → "Create Route": New Route with that point already picked
+  // (same path as creating a route from a saved suggestion).
+  useEffect(() => {
+    if (!initialNewRoute) return;
+    setFromSuggestion(initialNewRoute);
+    setView("new");
+    onInitialNewRouteConsumed?.();
+  }, [initialNewRoute, onInitialNewRouteConsumed]);
 
   // ─── Overview (Patch 20 main view) ───────────────────────────────────
   const [overviewItems, setOverviewItems] = useState([]);

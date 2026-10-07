@@ -662,6 +662,10 @@ export async function logOilChangeEvent(webhookUrl, event) {
     // Phase 5: the route item this change belongs to — the server logs
     // (and deducts stock for) each route item only once.
     routineItemId: event.routineItemId || "",
+    // Logged by hand (no route item): engineers only, with a reason and
+    // the oil actually used.
+    reason: event.reason || "",
+    productId: event.productId || "",
   });
 
   const verify = await getJSON(webhookUrl, { action: "getOilChangesForLp", lpId });
@@ -711,6 +715,12 @@ export async function logOilTopUp(webhookUrl, topUp) {
     throw new SaveVerificationError(`The top-up wasn't confirmed saved to the sheet — please try again.`);
   }
   return saved;
+}
+
+// Oil Equipment — every route a lubrication point has been on, newest first.
+export async function getRoutesForLp(webhookUrl, lpId) {
+  const json = await getJSON(webhookUrl, { action: "getRoutesForLp", lpId });
+  return json.routes || [];
 }
 
 export async function getTopUpsForLp(webhookUrl, lpId) {

@@ -724,3 +724,46 @@ function addRoutineComment(ss, data) {
   sheet.getRange(rowIdx, 12).setValue(new Date());
   return { status: "ok" };
 }
+
+
+// Oil Equipment — every route this lubrication point has been on, newest
+// first, with how its item went (done or not, quantity, oil used).
+function getRoutesForLp(lpId, scope) {
+  lpId = String(lpId || "").trim();
+  if (!lpId) return { routes: [] };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var items = {};
+  readSheet(ss, "OA_ROUTINE_ITEMS", true).forEach(function (it) {
+    if (String(it[2] || "").trim() !== lpId) return;
+    items[String(it[1] || "").trim()] = it;
+  });
+  var routes = [];
+  readSheet(ss, "ROUTINES", true).forEach(function (r) {
+    var id = String(r[0] || "").trim();
+    var it = items[id];
+    if (!it) return;
+    if (scope && String(r[3] || "").trim() !== scope) return;
+    var due = asDate_(r[14]);
+    routes.push({
+      routineId: id,
+      routeName: String(r[12] || id),
+      routeType: String(r[13] || ""),
+      status: normRouteStatus_(r[5]),
+      assignedTo: String(r[2] || ""),
+      contractor: String(r[3] || ""),
+      dueDate: due ? due.toISOString() : "",
+      confirmedDate: asDate_(r[8]) ? asDate_(r[8]).toISOString() : "",
+      overdue: isRouteRowOverdue_(r, (function () { var t = new Date(); t.setHours(0, 0, 0, 0); return t; })()),
+      returned: isRouteReturnedRow_(r, normRouteStatus_(r[5])),
+      item: {
+        implemented: String(it[5] || ""),
+        notImplementedReason: String(it[6] || ""),
+        actualDate: asDate_(it[7]) ? asDate_(it[7]).toISOString() : "",
+        actualQuantity: String(it[8] || ""),
+        oilUsed: String(it[RI_OIL_COL.LABEL] || ""),
+      },
+    });
+  });
+  routes.sort(function (a, b) { return String(b.dueDate).localeCompare(String(a.dueDate)); });
+  return { routes: routes };
+}

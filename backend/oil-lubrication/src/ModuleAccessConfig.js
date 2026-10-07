@@ -66,6 +66,7 @@ var MA_CONFIG = {
     getTeamWorkload: ["team"],
     getOilPlan: ["routines", "mywork", "inventory"],
     getMyWork: ["mywork"],
+    getRoutesForLp: ["equipment", "routines"],
     getRoutinesOverview: ["routines", "dashboard", "reports"],
     getRoutineCompletionTrend: ["routines", "dashboard", "reports"],
     getOilInventory: ["inventory", "dashboard", "reports"],

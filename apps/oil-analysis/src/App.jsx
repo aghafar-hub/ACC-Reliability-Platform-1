@@ -162,6 +162,8 @@ function AppShell({ config, setConfig, navBridge }) {
   // then cleared so a later plain navBridge.navigate("routines") (no
   // recordId) isn't misread as "re-open the same routine again".
   const [deepLinkRoutineId, setDeepLinkRoutineId] = useState(null);
+  // Oil Equipment → "Create Route": open New Route with that point picked.
+  const [deepLinkNewRoute, setDeepLinkNewRoute] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [samples, setSamples] = useState(() => readCache("samples")?.data || []);
@@ -1240,6 +1242,11 @@ function AppShell({ config, setConfig, navBridge }) {
                 onUpdateAction={onUpdateAction}
                 onDeleteAction={onDeleteAction}
                 onSaveOilChange={onSaveOilChange}
+                onCreateRoute={(pick) => {
+                  setDeepLinkNewRoute(pick);
+                  navigate("routines");
+                }}
+                onOpenRoute={(routineId) => navigate("routines", routineId)}
                 initialCode={equipmentSelectedCode}
                 onCodeChange={setEquipmentSelectedCode}
               />
@@ -1308,6 +1315,7 @@ function AppShell({ config, setConfig, navBridge }) {
           {visitedPages.has("oilchange") && (
             <div style={{ display: page === "oilchange" ? undefined : "none" }}>
               <OilChangeLog
+                webhookUrl={config.webhookUrl}
                 oilChanges={oilChanges}
                 oilChangeEvents={oilChangeEvents}
                 actions={actions}
@@ -1329,6 +1337,8 @@ function AppShell({ config, setConfig, navBridge }) {
                 onDataChanged={runSync}
                 initialRoutineId={deepLinkRoutineId}
                 onInitialRoutineConsumed={() => setDeepLinkRoutineId(null)}
+                initialNewRoute={deepLinkNewRoute}
+                onInitialNewRouteConsumed={() => setDeepLinkNewRoute(null)}
               />
             </div>
           )}

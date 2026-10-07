@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { useIsAccEngineer, useSessionContractor } from "../SessionContext";
+import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
 import EquipmentList from "../components/EquipmentList";
 import { HEALTH_COLOR, healthForLp, indexByLp, pointHealth, worstHealth } from "../equipmentHealth";
-import { formatDate, conditionBucket } from "../parsers";
+import { formatDate, conditionBucket, intervalMonths, isActionOverdue, actionDaysOverdue, ROUTE_STATUS } from "../parsers";
 import { statusColor } from "../theme";
 import * as api from "../api";
 import EditSampleModal from "../components/EditSampleModal";
@@ -33,6 +33,7 @@ const LP_TABS = [
   { key: "changes", label: "Oil Changes", icon: "ti-droplet" },
   { key: "topups", label: "Top Ups", icon: "ti-droplet-plus" },
   { key: "actions", label: "Actions", icon: "ti-checklist" },
+  { key: "routes", label: "Routes", icon: "ti-route" },
   { key: "info", label: "Equipment Info", icon: "ti-info-circle" },
 ];
 const TIMELINE_COLOR = { Change: "accent", Sample: "info", TopUp: "danger" };
@@ -163,7 +164,7 @@ function HistoryTable({ T, s, rows, empty, columns, renderActions }) {
             <tr key={r._id || i}>
               {columns.map((c) => (
                 <td key={c.key} style={s.td}>
-                  {c.badge ? <SmallBadge T={T} color={c.badge(r[c.key])}>{r[c.key] ?? "—"}</SmallBadge> : r[c.key] ?? "—"}
+                  {c.render ? c.render(r) : c.badge ? <SmallBadge T={T} color={c.badge(r[c.key])}>{r[c.key] ?? "—"}</SmallBadge> : r[c.key] ?? "—"}
                 </td>
               ))}
               {renderActions && (
@@ -202,6 +203,8 @@ export default function Equipment({
   onUpdateAction,
   onDeleteAction,
   onSaveOilChange,
+  onCreateRoute,
+  onOpenRoute,
   initialCode,
   onCodeChange,
 }) {
@@ -237,6 +240,8 @@ export default function Equipment({
   const [lpTab, setLpTab] = useState("overview");
   const [changeHistory, setChangeHistory] = useState([]);
   const [topUps, setTopUps] = useState([]);
+  const [routesForLp, setRoutesForLp] = useState([]);
+  const [suggestionsForLp, setSuggestionsForLp] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const isLpViewSelected = selection?.mode === "lp";
@@ -252,6 +257,10 @@ export default function Equipment({
         setChangeHistory(changes);
         setTopUps(tops);
       })
+      .then(() => api.getRoutesForLp(webhookUrl, lpCode))
+      .then((routes) => { if (!cancelled) setRoutesForLp(routes || []); })
+      .then(() => api.getSuggestions(webhookUrl))
+      .then((list) => { if (!cancelled) setSuggestionsForLp((list || []).filter((sg) => sg.lpId === lpCode)); })
       .catch((err) => pushToast?.(err.message, "error"))
       .finally(() => { if (!cancelled) setLoadingHistory(false); });
     return () => { cancelled = true; };
@@ -328,6 +337,54 @@ export default function Equipment({
     ? pointHealth({ reg, samples: samplesForEquip, oilChange: lpOilChangeState, actions: actionsForEquip, topUps: topUps.length ? topUps : lpIndex.topUps.get(reg.code) || [] })
     : null;
   const health = lpHealth?.health || "Good";
+  // Oil changes are logged from confirmed routes; by hand only by engineers.
+  const isContractorEngineerHere = useIsRouteEngineerFor(reg?.contractor || "");
+  const canLogByHand = isAccEngineer || isContractorEngineerHere;
+  // "What's next" for this point.
+  const sampleMonths = reg?.oilAnalysisRequired === "Yes" ? intervalMonths(reg.interval || "") : 0;
+  const nextSampleDue = useMemo(() => {
+    if (!sampleMonths || !latest?.sampledDate) return null;
+    const d = new Date(latest.sampledDate);
+    if (isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth() + sampleMonths, d.getDate());
+  }, [sampleMonths, latest?.sampledDate]);
+  const openRoutesForLp = routesForLp.filter((r) => [ROUTE_STATUS.DRAFT, ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.WAITING].includes(r.status));
+  const labWaiting = samplesForEquip.filter((sm) => sm.validationStatus === "Pending Validation" || sm.validationStatus === "Returned");
+  // Top-up rate over the last 90 days.
+  const topUpRate = useMemo(() => {
+    const since = Date.now() - 90 * 86400000;
+    const recent = topUps.filter((t) => new Date(t.eventDate).getTime() >= since);
+    const litres = recent.reduce((n, t) => n + (parseFloat(t.quantity) || 0), 0);
+    return { count: recent.length, litres: Math.round(litres * 10) / 10, perMonth: Math.round((litres / 3) * 10) / 10 };
+  }, [topUps]);
+
+  function createRouteFor(lpId, routeType) {
+    const r = registry.find((x) => x.code === lpId);
+    onCreateRoute?.({
+      lpId,
+      routeType,
+      workType: routeType === "Emergency Top Up" ? "Top Up" : routeType,
+      contractor: r?.contractor || "",
+      reason: "From Oil Equipment",
+    });
+  }
+  function newActionFor(lpId) {
+    const r = registry.find((x) => x.code === lpId);
+    const last = (samples || []).filter((sm) => sm.unitId === lpId).sort((a, b) => new Date(b.sampledDate) - new Date(a.sampledDate))[0];
+    setEditingAction({
+      action: {
+        equipmentCode: lpId,
+        contractor: r?.contractor || "",
+        reportEquipmentId: r?.reportEquipmentId || "",
+        description: r?.description || "",
+        oilType: r?.lubricant || "",
+        sampleDate: last?.sampledDate || "",
+        sampleResult: last?.reportStatus || "",
+        sampleAnalysis: (last?.recommendations || []).join("; "),
+      },
+      isNew: true,
+    });
+  }
   const healthColor = HEALTH_COLOR[health];
   const siblingCount = isLpView ? (groups.get(reg?.equipmentId)?.length || 0) : 0;
 
@@ -409,10 +466,6 @@ export default function Equipment({
   function handleLogOilChange() {
     if (oilChangesForEquip.length === 0) return;
     setEditingOilChange(nextDue || oilChangesForEquip[0]);
-  }
-  function handleLogOilChangeFor(lpCode) {
-    const entry = oilChangeEntryFor(lpCode);
-    if (entry) setEditingOilChange(entry);
   }
 
   // PERFORMANCE: these handlers (onSaveOilChange/onAddAction/onUpdateAction/
@@ -761,10 +814,8 @@ export default function Equipment({
                 <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>{[groupRows[0]?.area, groupRows[0]?.contractor].filter(Boolean).map(tag)}</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                {pointActionControl("Log Oil Change", "ti-droplet-plus", handleLogOilChangeFor)}
-                {pointActionControl("New Action", "ti-clipboard-plus", (lpCode) =>
-                  setEditingAction({ action: { equipmentCode: lpCode }, isNew: true })
-                )}
+                {onCreateRoute && pointActionControl("Create Route", "ti-route", (lpCode) => createRouteFor(lpCode, "Oil Change"))}
+                {pointActionControl("New Action", "ti-clipboard-plus", newActionFor)}
                 {onOpenReport && pointActionControl("Full Report", "ti-file-analytics", onOpenReport)}
               </div>
             </div>
@@ -915,12 +966,30 @@ export default function Equipment({
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button style={s.btn} onClick={handleLogOilChange} disabled={oilChangesForEquip.length === 0}>
-                  <i className="ti ti-droplet-plus" aria-hidden="true" /> Log Oil Change
-                </button>
-                <button style={s.btn} onClick={() => setEditingAction({ action: { equipmentCode: selection.id }, isNew: true })}>
+                {onCreateRoute && (
+                  <select
+                    style={{ ...s.select, width: "auto" }}
+                    aria-label="Create route"
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) createRouteFor(selection.id, e.target.value);
+                      e.target.value = "";
+                    }}
+                  >
+                    <option value="">Create Route…</option>
+                    <option value="Oil Change">Oil Change route</option>
+                    {reg?.oilAnalysisRequired === "Yes" && <option value="Sampling">Sampling route</option>}
+                    <option value="Emergency Top Up">Emergency Top Up</option>
+                  </select>
+                )}
+                <button style={s.btn} onClick={() => newActionFor(selection.id)}>
                   <i className="ti ti-clipboard-plus" aria-hidden="true" /> New Action
                 </button>
+                {canLogByHand && (
+                  <button style={s.btn} onClick={handleLogOilChange} disabled={oilChangesForEquip.length === 0} title="Engineers only — with a reason and the oil used">
+                    <i className="ti ti-droplet-plus" aria-hidden="true" /> Log by Hand
+                  </button>
+                )}
                 {onOpenReport && (
                   <button style={s.btnPrimary} onClick={() => onOpenReport(selection.id)}>
                     <i className="ti ti-file-analytics" aria-hidden="true" /> Full Report
@@ -982,6 +1051,54 @@ export default function Equipment({
                   ))}
                 </div>
 
+                <div style={s.card} data-testid="whats-next">
+                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-calendar-event" aria-hidden="true" /> What's Next</p>
+                  {[
+                    {
+                      label: "Next oil change",
+                      value: lpOilChangeState?.nextDueDate ? formatDate(lpOilChangeState.nextDueDate) : reg?.oilChangeInterval ? "no change logged yet" : "as needed",
+                      color: oilChangeOverdue ? "danger" : null,
+                      extra: oilChangeOverdue ? "overdue" : "",
+                    },
+                    reg?.oilAnalysisRequired === "Yes" && {
+                      label: "Next sample",
+                      value: nextSampleDue ? formatDate(nextSampleDue) : latest ? "—" : "never sampled",
+                      color: lpHealth?.sampleState?.label === "MISSING" || lpHealth?.sampleState?.label === "OVERDUE" ? "danger" : null,
+                      extra: lpHealth?.sampleState?.label === "OVERDUE" ? "overdue" : lpHealth?.sampleState?.label === "MISSING" ? "missing" : "",
+                    },
+                    {
+                      label: "Open route",
+                      value: openRoutesForLp.length ? openRoutesForLp.map((r) => `${r.routeName} (${r.status})`).join(", ") : "none",
+                      color: null,
+                      tab: openRoutesForLp.length ? "routes" : null,
+                    },
+                    suggestionsForLp.length > 0 && {
+                      label: "Suggestion",
+                      value: suggestionsForLp.map((sg) => sg.workType).join(", ") + " — needs a route",
+                      color: "warning",
+                    },
+                    labWaiting.length > 0 && {
+                      label: "Lab report",
+                      value: labWaiting.map((sm) => `${sm.sampleId}: ${sm.validationStatus}`).join(", "),
+                      color: "warning",
+                      tab: "samples",
+                    },
+                  ]
+                    .filter(Boolean)
+                    .map((row) => (
+                      <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12.5, padding: "6px 0", borderBottom: `1px solid ${T.border}` }}>
+                        <span style={{ color: T.textSecondary, flexShrink: 0 }}>{row.label}</span>
+                        <span
+                          style={{ color: row.color ? T[row.color] : T.textPrimary, fontWeight: 700, textAlign: "right", cursor: row.tab ? "pointer" : undefined }}
+                          onClick={row.tab ? () => setLpTab(row.tab) : undefined}
+                        >
+                          {row.value}
+                          {row.extra ? ` (${row.extra})` : ""}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+
                 <ClickableCard s={s} onClick={() => setLpTab("samples")}>
                   <p style={{ fontWeight: 700, margin: "0 0 10px" }}><i className="ti ti-flask" aria-hidden="true" /> Last Oil Sample</p>
                   {latest ? (
@@ -1016,6 +1133,14 @@ export default function Equipment({
                     <>
                       <div style={{ fontSize: 16, fontWeight: 700 }}>{formatDate(latestTopUp.eventDate)}</div>
                       <div style={{ fontSize: 11.5, color: T.textSecondary, marginTop: 8 }}>{latestTopUp.quantity} L · {latestTopUp.reason}</div>
+                      <div style={{ fontSize: 11.5, marginTop: 8 }} data-testid="topup-rate">
+                        Last 90 days: <strong>{topUpRate.count}</strong> top-up{topUpRate.count === 1 ? "" : "s"}, <strong>{topUpRate.litres} L</strong> ({topUpRate.perMonth} L/month)
+                      </div>
+                      {lpHealth?.recentTopUps >= 3 && (
+                        <div style={{ fontSize: 11.5, color: T.danger, fontWeight: 700, marginTop: 4 }}>
+                          <i className="ti ti-alert-triangle" aria-hidden="true" /> {lpHealth.recentTopUps} top-ups in 30 days — possible leak
+                        </div>
+                      )}
                     </>
                   ) : loadingHistory ? (
                     <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Loading…</p>
@@ -1207,9 +1332,27 @@ export default function Equipment({
               rows={actionsForEquip}
               empty="No actions logged for this lubrication point."
               columns={[
-                { key: "revisionDate", label: "Date" },
-                { key: "status", label: "Status", badge: () => "textSecondary" },
-                { key: "agreedAction", label: "Action" },
+                { key: "acNo", label: "Ac. No." },
+                { key: "status", label: "Status", badge: (st) => STATUS_ACTION_COLOR[st] || "textSecondary" },
+                { key: "agreedAction", label: "Agreed Action", render: (a) => a.agreedAction || <span style={{ color: T.textMuted }}>—</span> },
+                {
+                  key: "dueDate",
+                  label: "Due",
+                  render: (a) =>
+                    a.dueDate ? (
+                      <span>
+                        {formatDate(a.dueDate)}
+                        {isActionOverdue(a) && (
+                          <span style={{ marginLeft: 6 }}>
+                            <SmallBadge T={T} color="danger">Overdue {actionDaysOverdue(a)}d</SmallBadge>
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span style={{ color: T.textMuted }}>—</span>
+                    ),
+                },
+                { key: "assignedTo", label: "Assigned To", render: (a) => a.assignedTo || <span style={{ color: T.textMuted }}>—</span> },
                 { key: "contractor", label: "Contractor" },
               ]}
               renderActions={(a) => (
@@ -1219,6 +1362,58 @@ export default function Equipment({
               )}
             />
           )}
+
+          {lpTab === "routes" &&
+            (loadingHistory ? (
+              <p style={{ color: T.textSecondary }}>Loading…</p>
+            ) : (
+              <HistoryTable
+                T={T} s={s}
+                rows={routesForLp}
+                empty="This lubrication point hasn't been on a route yet."
+                columns={[
+                  { key: "routeName", label: "Route", render: (r) => <span style={{ fontWeight: 600 }}>{r.routeName}</span> },
+                  { key: "routeType", label: "Type" },
+                  {
+                    key: "status",
+                    label: "Status",
+                    render: (r) => (
+                      <span>
+                        <span style={s.badge(r.status)}>{r.status}</span>
+                        {r.returned && <span style={{ marginLeft: 6 }}><SmallBadge T={T} color="danger">Returned</SmallBadge></span>}
+                        {r.overdue && <span style={{ marginLeft: 6 }}><SmallBadge T={T} color="danger">Overdue</SmallBadge></span>}
+                      </span>
+                    ),
+                  },
+                  { key: "dueDate", label: "Due", render: (r) => (r.dueDate ? formatDate(r.dueDate) : "—") },
+                  { key: "assignedTo", label: "Technician", render: (r) => r.assignedTo || <span style={{ color: T.textMuted }}>—</span> },
+                  {
+                    key: "item",
+                    label: "This point",
+                    render: (r) =>
+                      r.item.implemented === "Yes" ? (
+                        <span>
+                          Done{r.item.actualQuantity ? ` · ${r.item.actualQuantity} L` : ""}
+                          {r.item.oilUsed && <div style={{ fontSize: 11, color: T.textSecondary }}>{r.item.oilUsed}</div>}
+                        </span>
+                      ) : r.item.implemented === "No" ? (
+                        <span style={{ color: T.warning }}>Not done{r.item.notImplementedReason ? ` — ${r.item.notImplementedReason}` : ""}</span>
+                      ) : (
+                        <span style={{ color: T.textMuted }}>Not reported yet</span>
+                      ),
+                  },
+                ]}
+                renderActions={
+                  onOpenRoute
+                    ? (r) => (
+                        <button style={{ ...s.btn, padding: "3px 8px" }} onClick={() => onOpenRoute(r.routineId)} aria-label={`Open route ${r.routeName}`}>
+                          Open <i className="ti ti-arrow-right" aria-hidden="true" />
+                        </button>
+                      )
+                    : undefined
+                }
+              />
+            ))}
 
           {lpTab === "info" && (
             <div style={{ ...s.card, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16 }}>
@@ -1278,7 +1473,7 @@ export default function Equipment({
       )}
 
       {editingOilChange && (
-        <EditOilChangeModal oilChange={editingOilChange} onClose={() => setEditingOilChange(null)} onSave={handleSaveOilChange} />
+        <EditOilChangeModal webhookUrl={webhookUrl} oilChange={editingOilChange} onClose={() => setEditingOilChange(null)} onSave={handleSaveOilChange} />
       )}
     </div>
   );

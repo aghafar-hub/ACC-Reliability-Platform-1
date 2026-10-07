@@ -264,6 +264,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getRoutesForLp":
+        result = getRoutesForLp(e.parameter.lpId, scope);
+        break;
       case "getMyWork":
         result = getMyWork(auth.session);
         break;
@@ -685,6 +688,19 @@ function doPost(e) {
       if (data.action === "logOilChangeEvent") {
         requirePermission_(auth.session, "Edit");
         requireLpContractorMatch_(auth.session, data.lpId);
+        // An oil change logged by hand (not from a confirmed route item):
+        // engineers only, with a reason and the oil actually used.
+        if (!String(data.routineItemId || "").trim()) {
+          var manualContractor = resolveLpContractor_(data.lpId);
+          if (!isActionEngineer_(auth.session, manualContractor)) {
+            throw new Error("Only an engineer can log an oil change by hand — use a route so the technician's work is confirmed.");
+          }
+          var manualReason = String(data.reason || "").trim();
+          if (!manualReason) throw new Error("A hand-logged oil change needs a reason.");
+          var manualOil = checkOilUsed_(ss, data.lpId, "Change", data.productId);
+          if (manualOil.error) throw new Error(manualOil.error);
+          data.conditionNotes = "Logged by hand — " + manualReason + (data.conditionNotes ? " — " + data.conditionNotes : "");
+        }
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
