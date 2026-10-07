@@ -176,11 +176,18 @@ export default function OilReportSearch({
   }
 
   // Account details as printed on the lab's report: this point's latest
-  // report, else the newest report anywhere that carries them.
+  // report, else the newest report of another point of the same contractor
+  // (each contractor has its own lab account — RHI's and ASEC's differ).
   const account = useMemo(() => {
     if (latest?.accountId || latest?.accountName) return latest;
-    return [...(samples || [])].filter((sm) => sm.accountId || sm.accountName).sort((a, b) => new Date(b.sampledDate) - new Date(a.sampledDate))[0] || null;
-  }, [latest, samples]);
+    if (!reg?.contractor) return null;
+    const sameContractor = new Set(registry.filter((r) => r.contractor === reg.contractor).map((r) => r.code));
+    return (
+      [...(samples || [])]
+        .filter((sm) => (sm.accountId || sm.accountName) && sameContractor.has(sm.unitId))
+        .sort((a, b) => new Date(b.sampledDate) - new Date(a.sampledDate))[0] || null
+    );
+  }, [latest, samples, registry, reg?.contractor]);
   const card = { background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 20 };
   const cardHead = { padding: "10px 16px", background: T.infoBarBg, borderBottom: `1px solid ${T.border}` };
   const headerColor = T[statusKey(latest?.reportStatus)] || T.textSecondary;

@@ -811,7 +811,8 @@ export function rowToSample(row) {
     wear: { Ag, Al, Cr, Cu, Fe, Mo, Ni, Pb, Sn },
     contaminants: { K, Na, Si },
     additives: { B, Ba, Ca, Mg, P, Zn },
-    recommendations: recommendationsRaw ? [recommendationsRaw] : [],
+    // one finding per line in the cell (older rows: a single entry)
+    recommendations: recommendationsRaw ? String(recommendationsRaw).split(/\n+/).map((x) => x.trim()).filter(Boolean) : [],
     flaggedReadings: parseFlaggedParams(flaggedParamsRaw),
     sampleUid: sampleUid || "",
     lastModified: lastModified || "", // Patch 10 — see api.js's detectConflict/updateSample
@@ -890,7 +891,7 @@ export function sampleToRow(s) {
     additives.P || "",
     additives.Zn || "",
     s.alertType || "",
-    (s.recommendations || []).join("; "),
+    (s.recommendations || []).join("\n"),
     formatFlaggedParams(s.flaggedReadings),
     "", // Last Modified (col 39) — always blank here; the backend stamps the real value itself on every write (see api.js's SAMPLE_LAST_MODIFIED_COL)
     s.sampleUid || "", // Patch 6 — see api.js's SAMPLE_UID_COL

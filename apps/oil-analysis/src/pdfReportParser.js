@@ -23,6 +23,7 @@
 
 import * as pdfjsLib from "pdfjs-dist";
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { shortenRecommendation } from "./labRecommendation";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
@@ -312,7 +313,7 @@ export async function parsePdfReport(file) {
   const tc = await page1.getTextContent();
   if (!tc.items.some((it) => it.str.trim())) {
     throw new Error(
-      `${file.name}: this PDF has no selectable text (likely exported via "Print to PDF" rather than the browser's own "Save as PDF") — re-export it and try again.`
+      `${file.name}: refused — this report is image-based (a picture of the page, e.g. saved with "Microsoft Print to PDF"), so its results can't be read and no sample was added. Get the report from the lab's download link and import that PDF instead.`
     );
   }
   const rows = buildRows(tc.items);
@@ -409,8 +410,13 @@ export async function parsePdfReport(file) {
   // Only the newest (rightmost) sample gets recommendation text — the PDF
   // doesn't print it for older history-table columns.
   const recommendationText = await extractRecommendationSections(pdf);
+  // Kept short: each finding's headline and first sentence (see
+  // labRecommendation.js); the headlines also fill Alert Type.
   if (recommendationText) {
-    samples[samples.length - 1].recommendations = recommendationText.split(/\n\n+/).filter(Boolean);
+    const short = shortenRecommendation(recommendationText);
+    const newestSample = samples[samples.length - 1];
+    newestSample.recommendations = short.lines;
+    if (short.alertType && !newestSample.alertType) newestSample.alertType = short.alertType;
   }
 
   return {

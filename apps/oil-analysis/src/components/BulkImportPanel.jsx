@@ -79,7 +79,11 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
           accept="application/pdf"
           multiple
           style={{ display: "none" }}
-          onChange={(e) => e.target.files.length && pickFiles(e.target.files)}
+          onChange={(e) => {
+            if (e.target.files.length) pickFiles(e.target.files);
+            // cleared so picking the same file again (a re-import) still registers
+            e.target.value = "";
+          }}
         />
       </div>
 

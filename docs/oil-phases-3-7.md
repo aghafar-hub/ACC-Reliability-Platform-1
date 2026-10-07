@@ -352,6 +352,26 @@ No Apps Script change for E3 / E4.
   something else, the details are not written (the report itself still
   saves).
 
+- **Each contractor has its own lab account** (RHI: 208948, ASEC: 462031 on
+  the sample reports). When a point's latest report has no account
+  details, the account box falls back only to the same contractor's
+  reports.
+- **Short recommendations.** The lab's Recommendation/Comments text is
+  kept as each finding's capital-letter headline plus its first sentence
+  (e.g. "CAUTION - ELEVATED SILICON LEVEL. Determine source of Silicon (Si)
+  and take corrective action."), one finding per line; the "Contact your
+  ExxonMobil representative" lines are dropped. The headlines (not "NO
+  ACTION REQUIRED" or "ADMINISTRATION" notes) fill Alert Type. The full
+  text stays on the lab's PDF.
+- **Image reports are refused.** A report saved with "Microsoft Print to
+  PDF" (or scanned) is only a picture of the page — nothing can be read
+  from it. The import refuses it with that reason and asks for the PDF
+  from the lab's download link. No sample is added from it.
+- **A Sample ID is never added twice:** the import marks samples already
+  saved (or repeated within the same import) and skips them; the server
+  refuses a repeat too. Picking the same file again after an import now
+  works (the file picker is cleared each time).
+
 Apps Script (Oil Lubrication test script): replace `Code` and
 `LabReports`, then deploy a new version.
 
