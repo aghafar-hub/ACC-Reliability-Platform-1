@@ -4,7 +4,8 @@ import { useTheme } from "../ThemeContext";
 import { useSessionEmail, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
 import { todayISO } from "../parsers";
-import { fmtNum, fmtQty, fmtSigned, signedQty } from "../inventoryLogic";
+import { daysLeft, fmtNum, fmtQty, fmtSigned, signedQty } from "../inventoryLogic";
+import { Gauge } from "../components/DashCharts";
 
 // Phase 5: receipts, adjustments and the one-off opening balance are the
 // contractor's engineer's; Issue stays available as before.
@@ -211,11 +212,30 @@ export default function OilProductDetail({ webhookUrl, productId, equipmentRegis
       </div>
 
       <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
-        <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px", borderLeft: `3px solid ${low ? T.danger : T.success}` }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: low ? T.danger : T.textPrimary }}>
-            {fmtQty(product.currentStock, product.unit)}
+        <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }} data-testid="product-gauge">
+          {/* D5 — how full this oil's stock is, with the low-stock level as the tick */}
+          <Gauge
+            T={T}
+            value={product.currentStock}
+            level={product.recorderLevel}
+            max={Math.max(product.currentStock || 0, (product.recorderLevel || 0) * 2)}
+            unit={product.unit || "L"}
+            size={170}
+            label={`${fmtQty(product.currentStock, product.unit)} in stock, low-stock level ${product.recorderLevel ?? "not set"}`}
+          />
+          <div style={{ fontSize: 13, color: T.textSecondary, lineHeight: 1.6 }}>
+            <div style={{ fontWeight: 700, color: T.textPrimary }}>Current stock</div>
+            <div>
+              {daysLeft(product) != null ? (
+                <>
+                  <b style={{ color: T.textPrimary }}>{daysLeft(product)}</b> days left at the recent rate of use
+                </>
+              ) : (
+                "No recent use recorded"
+              )}
+            </div>
+            {low && <div style={{ color: T.danger, fontWeight: 700 }}>Below the low-stock level — order now</div>}
           </div>
-          <div style={{ fontSize: 12, color: T.textSecondary }}>Current Stock{low ? " — below reorder level" : ""}</div>
         </div>
         <LowStockLevelCard webhookUrl={webhookUrl} product={product} pushToast={pushToast} onSaved={refresh} />
         <div style={{ ...s.card, marginBottom: 0, padding: "12px 18px" }}>

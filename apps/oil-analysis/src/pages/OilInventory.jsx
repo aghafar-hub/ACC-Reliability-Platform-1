@@ -29,11 +29,13 @@ import {
   isLow,
   lowStockSorted,
   periodLabel,
+  oilLabel,
   shortfallBars,
   signedQty,
   toCsv,
 } from "../inventoryLogic";
 import OilProductDetail from "./OilProductDetail";
+import { Donut, StackedBars } from "../components/DashCharts";
 
 const CONTAINER_TYPES = ["Drum", "Pail", "Bulk Tank", "IBC"];
 const UNITS = ["L", "Drum"];
@@ -1169,6 +1171,51 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
               </ResponsiveContainer>
             )}
           </div>
+
+          {byProduct.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, marginBottom: 20 }} data-testid="consumption-split">
+              {contractorFilter === "All" && presentContractors.length > 1 && (
+                <div style={{ ...s.card, marginBottom: 0 }} data-testid="consumption-donut">
+                  <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Who used the oil · last {months} months</p>
+                  {(() => {
+                    const segs = presentContractors.map((ct, i) => ({
+                      label: ct,
+                      value: Math.round(byProductAll.filter((p) => p.contractor === ct).reduce((n, p) => n + (p.total || 0), 0)),
+                      color: palette[i % palette.length], // same colour per contractor as the monthly chart above
+                    }));
+                    const tot = segs.reduce((n, x) => n + x.value, 0) || 1;
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                        <Donut T={T} segments={segs} size={128} center={fmtNum(tot)} sub="litres issued" ariaLabel={segs.map((x) => `${x.label} ${x.value} L`).join(", ")} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13.5 }}>
+                          {segs.map((x) => (
+                            <span key={x.label} style={{ display: "flex", alignItems: "center", gap: 7, color: T.textPrimary }}>
+                              <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color }} />
+                              <b>{x.label}</b> {fmtQty(x.value)} <span style={{ color: T.textSecondary }}>· {Math.round((x.value / tot) * 100)}%</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+              <div style={{ ...s.card, marginBottom: 0 }} data-testid="consumption-top">
+                <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Most used oils</p>
+                <StackedBars
+                  T={T}
+                  labelWidth={170}
+                  onRow={(r) => onOpenProduct(r.productId)}
+                  rows={byProduct.slice(0, 8).map((p) => ({
+                    label: `${oilLabel(p.lubricant, p.lubricantBrand)}${contractorFilter === "All" ? ` · ${p.contractor}` : ""}`,
+                    productId: p.productId,
+                    parts: [{ label: "L", value: Math.round(p.total || 0), color: T.accent }],
+                  }))}
+                />
+                {byProduct.length > 8 && <p style={{ fontSize: 12, color: T.textSecondary, margin: "8px 0 0" }}>Top 8 of {byProduct.length} — all are in the table below.</p>}
+              </div>
+            </div>
+          )}
 
           <p style={{ fontWeight: 700, margin: "0 0 10px" }}>By Product</p>
           {byProduct.length === 0 ? (
