@@ -477,7 +477,7 @@ export default function OilReportSearch({
                   <ParamTable T={T} columns={columns} shown={history} actions={actions} code={equipCode} focusKey={focusKey} />
                 </div>
                 <div style={{ padding: 16, minWidth: 0 }}>
-                  <LabTrendCharts T={T} history={history} layout="column" testPrefix="report" />
+                  <LabTrendCharts T={T} history={history} changes={changeEvents} layout="column" testPrefix="report" />
                 </div>
               </div>
             )}

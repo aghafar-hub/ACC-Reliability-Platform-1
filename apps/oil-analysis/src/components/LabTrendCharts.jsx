@@ -6,8 +6,9 @@
 // lines. LabCountControls is the report's "Show Last 5 / 10 / 15 / All ·
 // Since last oil change" row.
 import LineChart from "./LineChart";
-import { seriesColor } from "../pointHistory";
+import { seriesColor, toTime } from "../pointHistory";
 import { viscTempLabel } from "../labReport";
+import { formatDate } from "../parsers";
 
 const WEAR_METALS = ["Ag", "Al", "Cr", "Cu", "Fe", "Mo", "Ni", "Pb", "Sn"];
 const WEAR_NAMES = { Ag: "Silver", Al: "Aluminum", Cr: "Chromium", Cu: "Copper", Fe: "Iron", Mo: "Molybdenum", Ni: "Nickel", Pb: "Lead", Sn: "Tin" };
@@ -92,10 +93,47 @@ export function LabCountControls({ T, s, count, setCount, sinceChange, setSinceC
   );
 }
 
+// Where each oil change falls on the charts' sample axis: between two
+// samples it sits in proportion to the dates; on a sample's own day it
+// sits on that sample (sampled, then changed); after the last sample it
+// sits on the right edge. Changes before the first shown sample are left
+// out. changes: [{ eventDate, oilBrandType?, quantityUsed? }].
+export function oilChangeMarkers(history, changes) {
+  const ts = history.map((d) => toTime(d.sampledDate));
+  if (!ts.length || ts.some((t) => t === null)) return [];
+  const day = 86400000;
+  return (changes || [])
+    .map((c) => ({ c, t: toTime(c.eventDate) }))
+    .filter(({ t }) => t !== null && t >= ts[0] - day / 2)
+    .map(({ c, t }) => {
+      let pos = ts.length - 1;
+      for (let i = 0; i < ts.length - 1; i++) {
+        if (t < ts[i + 1]) {
+          pos = Math.abs(t - ts[i]) < day ? i : i + (t - ts[i]) / (ts[i + 1] - ts[i]);
+          break;
+        }
+      }
+      return { pos, t, label: `Oil changed ${formatDate(c.eventDate)}${c.oilBrandType ? ` — ${c.oilBrandType}` : ""}${c.quantityUsed ? ` (${c.quantityUsed} L)` : ""}` };
+    })
+    .sort((a, b) => a.t - b.t);
+}
+
+function OilChangeKey({ T, testid }) {
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: T.textSecondary }} data-testid={testid}>
+      <svg width="10" height="12" viewBox="0 0 10 12" aria-hidden="true">
+        <path d="M5 0 C9.5 5.5, 9.5 9, 5 11.5 C0.5 9, 0.5 5.5, 5 0 Z" fill={T.warning} />
+      </svg>
+      Oil change
+    </span>
+  );
+}
+
 // The chart cards. `layout="column"` stacks them (the report, beside its
 // table); "grid" puts them two to a row (the point page).
-export default function LabTrendCharts({ T, history, layout = "column", testPrefix = "report" }) {
+export default function LabTrendCharts({ T, history, changes, layout = "column", testPrefix = "report" }) {
   const charts = buildLabCharts(T, history);
+  const markers = oilChangeMarkers(history, changes);
   const labels = history.map((d) => d.sampledDate);
   return (
     <div
@@ -110,14 +148,20 @@ export default function LabTrendCharts({ T, history, layout = "column", testPref
         <div key={ch.title} style={{ background: T.appBg, borderRadius: 8, padding: "12px 14px", minWidth: 0 }} data-testid={`${testPrefix}-chart-${ch.title.replace(/\s+/g, "-")}`}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: T.textPrimary }}>{ch.title}</span>
-            {ch.datasets.length === 1 && <LegendItem T={T} color={ch.datasets[0].color} label={ch.datasets[0].label} />}
+            {ch.datasets.length <= 1 && (ch.datasets.length === 1 || markers.length > 0) && (
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                {ch.datasets.length === 1 && <LegendItem T={T} color={ch.datasets[0].color} label={ch.datasets[0].label} />}
+                {markers.length > 0 && <OilChangeKey T={T} />}
+              </span>
+            )}
           </div>
-          <LineChart datasets={ch.datasets} labels={labels} height={ch.height} connectNulls />
+          <LineChart datasets={ch.datasets} labels={labels} height={ch.height} connectNulls markers={markers} />
           {ch.datasets.length > 1 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", marginTop: 6 }} data-testid={`${testPrefix}-legend-${ch.title.replace(/\s+/g, "-")}`}>
               {ch.datasets.map((d) => (
                 <LegendItem key={d.key} T={T} color={d.color} label={d.label} />
               ))}
+              {markers.length > 0 && <OilChangeKey T={T} testid={`${testPrefix}-legend-oilchange`} />}
             </div>
           )}
         </div>

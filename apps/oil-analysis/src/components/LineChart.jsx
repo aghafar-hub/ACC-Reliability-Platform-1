@@ -13,7 +13,11 @@ function formatTick(x) {
 // `dataset.color` fixes a line's colour (so a legend can match it whatever
 // lines are left out); `connectNulls` draws one line through a gap (a
 // value missing from one report) instead of breaking it.
-export default function LineChart({ datasets, labels, height = 100, connectNulls = false }) {
+//
+// `markers`: [{ pos, label }] — a dotted vertical line with an oil-drop
+// symbol at `pos` (a sample index, fractional = between two samples), e.g.
+// an oil change. Hover/tap the drop for its label.
+export default function LineChart({ datasets, labels, height = 100, connectNulls = false, markers = [] }) {
   const { T } = useTheme();
   const colors = [T.success, T.accent, T.danger, T.warning, ...EXTRA];
 
@@ -33,7 +37,7 @@ export default function LineChart({ datasets, labels, height = 100, connectNulls
   const h = height;
   const left = 40;
   const right = 12;
-  const top = 10;
+  const top = markers.length ? 14 : 10;
   const bottom = 30;
   const plotW = w - left - right;
   const plotH = h - top - bottom;
@@ -59,6 +63,21 @@ export default function LineChart({ datasets, labels, height = 100, connectNulls
           {formatTick(lbl)}
         </text>
       ))}
+      {markers.map((m, i) => {
+        const mx = x(Math.max(0, Math.min(labels.length - 1, m.pos)));
+        return (
+          <g key={`m${i}`} data-testid="chart-oil-change" style={{ cursor: "default" }}>
+            <title>{m.label}</title>
+            <line x1={mx} y1={top + 2} x2={mx} y2={top + plotH} stroke={T.warning} strokeWidth={1.2} strokeDasharray="2 3" />
+            <path
+              d={`M ${mx} ${top - 9} C ${mx + 4.5} ${top - 3.5}, ${mx + 4.5} ${top}, ${mx} ${top + 2} C ${mx - 4.5} ${top}, ${mx - 4.5} ${top - 3.5}, ${mx} ${top - 9} Z`}
+              fill={T.warning}
+              stroke={T.cardBg}
+              strokeWidth={0.8}
+            />
+          </g>
+        );
+      })}
       {datasets.map((series, si) => {
         const color = series.color || colors[si % colors.length];
         const segments = [];

@@ -473,7 +473,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
               {labShown.length === 0 ? (
                 <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No samples since the last oil change ({formatDate(lastChangeTime)}).</p>
               ) : view === "chart" ? (
-                <LabTrendCharts T={T} history={labShown} layout="grid" testPrefix="lab" />
+                <LabTrendCharts T={T} history={labShown} changes={changesAsc} layout="grid" testPrefix="lab" />
               ) : (
                 <div data-testid="lab-table" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   {topics.map((g) => (
