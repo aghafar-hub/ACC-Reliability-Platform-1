@@ -223,6 +223,12 @@ export default function Routines({
   // Phase 3: saved Suggestions (sub-tab) and the one picked to start a route from.
   const [suggestions, setSuggestions] = useState(null);
   const [fromSuggestion, setFromSuggestion] = useState(null);
+  // The page Create Route was opened from — it stays behind the popup and
+  // is where Cancel goes back to.
+  const [newFrom, setNewFrom] = useState("overview");
+  // Suggestions page: the ones ticked to go into one route, and its filter.
+  const [pickedSg, setPickedSg] = useState([]);
+  const [sgType, setSgType] = useState("All");
   const refreshSuggestions = useCallback(async () => {
     try {
       setSuggestions(await api.getSuggestions(webhookUrl));
@@ -254,6 +260,7 @@ export default function Routines({
   useEffect(() => {
     if (!initialNewRoute) return;
     setFromSuggestion(initialNewRoute);
+    setNewFrom("overview");
     setView("new");
     onInitialNewRouteConsumed?.();
   }, [initialNewRoute, onInitialNewRouteConsumed]);
@@ -388,19 +395,18 @@ export default function Routines({
     return { map, overdue };
   }, [routeTypeItems]);
 
-  // "Next 7 Days Due" — routine/template level (not per-equipment like the
-  // reference mockup's LP-level cards): getRoutinesOverview's items are
-  // already aggregated per routine/template, and breaking that back down to
-  // individual lubrication points would need a separate per-item fetch for
-  // every due-soon routine. Flagged to the user as a simplification, not
-  // decided silently.
-  const next7DaysItems = useMemo(() => {
+  // "Next N Days Due" — routine/template level (getRoutinesOverview's items
+  // are already one per routine/template). Overdue first, then everything
+  // whose next due date falls inside the chosen window (7 / 15 days,
+  // 1 / 3 months).
+  const [dueWindow, setDueWindow] = useState(7);
+  const nextDueItems = useMemo(() => {
+    const until = Date.now() + dueWindow * 86400000;
     return routeTypeItems
-      .filter((i) => i.dueStatus === "Overdue" || i.dueStatus === "Due Soon")
       .filter((i) => i.nextDueDate)
-      .sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate))
-      .slice(0, 6);
-  }, [routeTypeItems]);
+      .filter((i) => i.dueStatus === "Overdue" || new Date(i.nextDueDate).getTime() <= until)
+      .sort((a, b) => new Date(a.nextDueDate) - new Date(b.nextDueDate));
+  }, [routeTypeItems, dueWindow]);
 
   // Completion Rate Trend (Patch 20d) — fetched once on mount, independent
   // of the route-type tab/filters above (the backend aggregation isn't
@@ -561,8 +567,9 @@ export default function Routines({
     );
   }
 
-  if (view === "new") {
-    return (
+  // Create Route opens over whichever page it was started from.
+  const newRouteModal =
+    view === "new" ? (
       <NewRoutine
         initialSuggestion={fromSuggestion}
         webhookUrl={webhookUrl}
@@ -572,6 +579,7 @@ export default function Routines({
         oilChanges={oilChanges}
         pushToast={pushToast}
         onCreated={(routineId, templateId) => {
+          setPickedSg([]);
           setView("overview");
           setFromSuggestion(null);
           refreshOverview();
@@ -582,88 +590,187 @@ export default function Routines({
           }
           void templateId; // overview already re-fetches both templates and standalone routines
         }}
-        onCancel={() => setView(selectedTemplate ? "templateDetail" : "overview")}
+        onCancel={() => setView(newFrom === "templateDetail" && !selectedTemplate ? "overview" : newFrom)}
       />
-    );
-  }
+    ) : null;
+  const baseView = view === "new" ? newFrom : view;
 
-  if (view === "suggestions") {
+  if (baseView === "suggestions") {
     const regByCode = {};
     (equipmentRegistry || []).forEach((r) => (regByCode[r.code] = r));
-    const list = (suggestions || []).filter((sg) => contractorFilter === "All" || sg.contractor === contractorFilter);
+    const all = (suggestions || []).filter((sg) => contractorFilter === "All" || sg.contractor === contractorFilter);
+    const types = Array.from(new Set(all.map((sg) => sg.routeType || sg.workType).filter(Boolean)));
+    const list = all.filter((sg) => sgType === "All" || (sg.routeType || sg.workType) === sgType);
+    const picked = all.filter((sg) => pickedSg.includes(sg.suggestionId));
+    const first = picked[0];
+    // One route = one route type and one contractor: once something is
+    // ticked, suggestions that can't join it are greyed out.
+    const fits = (sg) => !first || ((sg.routeType || "") === (first.routeType || "") && (sg.contractor || "") === (first.contractor || ""));
+    const today = new Date(new Date().toDateString()).getTime();
+    const late = (sg) => sg.requiredDate && new Date(sg.requiredDate).getTime() < today;
+    const togglePick = (sg) => setPickedSg((p) => (p.includes(sg.suggestionId) ? p.filter((x) => x !== sg.suggestionId) : [...p, sg.suggestionId]));
+    const createFrom = (items) => {
+      setFromSuggestion(items.length === 1 ? items[0] : { ...items[0], items });
+      setNewFrom("suggestions");
+      setView("new");
+    };
+    const TYPE_ICON = { "Oil Change": "ti-droplet", Sampling: "ti-flask", "Emergency Top Up": "ti-alert-triangle" };
     return (
-      <div>
+      <div data-testid="suggestions-page">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
-          <button style={s.btn} onClick={() => setView("overview")}>
+          <button style={s.btn} onClick={() => { setPickedSg([]); setView("overview"); }}>
             <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
           </button>
           <button style={s.btn} onClick={refreshSuggestions}>
             <i className="ti ti-refresh" aria-hidden="true" /> Refresh
           </button>
         </div>
-        <p style={{ ...s.sectionTitle, margin: "0 0 4px" }}>Suggestions</p>
-        <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "0 0 14px" }}>
-          Made from submitted actions whose Agreed Action asks for an oil change, a top-up or a sample. Pick one to create its route — it's
-          then marked as converted and linked to that route.
-        </p>
+        <div style={{ ...s.card, display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap", padding: "16px 20px" }}>
+          <span style={{ width: 44, height: 44, borderRadius: 12, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+            <i className="ti ti-bulb" aria-hidden="true" />
+          </span>
+          <div style={{ flex: "1 1 320px" }}>
+            <p style={{ ...s.sectionTitle, margin: 0 }}>Suggestions</p>
+            <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 0" }}>
+              Made from submitted actions whose Agreed Action asks for an oil change, a top-up or a sample. Tick the ones to do together and create one route —
+              they're then marked as converted and linked to it.
+            </p>
+          </div>
+          {[
+            { label: "Open", value: all.length, color: T.accent },
+            { label: "Past required date", value: all.filter(late).length, color: T.danger },
+          ].map((k) => (
+            <div key={k.label} style={{ textAlign: "center", minWidth: 90 }} data-testid={`sg-kpi-${k.label}`}>
+              <div style={{ fontSize: 24, fontWeight: 800, color: k.value ? k.color : T.textPrimary }}>{k.value}</div>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+
         {suggestions === null ? (
           <p style={{ color: T.textSecondary }}>Loading…</p>
-        ) : list.length === 0 ? (
-          <p style={{ color: T.textSecondary }}>No open suggestions.</p>
-        ) : (
-          <div style={{ ...s.card, padding: 0, overflowX: "auto" }}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Lubrication point</th>
-                  <th style={s.th}>Work</th>
-                  <th style={s.th}>Why</th>
-                  <th style={s.th}>Source action</th>
-                  <th style={s.th}>Required by</th>
-                  <th style={s.th}>Contractor</th>
-                  <th style={s.th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((sg) => (
-                  <tr key={sg.suggestionId}>
-                    <td style={s.td}>
-                      <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{sg.lpId}</div>
-                      <div style={{ fontSize: 12, color: T.textSecondary }}>{regByCode[sg.lpId]?.lubricationPoint || regByCode[sg.lpId]?.description || ""}</div>
-                    </td>
-                    <td style={s.td}>{sg.workType}</td>
-                    <td style={s.td}>{sg.reason}</td>
-                    <td style={s.td}>{sg.sourceAcNo}</td>
-                    <td style={s.td}>{formatDateShort(sg.requiredDate)}</td>
-                    <td style={s.td}>{sg.contractor || "—"}</td>
-                    <td style={s.td}>
-                      {canCreateRoutines && (
-                        <button
-                          style={s.btnPrimary}
-                          onClick={() => {
-                            setFromSuggestion(sg);
-                            setView("new");
-                          }}
-                        >
-                          Create route
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        ) : all.length === 0 ? (
+          <div style={{ ...s.card, textAlign: "center", color: T.textSecondary, padding: 30 }}>
+            <i className="ti ti-circle-check" aria-hidden="true" style={{ fontSize: 28, color: T.success }} />
+            <p style={{ margin: "6px 0 0" }}>No open suggestions.</p>
           </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", margin: "4px 0 12px" }}>
+              {["All", ...types].map((t) => {
+                const n = t === "All" ? all.length : all.filter((sg) => (sg.routeType || sg.workType) === t).length;
+                const on = sgType === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setSgType(t)}
+                    style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderColor: on ? T.accent : T.border, color: on ? T.accent : T.textSecondary, fontWeight: on ? 700 : 500 }}
+                  >
+                    {t !== "All" && <i className={`ti ${TYPE_ICON[t] || "ti-route"}`} aria-hidden="true" />} {t === "All" ? "All" : t} <span style={{ fontWeight: 500 }}>{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", gap: 12, paddingBottom: picked.length ? 80 : 0 }}>
+              {list.map((sg) => {
+                const on = pickedSg.includes(sg.suggestionId);
+                const ok = on || fits(sg);
+                const reg = regByCode[sg.lpId];
+                return (
+                  <div
+                    key={sg.suggestionId}
+                    data-testid={`sg-card-${sg.suggestionId}`}
+                    style={{
+                      ...s.card,
+                      marginBottom: 0,
+                      padding: "12px 14px",
+                      border: `1.5px solid ${on ? T.accent : T.border}`,
+                      background: on ? T.accent + "0D" : T.cardBg,
+                      opacity: ok ? 1 : 0.5,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: canCreateRoutines && ok ? "pointer" : "default" }}>
+                      {canCreateRoutines && (
+                        <input type="checkbox" checked={on} disabled={!ok} onChange={() => togglePick(sg)} aria-label={`Pick ${sg.lpId}`} style={{ marginTop: 3 }} />
+                      )}
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent, fontSize: 13 }}>{sg.lpId}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: T.accent + "14", color: T.accent, whiteSpace: "nowrap" }}>
+                            <i className={`ti ${TYPE_ICON[sg.routeType] || "ti-route"}`} aria-hidden="true" /> {sg.workType}
+                          </span>
+                        </span>
+                        <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>{reg?.lubricationPoint || reg?.description || ""}</span>
+                      </span>
+                    </label>
+                    <div style={{ fontSize: 12.5, color: T.textPrimary }}>{sg.reason}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 12, color: T.textSecondary, flexWrap: "wrap" }}>
+                      <span>
+                        Action {sg.sourceAcNo || "—"} · {sg.contractor || "—"}
+                      </span>
+                      <span style={{ color: late(sg) ? T.danger : T.textSecondary, fontWeight: late(sg) ? 700 : 500 }}>
+                        <i className="ti ti-calendar" aria-hidden="true" /> by {formatDateShort(sg.requiredDate)}
+                      </span>
+                    </div>
+                    {canCreateRoutines && (
+                      <button style={{ ...s.btn, alignSelf: "flex-start", padding: "5px 12px", fontSize: 12.5 }} onClick={() => createFrom([sg])}>
+                        Create route
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {picked.length > 0 && (
+              <div
+                data-testid="sg-pick-bar"
+                style={{
+                  position: "sticky",
+                  bottom: 12,
+                  marginTop: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  background: T.cardBg,
+                  border: `1.5px solid ${T.accent}`,
+                  borderRadius: 12,
+                  padding: "10px 14px",
+                  boxShadow: "0 8px 24px rgba(8,15,28,0.18)",
+                }}
+              >
+                <strong style={{ fontSize: 13.5 }}>
+                  {picked.length} picked
+                </strong>
+                <span style={{ fontSize: 12.5, color: T.textSecondary, flex: 1 }}>
+                  {first.routeType || first.workType} · {first.contractor || "—"} · {picked.map((x) => x.lpId).join(", ")}
+                </span>
+                <button style={s.btn} onClick={() => setPickedSg([])}>
+                  Clear
+                </button>
+                <button style={s.btnPrimary} onClick={() => createFrom(picked)} data-testid="sg-create-route">
+                  <i className="ti ti-route" aria-hidden="true" /> Create route with {picked.length} point{picked.length === 1 ? "" : "s"}
+                </button>
+              </div>
+            )}
+          </>
         )}
+        {newRouteModal}
       </div>
     );
   }
 
-  if (view === "templateDetail" && selectedTemplate) {
+  if (baseView === "templateDetail" && selectedTemplate) {
     const overdueCount = templateInstances.filter((r) => isOverdue(r, now)).length;
     const unassignedCount = templateInstances.filter((r) => r.status === ROUTE_STATUS.DRAFT).length;
     return (
       <div>
+        {newRouteModal}
         <button style={{ ...s.btn, marginBottom: 14 }} onClick={() => { setView("overview"); setSelectedTemplate(null); refreshOverview(); }}>
           <i className="ti ti-arrow-left" aria-hidden="true" /> Back to Routines
         </button>
@@ -832,6 +939,7 @@ export default function Routines({
   // ─── Default: Overview ────────────────────────────────────────────────
   return (
     <div>
+      {newRouteModal}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
         <p style={{ ...s.sectionTitle, margin: 0 }}>Routines</p>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -846,7 +954,7 @@ export default function Routines({
             </select>
           )}
           {canCreateRoutines && (
-            <button style={s.btnPrimary} onClick={() => { setFromSuggestion(null); setView("new"); }}>
+            <button style={s.btnPrimary} onClick={() => { setFromSuggestion(null); setNewFrom("overview"); setView("new"); }}>
               <i className="ti ti-plus" aria-hidden="true" /> Create Route
             </button>
           )}
@@ -1060,12 +1168,30 @@ export default function Routines({
 
         <div style={{ flex: "1 1 260px", minWidth: 240 }}>
           <div style={s.card}>
-            <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Next 7 Days Due</p>
-            {next7DaysItems.length === 0 ? (
-              <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Nothing overdue or due soon.</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <p style={{ fontWeight: 700, margin: 0 }}>Due in the next</p>
+              <select
+                style={{ ...s.select, fontSize: 12.5, minWidth: 120 }}
+                value={dueWindow}
+                onChange={(e) => setDueWindow(Number(e.target.value))}
+                aria-label="Due window"
+                data-testid="due-window"
+              >
+                <option value={7}>7 days</option>
+                <option value={15}>15 days</option>
+                <option value={30}>1 month</option>
+                <option value={90}>3 months</option>
+              </select>
+            </div>
+            <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }} data-testid="due-window-count">
+              {nextDueItems.length} route{nextDueItems.length === 1 ? "" : "s"}
+              {nextDueItems.some((i) => i.dueStatus === "Overdue") ? ` · ${nextDueItems.filter((i) => i.dueStatus === "Overdue").length} overdue` : ""}
+            </p>
+            {nextDueItems.length === 0 ? (
+              <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>Nothing overdue or due in this window.</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {next7DaysItems.map((item) => (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 360, overflowY: "auto", paddingRight: 4 }} data-testid="due-window-list">
+                {nextDueItems.map((item) => (
                   <div
                     key={item.id}
                     style={{ cursor: "pointer", paddingBottom: 10, borderBottom: `1px solid ${T.border}` }}

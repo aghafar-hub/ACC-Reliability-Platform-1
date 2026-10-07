@@ -98,7 +98,7 @@ export function LabCountControls({ T, s, count, setCount, sinceChange, setSinceC
 // sits on that sample (sampled, then changed); after the last sample it
 // sits on the right edge. Changes before the first shown sample are left
 // out. changes: [{ eventDate, oilBrandType?, quantityUsed? }].
-export function oilChangeMarkers(history, changes) {
+function oilChangeMarkers(history, changes) {
   const ts = history.map((d) => toTime(d.sampledDate));
   if (!ts.length || ts.some((t) => t === null)) return [];
   const day = 86400000;

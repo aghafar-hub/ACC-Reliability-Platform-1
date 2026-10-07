@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import TechnicianPicker from "./TechnicianPicker";
+import ModalShell, { FormSection } from "./ModalShell";
 
 // Routines tab improvement pass: the one field-edit path a routine never
 // had before (see backend/oil-lubrication/src/Routines.js's updateRoutine
@@ -55,114 +56,99 @@ export default function EditRoutineModal({ routine, items, equipmentRegistry, on
     }
   }
 
+  const label = (text) => <label style={{ ...s.label, fontSize: 12, fontWeight: 600 }}>{text}</label>;
+  const grid = (min) => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}px), 1fr))`, gap: 14 });
+  const facts = [
+    ["Route type", routine.routeType || "—"],
+    ["Contractor", routine.contractor || "—"],
+    ["Status", routine.status || "—"],
+    ["Created", routine.createdDate ? `${routine.createdDate} · ${routine.createdBy || "—"}` : "—"],
+  ];
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        zIndex: 210,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "24px 16px",
-        overflowY: "auto",
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, width: "100%", maxWidth: 540, boxShadow: `0 12px 40px ${T.appBg}cc` }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: `1px solid ${T.border}` }}>
-          <p style={{ ...s.sectionTitle, margin: 0 }}>Edit Route</p>
-          <button style={s.btn} onClick={onClose} disabled={saving}>
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div style={{ padding: 22 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: T.textSecondary, marginBottom: 16 }}>
-            <span>
-              <strong style={{ color: T.textPrimary }}>{routine.routeType || "—"}</strong>
-            </span>
-            <span>Contractor: {routine.contractor || "—"}</span>
-            <span>Status: {routine.status || "—"}</span>
-            <span>{(items || []).length} equipment</span>
-            {routine.createdDate && <span>Created {routine.createdDate} by {routine.createdBy || "—"}</span>}
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <label style={s.label}>Route Name</label>
-            <input style={s.input} type="text" value={routeName} onChange={(e) => setRouteName(e.target.value)} />
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-            <div>
-              <label style={s.label}>Due Date</label>
-              {/* Phase 1: the date is changed with Reschedule, which records the reason. */}
-              <div style={{ ...s.input, background: "transparent", color: s.input?.color }}>{routine.dueDate || "—"}</div>
-              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>Use Reschedule to change it.</div>
-            </div>
-            <div>
-              <label style={s.label}>Area</label>
-              <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)}>
-                {areaOptions.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <label style={s.label}>Grace Period (days)</label>
-            <input style={s.input} type="number" min="0" placeholder="0" value={duration} onChange={(e) => setDuration(e.target.value)} />
-            <p style={{ fontSize: 12, color: T.textSecondary, margin: "4px 0 0" }}>
-              Still counts as On Schedule for this many days past the Due Date before flipping to Overdue.
-            </p>
-          </div>
-
-          <div style={{ marginBottom: isEmergencyTopUp ? 14 : 0 }}>
-            <label style={s.label}>Assign Technician</label>
-            <TechnicianPicker contractor={routine.contractor} value={assignedTo} onChange={setAssignedTo} roleFilter={null} />
-          </div>
-
-          {isEmergencyTopUp && (
-            <div style={{ marginBottom: 14 }}>
-              <label style={s.label}>Reason</label>
-              <input style={s.input} type="text" placeholder="e.g. Leakage, low level, seal issue…" value={reason} onChange={(e) => setReason(e.target.value)} />
-            </div>
-          )}
-
-          {items && items.length > 0 && (
-            <div>
-              <label style={s.label}>Equipment / Lubrication Points ({items.length}) — not editable here</label>
-              <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, maxHeight: 160, overflowY: "auto" }}>
-                {items.map((item) => {
-                  const reg = registryByLp[item.lpId];
-                  return (
-                    <div key={item.routineItemId} style={{ padding: "6px 10px", borderBottom: `1px solid ${T.border2}`, fontSize: 12 }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</span>
-                      {"  "}
-                      {reg?.lubricationPoint || reg?.description || ""}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: "16px 22px", borderTop: `1px solid ${T.border}` }}>
+    <ModalShell
+      icon="route"
+      title="Edit Route"
+      subtitle={routine.routineId || routine.routeName}
+      onClose={saving ? () => {} : onClose}
+      width={640}
+      testid="edit-route-modal"
+      footer={
+        <>
           <button style={s.btn} onClick={onClose} disabled={saving}>
             Cancel
           </button>
           <button style={s.btnPrimary} onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save Changes"}
           </button>
-        </div>
+        </>
+      }
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 130px), 1fr))", gap: 10, background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 14px", marginBottom: 14 }}>
+        {facts.map(([k, v]) => (
+          <div key={k} style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: T.textSecondary, fontWeight: 600 }}>{k}</div>
+            <div style={{ fontSize: 13, color: T.textPrimary, marginTop: 2, overflowWrap: "anywhere" }}>{v}</div>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <FormSection icon="clipboard-text" title="Details">
+        <div style={{ marginBottom: 14 }}>
+          {label("Route Name")}
+          <input style={s.input} type="text" aria-label="Route Name" value={routeName} onChange={(e) => setRouteName(e.target.value)} />
+        </div>
+        <div style={grid(170)}>
+          <div>
+            {label("Due Date")}
+            {/* Phase 1: the date is changed with Reschedule, which records the reason. */}
+            <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>{routine.dueDate || "—"}</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>Use Reschedule to change it.</div>
+          </div>
+          <div>
+            {label("Area")}
+            <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area">
+              {areaOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            {label("Grace Period (days)")}
+            <input style={s.input} type="number" min="0" placeholder="0" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label="Grace Period (days)" />
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>Days after the due date before it counts as overdue.</div>
+          </div>
+        </div>
+      </FormSection>
+
+      <FormSection icon="user-check" title="Technician">
+        {label("Assign Technician")}
+        <TechnicianPicker contractor={routine.contractor} value={assignedTo} onChange={setAssignedTo} roleFilter={null} />
+        {isEmergencyTopUp && (
+          <div style={{ marginTop: 14 }}>
+            {label("Reason")}
+            <input style={s.input} type="text" aria-label="Reason" placeholder="e.g. Leakage, low level, seal issue…" value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+        )}
+      </FormSection>
+
+      {items && items.length > 0 && (
+        <FormSection icon="map-pin" title={`Lubrication points (${items.length})`} hint="not editable here" style={{ marginBottom: 0 }}>
+          <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, maxHeight: 200, overflowY: "auto" }}>
+            {items.map((item) => {
+              const reg = registryByLp[item.lpId];
+              return (
+                <div key={item.routineItemId} style={{ padding: "7px 12px", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 }}>
+                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{item.lpId}</span>
+                  <span style={{ color: T.textSecondary }}> — {reg?.lubricationPoint || reg?.description || ""}</span>
+                </div>
+              );
+            })}
+          </div>
+        </FormSection>
+      )}
+    </ModalShell>
   );
 }

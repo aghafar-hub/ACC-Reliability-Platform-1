@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useSessionEmail, useSessionContractor } from "../SessionContext";
 import TechnicianPicker from "../components/TechnicianPicker";
+import ModalShell, { FormSection } from "../components/ModalShell";
 import * as api from "../api";
 import { newId, suggestedRoutinePoints, SUGGESTION_PRESETS } from "../parsers";
 
@@ -51,6 +52,8 @@ function ReasonBadge({ T, reason }) {
 
 // initialSuggestion (Phase 3): a saved Suggestion picked on the Suggestions
 // tab — the form opens on its route type with just that point selected.
+// It may carry `items` (several suggestions of the same route type and
+// contractor, ticked together) — then all of their points are selected.
 export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, actions, oilChanges, pushToast, onCreated, onCancel, initialSuggestion }) {
   const { T, s } = useTheme();
   const createdBy = useSessionEmail();
@@ -64,9 +67,15 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   const scopedContractor = useSessionContractor();
 
   const [routeType, setRouteType] = useState(initialSuggestion?.routeType || "Sampling");
-  const [routeName, setRouteName] = useState(initialSuggestion?.lpId ? `${initialSuggestion.workType} - ${initialSuggestion.lpId}` : "");
+  const initialItems = initialSuggestion ? (initialSuggestion.items?.length ? initialSuggestion.items : [initialSuggestion]) : [];
+  const [routeName, setRouteName] = useState(
+    initialItems.length > 1 ? `${initialItems[0].workType} - ${initialItems.length} points` : initialSuggestion?.lpId ? `${initialSuggestion.workType} - ${initialSuggestion.lpId}` : ""
+  );
   const [frequency, setFrequency] = useState("One-time");
-  const [dueDate, setDueDate] = useState(initialSuggestion?.requiredDate ? initialSuggestion.requiredDate.slice(0, 10) : "");
+  const [dueDate, setDueDate] = useState(() => {
+    const dates = initialItems.map((x) => x.requiredDate).filter(Boolean).sort();
+    return dates.length ? dates[0].slice(0, 10) : "";
+  });
   // Grace period (days) after dueDate before a one-time routine counts as
   // Overdue — confirmed directly by the user. Not shown/sent for a
   // recurring template, which has no single due date of its own to apply
@@ -158,22 +167,28 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     };
   }
 
-  // Opened from the Suggestions tab: start with just that point picked.
+  // Opened from the Suggestions tab: start with just those points picked.
   useEffect(() => {
-    if (!initialSuggestion) return;
-    const reg = (equipmentRegistry || []).find((r) => r.code === initialSuggestion.lpId);
-    if (!reg) return;
-    setSelected([
-      {
-        lpId: reg.code,
-        label: `${reg.code} — ${reg.lubricationPoint || reg.description}`,
-        equipmentId: reg.equipmentId,
-        oilType: reg.lubricant,
-        area: reg.area,
-        suggestionReason: { kind: "action", label: initialSuggestion.reason },
-        suggestionId: initialSuggestion.suggestionId,
-      },
-    ]);
+    if (!initialItems.length) return;
+    const picks = initialItems
+      .map((sg) => {
+        const reg = (equipmentRegistry || []).find((r) => r.code === sg.lpId);
+        if (!reg) return null;
+        return {
+          lpId: reg.code,
+          label: `${reg.code} — ${reg.lubricationPoint || reg.description}`,
+          equipmentId: reg.equipmentId,
+          oilType: reg.lubricant,
+          area: reg.area,
+          suggestionReason: { kind: "action", label: sg.reason },
+          suggestionId: sg.suggestionId,
+        };
+      })
+      .filter(Boolean);
+    setSelected(picks.filter((p, i) => picks.findIndex((x) => x.lpId === p.lpId) === i));
+    // Patch 19: the contractor comes from the picked equipment.
+    const firstReg = (equipmentRegistry || []).find((r) => r.code === initialItems[0].lpId);
+    if (!contractor && (firstReg?.contractor || initialItems[0].contractor)) setContractor(firstReg?.contractor || initialItems[0].contractor);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when opened from a suggestion
   }, []);
 
@@ -255,9 +270,6 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   });
   const shownCandidates = candidates.slice(0, 200);
 
-  function isSelected(lpId) {
-    return selected.some((sel) => sel.lpId === lpId);
-  }
   function toggleRow(r) {
     // Emergency Top Up covers exactly one piece of equipment — picking a
     // new row replaces whatever was selected instead of adding to it, and
@@ -396,343 +408,291 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     }
   }
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        zIndex: 200,
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "24px 16px",
-        overflowY: "auto",
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        style={{
-          background: T.cardBg,
-          border: `1px solid ${T.border}`,
-          borderRadius: 12,
-          width: "100%",
-          maxWidth: 860,
-          boxShadow: `0 12px 40px ${T.appBg}cc`,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "18px 22px",
-            borderBottom: `1px solid ${T.border}`,
-          }}
-        >
-          <p style={{ ...s.sectionTitle, margin: 0 }}>Create Route</p>
-          <button style={s.btn} onClick={onCancel} disabled={submitting}>
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        </div>
+  const typeInfo = ROUTE_TYPES.find((rt) => rt.id === routeType);
+  const grid = (min) => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${min}px), 1fr))`, gap: 14 });
+  const label = (text) => <label style={{ ...s.label, fontSize: 12, fontWeight: 600 }}>{text}</label>;
+  const mono = { fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent };
+  const selectedIds = new Set(selected.map((x) => x.lpId));
+  const suggestedIds = new Set(allSuggested.map((r) => r.code));
+  const reasonOf = (r) => savedByLp[r.code] ? { kind: "action", label: savedByLp[r.code].reason } : allSuggested.find((x) => x.code === r.code)?.suggestionReason;
 
-        <div style={{ padding: 22, maxHeight: "78vh", overflowY: "auto" }}>
-          <label style={s.label}>Route Type</label>
-          <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            {ROUTE_TYPES.map((rt) => (
+  const footer = (
+    <>
+      <span style={{ marginRight: "auto", fontSize: 12.5, color: T.textSecondary }} data-testid="route-summary">
+        {isRecurring
+          ? `${frequency} · ${contractor || "—"} · ${recurringPreview.length} point${recurringPreview.length === 1 ? "" : "s"} due today`
+          : `${selected.length} point${selected.length === 1 ? "" : "s"}${contractor ? ` · ${contractor}` : ""}${dueDate ? ` · due ${dueDate}` : ""}${assignedTo ? "" : " · no technician yet (Draft)"}`}
+      </span>
+      <button style={s.btn} onClick={onCancel} disabled={submitting}>
+        Cancel
+      </button>
+      <button style={s.btnPrimary} onClick={handleCreate} disabled={submitting}>
+        {submitting ? "Creating…" : "Create Route"}
+      </button>
+    </>
+  );
+
+  return (
+    <ModalShell icon="route" title="Create Route" subtitle={typeInfo ? `${typeInfo.id} — ${typeInfo.desc}` : ""} onClose={submitting ? () => {} : onCancel} footer={footer} width={1000} testid="route-modal">
+      <FormSection icon="category" title="Route type" testid="route-sec-type">
+        <div style={grid(200)}>
+          {ROUTE_TYPES.map((rt) => {
+            const on = routeType === rt.id;
+            return (
               <button
                 key={rt.id}
+                type="button"
+                aria-pressed={on}
                 onClick={() => { keepInitialPick.current = false; setRouteType(rt.id); }}
                 style={{
-                  flex: 1,
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
+                  gap: 12,
                   padding: "12px 14px",
-                  borderRadius: 8,
-                  border: `1px solid ${routeType === rt.id ? T.accent : T.border}`,
-                  background: routeType === rt.id ? T.accent + "18" : "transparent",
-                  color: routeType === rt.id ? T.accent : T.textSecondary,
+                  borderRadius: 10,
+                  border: `1.5px solid ${on ? T.accent : T.border}`,
+                  background: on ? T.accent + "14" : T.cardBg,
+                  color: T.textPrimary,
                   cursor: "pointer",
-                  fontWeight: 700,
-                  fontSize: 13,
+                  textAlign: "left",
+                  fontFamily: "inherit",
                 }}
               >
-                <i className={`ti ${rt.icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
+                <span style={{ width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", background: on ? T.accent : T.cardSubBg, color: on ? "#fff" : T.textSecondary, fontSize: 18, flexShrink: 0 }}>
+                  <i className={`ti ${rt.icon}`} aria-hidden="true" />
+                </span>
                 <span>
-                  {rt.id}
-                  <span style={{ display: "block", fontWeight: 400, fontSize: 12, opacity: 0.8 }}>{rt.desc}</span>
+                  <span style={{ display: "block", fontWeight: 700, fontSize: 13.5, color: on ? T.accent : T.textPrimary }}>{rt.id}</span>
+                  <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>{rt.desc}</span>
                 </span>
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+      </FormSection>
 
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 14, marginBottom: 16 }}>
+      <FormSection icon="clipboard-text" title="Details" testid="route-sec-details">
+        <div style={grid(190)}>
+          <div style={{ gridColumn: "span 2", minWidth: 0 }}>
+            {label("Route Name")}
+            <input
+              style={s.input}
+              type="text"
+              aria-label="Route Name"
+              placeholder={`e.g. ${area !== "All" ? area : "Area 482"} - Weekly ${routeType} Route`}
+              value={routeName}
+              onChange={(e) => setRouteName(e.target.value)}
+            />
+          </div>
+          {!isEmergencyTopUp && (
             <div>
-              <label style={s.label}>Route Name</label>
-              <input
-                style={s.input}
-                type="text"
-                placeholder={`e.g. ${area !== "All" ? area : "Area 482"} - Weekly ${routeType} Route`}
-                value={routeName}
-                onChange={(e) => setRouteName(e.target.value)}
-              />
+              {label("Frequency")}
+              <select style={s.select} value={frequency} onChange={(e) => setFrequency(e.target.value)} aria-label="Frequency">
+                {FREQUENCIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
             </div>
-            {!isEmergencyTopUp && (
+          )}
+          <div>
+            {label(isRecurring ? "Starts On" : "Due Date")}
+            <input style={s.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} aria-label={isRecurring ? "Starts On" : "Due Date"} />
+          </div>
+          {!isRecurring && (
+            <div>
+              {label("Grace Period (days)")}
+              <input style={s.input} type="number" min="0" placeholder="0" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label="Grace Period (days)" />
+              <div style={{ fontSize: 12, color: T.textMuted, marginTop: 3 }}>Days after the due date before it counts as overdue.</div>
+            </div>
+          )}
+          <div>
+            {label("Contractor")}
+            {scopedContractor || !isRecurring ? (
+              contractor ? (
+                <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>{contractor}</div>
+              ) : (
+                // Patch 19: a one-time route for an ACC/unscoped account
+                // takes its contractor from the first equipment picked.
+                <div style={{ ...s.input, background: "transparent", color: T.textMuted, fontStyle: "italic", display: "flex", alignItems: "center", fontSize: 12.5 }}>
+                  Set by the first point you pick
+                </div>
+              )
+            ) : (
+              <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)} aria-label="Contractor">
+                {CONTRACTOR_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {!isRecurring && (
+            <div style={{ gridColumn: "span 2", minWidth: 0 }}>
+              {label("Assign Technician")}
+              {/* Patch 16: any role, not only ROLE-TECH (same as an action's Assigned To). */}
+              <TechnicianPicker contractor={contractor} value={assignedTo} onChange={setAssignedTo} roleFilter={null} />
+            </div>
+          )}
+          {isEmergencyTopUp && (
+            <div style={{ gridColumn: "1 / -1" }}>
+              {label("Reason")}
+              <input style={s.input} type="text" aria-label="Reason" placeholder="e.g. Leakage, low level, seal issue…" value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          )}
+        </div>
+      </FormSection>
+
+      <FormSection
+        icon="map-pin"
+        title={isRecurring ? "Which points it covers" : isEmergencyTopUp ? "Equipment" : "Lubrication points"}
+        hint={isRecurring ? "worked out again every cycle" : `${candidates.length} available`}
+        testid="route-sec-points"
+      >
+        {!isEmergencyTopUp && (
+          <div style={{ ...grid(160), marginBottom: 12 }}>
+            <div>
+              {label("Area")}
+              <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area">
+                {areaOptions.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              {label("Oil Type")}
+              <select style={s.select} value={oilType} onChange={(e) => setOilType(e.target.value)} aria-label="Oil Type">
+                {oilTypeOptions.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {!isRecurring && (
               <div>
-                <label style={s.label}>Frequency</label>
-                <select style={s.select} value={frequency} onChange={(e) => setFrequency(e.target.value)}>
-                  {FREQUENCIES.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
+                {label("Suggestion")}
+                <select style={s.select} value={presetId} onChange={(e) => applyPreset(e.target.value)} aria-label="Suggestion">
+                  {SUGGESTION_PRESETS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
                     </option>
                   ))}
                 </select>
               </div>
             )}
-            <div>
-              <label style={s.label}>{isRecurring ? "Starts On" : "Due Date"}</label>
-              <input style={s.input} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
           </div>
+        )}
 
-          {!isRecurring && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14, marginBottom: 16 }}>
-              <div>
-                <label style={s.label}>Grace Period (days)</label>
+        {isRecurring ? (
+          <div data-testid="route-recurring-preview">
+            <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "0 0 8px" }}>
+              <strong style={{ color: T.textPrimary }}>
+                {recurringPreview.length} point{recurringPreview.length !== 1 ? "s" : ""} due today
+              </strong>{" "}
+              with these filters. A recurring route re-checks which points are due every cycle — this is only a preview.
+            </p>
+            {recurringPreview.length > 0 && (
+              <div style={{ maxHeight: 240, overflowY: "auto", border: `1px solid ${T.border}`, borderRadius: 10 }}>
+                {recurringPreview.map((r) => (
+                  <div key={r.code} style={{ padding: "7px 12px", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 }}>
+                    <span style={mono}>{r.code}</span> — {r.lubricationPoint || r.description}
+                    <ReasonBadge T={T} reason={r.suggestionReason} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 380px), 1fr))", gap: 14, alignItems: "start" }}>
+            <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }} data-testid="route-available">
+              <div style={{ padding: 10, borderBottom: `1px solid ${T.border}`, background: T.cardSubBg }}>
                 <input
-                  style={s.input}
-                  type="number"
-                  min="0"
-                  placeholder="0"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  style={{ ...s.input, marginBottom: 8 }}
+                  type="search"
+                  placeholder="Search by LP ID, Description, Equipment ID…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Search points"
                 />
-              </div>
-              <p style={{ fontSize: 12, color: T.textSecondary, margin: "auto 0 0" }}>
-                Still counts as On Schedule for this many days past the Due Date before flipping to Overdue.
-              </p>
-            </div>
-          )}
-
-          {/* Emergency Top Up is one equipment, picked straight from the
-              search below — Area/Oil Type filtering and a suggestion
-              preset exist to help build a multi-LP batch route, which
-              doesn't apply here. */}
-          {!isEmergencyTopUp && (
-            <div style={{ ...s.card, marginBottom: 16 }}>
-              <p style={{ fontWeight: 700, marginBottom: 10, fontSize: 13 }}>Filters &amp; Suggestion</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.4fr", gap: 14 }}>
-                <div>
-                  <label style={s.label}>Area</label>
-                  <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)}>
-                    {areaOptions.map((a) => (
-                      <option key={a} value={a}>
-                        {a}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={s.label}>Oil Type</label>
-                  <select style={s.select} value={oilType} onChange={(e) => setOilType(e.target.value)}>
-                    {oilTypeOptions.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {!isRecurring && (
-                  <div>
-                    <label style={s.label}>Suggestion</label>
-                    <select style={s.select} value={presetId} onChange={(e) => applyPreset(e.target.value)}>
-                      {SUGGESTION_PRESETS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginBottom: 16 }}>
-            <div>
-              <label style={s.label}>Contractor</label>
-              {scopedContractor || !isRecurring ? (
-                contractor ? (
-                  <div style={{ ...s.input, background: T.cardSubBg, color: T.textSecondary, display: "flex", alignItems: "center" }}>
-                    {contractor}
-                  </div>
-                ) : (
-                  // Patch 19: a one-time route for an ACC/unscoped account
-                  // no longer picks a contractor up front — it's derived
-                  // from whichever equipment they select first below, and
-                  // a routine can't mix both contractors' equipment.
-                  <p style={{ ...s.input, background: "transparent", color: T.textMuted, fontStyle: "italic", display: "flex", alignItems: "center", fontSize: 12.5, margin: 0 }}>
-                    Set automatically once you pick equipment below
-                  </p>
-                )
-              ) : (
-                // Recurring template, ACC/unscoped account — see
-                // CONTRACTOR_OPTIONS' own comment for why this one case
-                // still needs a real manual dropdown.
-                <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
-                  {CONTRACTOR_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          </div>
-
-          {isRecurring ? (
-            <div style={s.card}>
-              <p style={{ fontWeight: 700, marginBottom: 4, fontSize: 13 }}>
-                {recurringPreview.length} point{recurringPreview.length !== 1 ? "s" : ""} due today, with these filters
-              </p>
-              <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 10 }}>
-                A recurring route re-checks which points are due every cycle — it doesn't lock in this exact list. This is just a
-                preview so you can sanity-check the filters before saving.
-              </p>
-              {recurringPreview.length > 0 && (
-                <div style={{ maxHeight: 220, overflowY: "auto" }}>
-                  {recurringPreview.map((r) => (
-                    <div key={r.code} style={{ padding: "6px 0", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 }}>
-                      <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{r.code}</span>
-                      {" — "}
-                      {r.lubricationPoint || r.description}
-                      <ReasonBadge T={T} reason={r.suggestionReason} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 14, marginBottom: 16 }}>
-                <div style={{ flex: 1 }}>
-                  <label style={s.label}>Assign Technician</label>
-                  {/* Patch 16: widened from the default ROLE-TECH-only filter — a
-                      routine can reasonably be assigned to a Contractor Engineer
-                      too, not just a literal Technician account, matching Action
-                      Tracker's "Assigned To" (EditActionModal.jsx) which already
-                      uses roleFilter={null} for the same reason. */}
-                  <TechnicianPicker contractor={contractor} value={assignedTo} onChange={setAssignedTo} roleFilter={null} />
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", fontSize: 12.5 }}>
+                  {!isEmergencyTopUp && (
+                    <button style={{ ...s.btn, padding: "4px 10px", fontSize: 12.5 }} onClick={selectAllShown}>
+                      Select All ({shownCandidates.length} shown)
+                    </button>
+                  )}
+                  <span style={{ color: T.textSecondary }}>
+                    <span style={{ color: T.accent }}>●</span> = suggested
+                  </span>
                 </div>
               </div>
-
-              {isEmergencyTopUp && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={s.label}>Reason</label>
-                  <input
-                    style={s.input}
-                    type="text"
-                    placeholder="e.g. Leakage, low level, seal issue…"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </div>
-              )}
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{isEmergencyTopUp ? "Equipment" : "Lubrication Points"}</p>
-                <span style={{ fontSize: 12, color: T.textSecondary }}>{candidates.length} LPs available</span>
-              </div>
-              <input
-                style={{ ...s.input, marginBottom: 10 }}
-                type="search"
-                placeholder="Search by LP ID, Description, Equipment ID…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              <div style={{ display: "flex", gap: 14, marginBottom: 10, fontSize: 12.5 }}>
-                {!isEmergencyTopUp && (
-                  <button style={{ ...s.btn, padding: "4px 10px" }} onClick={selectAllShown}>
-                    Select All ({shownCandidates.length} shown)
-                  </button>
-                )}
-                <button style={{ ...s.btn, padding: "4px 10px" }} onClick={clearSelection}>
-                  Clear Selection
-                </button>
-              </div>
-
-              <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, maxHeight: 260, overflowY: "auto", marginBottom: 16 }}>
-                <table style={s.table}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...s.th, width: 32 }}></th>
-                      <th style={s.th}>LP ID</th>
-                      <th style={s.th}>Description</th>
-                      <th style={s.th}>Equipment ID</th>
-                      <th style={s.th}>Oil Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shownCandidates.map((r) => (
-                      <tr key={r.code} style={{ cursor: "pointer" }} onClick={() => toggleRow(r)}>
-                        <td style={s.td}>
-                          <input type="checkbox" checked={isSelected(r.code)} readOnly />
-                        </td>
-                        <td style={s.td}>{r.code}</td>
-                        <td style={s.td}>{r.lubricationPoint || r.description}</td>
-                        <td style={s.td}>{r.equipmentId}</td>
-                        <td style={s.td}>{r.lubricant}</td>
-                      </tr>
-                    ))}
-                    {shownCandidates.length === 0 && (
-                      <tr>
-                        <td style={s.td} colSpan={5}>
-                          No matching points.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div style={{ maxHeight: 340, overflowY: "auto" }}>
+                {shownCandidates.map((r) => {
+                  const on = selectedIds.has(r.code);
+                  const why = reasonOf(r);
+                  return (
+                    <label
+                      key={r.code}
+                      style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 12px", borderBottom: `1px solid ${T.border2}`, cursor: "pointer", background: on ? T.accent + "0F" : "transparent" }}
+                    >
+                      <input type="checkbox" checked={on} onChange={() => toggleRow(r)} style={{ marginTop: 3 }} aria-label={`Pick ${r.code}`} />
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          {suggestedIds.has(r.code) && <span style={{ color: T.accent, fontSize: 10 }} aria-label="suggested">●</span>}
+                          <span style={{ ...mono, fontSize: 12.5 }}>{r.code}</span>
+                          {why && <ReasonBadge T={T} reason={why} />}
+                        </span>
+                        <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>
+                          {r.lubricationPoint || r.description}
+                          {r.lubricant ? ` · ${r.lubricant}` : ""}
+                          {r.area ? ` · ${r.area}` : ""}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+                {shownCandidates.length === 0 && <p style={{ padding: 12, margin: 0, color: T.textSecondary, fontSize: 12.5 }}>No matching points.</p>}
               </div>
               {candidates.length > shownCandidates.length && (
-                <p style={{ fontSize: 12, color: T.textMuted, marginTop: -10, marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: T.textMuted, margin: 0, padding: "6px 12px", borderTop: `1px solid ${T.border}` }}>
                   Showing {shownCandidates.length} of {candidates.length} — narrow your search to see more.
                 </p>
               )}
+            </div>
 
-              <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
-                {isEmergencyTopUp ? "Selected Equipment" : "Selected Lubrication Points"} ({selected.length})
-              </p>
+            <div style={{ border: `1.5px solid ${selected.length ? T.accent : T.border}`, borderRadius: 10, overflow: "hidden" }} data-testid="route-selected">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", background: selected.length ? T.accent + "12" : T.cardSubBg, borderBottom: `1px solid ${T.border}` }}>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>
+                  {isEmergencyTopUp ? "Selected Equipment" : "Selected Lubrication Points"} ({selected.length})
+                </span>
+                <button style={{ ...s.btn, padding: "4px 10px", fontSize: 12.5 }} onClick={clearSelection} disabled={!selected.length}>
+                  Clear Selection
+                </button>
+              </div>
               {selected.length === 0 ? (
-                <p style={{ color: T.textSecondary, fontSize: 13 }}>No LPs selected.</p>
+                <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0, padding: 14 }}>No LPs selected. Tick points on the left{isEmergencyTopUp ? "" : " or pick a Suggestion"}.</p>
               ) : (
-                <div style={{ border: `1px solid ${T.border}`, borderRadius: 8, maxHeight: 220, overflowY: "auto" }}>
+                <div style={{ maxHeight: 392, overflowY: "auto" }}>
                   {selected.map((sel) => (
-                    <div
-                      key={sel.lpId}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 12px",
-                        borderBottom: `1px solid ${T.border2}`,
-                        fontSize: 12.5,
-                      }}
-                    >
-                      <div>
-                        <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, color: T.accent }}>{sel.lpId}</span>
-                        {"  "}
-                        {sel.label.replace(`${sel.lpId} — `, "")}
-                        {sel.equipmentId ? ` | ${sel.equipmentId}` : ""}
-                        {sel.oilType ? ` | ${sel.oilType}` : ""}
+                    <div key={sel.lpId} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 12px", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={mono}>{sel.lpId}</span>
                         <ReasonBadge T={T} reason={sel.suggestionReason} />
+                        <div style={{ fontSize: 12, color: T.textSecondary }}>
+                          {sel.label.replace(`${sel.lpId} — `, "")}
+                          {sel.equipmentId ? ` · ${sel.equipmentId}` : ""}
+                          {sel.oilType ? ` · ${sel.oilType}` : ""}
+                        </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => removePoint(sel.lpId)}
-                        style={{ background: "none", border: "none", color: T.textMuted, cursor: "pointer", fontSize: 16 }}
+                        aria-label={`Remove ${sel.lpId}`}
+                        style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 6, color: T.textSecondary, cursor: "pointer", width: 26, height: 26, flexShrink: 0 }}
                       >
                         ×
                       </button>
@@ -740,27 +700,10 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                   ))}
                 </div>
               )}
-            </>
-          )}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-            padding: "16px 22px",
-            borderTop: `1px solid ${T.border}`,
-          }}
-        >
-          <button style={s.btn} onClick={onCancel} disabled={submitting}>
-            Cancel
-          </button>
-          <button style={s.btnPrimary} onClick={handleCreate} disabled={submitting}>
-            {submitting ? "Creating…" : "Create Route"}
-          </button>
-        </div>
-      </div>
-    </div>
+            </div>
+          </div>
+        )}
+      </FormSection>
+    </ModalShell>
   );
 }
