@@ -538,3 +538,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* D5 — progress ring on each route card */
+.mywork-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.mywork-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.mywork-ring {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.mywork-ring-text {
+  font: 700 13px var(--sans);
+  fill: var(--shell-text, #0f1b2d);
+}
+.mywork-ring-text--done {
+  fill: var(--shell-success, #18734a);
+}

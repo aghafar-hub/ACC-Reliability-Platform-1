@@ -3,10 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Legend,
-  Pie,
-  PieChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -22,6 +19,8 @@ import NewRoutine from "./NewRoutine";
 import ProgressBar from "../components/ProgressBar";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
+import { CalendarHeat, TargetBar } from "../components/DashCharts";
+import { routesOnTime } from "../dashboardLogic";
 
 const STATUS_FILTERS = ["All", ROUTE_STATUS.DRAFT, ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.WAITING, ROUTE_STATUS.CONFIRMED];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
@@ -41,26 +40,6 @@ const ROUTE_TYPE_TABS = [
 
 // Icon + circular badge color per KPI card, matching the reference mockup.
 const KPI_ICONS = { All: "ti-calendar", "On Schedule": "ti-circle-check", "Due Soon": "ti-clock", Overdue: "ti-alert-triangle" };
-
-// dataviz skill's validated 8-slot categorical palette (references/palette.md)
-// — light- and dark-surface steps of the same 8 hues, picked by a crude
-// luminance check on the active theme's own card surface (see
-// pickCategoricalPalette below) since this app has 10 themes spanning both
-// light and dark, not just one. Colors are assigned to AREA NAMES in a
-// fixed alphabetical order (areaColorMap), never by count-rank, so a
-// filtered-down chart never repaints an area that was already shown a
-// different color.
-const CATEGORICAL_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
-const CATEGORICAL_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
-
-function pickCategoricalPalette(T) {
-  const hex = (T.cardBg || "#0D1E35").replace("#", "");
-  const r = parseInt(hex.slice(0, 2), 16) || 0;
-  const g = parseInt(hex.slice(2, 4), 16) || 0;
-  const b = parseInt(hex.slice(4, 6), 16) || 0;
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? CATEGORICAL_LIGHT : CATEGORICAL_DARK;
-}
 
 function ChartTooltip({ T, active, payload, label }) {
   if (!active || !payload?.length) return null;
@@ -379,29 +358,35 @@ export default function Routines({
     return buckets;
   }, [routeTypeItems]);
 
-  // "Routines by Area" — a blank area (every standalone one-time routine,
-  // which carries no area of its own) folds into a fixed "Unassigned"
-  // bucket rather than getting its own palette slot, same as the dataviz
-  // skill's "fold into Other" guidance for a category beyond the palette.
-  const areaColorMap = useMemo(() => {
-    const palette = pickCategoricalPalette(T);
-    const areas = Array.from(new Set(overviewItems.map((i) => i.area).filter(Boolean))).sort();
-    const map = {};
-    areas.forEach((a, i) => { map[a] = palette[i % palette.length]; });
-    return map;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- T is read for its current cardBg only; re-keying on every theme object identity change is fine but we intentionally don't depend on routeTypeItems so colors stay stable across tab/filter changes
-  }, [overviewItems, T.cardBg]);
 
-  const areaChartData = useMemo(() => {
-    const counts = {};
+
+  // "Busy days ahead" (D5) — lubrication points due per day for the next
+  // five weeks, from each route's next due date; overdue ones are counted
+  // separately (they belong to the past, not the calendar).
+  const busyDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const map = new Map();
+    let overdue = 0;
     routeTypeItems.forEach((item) => {
-      const key = item.area || "Unassigned";
-      counts[key] = (counts[key] || 0) + 1;
+      if (!item.nextDueDate || item.dueStatus === "Paused") return;
+      const d = new Date(item.nextDueDate);
+      if (isNaN(d.getTime())) return;
+      if (d < today) {
+        overdue++;
+        return;
+      }
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const cur = map.get(k) || { count: 0, routes: [] };
+      cur.count += Number(item.equipmentCount) || 0;
+      cur.routes.push(item.routeName || item.id);
+      map.set(k, cur);
     });
-    return Object.entries(counts)
-      .map(([area, count]) => ({ area, count, color: area === "Unassigned" ? T.textMuted : areaColorMap[area] || T.textMuted }))
-      .sort((a, b) => b.count - a.count);
-  }, [routeTypeItems, areaColorMap, T.textMuted]);
+    map.forEach((v) => {
+      v.detail = `${v.routes.length} route${v.routes.length === 1 ? "" : "s"}, ${v.count} point${v.count === 1 ? "" : "s"} — ${v.routes.slice(0, 3).join(", ")}${v.routes.length > 3 ? "…" : ""}`;
+    });
+    return { map, overdue };
+  }, [routeTypeItems]);
 
   // "Next 7 Days Due" — routine/template level (not per-equipment like the
   // reference mockup's LP-level cards): getRoutinesOverview's items are
@@ -421,6 +406,17 @@ export default function Routines({
   // of the route-type tab/filters above (the backend aggregation isn't
   // scoped by route type, matching "Completion Rate Trend" being a
   // whole-program metric in the reference mockup).
+  // D5 — the shared on-time target (Oil Settings → Dashboard) and each
+  // contractor's routes done on time over the last 3 months.
+  const [onTimeTarget, setOnTimeTarget] = useState(api.DEFAULT_ON_TIME_TARGET);
+  const [onTimeByContractor, setOnTimeByContractor] = useState(null);
+  useEffect(() => {
+    if (!webhookUrl) return;
+    let cancelled = false;
+    api.getDashboardSettings(webhookUrl).then((st) => { if (!cancelled) setOnTimeTarget(st.onTimeTarget); });
+    api.getRoutines(webhookUrl).then((rows) => { if (!cancelled) setOnTimeByContractor(routesOnTime(rows, 90)); }).catch(() => { if (!cancelled) setOnTimeByContractor(null); });
+    return () => { cancelled = true; };
+  }, [webhookUrl]);
   const [completionTrend, setCompletionTrend] = useState(null);
   const [completionTrendLoading, setCompletionTrendLoading] = useState(true);
 
@@ -1112,40 +1108,20 @@ export default function Routines({
           )}
         </div>
 
-        <div style={s.card}>
-          <p style={{ fontWeight: 700, margin: "0 0 10px" }}>Routines by Area</p>
-          {areaChartData.length === 0 ? (
-            <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No routines to chart.</p>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <ResponsiveContainer width="55%" height={200}>
-                <PieChart>
-                  <Pie data={areaChartData} dataKey="count" nameKey="area" innerRadius={45} outerRadius={75} paddingAngle={2}>
-                    {areaChartData.map((d) => (
-                      <Cell key={d.area} fill={d.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip T={T} />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
-                {areaChartData.map((d) => (
-                  <div key={d.area} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 2, background: d.color, flexShrink: 0 }} />
-                    <span style={{ color: T.textPrimary }}>{d.area}</span>
-                    <span style={{ color: T.textSecondary }}>{d.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div style={s.card} data-testid="busy-days">
+          <p style={{ fontWeight: 700, margin: "0 0 4px" }}>Busy days ahead</p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "0 0 10px" }}>
+            Lubrication points due per day, next 5 weeks
+            {busyDays.overdue > 0 && <span style={{ color: T.danger, fontWeight: 700 }}> · {busyDays.overdue} route{busyDays.overdue === 1 ? "" : "s"} already overdue</span>}
+          </p>
+          <CalendarHeat T={T} days={busyDays.map} weeks={5} unit="points" />
         </div>
 
         <div style={s.card}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <p style={{ fontWeight: 700, margin: 0 }}>Completion Rate Trend (Last 6 Months)</p>
             <span style={{ fontSize: 12, color: T.danger, display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ display: "inline-block", width: 14, height: 0, borderTop: `2px dashed ${T.danger}` }} /> Target 90%
+              <span style={{ display: "inline-block", width: 14, height: 0, borderTop: `2px dashed ${T.danger}` }} /> Target {onTimeTarget}%
             </span>
           </div>
           {completionTrendLoading ? (
@@ -1159,7 +1135,7 @@ export default function Routines({
                 <XAxis dataKey="month" tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={{ stroke: T.border }} tickLine={false} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 12, fill: T.textSecondary }} axisLine={false} tickLine={false} width={32} unit="%" />
                 <Tooltip content={<ChartTooltip T={T} />} cursor={{ fill: T.accent + "10" }} />
-                <ReferenceLine y={90} stroke={T.danger} strokeDasharray="4 4" />
+                <ReferenceLine y={onTimeTarget} stroke={T.danger} strokeDasharray="4 4" />
                 <Bar dataKey="rate" name="Completion Rate" fill={T.accent} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1167,6 +1143,27 @@ export default function Routines({
           <p style={{ fontSize: 12, color: T.textMuted, margin: "8px 0 0" }}>
             Item-weighted: LP items completed on time ÷ total LP items, across routines due that month.
           </p>
+          {onTimeByContractor && (
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${T.border}` }} data-testid="routes-ontime-contractor">
+              <p style={{ fontWeight: 700, margin: "0 0 8px", fontSize: 13.5 }}>Routes done on time · last 3 months</p>
+              {["RHI", "ASEC"].filter((ct) => contractorFilter === "All" || ct === contractorFilter).map((ct) => {
+                const b = onTimeByContractor[ct];
+                return (
+                  <div key={ct} style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <b style={{ width: 42, fontSize: 13 }}>{ct}</b>
+                      <TargetBar T={T} pct={b.pct} target={onTimeTarget} color={b.pct != null && b.pct < onTimeTarget ? T.warning : T.accent} height={10} />
+                      <b style={{ width: 42, textAlign: "right", fontSize: 13 }}>{b.pct == null ? "—" : `${b.pct}%`}</b>
+                    </div>
+                    <p style={{ margin: "2px 0 0 52px", fontSize: 12, color: T.textSecondary }}>
+                      {b.due ? `${b.onTime} of ${b.due} on time` : "No routes due in this period"}
+                      {b.overdueNow > 0 && <span style={{ color: T.danger, fontWeight: 700 }}> · {b.overdueNow} overdue now</span>}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

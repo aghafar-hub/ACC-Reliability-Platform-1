@@ -325,3 +325,92 @@ export function Gauge({ T, value, max, level, unit = "L", size = 180, label }) {
     </svg>
   );
 }
+
+// Calendar heat map: one square per day for `weeks` weeks from this
+// Monday, darker = more work due (one hue, light → dark). days: Map of
+// "YYYY-MM-DD" → { count, detail }. Today is outlined; past days are empty.
+export function CalendarHeat({ T, days, weeks = 5, unit = "points", onDay }) {
+  const [hover, setHover] = useState(null);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const cells = [];
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    cells.push({ d, k: key(d), info: days.get(key(d)) });
+  }
+  const max = Math.max(1, ...cells.map((c) => c.info?.count || 0));
+  const shade = (n) => (n <= 0 ? "transparent" : `color-mix(in srgb, ${T.accent} ${Math.round(20 + (n / max) * 80)}%, ${T.cardBg})`);
+  const shown = hover != null ? cells[hover] : null;
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "28px repeat(7, 1fr)", gap: 4, alignItems: "center" }}>
+        <span />
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <span key={d} style={{ fontSize: 12, color: T.textSecondary, textAlign: "center" }}>
+            {d}
+          </span>
+        ))}
+        {Array.from({ length: weeks }).map((_, w) => (
+          <div key={w} style={{ display: "contents" }}>
+            <span style={{ fontSize: 12, color: T.textSecondary }}>{cells[w * 7].d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }).replace(" ", " ")}</span>
+            {cells.slice(w * 7, w * 7 + 7).map((c, i) => {
+              const idx = w * 7 + i;
+              const past = c.d < today;
+              const n = c.info?.count || 0;
+              return (
+                <button
+                  key={c.k}
+                  type="button"
+                  onMouseEnter={() => setHover(idx)}
+                  onMouseLeave={() => setHover(null)}
+                  onFocus={() => setHover(idx)}
+                  onClick={() => (n ? onDay?.(c) : setHover(idx))}
+                  aria-label={`${c.d.toDateString()}: ${n} ${unit}`}
+                  style={{
+                    height: 30,
+                    borderRadius: 6,
+                    border: c.k === key(today) ? `2px solid ${T.textPrimary}` : `1px solid ${T.border}`,
+                    background: past ? "transparent" : shade(n),
+                    opacity: past ? 0.35 : 1,
+                    color: n / max > 0.55 ? T.accentText : T.textPrimary,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    cursor: n ? "pointer" : "default",
+                    padding: 0,
+                  }}
+                >
+                  {!past && n ? n : ""}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, minHeight: 20, gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12.5, color: T.textPrimary }}>
+          {shown ? (
+            <>
+              <b>{shown.d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</b>
+              {": "}
+              {shown.info ? shown.info.detail : `nothing due`}
+            </>
+          ) : (
+            <span style={{ color: T.textSecondary }}>Hover or tap a day for what's due</span>
+          )}
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: T.textSecondary }}>
+          Less
+          {[0.2, 0.45, 0.7, 1].map((f) => (
+            <span key={f} style={{ width: 12, height: 12, borderRadius: 3, background: `color-mix(in srgb, ${T.accent} ${Math.round(20 + f * 80)}%, ${T.cardBg})` }} />
+          ))}
+          More
+        </span>
+      </div>
+    </div>
+  );
+}

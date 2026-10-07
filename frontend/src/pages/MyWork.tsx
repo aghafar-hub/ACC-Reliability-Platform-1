@@ -35,6 +35,38 @@ function statusAccentClass(status: string, overdue: boolean): string {
   return '';
 }
 
+// How far along a route is (design D5): a ring read at arm's length —
+// "2/6" in the middle, full and green when every point is done.
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const size = 52;
+  const stroke = 6;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.min(1, done / total) : 0;
+  const finished = total > 0 && done >= total;
+  return (
+    <svg className="mywork-ring" width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${done} of ${total} points done`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="color-mix(in srgb, var(--shell-text-muted, #5f6d82) 22%, transparent)" strokeWidth={stroke} />
+      {pct > 0 && (
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={finished ? 'var(--shell-success, #18734a)' : 'var(--shell-accent, #1e5bb8)'}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${pct * circ} ${circ}`}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      )}
+      <text x={size / 2} y={size / 2 + 4.5} textAnchor="middle" className={finished ? 'mywork-ring-text mywork-ring-text--done' : 'mywork-ring-text'}>
+        {total ? `${done}/${total}` : '—'}
+      </text>
+    </svg>
+  );
+}
+
 function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void }) {
   const overdue = isRouteOverdue(routine);
   const returned = isRouteReturned(routine);
@@ -44,6 +76,9 @@ function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void
       className={`mywork-card tap-scale ${statusAccentClass(routine.status, overdue || returned)}`}
       onClick={onOpen}
     >
+      <div className="mywork-card-row">
+        <ProgressRing done={routine.itemsDone} total={routine.itemsTotal} />
+        <div className="mywork-card-body">
       <div className="mywork-card-top">
         <span className="mywork-card-title">{routine.routeName || routine.routineId}</span>
         <span className="mywork-badges">
@@ -63,14 +98,10 @@ function RoutineCard({ routine, onOpen }: { routine: Routine; onOpen: () => void
         {routine.routeType || '—'} · {routine.contractor || '—'}
         {routine.dueDate ? ` · due ${routine.dueDate}` : ''}
       </div>
-      <div className="mywork-progress-track">
-        <div
-          className="mywork-progress-fill"
-          style={{ width: routine.itemsTotal ? `${(routine.itemsDone / routine.itemsTotal) * 100}%` : '0%' }}
-        />
-      </div>
       <div className="mywork-card-count">
         {routine.itemsDone} / {routine.itemsTotal} points done
+      </div>
+        </div>
       </div>
     </button>
   );

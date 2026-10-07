@@ -7,6 +7,7 @@ import LastActionsPanel from "../components/LastActionsPanel";
 import LineChart from "../components/LineChart";
 import { seriesColor, toTime } from "../pointHistory";
 import { actionsForSample, cellMark, changeLabel, pickSamples, reportColumns, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "../labReport";
+import { Donut, Ring } from "../components/DashCharts";
 
 const WEAR_METALS = ["Ag", "Al", "Cr", "Cu", "Fe", "Mo", "Ni", "Pb", "Sn"];
 const WEAR_NAMES = { Ag: "Silver", Al: "Aluminum", Cr: "Chromium", Cu: "Copper", Fe: "Iron", Mo: "Molybdenum", Ni: "Nickel", Pb: "Lead", Sn: "Tin" };
@@ -653,6 +654,57 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
   const marksText = (r) => r.marks.map((m) => `${m.param} ${m.severity}`).join(", ");
   return (
     <div style={{ ...s.card }} data-testid="points-list">
+      {(() => {
+        // D5 — the latest result across the points, as a donut (tap a part to
+        // filter), next to how many are sampled on time.
+        const withResult = counts.Normal + counts.Caution + counts.Alert;
+        const segs = [
+          { label: "Normal", key: "Normal", value: counts.Normal, color: T.success },
+          { label: "Caution", key: "Caution", value: counts.Caution, color: T.warning },
+          { label: "Alert", key: "Alert", value: counts.Alert, color: T.danger },
+        ];
+        const dueSet = rows.filter((r) => r.sampling).length;
+        const onTimePct = dueSet ? Math.round(((dueSet - counts.due) / dueSet) * 100) : null;
+        return (
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center", marginBottom: 16, paddingBottom: 14, borderBottom: `1px solid ${T.border}` }} data-testid="report-overview">
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <Donut T={T} segments={segs} size={isMobile ? 104 : 116} thickness={16} center={withResult} sub="points" ariaLabel={`Latest results: ${counts.Normal} Normal, ${counts.Caution} Caution, ${counts.Alert} Alert`} />
+              <div>
+                <p style={{ margin: "0 0 6px", fontWeight: 700, fontSize: 14, color: T.textPrimary }}>Latest result per point</p>
+                {segs.map((x) => (
+                  <button
+                    key={x.key}
+                    type="button"
+                    onClick={() => { setFilter(filter === x.key ? "all" : x.key); setLimit(50); }}
+                    style={{ display: "flex", alignItems: "center", gap: 7, border: 0, background: filter === x.key ? x.color + "1A" : "none", borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontFamily: "inherit", fontSize: 13.5, color: T.textPrimary }}
+                  >
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color }} />
+                    <b>{x.value}</b> {x.label}
+                    {withResult ? <span style={{ color: T.textSecondary }}> · {Math.round((x.value / withResult) * 100)}%</span> : null}
+                  </button>
+                ))}
+                {rows.length > withResult && <p style={{ margin: "4px 0 0 6px", fontSize: 12, color: T.textSecondary }}>{rows.length - withResult} with no result yet</p>}
+              </div>
+            </div>
+            {dueSet > 0 && (
+              <button
+                type="button"
+                onClick={() => { setFilter(filter === "due" ? "all" : "due"); setLimit(50); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, border: 0, background: "none", cursor: "pointer", fontFamily: "inherit", color: T.textPrimary, textAlign: "left" }}
+              >
+                <Ring T={T} pct={onTimePct} size={isMobile ? 72 : 84} color={T.accent} label={`${onTimePct} % sampled on time`} />
+                <span>
+                  <b style={{ fontSize: 14 }}>Sampled on time</b>
+                  <br />
+                  <span style={{ fontSize: 13, color: T.textSecondary }}>
+                    {counts.due} of {dueSet} overdue or missing
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+        );
+      })()}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         {chip("all", "All", rows.length, null)}
         {chip("Alert", "Alert", counts.Alert, "danger")}
