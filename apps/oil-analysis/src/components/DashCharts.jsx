@@ -230,3 +230,98 @@ export function Runway({ T, rows, maxDays = 120 }) {
     </div>
   );
 }
+
+// One stacked bar per row (e.g. per area: Poor / Fair / Good), all on one
+// scale so rows compare; the count of each part shows on hover and the
+// row total sits at the end. 2px gaps between parts.
+export function StackedBars({ T, rows, onRow, activeLabel, labelWidth = 110 }) {
+  const [hover, setHover] = useState(null);
+  const max = Math.max(1, ...rows.map((r) => r.parts.reduce((n, p) => n + p.value, 0)));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+      {rows.map((r) => {
+        const total = r.parts.reduce((n, p) => n + p.value, 0);
+        const active = activeLabel === r.label;
+        return (
+          <button
+            key={r.label}
+            type="button"
+            onClick={() => onRow?.(r)}
+            aria-pressed={active}
+            title={`${r.label}: ${r.parts.map((p) => `${p.value} ${p.label}`).join(", ")}`}
+            style={{
+              display: "grid",
+              gridTemplateColumns: `${labelWidth}px 1fr 44px`,
+              alignItems: "center",
+              gap: 8,
+              border: 0,
+              padding: "2px 4px",
+              borderRadius: 6,
+              background: active ? T.accent + "14" : "none",
+              cursor: onRow ? "pointer" : "default",
+              fontFamily: "inherit",
+              color: T.textPrimary,
+              textAlign: "left",
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: active ? 700 : 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
+            <span style={{ display: "flex", gap: 2, height: 14 }}>
+              {r.parts.map((p) =>
+                p.value > 0 ? (
+                  <span
+                    key={p.label}
+                    onMouseEnter={() => setHover(`${r.label}|${p.label}`)}
+                    onMouseLeave={() => setHover(null)}
+                    style={{
+                      width: `${(p.value / max) * 100}%`,
+                      background: p.color,
+                      borderRadius: 3,
+                      outline: hover === `${r.label}|${p.label}` ? `2px solid ${T.textPrimary}` : "none",
+                    }}
+                  />
+                ) : null
+              )}
+            </span>
+            <b style={{ fontSize: 13, textAlign: "right" }}>{total}</b>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Half-circle gauge: how full one stock is, with the low-stock level as a
+// tick (D5 — the oil on a lubrication point, a product page in Inventory).
+export function Gauge({ T, value, max, level, unit = "L", size = 180, label }) {
+  const w = size;
+  const h = size / 2 + 22;
+  const r = size / 2 - 14;
+  const cx = w / 2;
+  const cy = size / 2 + 2;
+  const top = Math.max(1, max || 0, value || 0, (level || 0) * 1.5);
+  const frac = (v) => Math.max(0, Math.min(1, (v || 0) / top));
+  const at = (f, rad) => [cx - rad * Math.cos(Math.PI * f), cy - rad * Math.sin(Math.PI * f)];
+  const arc = (f0, f1, rad) => {
+    const [x0, y0] = at(f0, rad);
+    const [x1, y1] = at(f1, rad);
+    return `M ${x0} ${y0} A ${rad} ${rad} 0 0 1 ${x1} ${y1}`;
+  };
+  const low = level != null && value != null && value <= level;
+  const color = value == null ? T.textMuted : low ? (value <= level * 0.5 ? T.danger : T.warning) : T.success;
+  const f = frac(value);
+  const [lx0, ly0] = at(frac(level), r - 12);
+  const [lx1, ly1] = at(frac(level), r + 12);
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} style={{ fontFamily: FONT, flexShrink: 0 }}>
+      <title>{label}</title>
+      <path d={arc(0, 1, r)} fill="none" stroke={track(T)} strokeWidth="14" strokeLinecap="round" />
+      {f > 0 && <path d={arc(0, Math.max(0.01, f), r)} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" />}
+      {level != null && <line x1={lx0} y1={ly0} x2={lx1} y2={ly1} stroke={T.textPrimary} strokeWidth="2.5" strokeLinecap="round" />}
+      <text x={cx} y={cy - 8} textAnchor="middle" fontSize="22" fontWeight="700" fill={T.textPrimary}>
+        {value == null ? "—" : `${Math.round(value * 10) / 10} ${unit}`}
+      </text>
+      <text x={14} y={h - 4} fontSize="12" fill={T.textSecondary}>0</text>
+      <text x={w - 14} y={h - 4} textAnchor="end" fontSize="12" fill={T.textSecondary}>{`${Math.round(top)} ${unit}`}</text>
+    </svg>
+  );
+}

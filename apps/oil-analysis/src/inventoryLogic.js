@@ -143,3 +143,14 @@ export function toCsv(rows) {
   };
   return "﻿" + rows.map((r) => r.map(esc).join(",")).join("\r\n");
 }
+
+// The stock product a lubrication point draws from (D5 — the stock gauge
+// on the point page): same contractor and the same oil, or a product
+// approved as its equivalent. An exact match beats an equivalent.
+const normOil = (v) => String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
+export function productForPoint(reg, products) {
+  if (!reg?.lubricant) return null;
+  const oil = normOil(reg.lubricant);
+  const mine = (products || []).filter((p) => p.status !== "Discontinued" && (!reg.contractor || !p.contractor || p.contractor === reg.contractor));
+  return mine.find((p) => normOil(p.lubricantType) === oil) || mine.find((p) => normOil(p.equivalentToType) === oil) || null;
+}

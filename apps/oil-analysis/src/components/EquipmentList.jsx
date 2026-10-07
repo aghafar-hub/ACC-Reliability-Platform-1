@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { formatDate } from "../parsers";
 import { HEALTH_COLOR, HEALTH_RANK, healthForLp, worstHealth } from "../equipmentHealth";
+import { Donut, StackedBars } from "./DashCharts";
 
 // Oil Equipment opening screen: every machine (or lubrication point) with
 // its health and why, filters, and a "Needs attention" shortcut.
@@ -84,6 +85,31 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
     return { Poor: src.filter((h) => h === "Poor").length, Fair: src.filter((h) => h === "Fair").length, Good: src.filter((h) => h === "Good").length };
   }, [view, machines, points]);
 
+  // Overview (D5): the plant's health split and which areas have the most
+  // problems — for the current view and contractor, before the area,
+  // health and text filters (clicking them sets those filters).
+  const overview = useMemo(() => {
+    const src = (view === "equipment" ? machines : points).filter((r) => {
+      const reg = view === "equipment" ? r.list[0].reg : r.reg;
+      return contractor === "All" || reg.contractor === contractor;
+    });
+    const healthOf = (r) => (view === "equipment" ? r.health : r.h.health);
+    const total = { Good: 0, Fair: 0, Poor: 0 };
+    const byArea = new Map();
+    src.forEach((r) => {
+      const hl = healthOf(r);
+      total[hl]++;
+      const a = (view === "equipment" ? r.area : r.reg.area) || "No area";
+      if (!byArea.has(a)) byArea.set(a, { Good: 0, Fair: 0, Poor: 0 });
+      byArea.get(a)[hl]++;
+    });
+    const areaRows = [...byArea.entries()]
+      .map(([label, n]) => ({ label, n }))
+      .sort((x, y) => (x.label === "No area") - (y.label === "No area") || y.n.Poor - x.n.Poor || y.n.Fair - x.n.Fair || x.label.localeCompare(y.label));
+    return { total, all: src.length, areaRows };
+  }, [view, machines, points, contractor]);
+  const [showAllAreas, setShowAllAreas] = useState(false);
+
   const q = text.trim().toLowerCase();
   const healthOk = (h) => healthFilter === "all" || (healthFilter === "attention" ? h !== "Good" : h === healthFilter);
   const rows = (view === "equipment" ? machines : points)
@@ -125,8 +151,76 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
   const nextChangeCell = (date, overdue) =>
     date ? <span style={{ color: overdue ? T.danger : undefined, fontWeight: overdue ? 700 : undefined }}>{formatDate(date)}{overdue ? " (overdue)" : ""}</span> : <span style={{ color: T.textMuted }}>—</span>;
 
+  const healthSegs = [
+    { label: "Good", value: overview.total.Good, color: T.success },
+    { label: "Fair", value: overview.total.Fair, color: T.warning },
+    { label: "Poor", value: overview.total.Poor, color: T.danger },
+  ];
+  const goodPct = overview.all ? Math.round((overview.total.Good / overview.all) * 100) : null;
+  const areaRows = showAllAreas ? overview.areaRows : overview.areaRows.slice(0, 6);
+
   return (
     <div data-testid="equipment-list">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 14, marginBottom: 14 }}>
+        <div style={{ ...s.card, marginBottom: 0 }} data-testid="eq-health-donut">
+          <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15, color: T.textPrimary }}>Plant status · {overview.all} {view === "equipment" ? "equipment" : "points"}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+            <Donut T={T} segments={healthSegs} size={128} center={goodPct == null ? "—" : `${goodPct}%`} sub="Good" ariaLabel={`${overview.total.Good} Good, ${overview.total.Fair} Fair, ${overview.total.Poor} Poor`} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {healthSegs.map((x) => (
+                <button
+                  key={x.label}
+                  type="button"
+                  onClick={() => { setHealthFilter(healthFilter === x.label ? "all" : x.label); setLimit(PAGE); }}
+                  aria-pressed={healthFilter === x.label}
+                  style={{ display: "flex", alignItems: "center", gap: 8, border: 0, background: healthFilter === x.label ? x.color + "1A" : "none", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontFamily: "inherit", color: T.textPrimary, fontSize: 14 }}
+                >
+                  <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color }} />
+                  <b>{x.value}</b> {x.label}
+                </button>
+              ))}
+              <span style={{ fontSize: 12, color: T.textSecondary, paddingLeft: 8 }}>Tap one to show only those</span>
+            </div>
+          </div>
+        </div>
+        <div style={{ ...s.card, marginBottom: 0 }} data-testid="eq-area-bars">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+            <p style={{ margin: "0 0 10px", fontWeight: 700, fontSize: 15, color: T.textPrimary }}>Problems by area</p>
+            <span style={{ fontSize: 12, color: T.textSecondary, display: "flex", gap: 10 }}>
+              {healthSegs.slice().reverse().map((x) => (
+                <span key={x.label} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: 2, background: x.color }} />
+                  {x.label}
+                </span>
+              ))}
+            </span>
+          </div>
+          {overview.areaRows.length === 0 ? (
+            <p style={{ color: T.textSecondary, margin: 0, fontSize: 13 }}>No areas in the register.</p>
+          ) : (
+            <>
+              <StackedBars
+                T={T}
+                activeLabel={area === "All" ? null : area}
+                onRow={(r) => { setArea(area === r.label || r.label === "No area" ? "All" : r.label); setLimit(PAGE); }}
+                rows={areaRows.map((r) => ({
+                  label: r.label,
+                  parts: [
+                    { label: "Poor", value: r.n.Poor, color: T.danger },
+                    { label: "Fair", value: r.n.Fair, color: T.warning },
+                    { label: "Good", value: r.n.Good, color: T.success + "99" },
+                  ],
+                }))}
+              />
+              {overview.areaRows.length > 6 && (
+                <button type="button" style={{ ...s.btn, marginTop: 8, fontSize: 12 }} onClick={() => setShowAllAreas((v) => !v)}>
+                  {showAllAreas ? "Show fewer" : `All ${overview.areaRows.length} areas`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         {chip("attention", "Needs attention", counts.Poor + counts.Fair, "warning")}
         {chip("Poor", "Poor", counts.Poor, "danger")}

@@ -11,6 +11,8 @@ import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import PointHistory from "../components/PointHistory";
 import useIsMobile from "../hooks/useIsMobile";
+import { Gauge } from "../components/DashCharts";
+import { daysLeft, fmtNum, isLow, oilLabel, productForPoint } from "../inventoryLogic";
 
 const STATUS_ACTION_COLOR = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
 const CRITICALITY_RANK = { Normal: 0, Medium: 1, High: 2 };
@@ -267,6 +269,7 @@ export default function Equipment({
   onSaveOilChange,
   onCreateRoute,
   onOpenRoute,
+  onOpenInventory,
   initialCode,
   onCodeChange,
   focus,
@@ -285,6 +288,14 @@ export default function Equipment({
     return () => { cancelled = true; };
   }, [webhookUrl]);
   const lpIndex = useMemo(() => indexByLp({ samples, actions, oilChanges, topUps: allTopUps }), [samples, actions, oilChanges, allTopUps]);
+  // Stock products, for the oil-stock gauge on a point page (D5).
+  const [products, setProducts] = useState(null);
+  useEffect(() => {
+    if (!webhookUrl) return;
+    let cancelled = false;
+    api.getOilInventory(webhookUrl).then((p) => { if (!cancelled) setProducts(p); }).catch(() => { if (!cancelled) setProducts([]); });
+    return () => { cancelled = true; };
+  }, [webhookUrl]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   // { mode: "equipment", id: Equipment_ID } | { mode: "lp", id: LP_ID } | null
@@ -399,6 +410,9 @@ export default function Equipment({
   const openActions = actionsForEquip.filter((a) => a.status !== "Closed");
   const latestChange = changeHistory[0] || null;
   const latestTopUp = topUps[0] || null;
+  const stockProduct = reg && products ? productForPoint(reg, products) : null;
+  const stockDays = stockProduct ? daysLeft(stockProduct) : null;
+  const stockLow = !!stockProduct && isLow(stockProduct);
   const criticality = isLpView ? criticalityFor(latest, oilChangeOverdue) : "Normal";
   const criticalityColor = criticality === "High" ? "danger" : criticality === "Medium" ? "warning" : "success";
   const lpHealth = isLpView && reg
@@ -1251,6 +1265,58 @@ export default function Equipment({
                     <Empty T={T}>No top-ups logged.</Empty>
                   )}
                 </StatusCard>
+
+                {reg.lubricant && (
+                  <StatusCard
+                    T={T}
+                    s={s}
+                    color={!stockProduct ? "textSecondary" : stockLow ? "warning" : "success"}
+                    icon="ti-package"
+                    title="Oil Stock"
+                    onClick={onOpenInventory}
+                    testid="card-stock"
+                  >
+                    {products === null ? (
+                      <Empty T={T}>Loading…</Empty>
+                    ) : !stockProduct ? (
+                      <Empty T={T}>
+                        No stock product for {reg.lubricant}
+                        {reg.contractor ? ` (${reg.contractor})` : ""}.
+                      </Empty>
+                    ) : (
+                      <>
+                        <Gauge
+                          T={T}
+                          value={stockProduct.currentStock}
+                          level={stockProduct.recorderLevel}
+                          max={Math.max(stockProduct.currentStock || 0, (stockProduct.recorderLevel || 0) * 2)}
+                          unit={stockProduct.unit || "L"}
+                          size={170}
+                          label={`${stockProduct.currentStock ?? "—"} ${stockProduct.unit || "L"} in stock, low-stock level ${stockProduct.recorderLevel ?? "not set"}`}
+                        />
+                        <Detail T={T}>
+                          {oilLabel(stockProduct.lubricantType, stockProduct.lubricantBrand)}
+                          {stockProduct.equivalentToType ? " (approved equivalent)" : ""}
+                        </Detail>
+                        <Detail T={T} testid="stock-days">
+                          {stockDays != null ? (
+                            <>
+                              <strong style={{ color: T.textPrimary }}>{stockDays}</strong> days left at the recent rate of use
+                            </>
+                          ) : (
+                            "No recent use recorded"
+                          )}
+                          {stockProduct.recorderLevel != null ? ` · low-stock level ${fmtNum(stockProduct.recorderLevel)} ${stockProduct.unit || "L"}` : ""}
+                        </Detail>
+                        {stockLow && (
+                          <div style={{ fontSize: 13, color: T.warning, fontWeight: 700, marginTop: 6 }}>
+                            <i className="ti ti-alert-triangle" aria-hidden="true" /> Below the low-stock level — order now
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </StatusCard>
+                )}
               </div>
 
               <PointHistory

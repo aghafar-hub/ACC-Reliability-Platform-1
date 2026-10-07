@@ -1333,6 +1333,7 @@ function AppShell({ config, setConfig, navBridge }) {
                   navigate("routines");
                 }}
                 onOpenRoute={(routineId) => navigate("routines", routineId)}
+                onOpenInventory={() => navigate("inventory")}
                 initialCode={equipmentSelectedCode}
                 onCodeChange={setEquipmentSelectedCode}
                 focus={equipmentFocus}
