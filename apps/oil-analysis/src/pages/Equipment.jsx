@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
+import { useIsAccEngineer } from "../SessionContext";
 import { formatDate, conditionBucket } from "../parsers";
 import { statusColor } from "../theme";
 import * as api from "../api";
@@ -202,6 +203,7 @@ export default function Equipment({
   onCodeChange,
 }) {
   const { T, s } = useTheme();
+  const isAccEngineer = useIsAccEngineer();
   const registry = equipmentRegistry || [];
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -1113,11 +1115,21 @@ export default function Equipment({
                       <i className="ti ti-file-analytics" aria-hidden="true" />
                     </button>
                   )}
-                  {onEditSample && (
-                    <button style={{ ...s.btn, padding: "3px 7px", marginLeft: 4 }} onClick={() => setEditingSample(sm)} title="Edit sample">
-                      <i className="ti ti-edit" aria-hidden="true" />
-                    </button>
-                  )}
+                  {onEditSample &&
+                    // a validated report: ACC Engineers only (it then goes back to Pending Validation)
+                    (isAccEngineer || (sm.validationStatus && sm.validationStatus !== "Validated") ? (
+                      <button style={{ ...s.btn, padding: "3px 7px", marginLeft: 4 }} onClick={() => setEditingSample(sm)} title="Edit sample" aria-label="Edit sample">
+                        <i className="ti ti-edit" aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <span
+                        style={{ ...s.btn, padding: "3px 7px", marginLeft: 4, opacity: 0.45, cursor: "not-allowed" }}
+                        title="Validated — only an ACC Engineer can change it"
+                        aria-label="Validated — only an ACC Engineer can change it"
+                      >
+                        <i className="ti ti-lock" aria-hidden="true" />
+                      </span>
+                    ))}
                   {onDeleteSample && (
                     <button
                       style={{ ...s.btn, padding: "3px 7px", marginLeft: 4, color: T.danger, borderColor: T.danger }}

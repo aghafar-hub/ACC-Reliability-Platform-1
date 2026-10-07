@@ -40,6 +40,16 @@ setup is in `test-copy-setup.md`.
 - When a sampling route is confirmed, the sampling log says **Awaiting
   Lab Report**.
 - Reports from before Phase 4 have no status and count as validated.
+- **Changing a validated report:** only an ACC Engineer can. Any real
+  change sends it back to **Pending Validation**.
+  - The contractor's engineers are asked to validate it again, and the
+    ACC engineers are informed.
+  - Once it's re-validated, a Caution/Alert result makes its Draft action.
+  - Other users see a lock instead of Edit. The ACC Engineer is warned
+    before saving.
+  - Saving without changing anything keeps it validated.
+  - Reports from before Phase 4 follow the same rule but never make a
+    Draft, because those results already have their actions.
 - New `Data_Entry` columns AO–AV (Validation Status, Uploaded By/Date,
   Validated By/Date, Return Reason, Returned By/Date). They're added
   automatically. If anything is already in those columns, the app stops

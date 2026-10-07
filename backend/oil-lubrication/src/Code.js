@@ -836,6 +836,16 @@ function doPost(e) {
             return jsonOut({status: "error", message: updateGuard.error});
           }
         }
+        // A validated lab report: ACC Engineer only, and it goes back to
+        // Pending Validation (LabReports.js).
+        var labGuard = {};
+        if (data.sheet === "Data_Entry" && updateRowIdx !== -1) {
+          labGuard = guardLabReportEdit_(auth.session, updateSheetObj, updateRowIdx, data.row);
+          if (labGuard.error) {
+            logError("doPost:updateRow:labGuard", labGuard.error, {matchValues: data.matchValues, actingUser: actingUser});
+            return jsonOut({status: "error", message: labGuard.error});
+          }
+        }
         var ok1 = updateRow(ss, data.sheet, data.matchCols, data.matchValues, data.row);
         if (ok1 && updateGuard && updateGuard.dueEditable) writeActionDueFields_(ss, data.row, data.workflow);
         if (ok1 && data.sheet === "Action Tracker") {
@@ -843,7 +853,7 @@ function doPost(e) {
         }
         invalidateDashboardCache();
         if (ok1 && data.sheet === "Data_Entry") {
-          try { onLabReportSaved_(ss, data.row, actingUser, false); } catch (labErr2) { logError("onLabReportSaved_", labErr2, {sheet: data.sheet}); }
+          try { onLabReportSaved_(ss, data.row, actingUser, false, !!labGuard.reopen); } catch (labErr2) { logError("onLabReportSaved_", labErr2, {sheet: data.sheet}); }
         }
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId), "Updated " + data.sheet + " entry");

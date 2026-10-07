@@ -2,10 +2,22 @@ import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { RATING_OPTIONS } from "../theme";
 
+// The date input needs "YYYY-MM-DD"; samples carry the display form
+// ("01 Oct 2026"), which left the field looking empty.
+function toInputDate(v) {
+  if (!v) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(v))) return String(v).slice(0, 10);
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export default function EditSampleModal({ sample, onClose, onSave, saving }) {
   const { T, s } = useTheme();
   const [form, setForm] = useState(() => ({
     ...sample,
+    sampledDate: toInputDate(sample.sampledDate) || sample.sampledDate,
     wear: { ...sample.wear },
     contaminants: { ...sample.contaminants },
     additives: { ...sample.additives },
@@ -55,6 +67,13 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
           </button>
         </div>
 
+        {(sample.validationStatus === "Validated" || !sample.validationStatus) && (
+          <div style={{ ...s.infoBar, borderColor: T.warning, marginBottom: 14, fontSize: 12.5 }} data-testid="reopen-warning">
+            <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.warning, marginRight: 6 }} />
+            This report is validated. Saving a change sends it back to <strong>Pending Validation</strong> — the contractor's engineer
+            validates it again.
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginBottom: 16 }}>
           {field("Sample Date", "sampledDate", "date")}
           <div>

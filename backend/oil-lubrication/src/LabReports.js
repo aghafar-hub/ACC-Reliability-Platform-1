@@ -13,6 +13,12 @@
 //
 // Rows from before Phase 4 have no status and count as validated.
 //
+//  4. A validated report can only be changed by an ACC Engineer, and any
+//     real change sends it back to Pending Validation: the contractor's
+//     engineers validate it again (and a Caution/Alert then makes its
+//     Draft action). Reports from before Phase 4 follow the same rule but
+//     never make a Draft — old results already have their actions.
+//
 // Server-owned Data_Entry columns after Sample_UID (0-based 39):
 //   40 Validation Status   41 Uploaded By   42 Uploaded Date
 //   43 Validated By   44 Validated Date
@@ -66,8 +72,38 @@ function getSampleContractor_(ss, data) {
   return found.error ? null : resolveLpContractor_(found.row[0]);
 }
 
+function normLabCell_(v) {
+  if (Object.prototype.toString.call(v) === "[object Date]") return isNaN(v.getTime()) ? "" : Utilities.formatDate(v, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd").slice(0, 10);
+  var s = String(v == null ? "" : v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  if (/^\d{1,2} [A-Za-z]{3,9},? \d{4}$/.test(s)) { // "01 Oct 2026" (the app's display form)
+    var d = new Date(s.replace(/\bSept\b/i, "Sep").replace(",", ""));
+    if (!isNaN(d.getTime())) return Utilities.formatDate(d, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd").slice(0, 10);
+  }
+  if (s !== "" && !isNaN(Number(s))) return String(Number(s));
+  return s;
+}
+
+// Before an edit of a Data_Entry row is written. Returns { error } or
+// { reopen: true } when a validated report is really being changed.
+function guardLabReportEdit_(session, sheet, rowIdx, newRow) {
+  if (!newRow) return {};
+  var current = sheet.getRange(rowIdx, 1, 1, LAB_APP_COLS + 1).getValues()[0];
+  var status = String(current[LAB_COL.STATUS] || "").trim();
+  if (status !== LAB_STATUS.VALIDATED && status !== "") return {};
+  var changed = false;
+  var stampIdx = (LAST_MODIFIED_COL["Data_Entry"] || 0) - 1; // server-owned, never a "change"
+  for (var i = 0; i < Math.min(newRow.length, LAB_APP_COLS); i++) {
+    if (i === stampIdx) continue;
+    if (normLabCell_(current[i]) !== normLabCell_(newRow[i])) { changed = true; break; }
+  }
+  if (!changed) return {};
+  if (!isAccEngineer_(session)) return { error: "This lab report is validated — only an ACC Engineer can change it." };
+  return { reopen: true };
+}
+
 // After the app saves a Data_Entry row (append or edit).
-function onLabReportSaved_(ss, row, actingUser, isNew) {
+function onLabReportSaved_(ss, row, actingUser, isNew, reopen) {
   if (!row) return;
   var found = findSampleRow_(ss, { sampleUid: row[LAB_COL.UID], equipmentCode: row[0], sampleId: row[3] });
   if (found.error) return;
@@ -78,6 +114,20 @@ function onLabReportSaved_(ss, row, actingUser, isNew) {
     found.sheet.getRange(found.rowIdx, LAB_COL.STATUS + 1, 1, 3).setValues([[LAB_STATUS.PENDING, actingUser || "", new Date()]]);
   } else if (status === LAB_STATUS.RETURNED) {
     found.sheet.getRange(found.rowIdx, LAB_COL.STATUS + 1).setValue(LAB_STATUS.PENDING);
+  } else if (reopen) {
+    // changed by an ACC Engineer after validation: validate again
+    found.sheet.getRange(found.rowIdx, LAB_COL.STATUS + 1).setValue(LAB_STATUS.PENDING);
+    found.sheet.getRange(found.rowIdx, LAB_COL.VALIDATED_BY + 1, 1, 2).setValues([["", ""]]);
+    try {
+      var reMsg = "Lab report " + sampleLabel_(found.row) + " was changed by " + (actingUser || "an ACC Engineer") + " after validation" +
+        (found.row[5] ? " (result now " + found.row[5] + ")" : "") + ". Please validate it again.";
+      recordInAppNotificationForEach_(ss, getNotifyReviewers_(contractor), "lab-report-reopened", reMsg, contractor, "oilreport", String(found.row[0] || ""));
+      var ceList = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
+      if (ceList.length) sendNotificationEmail_({ to: ceList.join(","), subject: "Oil Lubrication: lab report changed — validate again — " + sampleLabel_(found.row), body: reMsg });
+    } catch (e) {
+      logError("onLabReportSaved_:reopen", e, {});
+    }
+    return;
   } else {
     return;
   }
@@ -100,9 +150,13 @@ function validateLabReport(ss, data) {
   found.sheet.getRange(found.rowIdx, LAB_COL.STATUS + 1, 1, 1).setValue(LAB_STATUS.VALIDATED);
   found.sheet.getRange(found.rowIdx, LAB_COL.VALIDATED_BY + 1, 1, 2).setValues([[data.actingUser || "", new Date()]]);
   stampLastModified(found.sheet, "Data_Entry", found.rowIdx);
-  // Caution / Alert → Draft action, now that the result is validated.
+  // Caution / Alert → Draft action, now that the result is validated —
+  // only for reports added through the app (they have an Uploaded Date);
+  // reports from before Phase 4 already have their actions.
   var fresh = found.sheet.getRange(found.rowIdx, 1, 1, LAB_APP_COLS).getValues()[0];
-  try { applyLabResultRule_(ss, fresh); } catch (e) { logError("validateLabReport:applyLabResultRule_", e, {}); }
+  if (found.row[LAB_COL.UPLOADED_DATE]) {
+    try { applyLabResultRule_(ss, fresh); } catch (e) { logError("validateLabReport:applyLabResultRule_", e, {}); }
+  }
   return { status: "ok" };
 }
 
