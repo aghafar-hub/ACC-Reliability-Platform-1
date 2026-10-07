@@ -17,6 +17,8 @@ import {
 } from '../api/oilLubrication';
 import { useAuth } from '../auth/AuthContext';
 import { tapHaptic } from '../haptics';
+import WorkQueue from '../components/WorkQueue';
+import { fetchMyWork, myWorkModules, type ModuleWork } from '../myWork';
 import './MyWork.css';
 
 const OPEN_STATUSES: string[] = [ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS];
@@ -420,6 +422,10 @@ export default function MyWork({
   const oilAccess = access['oil-analysis'];
   // Phase 0: My Work is Oil Lubrication's "mywork" tab.
   const canSeeOilWork = tabLevel(oilAccess, 'mywork') !== 'Hidden';
+  // Phase 9: the role-based work from every module that provides it.
+  const workModules = useMemo(() => myWorkModules(access), [access]);
+  const workModuleKey = workModules.map((m) => m.id).join(',');
+  const [work, setWork] = useState<ModuleWork[] | null>(null);
   const oilMaintenance = !!oilAccess?.enforced && oilAccess.status === 'Maintenance';
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -449,6 +455,18 @@ export default function MyWork({
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!sessionToken || !workModuleKey) return;
+    let cancelled = false;
+    fetchMyWork(sessionToken, workModules).then((w) => {
+      if (!cancelled) setWork(w);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // workModules changes only when workModuleKey does
+  }, [sessionToken, workModuleKey]);
+
   const mine = useMemo(() => {
     const email = (claims?.email || '').trim().toLowerCase();
     if (!email || !routines) return [];
@@ -466,7 +484,7 @@ export default function MyWork({
 
   const selected = selectedId ? mine.find((r) => r.routineId === selectedId) || null : null;
 
-  if (!canSeeOilWork) {
+  if (!canSeeOilWork && workModules.length === 0) {
     return (
       <div className="mywork">
         {showHeading && <h1>My Work</h1>}
@@ -474,6 +492,8 @@ export default function MyWork({
       </div>
     );
   }
+  const queueCount = (work || []).reduce((n, m) => n + m.sections.length, 0);
+  const routinesLoaded = !canSeeOilWork || routines !== null;
 
   const maintenanceBanner = oilMaintenance && (
     <div className="module-notice module-notice--maintenance" role="status">
@@ -503,19 +523,20 @@ export default function MyWork({
       {showHeading && (
         <>
           <h1>My Work</h1>
-          <p className="settings-intro">Routines assigned to you.</p>
+          <p className="settings-intro">What's waiting for you, across every module.</p>
         </>
       )}
       {maintenanceBanner}
       {error && <p className="mywork-error">{error}</p>}
-      {routines === null && !error && <SkeletonCards count={4} />}
-      {routines !== null && todo.length === 0 && awaiting.length === 0 && (
-        <p className="mywork-empty">No work assigned yet — routines assigned to you will show up here.</p>
+      {((canSeeOilWork && routines === null) || (workModules.length > 0 && work === null)) && !error && <SkeletonCards count={4} />}
+      {work && queueCount > 0 && <WorkQueue work={work} showModuleNames={workModules.length > 1} />}
+      {routinesLoaded && (work !== null || workModules.length === 0) && queueCount === 0 && todo.length === 0 && awaiting.length === 0 && (
+        <p className="mywork-empty">Nothing waiting for you right now — routes assigned to you and work for your role will show up here.</p>
       )}
 
       {todo.length > 0 && (
         <div className="mywork-section">
-          <p className="mywork-section-title">To do</p>
+          <p className="mywork-section-title">{queueCount > 0 ? 'My routes — to do' : 'To do'}</p>
           <div className="mywork-grid">
             {todo.map((r) => (
               <RoutineCard key={r.routineId} routine={r} onOpen={() => setSelectedId(r.routineId)} />

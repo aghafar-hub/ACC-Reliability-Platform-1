@@ -264,6 +264,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getMyWork":
+        result = getMyWork(auth.session);
+        break;
       case "getOilPlan":
         result = getOilPlan(e.parameter.lpIds, e.parameter.itemType, scope);
         break;

@@ -214,6 +214,45 @@ emails from test data.
 5. Create an emergency top-up for the same point. Only that same oil is
    offered.
 
+## Phase 9: My Work per role (Platform Core)
+
+My Work lives in the platform shell, so it collects work from **every
+module**, not just Oil Lubrication.
+
+- **How it works:**
+  1. Each module's backend answers one standard request, `GET getMyWork`.
+  2. The answer lists sections of work for that person. Each item has a
+     title, details, an optional flag (Overdue / Returned / Due soon) and
+     the page and record it opens.
+  3. My Work asks every module that provides it, and shows one group per
+     module.
+  4. Clicking an item opens that page in the module.
+- **Adding a module later** (for example Vibration Analysis) needs no
+  change to the My Work page:
+  1. Implement `getMyWork` in its backend with the same answer shape (see
+     `backend/oil-lubrication/src/MyWork.js` for the format and an
+     example).
+  2. Set `myWork: true` on its entry in `MODULE_BACKENDS`
+     (`frontend/src/moduleAccess.tsx`).
+- **Oil Lubrication, by role:**
+
+  | Role | Sections |
+  |---|---|
+  | Technician | Their assigned routes (the checklist, unchanged) |
+  | Contractor Engineer | Routes waiting approval · Draft routes without a technician · suggestions to turn into routes · lab reports to validate · Draft actions to submit · closures approved, to close · actions overdue · low-stock oils · points due within 7 days |
+  | ACC Engineer | Closure requests to approve · lab reports to review · new automatic Drafts · actions overdue (all contractors) |
+  | ACC Manager / Contractor Manager | Overdue 10+ days (escalations) · team summary · overdue work per technician (a contractor manager sees only their contractor) |
+  | App Owner | ACC Engineer + manager sections |
+  | Visitor | Nothing (My Work is hidden for Visitor) |
+
+  Someone with several roles gets all of their sections. Each section
+  shows its first 5 items, with **Show more** for up to 15; the module
+  pages have the full lists. A section with nothing in it is not shown.
+
+**Test it:** open My Work as each of the test users (contractor engineer,
+ACC engineer, managers, technician, visitor). Check the sections match
+the table, and that clicking an item opens the right page.
+
 ## Test copy: files to paste (Apps Script editor)
 
 Copy from the `claude/test-site` branch.
@@ -222,7 +261,7 @@ Copy from the `claude/test-site` branch.
 
 - New files (➕ → Script, name without `.js`): `ActionWorkflow`,
   `Suggestions`, `LabReports`, `DailyNotifications`, `Managers`,
-  `AlternativeOils`.
+  `AlternativeOils`, `MyWork`.
 - Replace: `Code`, `Config`, `Rbac`, `ModuleAccess`,
   `ModuleAccessConfig`, `Notifications`, `Routines`, `RouteTemplates`,
   `Dashboard`, `OilInventory`, `OilChanges`, `TopUps`, `SampleOverdue`,

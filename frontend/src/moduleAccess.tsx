@@ -33,11 +33,13 @@ export type ModuleAccess = {
   tabs: Record<string, TabLevel>;
 };
 
-export type ModuleBackend = { id: string; name: string; url: string; secret?: string };
+// path: the module's page in the shell. myWork: the backend answers GET
+// getMyWork (see myWork.ts) — set it when a module starts providing work.
+export type ModuleBackend = { id: string; name: string; url: string; secret?: string; path: string; myWork?: boolean };
 
 export const MODULE_BACKENDS: ModuleBackend[] = [
-  { id: 'oil-analysis', name: 'Oil Lubrication', url: OIL_ANALYSIS_URL, secret: OIL_API_SECRET },
-  { id: 'vibration-analysis', name: 'Vibration Analysis', url: VIBRATION_ANALYSIS_URL },
+  { id: 'oil-analysis', name: 'Oil Lubrication', url: OIL_ANALYSIS_URL, secret: OIL_API_SECRET, path: '/oil-analysis', myWork: true },
+  { id: 'vibration-analysis', name: 'Vibration Analysis', url: VIBRATION_ANALYSIS_URL, path: '/vibration-analysis' },
 ];
 
 export function moduleBackend(moduleId: string): ModuleBackend {

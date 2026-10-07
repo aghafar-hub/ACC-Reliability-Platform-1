@@ -73,6 +73,44 @@ function lpsOnOpenRoutes_(ss) {
   return open;
 }
 
+// Oil changes and samples due within `days` that aren't on an open route yet:
+// [{ code, contractor, type: "Oil change"|"Sample", due }]. Shared by the
+// daily notification and My Work.
+function lpsDueSoon_(ss, today, days) {
+  var soonEnd = new Date(today.getTime() + days * 86400000);
+  var equipment = readEquipmentRegistry().equipment || [];
+  var onRoute = lpsOnOpenRoutes_(ss);
+  var nextChange = {};
+  readSheet(ss, "Oil Change LOG", true).forEach(function (r) {
+    var lp = String(r[1] || "").trim();
+    var ev = asDate_(r[4]);
+    if (!lp || !ev) return;
+    if (!nextChange[lp] || ev.getTime() > nextChange[lp].ev.getTime()) nextChange[lp] = { ev: ev, next: asDate_(r[11]) };
+  });
+  var lastSample = {};
+  readSheet(ss, "Data_Entry", true).forEach(function (r) {
+    var lp = String(r[0] || "").trim();
+    var d = asDate_(r[4]);
+    if (lp && d && (!lastSample[lp] || d.getTime() > lastSample[lp].getTime())) lastSample[lp] = d;
+  });
+  var out = [];
+  equipment.forEach(function (eq) {
+    if (!eq.code || !eq.contractor) return;
+    var nc = nextChange[eq.code];
+    if (nc && nc.next && nc.next.getTime() >= today.getTime() && nc.next.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Oil Change"]) {
+      out.push({ code: eq.code, contractor: eq.contractor, type: "Oil change", due: nc.next });
+    }
+    if (eq.oilAnalysisRequired === "Yes" && lastSample[eq.code]) {
+      var months = intervalMonthsForSampling_(eq.interval);
+      var sDue = months ? sampleDueDate_(lastSample[eq.code], months) : null;
+      if (sDue && sDue.getTime() >= today.getTime() && sDue.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Sampling"]) {
+        out.push({ code: eq.code, contractor: eq.contractor, type: "Sample", due: sDue });
+      }
+    }
+  });
+  return out;
+}
+
 function runDailyOilNotifications() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(30000)) return { status: "error", message: "busy" };
@@ -83,46 +121,15 @@ function runDailyOilNotifications() {
     var summary = { dueSoon: 0, routesOverdue: 0, shortages: 0, escalations: 0 };
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var soonEnd = new Date(today.getTime() + DUE_SOON_NOTIFY_DAYS * 86400000);
 
     // ── Lubrication points due soon ──────────────────────────────────
-    var equipment = readEquipmentRegistry().equipment || [];
-    var onRoute = lpsOnOpenRoutes_(ss);
-    var nextChange = {};
-    readSheet(ss, "Oil Change LOG", true).forEach(function (r) {
-      var lp = String(r[1] || "").trim();
-      var ev = asDate_(r[4]);
-      if (!lp || !ev) return;
-      if (!nextChange[lp] || ev.getTime() > nextChange[lp].ev.getTime()) nextChange[lp] = { ev: ev, next: asDate_(r[11]) };
-    });
-    var lastSample = {};
-    readSheet(ss, "Data_Entry", true).forEach(function (r) {
-      var lp = String(r[0] || "").trim();
-      var d = asDate_(r[4]);
-      if (lp && d && (!lastSample[lp] || d.getTime() > lastSample[lp].getTime())) lastSample[lp] = d;
-    });
     var dueByContractor = {};
-    equipment.forEach(function (eq) {
-      if (!eq.code || !eq.contractor) return;
-      var items = [];
-      var nc = nextChange[eq.code];
-      if (nc && nc.next && nc.next.getTime() >= today.getTime() && nc.next.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Oil Change"]) {
-        items.push({ type: "Oil change", due: nc.next });
-      }
-      if (eq.oilAnalysisRequired === "Yes" && lastSample[eq.code]) {
-        var months = intervalMonthsForSampling_(eq.interval);
-        var sDue = months ? sampleDueDate_(lastSample[eq.code], months) : null;
-        if (sDue && sDue.getTime() >= today.getTime() && sDue.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Sampling"]) {
-          items.push({ type: "Sample", due: sDue });
-        }
-      }
-      items.forEach(function (it) {
-        var key = "due|" + eq.code + "|" + it.type + "|" + isoDay_(it.due);
-        if (sent[key]) return;
-        newKeys.push(key);
-        if (!dueByContractor[eq.contractor]) dueByContractor[eq.contractor] = [];
-        dueByContractor[eq.contractor].push(eq.code + " — " + it.type + " due " + formatDateForEmail_(it.due));
-      });
+    lpsDueSoon_(ss, today, DUE_SOON_NOTIFY_DAYS).forEach(function (it) {
+      var key = "due|" + it.code + "|" + it.type + "|" + isoDay_(it.due);
+      if (sent[key]) return;
+      newKeys.push(key);
+      if (!dueByContractor[it.contractor]) dueByContractor[it.contractor] = [];
+      dueByContractor[it.contractor].push(it.code + " — " + it.type + " due " + formatDateForEmail_(it.due));
     });
     Object.keys(dueByContractor).forEach(function (contractor) {
       var lines = dueByContractor[contractor];

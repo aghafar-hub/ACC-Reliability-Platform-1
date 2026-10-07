@@ -65,6 +65,7 @@ var MA_CONFIG = {
     getSuggestions: ["routines", "actions"],
     getTeamWorkload: ["team"],
     getOilPlan: ["routines", "mywork", "inventory"],
+    getMyWork: ["mywork"],
     getRoutinesOverview: ["routines", "dashboard", "reports"],
     getRoutineCompletionTrend: ["routines", "dashboard", "reports"],
     getOilInventory: ["inventory", "dashboard", "reports"],
