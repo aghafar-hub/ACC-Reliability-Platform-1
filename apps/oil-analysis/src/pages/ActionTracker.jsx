@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue, actionDaysOverdue, actionDueDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
@@ -7,6 +7,7 @@ import EditActionModal from "../components/EditActionModal";
 import GenerateMonthlyActionsModal from "../components/GenerateMonthlyActionsModal";
 import MobileFilterToggle from "../components/MobileFilterToggle";
 import useIsMobile from "../hooks/useIsMobile";
+import { Donut } from "../components/DashCharts";
 
 // Phase 2 statuses (old "In Progress" rows are read as Open).
 const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
@@ -14,21 +15,11 @@ const COLUMNS = ACTION_STATUSES;
 // Dragging only does Open → Waiting Stoppage (one-way). Everything else —
 // Submit, closure, reschedule — happens inside the action.
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const AGE_BUCKETS = ["0–7d", "8–14d", "15–30d", "30d+"];
-const AGE_BUCKET_COLOR_KEY = { "0–7d": "success", "8–14d": "warning", "15–30d": "danger", "30d+": "danger" };
-
-// SVG donut-slice path — same math Dashboard.jsx's own status donut uses.
-function arcPath(startFrac, fracLen, radius, cx, cy) {
-  if (fracLen <= 0) return "";
-  const start = startFrac * 2 * Math.PI - Math.PI / 2;
-  const end = (startFrac + fracLen) * 2 * Math.PI - Math.PI / 2;
-  const x1 = cx + radius * Math.cos(start);
-  const y1 = cy + radius * Math.sin(start);
-  const x2 = cx + radius * Math.cos(end);
-  const y2 = cy + radius * Math.sin(end);
-  const largeArc = fracLen > 0.5 ? 1 : 0;
-  return `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-}
+// Open actions by age (design D5): 0–7, 8–30, 31–60 and 60+ days; the
+// older the bucket, the darker the blue (one hue — it is an amount, not a
+// status).
+const AGE_BUCKETS = ["0–7 d", "8–30 d", "31–60 d", "60+ d"];
+const AGE_SHADE = { "0–7 d": 35, "8–30 d": 55, "31–60 d": 78, "60+ d": 100 };
 
 function ageDays(dateStr) {
   if (!dateStr) return null;
@@ -36,20 +27,12 @@ function ageDays(dateStr) {
   if (isNaN(d)) return null;
   return Math.round((Date.now() - d.getTime()) / 86400000);
 }
-function ageColor(T, days) {
-  if (days == null) return T.textMuted;
-  if (days > 14) return T.danger;
-  if (days >= 7) return T.warning;
-  return T.success;
-}
-// Same 4 bands the per-card age badge already uses (ageColor above), just
-// as buckets for the new Open Actions by Age chart instead of one number.
 function ageBucket(days) {
   if (days == null) return null;
-  if (days <= 7) return "0–7d";
-  if (days <= 14) return "8–14d";
-  if (days <= 30) return "15–30d";
-  return "30d+";
+  if (days <= 7) return "0–7 d";
+  if (days <= 30) return "8–30 d";
+  if (days <= 60) return "31–60 d";
+  return "60+ d";
 }
 function monthKey(d) {
   return `${d.getFullYear()}-${d.getMonth()}`;
@@ -147,25 +130,26 @@ export default function ActionTracker({
   // matches the standing rule from Oil Change Log/Oil Sampling Log that
   // every filter on a page affects every graph on it, not just the board.
   const statusCounts = COLUMNS.reduce((acc, st) => ({ ...acc, [st]: visible.filter((a) => a.status === st).length }), {});
-  const totalActions = visible.length || 1;
-  let acc = 0;
-  const donutArcs = COLUMNS.map((st) => {
-    const frac = statusCounts[st] / totalActions;
-    const path = arcPath(acc, frac, 44, 50, 50);
-    acc += frac;
-    return { st, path };
-  });
+  const STAGES = [
+    { key: ACTION_STATUS.DRAFT, label: "Draft", shade: 30 },
+    { key: ACTION_STATUS.OPEN, label: "Open", shade: 55 },
+    { key: ACTION_STATUS.WAITING, label: "Waiting stoppage", shade: 78 },
+    { key: ACTION_STATUS.CLOSURE_REQUESTED, label: "To approve", shade: 100 },
+  ];
+  const stageSegs = STAGES.map((st) => ({ label: st.label, value: statusCounts[st.key] || 0, color: `color-mix(in srgb, ${T.accent} ${st.shade}%, ${T.cardBg})` }));
+  const openCount = stageSegs.reduce((n, x) => n + x.value, 0);
+  const overdueOpen = visible.filter((a) => isActionOverdue(a)).length;
 
   const unassignedCount = useMemo(() => visible.filter((a) => a.status !== ACTION_STATUS.CLOSED && !a.assignedTo).length, [visible]);
 
   const ageData = useMemo(() => {
-    const counts = { "0–7d": 0, "8–14d": 0, "15–30d": 0, "30d+": 0 };
+    const counts = Object.fromEntries(AGE_BUCKETS.map((b) => [b, 0]));
     visible.forEach((a) => {
       if (a.status === "Closed") return;
       const bucket = ageBucket(ageDays(a.revisionDate));
       if (bucket) counts[bucket]++;
     });
-    return AGE_BUCKETS.map((b) => ({ bucket: b, count: counts[b], fill: T[AGE_BUCKET_COLOR_KEY[b]] }));
+    return AGE_BUCKETS.map((b) => ({ bucket: b, count: counts[b], fill: `color-mix(in srgb, ${T.accent} ${AGE_SHADE[b]}%, ${T.cardBg})` }));
   }, [visible, T]);
 
   const contractorData = useMemo(() => {
@@ -176,10 +160,10 @@ export default function ActionTracker({
       if (counts[c] != null) counts[c]++;
     });
     return [
-      { name: "RHI", value: counts.RHI, color: T.accent },
-      { name: "ASEC", value: counts.ASEC, color: T.warning },
-    ].filter((d) => d.value > 0);
-  }, [visible, registryByCode, T.accent, T.warning]);
+      { label: "RHI", value: counts.RHI, color: T.accent },
+      { label: "ASEC", value: counts.ASEC, color: T.textSecondary },
+    ];
+  }, [visible, registryByCode, T.accent, T.textSecondary]);
 
   // Opened (by revisionDate) vs Closed (by completedDate), last 6 calendar
   // months — the one thing neither the status donut nor the kanban board
@@ -358,38 +342,31 @@ export default function ActionTracker({
 
   return (
     <div>
-      <div style={{ ...s.card, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", padding: "16px 20px" }}>
-        <svg width="100" height="100" viewBox="0 0 100 100">
-          {donutArcs.map(({ st, path }) => path && <path key={st} d={path} fill={T[STATUS_COLOR_KEY[st]]} opacity="0.92" />)}
-          <circle cx="50" cy="50" r="29" fill={T.cardBg} />
-          <text x="50" y="47" textAnchor="middle" fontSize="17" fontWeight="800" fill={T.textPrimary}>
-            {visible.length}
-          </text>
-          <text x="50" y="61" textAnchor="middle" fontSize="8" fill={T.textSecondary}>
-            actions
-          </text>
-        </svg>
+      <div style={{ ...s.card, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", padding: "16px 20px" }} data-testid="action-stages">
+        {/* D5 — where the open actions are stuck: the stages follow each
+            other, so one blue from light (Draft) to dark (To approve). */}
+        <Donut
+          T={T}
+          segments={stageSegs}
+          size={120}
+          thickness={18}
+          center={openCount}
+          sub="open"
+          ariaLabel={`Open actions by stage: ${stageSegs.map((x) => `${x.value} ${x.label}`).join(", ")}`}
+        />
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Status Breakdown</div>
-          {COLUMNS.map((st) => (
-            <div key={st} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: T[STATUS_COLOR_KEY[st]], flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: T.textSecondary, width: 108, flexShrink: 0 }}>{st}</span>
-              <div style={{ flex: 1, height: 7, borderRadius: 4, background: T.border, overflow: "hidden" }}>
-                <div
-                  style={{
-                    width: `${(statusCounts[st] / totalActions) * 100}%`,
-                    height: "100%",
-                    background: T[STATUS_COLOR_KEY[st]],
-                    borderRadius: 4,
-                  }}
-                />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: T[STATUS_COLOR_KEY[st]], minWidth: 18, textAlign: "right" }}>
-                {statusCounts[st]}
-              </span>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Where the open actions are</div>
+          {stageSegs.map((x) => (
+            <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 13, color: T.textPrimary, width: 130, flexShrink: 0 }}>{x.label}</span>
+              <b style={{ fontSize: 13, color: T.textPrimary, minWidth: 22, textAlign: "right" }}>{x.value}</b>
+              <span style={{ fontSize: 12, color: T.textSecondary }}>{openCount ? `${Math.round((x.value / openCount) * 100)}%` : ""}</span>
             </div>
           ))}
+          <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 4 }}>
+            {statusCounts.Closed || 0} closed in this view{overdueOpen ? <span style={{ color: T.danger, fontWeight: 700 }}> · {overdueOpen} past due</span> : null}
+          </div>
         </div>
         <div style={{ textAlign: "center", minWidth: 120 }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: unassignedCount > 0 ? T.danger : T.textPrimary }}>{unassignedCount}</div>
@@ -400,7 +377,7 @@ export default function ActionTracker({
 
       <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 1.3fr", gap: 14, margin: "14px 0" }}>
         <div style={s.card}>
-          <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Open Actions by Age</p>
+          <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Open actions by age</p>
           {ageData.every((d) => d.count === 0) ? (
             <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No open actions.</p>
           ) : (
@@ -422,19 +399,23 @@ export default function ActionTracker({
 
         <div style={s.card}>
           <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Actions by Contractor</p>
-          {contractorData.length === 0 ? (
+          {contractorData.every((d) => d.value === 0) ? (
             <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No actions in view.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie data={contractorData} dataKey="value" nameKey="name" innerRadius={38} outerRadius={64} paddingAngle={2} label={({ name, value }) => `${name} ${value}`}>
-                  {contractorData.map((d) => (
-                    <Cell key={d.name} fill={d.color} />
-                  ))}
-                </Pie>
-                <Tooltip content={<ChartTooltip T={T} />} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+              <Donut T={T} segments={contractorData} size={112} thickness={16} center={contractorData.reduce((n, d) => n + d.value, 0)} sub="actions" ariaLabel={contractorData.map((d) => `${d.label} ${d.value}`).join(", ")} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13.5 }}>
+                {contractorData.map((d) => {
+                  const tot = contractorData.reduce((n, x) => n + x.value, 0) || 1;
+                  return (
+                    <span key={d.label} style={{ display: "flex", alignItems: "center", gap: 7, color: T.textPrimary }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color }} />
+                      <b>{d.label}</b> {d.value} <span style={{ color: T.textSecondary }}>· {Math.round((d.value / tot) * 100)}%</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 
