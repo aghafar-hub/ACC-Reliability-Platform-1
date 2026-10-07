@@ -263,6 +263,49 @@ module**, not just Oil Lubrication.
 ACC engineer, managers, technician, visitor). Check the sections match
 the table, and that clicking an item opens the right page.
 
+## Oil Equipment improvements (E1 to E4)
+
+- **E1 — list and health.** The Oil Equipment tab opens on a list of
+  equipment or lubrication points, worst first, with Needs attention /
+  Poor / Fair / Good chips. Health uses one rule everywhere
+  (`equipmentHealth.js`): latest lab Alert +3, Caution +1, oil change
+  overdue +3, sample missing +2 / overdue +1, actions overdue +2 / open +1,
+  3+ top-ups in 30 days +2. 0 = Good, 1–2 = Fair, 3+ = Poor; the reasons
+  are shown.
+- **E2 — point page.** What's next, top-up rate, Actions and Routes tabs,
+  Create Route, New Action pre-filled from the last sample, Log by Hand
+  for engineers only (with a reason and the oil used). Backend:
+  `getRoutesForLp`.
+- **E3 — Lubrication History** (`pointHistory.js`, `PointHistory.jsx`), on
+  one time axis:
+  - *Lab values* (sampled points): one small chart per value, grouped
+    Wear / Contamination / Oil condition / Additives, "Needs a look"
+    first. Dots take the lab's own marks (the yellow / red cells). The
+    dashed Caution / Alert lines are the lowest value the lab marked on
+    this point's reports — or, if it never marked that value here, on
+    other points using the same oil. (For additives and a falling
+    viscosity, the highest.) The line breaks at each oil change. A value
+    moving the bad way 3 samples in a row, by 20% or more, since the last
+    oil change is called out. Click a dot to open the report.
+  - *Oil change cycles* (points with changes): each cycle against its
+    planned date; on time = changed within 7 days of the due date. The
+    current cycle shows oil life used and next due; top-ups and oil used
+    per cycle; a summary. Points changed "as needed" show cycles with no
+    planned marks.
+  - *Timeline*: changes, samples and top-ups, planned marks, next-due
+    lines, possible-leak shading (3+ top-ups in 30 days). A list on
+    phones.
+  - Period: 1 year, 2 years, since last change, all. Chart / Table.
+  - Add Report and Edit Report have a *Lab Marks* section: tap a value to
+    mark it Caution, again for Alert, again to clear — so hand-entered
+    reports carry the marks too (saved in the Flagged Parameters column,
+    the same one the PDF import fills).
+- **E4 — History PDF** on the point page (header, health and why, point
+  details, lab charts and table with marks and limits, cycles, top-ups,
+  actions). On phones the point's tables show as cards.
+
+No Apps Script change for E3 / E4.
+
 ## Test copy: files to paste (Apps Script editor)
 
 Copy from the `claude/test-site` branch.

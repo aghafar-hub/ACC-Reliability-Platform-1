@@ -10,6 +10,7 @@ import {
   ON_TIME_GRACE_DAYS,
   PERIODS,
   buildCycles,
+  everyText,
   cycleSummary,
   flagFor,
   leakWindows,
@@ -41,14 +42,6 @@ const LANES = { Change: 3, Sample: 2, TopUp: 1 };
 const LANE_LABEL = { 3: "Changes", 2: "Samples", 1: "Top-ups" };
 const TYPE_LABEL = { Change: "Oil changes", Sample: "Samples", TopUp: "Top-ups" };
 const TYPE_ICON = { Change: "ti-droplet", Sample: "ti-flask", TopUp: "ti-droplet-plus" };
-
-function everyText(interval) {
-  const m = intervalMonths(interval);
-  if (!m) return interval;
-  if (m >= 12 && m % 12 === 0) return m === 12 ? "year" : `${m / 12} years`;
-  if (m < 1) return m === 0.25 ? "week" : "day";
-  return m === 1 ? "month" : `${m} months`;
-}
 
 function fmtNum(v) {
   if (v === null || v === undefined) return "—";

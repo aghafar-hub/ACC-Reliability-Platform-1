@@ -3,6 +3,7 @@ import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
 import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
+import { LAB_PARAMS, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
 
 // Four printable-to-PDF reports, generated entirely client-side from the
 // same live data the rest of the app already has in memory — no server
@@ -1849,4 +1850,313 @@ export async function generateOilReportExcel({ sectionIds, contractor = "All", d
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ── Oil Equipment E4 — one lubrication point's history as a PDF ──────────
+// The same rules as the point page (pointHistory.js): lab values with the
+// lab's own marks and the limits worked out from them, rising trends, oil
+// change cycles planned vs actual, top-ups and possible leaks, actions.
+
+const PDF_SEV = { Alert: BRAND.danger, Caution: BRAND.warning };
+const HEALTH_PDF = { Good: BRAND.success, Fair: BRAND.warning, Poor: BRAND.danger };
+const DEFAULT_PDF_PARAMS = ["Fe", "Si", "Water", "Visc", "Cu", "TAN"];
+
+function shortDate(v) {
+  const t = toTime(v);
+  return t === null ? "—" : new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
+}
+
+function pdfNum(v) {
+  if (v === null || v === undefined || v === "") return "—";
+  return Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 100) / 100);
+}
+
+// A small hand-drawn line chart for one lab value over the whole history.
+function labMiniChart(doc, { x, y, w, h, p, samples, changeTimes, limits, start, end }) {
+  doc.setDrawColor(...BRAND.border);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(x, y, w, h, 3, 3);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...BRAND.navy);
+  doc.text(`${p.label}${p.unit ? ` (${p.unit})` : ""}`, x + 8, y + 13);
+  const px = x + 30;
+  const pw = w - 40;
+  const py = y + 22;
+  const ph = h - 40;
+  const pts = samples.map((s) => ({ t: s._t, v: paramValue(s, p), f: flagFor(s, p) })).filter((d) => d.v !== null);
+  const vals = [...pts.map((d) => d.v), limits?.caution, limits?.alert].filter((v) => v !== null && v !== undefined);
+  let lo = p.key === "Visc" ? Math.min(...vals) * 0.9 : 0;
+  let hi = Math.max(...vals, 1) * 1.1;
+  if (hi === lo) hi = lo + 1;
+  const sx = (t) => px + ((t - start) / Math.max(1, end - start)) * pw;
+  const sy = (v) => py + ph - ((v - lo) / (hi - lo)) * ph;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(...BRAND.muted);
+  [lo, (lo + hi) / 2, hi].forEach((v) => {
+    doc.setDrawColor(...BRAND.border);
+    doc.setLineWidth(0.3);
+    doc.line(px, sy(v), px + pw, sy(v));
+    doc.text(pdfNum(v), px - 4, sy(v) + 2, { align: "right" });
+  });
+  doc.text(new Date(start).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px, y + h - 8);
+  doc.text(new Date(end).toLocaleDateString("en-GB", { month: "short", year: "2-digit" }), px + pw, y + h - 8, { align: "right" });
+  // Oil changes.
+  doc.setDrawColor(...BRAND.muted);
+  doc.setLineWidth(0.4);
+  changeTimes.filter((t) => t >= start && t <= end).forEach((t) => doc.line(sx(t), py, sx(t), py + ph));
+  // Limits (dashed).
+  [["caution", BRAND.warning, "Caution"], ["alert", BRAND.danger, "Alert"]].forEach(([k, color, label]) => {
+    const v = limits?.[k];
+    if (v === null || v === undefined) return;
+    doc.setDrawColor(...color);
+    doc.setLineWidth(0.8);
+    doc.setLineDashPattern([3, 2], 0);
+    doc.line(px, sy(v), px + pw, sy(v));
+    doc.setLineDashPattern([], 0);
+    doc.setTextColor(...BRAND.muted);
+    doc.text(`${label} ${pdfNum(v)}`, px + pw - 2, sy(v) - 2, { align: "right" });
+  });
+  // The line, broken at each oil change, then the dots.
+  doc.setDrawColor(...BRAND.teal);
+  doc.setLineWidth(1.2);
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    if (changeTimes.some((t) => t > a.t && t <= b.t)) continue;
+    doc.line(sx(a.t), sy(a.v), sx(b.t), sy(b.v));
+  }
+  pts.forEach((d) => {
+    doc.setFillColor(...(d.f ? PDF_SEV[d.f] : BRAND.teal));
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(0.8);
+    doc.circle(sx(d.t), sy(d.v), d.f ? 2.8 : 2.2, "FD");
+  });
+  doc.setTextColor(20, 26, 33);
+}
+
+export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, changes, topUps, actions, health, nextChangeDue, nextSampleDue }) {
+  const code = reg?.code || "";
+  const doc = await newDoc("Lubrication Point History", `${code} — ${reg?.equipmentId || ""} · ${reg?.lubricationPoint || ""}`);
+  const now = Date.now();
+  const samplesAsc = (samples || []).map((s) => ({ ...s, _t: toTime(s.sampledDate) })).filter((s) => s._t !== null).sort((a, b) => a._t - b._t);
+  const changesAsc = (changes || []).map((c) => ({ ...c, _t: toTime(c.eventDate) })).filter((c) => c._t !== null).sort((a, b) => a._t - b._t);
+  const lastChangeTime = changesAsc.length ? changesAsc[changesAsc.length - 1]._t : null;
+  const latest = samplesAsc[samplesAsc.length - 1] || null;
+  const openActions = (actions || []).filter((a) => a.status !== "Closed");
+
+  let y = 92;
+  y = statStrip(doc, [
+    { label: "Health", value: health?.health || "—", color: HEALTH_PDF[health?.health] },
+    { label: "Latest lab result", value: latest?.reportStatus || "—", color: PDF_SEV[latest?.reportStatus] },
+    { label: "Next oil change", value: shortDate(nextChangeDue) },
+    { label: "Next sample", value: shortDate(nextSampleDue) },
+    { label: "Open actions", value: openActions.length },
+  ], y);
+  if (health?.reasons?.length) y = summaryParagraph(doc, `Why ${health.health}: ${health.reasons.map((r) => r.text).join("; ")}.`, y);
+
+  autoTable(doc, {
+    startY: y,
+    body: [
+      ["Equipment", reg?.equipmentId || "—", "Area", reg?.area || "—"],
+      ["Lubrication point", reg?.lubricationPoint || "—", "Contractor", reg?.contractor || "—"],
+      ["Oil", reg?.lubricant || "—", "Quantity", reg?.lubricantQuantityL ? `${reg.lubricantQuantityL} L` : "—"],
+      ["Oil change interval", intervalMonths(reg?.oilChangeInterval || "") ? `Every ${everyText(reg.oilChangeInterval)}` : "As needed", "Oil analysis", reg?.oilAnalysisRequired === "Yes" ? `Yes — every ${reg?.interval || "—"}` : "No"],
+    ],
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
+    columnStyles: { 0: { fontStyle: "bold", textColor: BRAND.navy, cellWidth: 100 }, 2: { fontStyle: "bold", textColor: BRAND.navy, cellWidth: 90 } },
+    margin: { left: 36, right: 36 },
+  });
+  y = doc.lastAutoTable.finalY + 22;
+
+  // Lab values.
+  if (samplesAsc.length) {
+    const lab = LAB_PARAMS.filter((p) => samplesAsc.some((s) => paramValue(s, p) !== null)).map((p) => {
+      const limits = limitsFor(p, samplesAsc, sameOilSamples || []);
+      const trend = trendWarning(samplesAsc, p, limits?.direction || (p.low ? "down" : "up"), lastChangeTime);
+      const flagged = samplesAsc.some((s) => flagFor(s, p));
+      return { p, limits, trend, flagged };
+    });
+    const look = lab.filter((x) => x.trend || x.flagged);
+    const picked = [...look];
+    DEFAULT_PDF_PARAMS.forEach((k) => {
+      const x = lab.find((l) => l.p.key === k);
+      if (x && !picked.includes(x)) picked.push(x);
+    });
+    const chartParams = picked.slice(0, 4);
+    const tableParams = picked.slice(0, 6);
+
+    y = needsNewPage(doc, y, 200);
+    y = sectionTitle(doc, "Lab values", y);
+    const trends = lab.filter((x) => x.trend);
+    y = summaryParagraph(
+      doc,
+      (trends.length
+        ? trends.map((x) => `${x.p.label} ${x.trend.direction} ${x.trend.values.length} samples in a row since the last oil change (${x.trend.values.map(pdfNum).join(", ")} ${x.p.unit}).`).join(" ") + " "
+        : "") +
+        "Dots in red / amber are values the lab marked Alert / Caution; dashed lines are the lowest values it marked (from this point, or from other points on the same oil); grey lines are oil changes.",
+      y
+    );
+    const start = samplesAsc[0]._t;
+    const end = Math.max(now, samplesAsc[samplesAsc.length - 1]._t);
+    const changeTimes = changesAsc.map((c) => c._t);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const cw = (pageWidth - 72 - 12) / 2;
+    const chH = 120;
+    chartParams.forEach((x, i) => {
+      if (i % 2 === 0) y = needsNewPage(doc, y, chH + 50);
+      labMiniChart(doc, { x: 36 + (i % 2) * (cw + 12), y, w: cw, h: chH, p: x.p, samples: samplesAsc, changeTimes, limits: x.limits, start, end });
+      if (i % 2 === 1 || i === chartParams.length - 1) y += chH + 12;
+    });
+    y += 8;
+
+    y = needsNewPage(doc, y, 120);
+    const recent = [...samplesAsc].reverse().slice(0, 24);
+    autoTable(doc, {
+      startY: y,
+      head: [["Date", "Sample", "Result", ...tableParams.map((x) => `${x.p.key}${x.p.unit ? ` (${x.p.unit})` : ""}`), "Lab marks"]],
+      body: [
+        ...recent.map((s) => [
+          formatDate(s.sampledDate),
+          s.sampleId || "—",
+          s.reportStatus || "—",
+          ...tableParams.map((x) => pdfNum(paramValue(s, x.p))),
+          (s.flaggedReadings || []).map((f) => `${f.param} ${f.severity}`).join(", ") || "—",
+        ]),
+        ["Limits (Caution / Alert)", "", "", ...tableParams.map((x) => (x.limits ? `${pdfNum(x.limits.caution)} / ${pdfNum(x.limits.alert)}` : "—")), ""],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 7.5 },
+      styles: { fontSize: 7.5, cellPadding: 3, lineColor: BRAND.border, lineWidth: 0.4 },
+      margin: { left: 36, right: 36 },
+      didParseCell: (data) => {
+        if (data.section !== "body") return;
+        const s = recent[data.row.index];
+        if (!s) {
+          data.cell.styles.textColor = BRAND.muted;
+          return;
+        }
+        if (data.column.index === 2 && PDF_SEV[s.reportStatus]) {
+          data.cell.styles.textColor = PDF_SEV[s.reportStatus];
+          data.cell.styles.fontStyle = "bold";
+        }
+        const x = tableParams[data.column.index - 3];
+        if (x) {
+          const f = flagFor(s, x.p);
+          if (f) {
+            data.cell.styles.textColor = PDF_SEV[f];
+            data.cell.styles.fontStyle = "bold";
+            data.cell.text = [`${data.cell.text[0]} ${f[0]}`];
+          }
+        }
+      },
+    });
+    y = doc.lastAutoTable.finalY + 8;
+    doc.setFontSize(7.5);
+    doc.setTextColor(...BRAND.muted);
+    doc.text(`A = lab marked Alert, C = Caution.${samplesAsc.length > recent.length ? ` Latest ${recent.length} of ${samplesAsc.length} reports shown.` : ""}`, 36, y + 4);
+    doc.setTextColor(20, 26, 33);
+    y += 24;
+  }
+
+  // Oil change cycles.
+  y = needsNewPage(doc, y, 140);
+  y = sectionTitle(doc, "Oil change cycles", y);
+  const asNeeded = !intervalMonths(reg?.oilChangeInterval || "");
+  const cycles = buildCycles({ changes: changesAsc, topUps, interval: reg?.oilChangeInterval || "", now });
+  const sum = cycleSummary(cycles);
+  if (!cycles.length) {
+    y = summaryParagraph(doc, "No oil changes logged.", y);
+  } else {
+    const parts = [];
+    if (!asNeeded && sum.judged) parts.push(`${sum.onTime} of ${sum.judged} changes done on time (${sum.onTimeRate}%)`);
+    if (!asNeeded && sum.avgDaysLate !== null) parts.push(`late ones averaged ${sum.avgDaysLate} days late`);
+    if (sum.avgDays !== null) parts.push(`average cycle ${sum.avgDays} days`);
+    if (sum.avgTopUpLitres !== null) parts.push(`${sum.avgTopUpLitres} L topped up per cycle on average`);
+    y = summaryParagraph(doc, (asNeeded ? "Changed as needed — no planned dates. " : "") + (parts.length ? parts.join(", ") + "." : ""), y);
+    const rows = [...cycles].reverse();
+    autoTable(doc, {
+      startY: y,
+      head: [["Cycle", "From", "To", "Oil", "Days", "Planned", "Status", "Top-ups", "Oil used"]],
+      body: rows.map((c) => [
+        c.current ? "Current" : String(c.index),
+        formatDate(c.start),
+        c.current ? "today" : formatDate(c.end),
+        c.oil || "—",
+        String(c.days),
+        c.planned ? `${formatDate(c.planned)} (${c.plannedDays} d)` : "—",
+        c.status === "Late" || c.status === "Overdue" ? `${c.status} ${c.lateDays} d` : c.status || "—",
+        `${c.topUps} · ${c.topUpLitres} L`,
+        `${c.oilUsed} L`,
+      ]),
+      theme: "striped",
+      headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 3.5, lineColor: BRAND.border, lineWidth: 0.4 },
+      margin: { left: 36, right: 36 },
+      didParseCell: (data) => {
+        if (data.section !== "body" || data.column.index !== 6) return;
+        const st = rows[data.row.index]?.status;
+        const color = { "On time": BRAND.success, Late: BRAND.warning, Overdue: BRAND.danger }[st];
+        if (color) {
+          data.cell.styles.textColor = color;
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+    y = doc.lastAutoTable.finalY + 24;
+  }
+
+  // Top-ups.
+  y = needsNewPage(doc, y, 120);
+  y = sectionTitle(doc, "Top-ups", y);
+  const tops = (topUps || []).map((t) => ({ ...t, _t: toTime(t.eventDate) })).filter((t) => t._t !== null).sort((a, b) => b._t - a._t);
+  const leaks = leakWindows(topUps);
+  if (leaks.length) {
+    y = summaryParagraph(doc, `Possible leak: ${leaks.map((w) => `${w.count} top-ups between ${formatDate(w.from)} and ${formatDate(w.to)}`).join("; ")}.`, y);
+  }
+  if (!tops.length) {
+    y = summaryParagraph(doc, "No top-ups logged.", y);
+  } else {
+    autoTable(doc, {
+      startY: y,
+      head: [["Date", "Litres", "Oil", "Reason", "Done by"]],
+      body: tops.slice(0, 30).map((t) => [formatDate(t.eventDate), t.quantity || "—", t.oilBrandType || "—", t.reason || "—", t.doneBy || "—"]),
+      theme: "striped",
+      headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 3.5, lineColor: BRAND.border, lineWidth: 0.4 },
+      margin: { left: 36, right: 36 },
+    });
+    y = doc.lastAutoTable.finalY + 24;
+  }
+
+  // Actions.
+  y = needsNewPage(doc, y, 120);
+  y = sectionTitle(doc, "Actions", y);
+  const acts = [...(actions || [])].sort((a, b) => (toTime(b.revisionDate || b.sampleDate) ?? 0) - (toTime(a.revisionDate || a.sampleDate) ?? 0));
+  if (!acts.length) {
+    summaryParagraph(doc, "No actions recorded.", y);
+  } else {
+    autoTable(doc, {
+      startY: y,
+      head: [["Ac. No", "Date", "Status", "Due", "Action", "Assigned to"]],
+      body: acts.slice(0, 40).map((a) => [a.acNo || "—", formatDate(a.revisionDate || a.sampleDate) || "—", a.status || "—", formatDate(a.dueDate) || "—", a.agreedAction || a.contractorAction || "—", a.assignedTo || "—"]),
+      theme: "striped",
+      headStyles: { fillColor: BRAND.headBg, textColor: BRAND.navy, fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 3.5, lineColor: BRAND.border, lineWidth: 0.4 },
+      columnStyles: { 4: { cellWidth: 200 } },
+      margin: { left: 36, right: 36 },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 2) {
+          data.cell.styles.textColor = ACTION_STATUS_COLOR[data.cell.raw] || BRAND.muted;
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+    });
+  }
+
+  addFooter(doc);
+  doc.save(`Lubrication-History-${String(code).replace(/[^a-z0-9.-]+/gi, "_")}-${toFileDate()}.pdf`);
+  return doc;
 }

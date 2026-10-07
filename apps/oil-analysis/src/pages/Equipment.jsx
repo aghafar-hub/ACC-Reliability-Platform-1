@@ -10,6 +10,7 @@ import EditSampleModal from "../components/EditSampleModal";
 import EditActionModal from "../components/EditActionModal";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import PointHistory from "../components/PointHistory";
+import useIsMobile from "../hooks/useIsMobile";
 
 const STATUS_ACTION_COLOR = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
 const CRITICALITY_RANK = { Normal: 0, Medium: 1, High: 2 };
@@ -122,10 +123,30 @@ function RecentTable({ T, s, title, rows, columns, headers }) {
 // View Report/Edit/Delete row buttons (Oil Samples, Actions) while the
 // read-only tabs (Oil Changes, Top Ups) pass nothing.
 function HistoryTable({ T, s, rows, empty, columns, renderActions }) {
+  const isMobile = useIsMobile();
   if (rows.length === 0) {
     return (
       <div style={s.card}>
         <p style={{ color: T.textSecondary, margin: 0 }}>{empty}</p>
+      </div>
+    );
+  }
+  const cell = (c, r) => (c.render ? c.render(r) : c.badge ? <SmallBadge T={T} color={c.badge(r[c.key])}>{r[c.key] ?? "—"}</SmallBadge> : r[c.key] ?? "—");
+  // Phones: one card per row (label beside value) instead of a squeezed table.
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }} data-testid="history-cards">
+        {rows.map((r, i) => (
+          <div key={r._id || i} style={{ ...s.card, padding: 14, marginBottom: 0 }}>
+            {columns.map((c) => (
+              <div key={c.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "4px 0", fontSize: 13 }}>
+                <span style={{ color: T.textSecondary, flexShrink: 0 }}>{c.label}</span>
+                <span style={{ textAlign: "right", minWidth: 0, overflowWrap: "anywhere" }}>{cell(c, r)}</span>
+              </div>
+            ))}
+            {renderActions && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end", marginTop: 8 }}>{renderActions(r)}</div>}
+          </div>
+        ))}
       </div>
     );
   }
@@ -147,7 +168,7 @@ function HistoryTable({ T, s, rows, empty, columns, renderActions }) {
             <tr key={r._id || i}>
               {columns.map((c) => (
                 <td key={c.key} style={s.td}>
-                  {c.render ? c.render(r) : c.badge ? <SmallBadge T={T} color={c.badge(r[c.key])}>{r[c.key] ?? "—"}</SmallBadge> : r[c.key] ?? "—"}
+                  {cell(c, r)}
                 </td>
               ))}
               {renderActions && (
@@ -367,6 +388,30 @@ export default function Equipment({
       },
       isNew: true,
     });
+  }
+  // E4 — the point's whole history as a PDF (same rules as the page).
+  const [pdfBusy, setPdfBusy] = useState(false);
+  async function downloadHistoryPdf() {
+    if (!reg) return;
+    setPdfBusy(true);
+    try {
+      const { generatePointHistoryPdf } = await import("../reportGenerators");
+      await generatePointHistoryPdf({
+        reg,
+        samples: samplesForEquip,
+        sameOilSamples,
+        changes: changeHistory,
+        topUps,
+        actions: actionsForEquip,
+        health: lpHealth,
+        nextChangeDue: lpOilChangeState?.nextDueDate || "",
+        nextSampleDue,
+      });
+    } catch (err) {
+      pushToast?.(`Could not make the PDF: ${err.message}`, "error");
+    } finally {
+      setPdfBusy(false);
+    }
   }
   const healthColor = HEALTH_COLOR[health];
   const siblingCount = isLpView ? (groups.get(reg?.equipmentId)?.length || 0) : 0;
@@ -956,6 +1001,9 @@ export default function Equipment({
                     <i className="ti ti-droplet-plus" aria-hidden="true" /> Log by Hand
                   </button>
                 )}
+                <button style={s.btn} onClick={downloadHistoryPdf} disabled={pdfBusy} data-testid="history-pdf">
+                  <i className="ti ti-file-download" aria-hidden="true" /> {pdfBusy ? "Preparing…" : "History PDF"}
+                </button>
                 {onOpenReport && (
                   <button style={s.btnPrimary} onClick={() => onOpenReport(selection.id)}>
                     <i className="ti ti-file-analytics" aria-hidden="true" /> Full Report
@@ -1151,32 +1199,32 @@ export default function Equipment({
               renderActions={(sm) => (
                 <>
                   {onSelectSample && (
-                    <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => onSelectSample(sm)} title="View report">
-                      <i className="ti ti-file-analytics" aria-hidden="true" />
+                    <button style={{ ...s.btn, padding: "4px 9px", fontSize: 12 }} onClick={() => onSelectSample(sm)} title="View report">
+                      <i className="ti ti-file-analytics" aria-hidden="true" /> Report
                     </button>
                   )}
                   {onEditSample &&
                     // a validated report: ACC Engineers only (it then goes back to Pending Validation)
                     (isAccEngineer || (sm.validationStatus && sm.validationStatus !== "Validated") ? (
-                      <button style={{ ...s.btn, padding: "3px 7px", marginLeft: 4 }} onClick={() => setEditingSample(sm)} title="Edit sample" aria-label="Edit sample">
-                        <i className="ti ti-edit" aria-hidden="true" />
+                      <button style={{ ...s.btn, padding: "4px 9px", fontSize: 12, marginLeft: 4 }} onClick={() => setEditingSample(sm)} title="Edit sample" aria-label="Edit sample">
+                        <i className="ti ti-edit" aria-hidden="true" /> Edit
                       </button>
                     ) : (
                       <span
-                        style={{ ...s.btn, padding: "3px 7px", marginLeft: 4, opacity: 0.45, cursor: "not-allowed" }}
+                        style={{ ...s.btn, padding: "4px 9px", fontSize: 12, marginLeft: 4, opacity: 0.45, cursor: "not-allowed" }}
                         title="Validated — only an ACC Engineer can change it"
                         aria-label="Validated — only an ACC Engineer can change it"
                       >
-                        <i className="ti ti-lock" aria-hidden="true" />
+                        <i className="ti ti-lock" aria-hidden="true" /> Locked
                       </span>
                     ))}
                   {onDeleteSample && (
                     <button
-                      style={{ ...s.btn, padding: "3px 7px", marginLeft: 4, color: T.danger, borderColor: T.danger }}
+                      style={{ ...s.btn, padding: "4px 9px", fontSize: 12, marginLeft: 4, color: T.danger, borderColor: T.danger }}
                       onClick={() => window.confirm("Delete this sample?") && onDeleteSample(sm)}
                       title="Delete sample"
                     >
-                      <i className="ti ti-trash" aria-hidden="true" />
+                      <i className="ti ti-trash" aria-hidden="true" /> Delete
                     </button>
                   )}
                 </>
@@ -1249,8 +1297,8 @@ export default function Equipment({
                 { key: "contractor", label: "Contractor" },
               ]}
               renderActions={(a) => (
-                <button style={{ ...s.btn, padding: "3px 7px" }} onClick={() => setEditingAction({ action: a, isNew: false })} title="Edit">
-                  <i className="ti ti-edit" aria-hidden="true" />
+                <button style={{ ...s.btn, padding: "4px 9px", fontSize: 12 }} onClick={() => setEditingAction({ action: a, isNew: false })} title="Edit">
+                  <i className="ti ti-edit" aria-hidden="true" /> Edit
                 </button>
               )}
             />

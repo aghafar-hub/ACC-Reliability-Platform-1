@@ -3,7 +3,7 @@
 // out from them), oil change cycles (planned vs actual), top-ups and leaks.
 // Pure functions only, so the page and the tests share one set of rules.
 
-import { computeOilChangeNextDue, ROUTE_OVERDUE_GRACE_DAYS } from "./parsers";
+import { computeOilChangeNextDue, intervalMonths, ROUTE_OVERDUE_GRACE_DAYS } from "./parsers";
 import { LEAK_TOP_UPS, LEAK_WINDOW_DAYS } from "./equipmentHealth";
 
 export const DAY = 86400000;
@@ -256,4 +256,13 @@ export function monthTicks(start, end) {
 
 export function tickLabel(t) {
   return new Date(t).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+}
+
+// "6" → "6 months", "1 Y" → "year" — for "Planned every …".
+export function everyText(interval) {
+  const m = intervalMonths(interval);
+  if (!m) return interval;
+  if (m >= 12 && m % 12 === 0) return m === 12 ? "year" : `${m / 12} years`;
+  if (m < 1) return m === 0.25 ? "week" : "day";
+  return m === 1 ? "month" : `${m} months`;
 }
