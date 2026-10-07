@@ -35,7 +35,8 @@ import {
   toCsv,
 } from "../inventoryLogic";
 import OilProductDetail from "./OilProductDetail";
-import { Donut, StackedBars } from "../components/DashCharts";
+import { Donut, MiniBars, Runway, StackedBars } from "../components/DashCharts";
+import { stockRunway } from "../dashboardLogic";
 
 const CONTAINER_TYPES = ["Drum", "Pail", "Bulk Tank", "IBC"];
 const UNITS = ["L", "Drum"];
@@ -361,23 +362,79 @@ const TABS = [
   { key: "movements", label: "Movements", icon: "ti-exchange" },
 ];
 
-function TabBar({ T, s, activeTab, setActiveTab }) {
+function TabBar({ T, activeTab, setActiveTab, counts = {} }) {
   return (
-    <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${T.border}`, paddingBottom: 14 }}>
-      {TABS.map((t) => (
-        <button
-          key={t.key}
-          style={{
-            ...s.btn,
-            background: activeTab === t.key ? T.accent : "transparent",
-            color: activeTab === t.key ? T.accentText : T.textSecondary,
-            borderColor: activeTab === t.key ? T.accent : T.border,
-          }}
-          onClick={() => setActiveTab(t.key)}
-        >
-          <i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label}
-        </button>
-      ))}
+    <div role="group" aria-label="Inventory pages" style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}`, overflowX: "auto" }}>
+      {TABS.map((t) => {
+        const on = activeTab === t.key;
+        const n = counts[t.key];
+        return (
+          <button
+            key={t.key}
+            type="button"
+            aria-pressed={on}
+            onClick={() => setActiveTab(t.key)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "10px 14px",
+              border: 0,
+              borderBottom: `3px solid ${on ? T.accent : "transparent"}`,
+              marginBottom: -1,
+              background: "none",
+              color: on ? T.accent : T.textSecondary,
+              fontWeight: on ? 700 : 600,
+              fontSize: 13.5,
+              fontFamily: "inherit",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <i className={`ti ${t.icon}`} aria-hidden="true" style={{ fontSize: 16 }} /> {t.label}
+            {n ? (
+              <span style={{ fontSize: 12, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: n.tone ? n.tone + "1F" : T.cardSubBg, color: n.tone || T.textSecondary }}>{n.value}</span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// A number tile with an icon (same look as the other redesigned pages).
+function InvTile({ T, s, icon, label, value, sub, tone, onClick, testid }) {
+  const Tag = onClick ? "button" : "div";
+  const c = tone || T.accent;
+  return (
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      data-testid={testid}
+      style={{ ...s.card, marginBottom: 0, padding: "14px 16px", display: "flex", gap: 12, alignItems: "center", width: "100%", textAlign: "left", font: "inherit", cursor: onClick ? "pointer" : "default", borderLeft: `3px solid ${tone && tone !== T.accent ? tone : T.border}` }}
+    >
+      <span style={{ width: 38, height: 38, borderRadius: 10, background: c + "1A", color: c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, flexShrink: 0 }}>
+        <i className={`ti ${icon}`} aria-hidden="true" />
+      </span>
+      <span style={{ minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: 22, fontWeight: 800, color: tone || T.textPrimary, lineHeight: 1.15 }}>{value}</span>
+        <span style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: T.textSecondary }}>{label}</span>
+        {sub && <span style={{ display: "block", fontSize: 12, color: T.textMuted || T.textSecondary }}>{sub}</span>}
+      </span>
+    </Tag>
+  );
+}
+
+// How full a product is next to its low-stock level: the bar is the stock,
+// the tick the level (scale: twice the level, or the stock if bigger).
+function StockMeter({ T, stock, level, low }) {
+  if (stock == null) return null;
+  const scale = Math.max(1, stock, (level || 0) * 2);
+  const color = low ? T.danger : T.success;
+  return (
+    <div style={{ position: "relative", height: 6, width: 110, background: `${T.textMuted || T.textSecondary}33`, borderRadius: 3, marginTop: 5 }} aria-hidden="true">
+      <div style={{ width: `${Math.min(100, (stock / scale) * 100)}%`, height: "100%", background: color, borderRadius: 3 }} />
+      {level != null && <span style={{ position: "absolute", left: `${Math.min(100, (level / scale) * 100)}%`, top: -3, bottom: -3, borderLeft: `2px solid ${T.textPrimary}` }} />}
     </div>
   );
 }
@@ -622,6 +679,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
     soFar: partial && i >= lastIdx - 1 ? monthlyTotals[i] : null,
   }));
 
+  const runwayRows = stockRunway(products, forecastRows, contractorFilter);
   const kpis = [
     { label: "Total Products", value: products.length, color: "accent", icon: "ti-box" },
     {
@@ -650,53 +708,36 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
-        {kpis.map((m) => {
-          const Tag = m.onClick ? "button" : "div";
-          return (
-            <Tag
-              key={m.label}
-              type={m.onClick ? "button" : undefined}
-              onClick={m.onClick}
-              data-testid={`inv-kpi-${m.icon}`}
-              style={{
-                ...s.metricCard,
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                width: "100%",
-                textAlign: "left",
-                font: "inherit",
-                cursor: m.onClick ? "pointer" : "default",
-              }}
-            >
-              <span
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
-                  background: T[m.color] + "22",
-                  color: T[m.color],
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 16,
-                  flexShrink: 0,
-                }}
-              >
-                <i className={`ti ${m.icon}`} aria-hidden="true" />
-              </span>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-                <div style={{ fontSize: 12, color: T.textSecondary }}>{m.label}</div>
-                {m.sub && <div style={{ fontSize: 12, color: T.textMuted || T.textSecondary }}>{m.sub}</div>}
-              </div>
-            </Tag>
-          );
-        })}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 14, marginBottom: 20 }}>
+        {kpis.map((m) => (
+          <InvTile
+            key={m.label}
+            T={T}
+            s={s}
+            icon={m.icon}
+            label={m.label}
+            value={m.value}
+            sub={m.sub}
+            tone={m.color === "textPrimary" || m.color === "accent" ? null : T[m.color]}
+            onClick={m.onClick}
+            testid={`inv-kpi-${m.icon}`}
+          />
+        ))}
       </div>
 
-      <div style={{ ...s.card, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 420px), 1fr))", gap: 20, marginBottom: 20 }}>
+      <div style={{ ...s.card, marginBottom: 0 }} data-testid="inv-days-left">
+        <p style={{ fontWeight: 700, margin: "0 0 2px" }}>Days of stock left</p>
+        <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>At the recent rate of use, shortest first. Red under 30 days, amber under 60.</p>
+        {runwayRows.length === 0 ? (
+          <p style={{ color: T.textSecondary, margin: 0 }}>No recent use to work it out from.</p>
+        ) : (
+          <div style={{ maxHeight: 250, overflowY: "auto", paddingRight: 4 }}>
+            <Runway T={T} rows={runwayRows} />
+          </div>
+        )}
+      </div>
+      <div style={{ ...s.card, marginBottom: 0 }}>
         <p style={{ fontWeight: 700, margin: "0 0 2px" }}>Consumption Trend (6 months)</p>
         <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
           Oil issued per month{partial ? " — the dashed end is this month so far" : ""}.
@@ -740,6 +781,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
             </LineChart>
           </ResponsiveContainer>
         )}
+      </div>
       </div>
 
       <div style={{ ...s.card, marginBottom: 20 }}>
@@ -802,6 +844,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
                   <td style={s.td}>{p.contractor}</td>
                   <td style={s.td}>
                     <span style={{ color: T.danger, fontWeight: 700 }}>{fmtQty(p.currentStock, p.unit)}</span>
+                    <StockMeter T={T} stock={p.currentStock} level={p.recorderLevel} low />
                   </td>
                   <td style={s.td}>{fmtQty(p.recorderLevel, p.unit)}</td>
                   <td style={s.td}>{fmtQty(p.belowBy, p.unit)}</td>
@@ -1007,12 +1050,13 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
                     </td>
                     <td style={s.td}>{p.contractor || "—"}</td>
                     <td style={{ ...s.td, whiteSpace: "nowrap" }}>
-                      <span style={low ? { color: T.danger, fontWeight: 700 } : undefined}>{fmtQty(p.currentStock, p.unit)}</span>
+                      <span style={low ? { color: T.danger, fontWeight: 700 } : { fontWeight: 600 }}>{fmtQty(p.currentStock, p.unit)}</span>
                       {low && (
                         <span style={{ ...s.badge("Overdue"), marginLeft: 6 }}>
                           <i className="ti ti-alert-triangle" aria-hidden="true" /> Low
                         </span>
                       )}
+                      <StockMeter T={T} stock={p.currentStock} level={p.recorderLevel} low={low} />
                     </td>
                     <td style={{ ...s.td, whiteSpace: "nowrap" }}>
                       <DaysLeft T={T} days={daysLeft(p)} />
@@ -1308,13 +1352,30 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
         <PeriodSelect s={s} value={period} onChange={setPeriod} />
         {data?.windowEnd && <span style={{ fontSize: 12, color: T.textSecondary }}>through {formatDate(data.windowEnd)}</span>}
       </div>
+      {!loading && !error && rows.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 14, marginBottom: 14 }} data-testid="forecast-tiles">
+          <InvTile T={T} s={s} icon="ti-droplet" label="Oils needed" value={rows.length} sub={`for the ${periodLabel(period)}`} />
+          <InvTile T={T} s={s} icon="ti-alert-triangle" label="Won't cover the work" value={shortCount} tone={shortCount ? T.danger : T.success} />
+          <InvTile
+            T={T}
+            s={s}
+            icon="ti-arrow-down-right"
+            label="Total short"
+            value={fmtQty(rows.reduce((n, r) => n + (r.currentStock == null ? r.quantityNeeded || 0 : Math.max(0, r.shortfall || 0)), 0))}
+            tone={shortCount ? T.danger : null}
+          />
+          <InvTile T={T} s={s} icon="ti-circle-check" label="Covered" value={rows.length - shortCount} tone={T.success} />
+        </div>
+      )}
       {!loading && !error && shortCount > 0 && (
-        <div style={{ ...s.card, borderColor: T.danger, marginBottom: 14, fontSize: 13 }}>
-          <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, marginRight: 6 }} />
-          <strong>
-            {shortCount} oil{shortCount === 1 ? "" : "s"} won't cover the planned work in this period.
-          </strong>{" "}
-          Obtain stock, reschedule the work, or use an approved equivalent oil.
+        <div style={{ display: "flex", gap: 10, alignItems: "center", background: T.danger + "12", border: `1px solid ${T.danger}55`, borderRadius: 10, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: T.textPrimary }}>
+          <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.danger, fontSize: 18 }} />
+          <span>
+            <strong>
+              {shortCount} oil{shortCount === 1 ? "" : "s"} won't cover the planned work in this period.
+            </strong>{" "}
+            Obtain stock, reschedule the work, or use an approved equivalent oil.
+          </span>
         </div>
       )}
 
@@ -1444,6 +1505,9 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
 
 // ─── Movements tab ──────────────────────────────────────────────────────
 const MOVEMENT_TYPE_FILTERS = ["All", "Receipt", "Issue", "Adjustment"];
+// Icon and colour per movement type: oil in green, oil out red, a count
+// correction neutral.
+const MOVEMENT_LOOK = { Receipt: { icon: "ti-arrow-down-left", tone: "success" }, Issue: { icon: "ti-arrow-up-right", tone: "danger" }, Adjustment: { icon: "ti-adjustments", tone: "textSecondary" } };
 const MOVEMENTS_PAGE = 50;
 const dayStart = (v) => (v ? new Date(`${v}T00:00:00`).getTime() : null);
 
@@ -1499,6 +1563,29 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
   const pages = Math.max(1, Math.ceil(visible.length / MOVEMENTS_PAGE));
   const cur = Math.min(page, pages - 1);
   const shown = visible.slice(cur * MOVEMENTS_PAGE, (cur + 1) * MOVEMENTS_PAGE);
+  // Totals for the filtered movements, and litres issued per month (last 6
+  // months that have any movement in the filter).
+  const moveTotals = { Receipt: 0, Issue: 0 };
+  const moveCounts = { Receipt: 0, Issue: 0 };
+  const byMonth = new Map();
+  visible.forEach((m) => {
+    const q = Math.abs(Number(m.quantity) || 0);
+    if (m.movementType in moveTotals) {
+      moveTotals[m.movementType] += q;
+      moveCounts[m.movementType]++;
+    }
+    if (m.movementType === "Issue" && m.movementTime) {
+      const d = new Date(m.movementTime);
+      if (!isNaN(d)) {
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        byMonth.set(k, (byMonth.get(k) || 0) + q);
+      }
+    }
+  });
+  const issuedByMonth = [...byMonth.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .slice(-6)
+    .map(([k, v]) => ({ key: k, label: monthLabel(k), value: Math.round(v) }));
 
   function exportCsv() {
     const rows = [
@@ -1580,6 +1667,19 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
         </button>
       </div>
 
+      {!loading && !error && visible.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14, marginBottom: 16 }} data-testid="movements-summary">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <InvTile T={T} s={s} icon="ti-arrow-down-left" label="Received" value={fmtQty(moveTotals.Receipt)} sub={`${moveCounts.Receipt} receipt${moveCounts.Receipt === 1 ? "" : "s"}`} tone={T.success} />
+            <InvTile T={T} s={s} icon="ti-arrow-up-right" label="Issued" value={fmtQty(moveTotals.Issue)} sub={`${moveCounts.Issue} issue${moveCounts.Issue === 1 ? "" : "s"}`} tone={T.danger} />
+          </div>
+          <div style={{ ...s.card, marginBottom: 0, padding: "12px 16px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 6 }}>Issued per month (L)</div>
+            <MiniBars T={T} data={issuedByMonth} color={T.accent} height={56} ariaLabel={`Issued per month: ${issuedByMonth.map((d) => `${d.label} ${d.value}`).join(", ")}`} />
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <p style={{ color: T.textSecondary }}>Loading movements…</p>
       ) : error ? (
@@ -1625,8 +1725,13 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
                           m.productId
                         )}
                       </td>
-                      <td style={s.td}>{m.movementType}</td>
-                      <td style={{ ...s.td, whiteSpace: "nowrap", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                      <td style={s.td}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600, color: T[(MOVEMENT_LOOK[m.movementType] || {}).tone] || T.textPrimary }}>
+                          <i className={`ti ${(MOVEMENT_LOOK[m.movementType] || {}).icon || "ti-point"}`} aria-hidden="true" />
+                          {m.movementType}
+                        </span>
+                      </td>
+                      <td style={{ ...s.td, whiteSpace: "nowrap", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: qty > 0 ? T.success : qty < 0 ? T.danger : T.textPrimary }}>
                         {fmtSigned(qty, product?.unit || "L")}
                       </td>
                       <td style={s.td}>{m.linkedLpId || "—"}</td>
@@ -1706,6 +1811,10 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
     refresh();
   }, [refresh]);
 
+  const activeProducts = visibleProducts.filter((p) => p.status !== "Discontinued");
+  const totalStock = activeProducts.reduce((n, p) => n + (Number(p.currentStock) || 0), 0);
+  const lowCount = activeProducts.filter(isLow).length;
+
   if (!webhookUrl) {
     return <p style={{ color: T.textSecondary }}>Add your Apps Script webhook URL in Settings first.</p>;
   }
@@ -1749,11 +1858,22 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
-        <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Inventory</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+        <div>
+          <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Inventory</p>
+          <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 0" }} data-testid="inv-subtitle">
+            {activeProducts.length} active product{activeProducts.length === 1 ? "" : "s"} · {fmtQty(totalStock)} in stock
+            {lowCount ? (
+              <span style={{ color: T.danger, fontWeight: 700 }}>
+                {" "}
+                · {lowCount} low
+              </span>
+            ) : null}
+          </p>
+        </div>
         {!scopedContractor && (
           <select
-            style={{ ...s.select, width: isMobile ? "100%" : 170, fontSize: 12 }}
+            style={{ ...s.select, width: isMobile ? "100%" : 170, fontSize: 12.5 }}
             value={contractorFilter}
             aria-label="Contractor"
             onChange={(e) => setContractorFilter(e.target.value)}
@@ -1767,7 +1887,7 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
           </select>
         )}
       </div>
-      <TabBar T={T} s={s} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TabBar T={T} activeTab={activeTab} setActiveTab={setActiveTab} counts={{ stock: { value: visibleProducts.length }, ...(lowCount ? { overview: { value: `${lowCount} low`, tone: T.danger } } : {}) }} />
       {activeTab === "overview" && (
         <OverviewTab
           webhookUrl={webhookUrl}
