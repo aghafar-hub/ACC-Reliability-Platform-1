@@ -770,7 +770,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
       {kpis}
 
       <div className="odb-row2">
-        <Panel title="Activity trend · 6 months" link="Activity log" onLink={() => go("activity")} phone={phone} count="6 months ›" testid="panel-trend"
+        <Panel title="Activity trend · 6 months" phone={phone} count="6 months ›" testid="panel-trend"
           sub="One small chart per activity, each on its own scale, so the few top-ups aren't flattened by the oil changes. Pale bar = this month so far.">
           {trend}
         </Panel>
