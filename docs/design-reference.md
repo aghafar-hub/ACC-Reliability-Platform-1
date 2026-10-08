@@ -89,6 +89,10 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
   board columns: Draft = warning, Open = danger, Waiting Stoppage = accent,
   Closure Requested / To approve = info, Closed = success. Lab results:
   Normal = success, Caution = warning, Alert = danger.
+- **Vibration levels (4):** Normal green ●, Caution amber ▲, Alert red ◆,
+  Danger purple ■ (`apps/vibration-analysis/src/levels.js`, tokens
+  `lvNormal…lvDanger` per theme, checked for colour-blind separation).
+  `levelColor` for marks, `levelInk` for text.
 - **Categories (contractors, oils, series)** use the categorical palette
   `SERIES_LIGHT` / `SERIES_DARK` (`pointHistory.js`) in fixed order. A
   contractor keeps its colour on every chart (ASEC = slot 0 blue, RHI =

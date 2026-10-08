@@ -1,5 +1,5 @@
 import { useTheme } from "../ThemeContext";
-import { levelBg, levelColor } from "../levels";
+import { levelBg, levelColor, levelInk } from "../levels";
 
 // The shape for a level: Normal ●, Caution ▲, Alert ◆, Danger ■ — the same
 // symbols the Oil point timeline uses, plus a square for Danger.
@@ -22,7 +22,7 @@ export function LevelPill({ level, text, testid }) {
   return (
     <span
       data-testid={testid}
-      style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 999, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", background: levelBg(T, level), color: levelColor(T, level) }}
+      style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 9px", borderRadius: 999, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", background: levelBg(T, level), color: levelInk(T, level) }}
     >
       <LevelSymbol level={level} />
       {text || level}

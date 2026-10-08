@@ -34,10 +34,9 @@ export const THEMES = {
     codeText: "#1E4A8F",
     danger: "#C42B2B",
     warning: "#9A5500",
-    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
-    // orange between Caution (warning) and Danger (danger).
-    alert: "#C2410C",
-    alertBg: "#FDEBDD",
+    // Vibration Alert = red text (same as danger); Danger level is purple.
+    alert: "#C42B2B",
+    alertBg: "#FBE9E9",
     success: "#18734A",
     info: "#0E7490",
     dangerBg: "#FBEAEA",
@@ -52,6 +51,17 @@ export const THEMES = {
     purple: "#6D28D9",
     purpleBg: "rgba(109,40,217,0.16)",
     pillPurple: "#6D28D9",
+    // Vibration levels (validated for colour-blind separation): Normal green,
+    // Caution amber, Alert red, Danger purple. Marks use these; text uses
+    // success / warning / danger / purple for contrast.
+    lvNormal: "#18734A",
+    lvCaution: "#B58900",
+    lvAlert: "#C42B2B",
+    lvDanger: "#6D28D9",
+    lvNormalBg: "#E7F5EE",
+    lvCautionBg: "#FFF4CC",
+    lvAlertBg: "#FBE9E9",
+    lvDangerBg: "rgba(109,40,217,0.12)",
   },
   "Warm Paper": {
     appBg: "#F5F1E8",
@@ -81,10 +91,9 @@ export const THEMES = {
     codeText: "#1F4E8F",
     danger: "#B8322A",
     warning: "#995500",
-    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
-    // orange between Caution (warning) and Danger (danger).
-    alert: "#B4440E",
-    alertBg: "#FBE6D6",
+    // Vibration Alert = red text (same as danger); Danger level is purple.
+    alert: "#B8322A",
+    alertBg: "#F8E6E4",
     success: "#1E7346",
     info: "#0E6F86",
     dangerBg: "#F8E6E2",
@@ -99,6 +108,17 @@ export const THEMES = {
     purple: "#6D28D9",
     purpleBg: "rgba(109,40,217,0.16)",
     pillPurple: "#6D28D9",
+    // Vibration levels (validated for colour-blind separation): Normal green,
+    // Caution amber, Alert red, Danger purple. Marks use these; text uses
+    // success / warning / danger / purple for contrast.
+    lvNormal: "#1E7346",
+    lvCaution: "#B58900",
+    lvAlert: "#B8322A",
+    lvDanger: "#6D28D9",
+    lvNormalBg: "#E6F2EA",
+    lvCautionBg: "#FFF2C7",
+    lvAlertBg: "#F8E6E4",
+    lvDangerBg: "rgba(109,40,217,0.12)",
   },
   "High Contrast": {
     appBg: "#FFFFFF",
@@ -128,10 +148,9 @@ export const THEMES = {
     codeText: "#0A3A8C",
     danger: "#A80000",
     warning: "#7A4300",
-    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
-    // orange between Caution (warning) and Danger (danger).
-    alert: "#9A3412",
-    alertBg: "#FCE3D2",
+    // Vibration Alert = red text (same as danger); Danger level is purple.
+    alert: "#A80000",
+    alertBg: "#F7DEDE",
     success: "#00602E",
     info: "#00546B",
     dangerBg: "#FFE5E5",
@@ -146,6 +165,17 @@ export const THEMES = {
     purple: "#4C1D95",
     purpleBg: "rgba(76,29,149,0.16)",
     pillPurple: "#4C1D95",
+    // Vibration levels (validated for colour-blind separation): Normal green,
+    // Caution amber, Alert red, Danger purple. Marks use these; text uses
+    // success / warning / danger / purple for contrast.
+    lvNormal: "#00602E",
+    lvCaution: "#946C00",
+    lvAlert: "#A80000",
+    lvDanger: "#4C1D95",
+    lvNormalBg: "#E2F0E7",
+    lvCautionBg: "#FFF0C2",
+    lvAlertBg: "#F7DEDE",
+    lvDangerBg: "rgba(76,29,149,0.12)",
   },
   "Navy Dark": {
     appBg: "#0A1628",
@@ -175,10 +205,9 @@ export const THEMES = {
     codeText: "#6BCF9E",
     danger: "#FF6B6B",
     warning: "#F2A541",
-    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
-    // orange between Caution (warning) and Danger (danger).
-    alert: "#FB923C",
-    alertBg: "rgba(251,146,60,0.16)",
+    // Vibration Alert = red text (same as danger); Danger level is purple.
+    alert: "#FF6B6B",
+    alertBg: "rgba(255,107,107,0.16)",
     success: "#4CC38A",
     info: "#38BDF8",
     dangerBg: "#3A1A1F",
@@ -193,6 +222,17 @@ export const THEMES = {
     purple: "#A78BFA",
     purpleBg: "rgba(167,139,250,0.16)",
     pillPurple: "#A78BFA",
+    // Vibration levels (validated for colour-blind separation): Normal green,
+    // Caution amber, Alert red, Danger purple. Marks use these; text uses
+    // success / warning / danger / purple for contrast.
+    lvNormal: "#2FA36B",
+    lvCaution: "#BE8A12",
+    lvAlert: "#E0484D",
+    lvDanger: "#9B7BF0",
+    lvNormalBg: "rgba(47,163,107,0.16)",
+    lvCautionBg: "rgba(190,138,18,0.18)",
+    lvAlertBg: "rgba(224,72,77,0.16)",
+    lvDangerBg: "rgba(155,123,240,0.18)",
   },
   "Carbon Dark": {
     appBg: "#0E0F11",
@@ -222,10 +262,9 @@ export const THEMES = {
     codeText: "#7EE2A8",
     danger: "#FF6B6B",
     warning: "#F2A541",
-    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
-    // orange between Caution (warning) and Danger (danger).
-    alert: "#FB923C",
-    alertBg: "rgba(251,146,60,0.16)",
+    // Vibration Alert = red text (same as danger); Danger level is purple.
+    alert: "#FF6B6B",
+    alertBg: "rgba(255,107,107,0.16)",
     success: "#4CC38A",
     info: "#38BDF8",
     dangerBg: "#3A1A1C",
@@ -240,6 +279,17 @@ export const THEMES = {
     purple: "#A78BFA",
     purpleBg: "rgba(167,139,250,0.16)",
     pillPurple: "#A78BFA",
+    // Vibration levels (validated for colour-blind separation): Normal green,
+    // Caution amber, Alert red, Danger purple. Marks use these; text uses
+    // success / warning / danger / purple for contrast.
+    lvNormal: "#2FA36B",
+    lvCaution: "#BE8A12",
+    lvAlert: "#E0484D",
+    lvDanger: "#9B7BF0",
+    lvNormalBg: "rgba(47,163,107,0.16)",
+    lvCautionBg: "rgba(190,138,18,0.18)",
+    lvAlertBg: "rgba(224,72,77,0.16)",
+    lvDangerBg: "rgba(155,123,240,0.18)",
   },
 };
 

@@ -6,7 +6,7 @@ import ContractorChips from "../components/ContractorChips";
 import { Donut, StackedBars } from "../components/DashCharts";
 import Tile, { PageHeader } from "../components/Tile";
 import { LevelPill, LevelSymbol } from "../components/Level";
-import { LEVEL_RANK, LEVELS, levelColor } from "../levels";
+import { LEVEL_RANK, LEVELS, levelColor, levelInk } from "../levels";
 import { monthLabel, shortDate } from "../vibModel";
 import { generateVibDashboardPdf } from "../vibPdf";
 
@@ -150,8 +150,8 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
       {d && (
         <>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5, minmax(0,1fr))", marginBottom: 14 }}>
-            <Tile icon="ti-square-filled" value={danger.length} label="Danger machines" sub={danger.slice(0, 3).map((m) => m.equipmentId).join(" · ") || "none"} tone={danger.length ? T.danger : undefined} onClick={() => onOpenPage("equipment")} testid="vd-tile-danger" />
-            <Tile icon="ti-diamond-filled" value={alert.length} label="Alert machines" sub={`${newAlert} new this month`} tone={alert.length ? T.alert || T.danger : undefined} onClick={() => onOpenPage("equipment")} testid="vd-tile-alert" />
+            <Tile icon="ti-square-filled" value={danger.length} label="Danger machines" sub={danger.slice(0, 3).map((m) => m.equipmentId).join(" · ") || "none"} tone={danger.length ? levelInk(T, "Danger") : undefined} onClick={() => onOpenPage("equipment")} testid="vd-tile-danger" />
+            <Tile icon="ti-diamond-filled" value={alert.length} label="Alert machines" sub={`${newAlert} new this month`} tone={alert.length ? levelInk(T, "Alert") : undefined} onClick={() => onOpenPage("equipment")} testid="vd-tile-alert" />
             <Tile
               icon="ti-file-text"
               value={`${repIn.length} / ${repCells.length}`}

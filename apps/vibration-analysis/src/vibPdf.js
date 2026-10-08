@@ -21,9 +21,10 @@ const C = {
   headBg: [230, 236, 242],
   text: [20, 26, 33],
   Normal: [24, 115, 74],
-  Caution: [190, 130, 10],
-  Alert: [214, 90, 20],
-  Danger: [180, 35, 24],
+  // Normal green, Caution amber, Alert red, Danger purple (as on screen)
+  Caution: [154, 105, 0],
+  Alert: [196, 43, 43],
+  Danger: [109, 40, 217],
 };
 const LOGO_ASPECT = 602 / 316;
 

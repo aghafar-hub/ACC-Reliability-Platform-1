@@ -6,12 +6,18 @@
 export const LEVELS = ["Normal", "Caution", "Alert", "Danger"];
 export const LEVEL_RANK = { Normal: 1, Caution: 2, Alert: 3, Danger: 4 };
 
-// Theme token for a level's colour and its pale background.
+// Colours for the four levels: Normal green, Caution amber, Alert red,
+// Danger purple (checked for colour-blind separation in every theme).
+// levelColor is for marks (bars, donut, dots, symbols); levelInk is for
+// text, a darker / lighter shade of the same colour for contrast.
 export function levelColor(T, level) {
-  return { Normal: T.success, Caution: T.warning, Alert: T.alert || T.danger, Danger: T.danger }[level] || T.textMuted;
+  return { Normal: T.lvNormal || T.success, Caution: T.lvCaution || T.warning, Alert: T.lvAlert || T.danger, Danger: T.lvDanger || T.purple }[level] || T.textMuted;
+}
+export function levelInk(T, level) {
+  return { Normal: T.success, Caution: T.warning, Alert: T.danger, Danger: T.purple }[level] || T.textSecondary;
 }
 export function levelBg(T, level) {
-  return { Normal: T.successBg, Caution: T.warningBg, Alert: T.alertBg || T.dangerBg, Danger: T.dangerBg }[level] || T.cardSubBg;
+  return { Normal: T.lvNormalBg || T.successBg, Caution: T.lvCautionBg || T.warningBg, Alert: T.lvAlertBg || T.dangerBg, Danger: T.lvDangerBg || T.purpleBg }[level] || T.cardSubBg;
 }
 
 // Older words (Good / Acceptable / Alarm, ISO zones, contractor report
