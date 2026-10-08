@@ -270,3 +270,61 @@ export function updateCompliance(webhookUrl, equipmentId, month, value) {
 export function updateRegisterLimits(webhookUrl, fields) {
   fireAndForget(webhookUrl, { action: "updateRegisterLimits", ...fields });
 }
+
+// ── Vibration Log (backend/vibration-analysis/src/VibrationLog.js) ────────
+// Reads go through verifiedGet. Saves carry a whole list of readings, too
+// long for a URL, so they are POSTed as text/plain (no CORS preflight —
+// Apps Script doesn't answer OPTIONS) and the JSON reply is read back.
+
+async function postVerified(webhookUrl, action, body) {
+  if (!webhookUrl) throw new Error("No webhook URL");
+  const reason = blockedReason();
+  if (reason) throw new Error(reason);
+  let res;
+  try {
+    res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(withToken({ action, ...body })),
+    });
+  } catch (err) {
+    throw new Error(`Couldn't reach the server: ${err.message}`);
+  }
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error("The server returned an unexpected response.");
+  }
+  if (data && data.status === "error") {
+    const e = new Error(data.error || "Save failed");
+    e.problems = data.problems;
+    throw e;
+  }
+  return data;
+}
+
+async function getChecked(webhookUrl, action, params) {
+  const data = await verifiedGet(webhookUrl, action, params);
+  if (data && (data.status === "error" || data.error)) throw new Error(data.error || "Load failed");
+  return data;
+}
+
+export function getVibLog(webhookUrl) {
+  return getChecked(webhookUrl, "getVibLog");
+}
+export function getVibReport(webhookUrl, reportId) {
+  return getChecked(webhookUrl, "getVibReport", { reportId });
+}
+export function getVibEquipmentHistory(webhookUrl, equipmentId) {
+  return getChecked(webhookUrl, "getVibEquipmentHistory", { equipmentId });
+}
+export function saveVibReport(webhookUrl, report) {
+  return postVerified(webhookUrl, "saveVibReport", { report });
+}
+export function saveVibEntries(webhookUrl, reportId, entries) {
+  return postVerified(webhookUrl, "saveVibEntries", { reportId, entries });
+}
+export function vibReportTransition(webhookUrl, fields) {
+  return postVerified(webhookUrl, "vibReportTransition", fields);
+}

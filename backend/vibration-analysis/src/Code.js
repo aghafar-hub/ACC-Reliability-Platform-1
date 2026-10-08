@@ -64,6 +64,7 @@
  *   ModuleAccess.js       Phase 0: who may open this module, tab levels, status
  *                         (identical copy in every module backend)
  *   ModuleAccessConfig.js Phase 0: this module's tabs + which tabs each request needs
+ *   VibrationLog.js       Vibration Log: reports, readings per VIB ID, coverage, 45-day rule
  */
 
 function doGet(e) {
@@ -113,14 +114,14 @@ function dispatchWithAccess_(action, params) {
     }
   }
 
-  var result = dispatch(action, params);
+  var result = dispatch(action, params, session);
   if (action === 'readAll' || action === 'getStartupBundle' || action === 'getRmsSpmHistory') {
     result = maFilterSections_(session, result);
   }
   return result;
 }
 
-function dispatch(action, params) {
+function dispatch(action, params, session) {
   if (action==='readAll')               return readAll();
   if (action==='test')                  return {status:'ok', time: new Date().toISOString()};
   if (action==='append')                return handleAppend(params);
@@ -144,6 +145,13 @@ function dispatch(action, params) {
   if (action==='saveConfig')            return handleSaveConfig(params);
   if (action==='getStartupBundle')      return getStartupBundle();
   if (action==='getRmsSpmHistory')      return getRmsSpmHistory();
+  // Vibration Log (VibrationLog.js)
+  if (action==='getVibLog')             return handleGetVibLog(params, session);
+  if (action==='getVibReport')          return handleGetVibReport(params, session);
+  if (action==='getVibEquipmentHistory') return handleGetVibEquipmentHistory(params, session);
+  if (action==='saveVibReport')         return vlLocked_(function () { return handleSaveVibReport(params, session); });
+  if (action==='saveVibEntries')        return vlLocked_(function () { return handleSaveVibEntries(params, session); });
+  if (action==='vibReportTransition')   return vlLocked_(function () { return handleVibReportTransition(params, session); });
   return {error: 'Unknown action: ' + action};
 }
 

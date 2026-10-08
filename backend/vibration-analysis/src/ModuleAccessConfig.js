@@ -3,7 +3,7 @@
 // VIBRATION_SUB_TABS, plus "settings" (this module's own Settings page).
 
 var MA_ALL_VIB_TABS = [
-  "dashboard", "registry", "graphs", "newreading", "actions",
+  "dashboard", "log", "equipment", "routes", "registry", "graphs", "newreading", "actions",
   "compliance", "equipreg", "limits", "settings",
 ];
 
@@ -43,6 +43,9 @@ var MA_CONFIG = {
     getModuleAccessConfig: "admin",
     readActions: ["actions", "dashboard"],
     readLastActionNo: ["actions"],
+    getVibLog: ["log", "dashboard"],
+    getVibReport: ["log", "dashboard", "equipment"],
+    getVibEquipmentHistory: ["equipment", "log", "dashboard", "graphs"],
   },
 
   sectionTabs: {
@@ -71,6 +74,9 @@ var MA_CONFIG = {
     deleteAction: ["actions"],
     sendActionEmail: ["actions"],
     saveConfig: ["settings"],
+    saveVibReport: ["log"],
+    saveVibEntries: ["log"],
+    vibReportTransition: ["log"],
     maSetStatus: "admin",
     maAddPeople: "admin",
     maRemovePerson: "admin",

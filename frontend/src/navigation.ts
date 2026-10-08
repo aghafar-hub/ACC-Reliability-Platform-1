@@ -29,6 +29,7 @@ export type NavItem = {
 // — these are "native" pages the embedded app already knows how to render.
 export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'dashboard', label: 'Vibration Dashboard', icon: 'dashboard' },
+  { id: 'log', label: 'Vibration Log', icon: 'compliance' },
   { id: 'registry', label: 'Equipment Reading', icon: 'graphs' },
   { id: 'graphs', label: 'Graphs', icon: 'graphs' },
   { id: 'newreading', label: 'New reading', icon: 'plus' },
@@ -145,21 +146,22 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
     title: 'Vibration Analysis',
     groups: [
       { label: 'Dashboard', icon: 'ti-layout-dashboard', pages: ['dashboard'] },
+      { label: 'Vibration Log', icon: 'ti-timeline', pages: ['log'] },
       {
-        label: 'Readings',
-        icon: 'ti-chart-line',
-        pages: ['registry', 'graphs', 'newreading'],
+        label: 'Equipment',
+        icon: 'ti-engine',
+        pages: ['registry', 'graphs', 'equipreg'],
         views: [
-          { id: 'registry', label: 'Equipment Reading' },
-          { id: 'graphs', label: 'Graphs' },
+          { id: 'registry', label: 'Readings' },
+          { id: 'graphs', label: 'Trends' },
+          { id: 'equipreg', label: 'Register' },
         ],
-        action: { id: 'newreading', label: 'New reading', icon: 'ti-plus' },
       },
       { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
-      { label: 'Compliance', icon: 'ti-calendar-check', pages: ['compliance'] },
     ],
     more: [
-      { id: 'equipreg', label: 'Equipment Register', icon: 'ti-list-details' },
+      { id: 'newreading', label: 'New reading', icon: 'ti-plus' },
+      { id: 'compliance', label: 'Compliance (old)', icon: 'ti-calendar-check' },
       { id: 'limits', label: 'Limits setting', icon: 'ti-adjustments' },
     ],
   },

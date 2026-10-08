@@ -4,6 +4,7 @@
 // doesn't warn about a component file exporting plain data too.
 export const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { key: "log", label: "Vibration Log", icon: "compliance" },
   { key: "newreading", label: "New Reading", icon: "plus" },
   { key: "equipreg", label: "Equipment Register", icon: "registry" },
   { key: "registry", label: "Equipment Readings", icon: "graphs" },

@@ -34,6 +34,10 @@ export const THEMES = {
     codeText: "#1E4A8F",
     danger: "#C42B2B",
     warning: "#9A5500",
+    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
+    // orange between Caution (warning) and Danger (danger).
+    alert: "#C2410C",
+    alertBg: "#FDEBDD",
     success: "#18734A",
     info: "#0E7490",
     dangerBg: "#FBEAEA",
@@ -77,6 +81,10 @@ export const THEMES = {
     codeText: "#1F4E8F",
     danger: "#B8322A",
     warning: "#995500",
+    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
+    // orange between Caution (warning) and Danger (danger).
+    alert: "#B4440E",
+    alertBg: "#FBE6D6",
     success: "#1E7346",
     info: "#0E6F86",
     dangerBg: "#F8E6E2",
@@ -120,6 +128,10 @@ export const THEMES = {
     codeText: "#0A3A8C",
     danger: "#A80000",
     warning: "#7A4300",
+    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
+    // orange between Caution (warning) and Danger (danger).
+    alert: "#9A3412",
+    alertBg: "#FCE3D2",
     success: "#00602E",
     info: "#00546B",
     dangerBg: "#FFE5E5",
@@ -163,6 +175,10 @@ export const THEMES = {
     codeText: "#6BCF9E",
     danger: "#FF6B6B",
     warning: "#F2A541",
+    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
+    // orange between Caution (warning) and Danger (danger).
+    alert: "#FB923C",
+    alertBg: "rgba(251,146,60,0.16)",
     success: "#4CC38A",
     info: "#38BDF8",
     dangerBg: "#3A1A1F",
@@ -206,6 +222,10 @@ export const THEMES = {
     codeText: "#7EE2A8",
     danger: "#FF6B6B",
     warning: "#F2A541",
+    // Vibration has 4 levels (Normal / Caution / Alert / Danger): Alert is
+    // orange between Caution (warning) and Danger (danger).
+    alert: "#FB923C",
+    alertBg: "rgba(251,146,60,0.16)",
     success: "#4CC38A",
     info: "#38BDF8",
     dangerBg: "#3A1A1C",
@@ -320,6 +340,15 @@ export function buildStyles(T) {
     },
     label: { fontSize: 12, color: T.textSecondary, marginBottom: 4, display: "block", fontWeight: 600 },
     metric: { background: T.metricBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 16px" },
+    // Same keys as Oil Lubrication's buildStyles (docs/design-reference.md),
+    // used by the redesigned pages and the shared components.
+    sectionTitle: { fontFamily: "'Space Grotesk','IBM Plex Sans',sans-serif", fontSize: 22, fontWeight: 700, color: T.textPrimary, margin: 0 },
+    btnPrimary: { background: T.accent, border: "none", color: T.accentText, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 },
+    btnGhost: { background: T.cardBg, border: `1px solid ${T.border}`, color: T.textPrimary, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 },
+    select: { background: T.inputBg, border: `1px solid ${T.border}`, color: T.textPrimary, borderRadius: 8, padding: "8px 10px", fontSize: 13, cursor: "pointer" },
+    table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+    th: { textAlign: "left", padding: "8px 10px", borderBottom: `1px solid ${T.border}`, color: T.textSecondary, fontWeight: 600, fontSize: 12, background: T.tableHead, whiteSpace: "nowrap" },
+    td: { padding: "8px 10px", borderBottom: `1px solid ${T.border2}`, color: T.textPrimary },
   };
 }
 

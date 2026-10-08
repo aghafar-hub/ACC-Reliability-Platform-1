@@ -43,6 +43,8 @@ import ComplianceTracker from "./pages/ComplianceTracker";
 import ActionTracker from "./pages/ActionTracker";
 import LimitsSettings from "./pages/LimitsSettings";
 import Settings from "./pages/Settings";
+import VibrationLog from "./pages/VibrationLog";
+import { buildEquipment } from "./vibModel";
 
 const RMS_SHEET = "📥 RMS DATA"; // original `qi`
 const SPM_SHEET = "📥 SPM DATA"; // original `bi`
@@ -68,6 +70,8 @@ export default function App({ navBridge } = {}) {
     setCurrentPage(page);
   }, [page]);
   const [graphAsset, setGraphAsset] = useState("");
+  // Vibration Log: the report open on the Log tab (null = the timeline).
+  const [openReportId, setOpenReportId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
@@ -131,7 +135,11 @@ export default function App({ navBridge } = {}) {
 
   useEffect(() => {
     if (!navBridge) return;
-    navBridge.navigate = setPage;
+    // Clicking the Vibration Log tab again goes back to the timeline.
+    navBridge.navigate = (p) => {
+      if (p === "log") setOpenReportId(null);
+      setPage(p);
+    };
     navBridge.onNavigate?.(page);
   });
 
@@ -379,6 +387,9 @@ export default function App({ navBridge } = {}) {
     return map;
   }, [vibPoints]);
 
+  // Equipment → scope, limits and VIB IDs, shared by the redesigned pages.
+  const scopeEquipment = useMemo(() => buildEquipment(vibPoints, rmsRegister, spmRegister), [vibPoints, rmsRegister, spmRegister]);
+
   const actionCounts = useMemo(
     () => ({
       open: actions.filter((a) => a.actionStatus === "Open").length,
@@ -521,7 +532,9 @@ export default function App({ navBridge } = {}) {
   );
 
   let content;
-  if (page === "dashboard") {
+  if (page === "log") {
+    content = <VibrationLog webhookUrl={webhookUrl} openReportId={openReportId} setOpenReportId={setOpenReportId} scopeEquipment={scopeEquipment} />;
+  } else if (page === "dashboard") {
     content = (
       <Dashboard
         lastRms={lastRms}
