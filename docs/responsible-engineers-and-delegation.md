@@ -75,8 +75,9 @@ The person who made the change is not notified.
     account. Anyone already away on those dates is greyed out.
   - Dates, an optional reason, and a summary of what will happen.
   - The request is sent once per module, with no automatic retry, so it is
-    never saved twice. Only a covering colleague who is not listed gets no
-    New delegation button, so they can't pass the work on.
+    never saved twice.
+- **Covering colleagues** who are not listed themselves get no New
+  delegation button, so they can't pass the work on.
 
 ## Sheet
 
