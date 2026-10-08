@@ -63,3 +63,10 @@ function handleMarkVibNotificationsRead(params, session) {
   });
   return { status: 'ok', marked: n };
 }
+
+// ModuleAccess.js calls this for delegation notices (started / ended):
+// bell + email. Opens My Work.
+function maNotify_(emails, subject, body, contractor) {
+  vnAdd_(SpreadsheetApp.getActiveSpreadsheet(), emails, 'delegation', subject, contractor, 'mywork', '', null);
+  try { MailApp.sendEmail({ to: emails.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' }); } catch (e) {}
+}

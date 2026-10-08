@@ -177,6 +177,8 @@ function vlActor_(session) {
   // Managers view and get escalations only (agreed decision 7) — they don't approve.
   var accRoles = ['ROLE-ADMIN', 'ROLE-RENG'];
   var canApprove = !contractor && (maIsAdmin_(session) || roles.some(function (r) { return accRoles.indexOf(r) !== -1; }));
+  // An ACC manager covering through a delegation (no engineer free) approves too.
+  if (!contractor && !canApprove) canApprove = maResponsibility_(session).covering.length > 0;
   return { email: session.email || '', contractor: contractor, acc: !contractor, canApprove: canApprove, roles: roles };
 }
 

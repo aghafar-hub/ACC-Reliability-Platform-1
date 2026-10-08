@@ -102,6 +102,8 @@ function dispatchWithAccess_(action, params) {
   var session = getSessionOrNull_(params.sessionToken);
   var request = { action: action };
   for (var k in params) { if (k !== 'action') request[k] = params[k]; }
+  // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
+  if (MA_SELF_ACTIONS.indexOf(action) !== -1) return maHandleSelfAction_(action, params, session);
   var isAdminAction = MA_ADMIN_ACTIONS.indexOf(action) !== -1;
   var denial = (isAdminAction || VIB_WRITE_ACTIONS.indexOf(action) !== -1)
     ? maCheckWrite_(session, request)

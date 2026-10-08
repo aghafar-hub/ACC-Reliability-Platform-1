@@ -117,7 +117,10 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
       else markNotificationRead(sessionToken as string, n.notificationId).catch(() => {});
     }
 
-    if (n.module === 'vib') {
+    if (n.linkPage === 'mywork') {
+      // delegation started / ended — the cover shows in My Work
+      navigate('/my-work');
+    } else if (n.module === 'vib') {
       if (n.linkPage === 'mywork-route' && n.linkRecordId) {
         // the technician's checklist lives in My Work
         if (!onOpenRoutine) navigate(`/my-work?vibRoute=${encodeURIComponent(n.linkRecordId)}`);
@@ -249,6 +252,7 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
 type Kind = { icon: 'route' | 'action' | 'flask' | 'droplet' | 'bell' | 'graphs'; tone: 'route' | 'action' | 'lab' | 'stock' | 'late' | 'vib'; label: string };
 function kindOf(n: BellItem): Kind {
   const t = (n.type || '').toLowerCase();
+  if (t === 'delegation') return { icon: 'bell', tone: 'route', label: 'Delegation' };
   if (n.module === 'vib') {
     if (t.startsWith('vib-report')) return { icon: 'graphs', tone: 'vib', label: 'Vibration report' };
     if (t.startsWith('vib-action')) return { icon: 'action', tone: 'action', label: 'Vibration action' };

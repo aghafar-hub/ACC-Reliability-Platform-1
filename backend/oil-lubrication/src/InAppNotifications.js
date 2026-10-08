@@ -123,3 +123,11 @@ function markAllInAppNotificationsRead_(userEmail) {
   }
   return { status: "ok" };
 }
+
+// ModuleAccess.js calls this for delegation notices (started / ended): the
+// bell always, email when notifications are switched on. Opens My Work.
+function maNotify_(emails, subject, body, contractor) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  recordInAppNotificationForEach_(ss, emails, "delegation", subject, contractor, "mywork", "");
+  try { sendNotificationEmail_({ to: emails.join(","), subject: subject, body: body + "\n\nOpen the ACC Reliability Platform → My Work." }); } catch (e) {}
+}

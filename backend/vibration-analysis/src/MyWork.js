@@ -2,14 +2,18 @@
 // Same answer shape as every module (frontend/src/myWork.ts):
 //   { moduleId, moduleName, sections: [{ id, title, hint, severity, total,
 //     items: [{ id, title, subtitle, meta, flag, link: { page, recordId } }] }] }
-// Sections by role (a person with several roles gets them all):
+// Sections by role (a person with several roles gets them all). Engineer
+// sections follow responsibility, not job title: only the responsible
+// engineers listed for this module in Settings → Module Access, or a
+// colleague covering for one (delegation), get them.
 //   Technician — their open vibration routes (the checklist opens in My Work).
-//   Contractor Engineer — routes to confirm, routes with no technician,
+//   Contractor responsible engineer — routes to confirm, routes with no technician,
 //     measurements due, reports to send, actions waiting for their
 //     recommendation, their actions due.
-//   ACC Engineer — reports to review, actions to agree, closures to approve,
+//   ACC responsible engineer — reports to review, actions to agree, closures to approve,
 //     overdue reports.
-//   Managers / App Owner — escalations (10+ days late). View only.
+//   Managers / App Owner — escalations (10+ days late), and a warning when
+//     nobody is responsible today.
 
 var VMW_MAX = 15;
 var VMW_ESCALATE_DAYS = 10;
@@ -30,6 +34,16 @@ function handleGetMyWork(params, session) {
   var sections = [];
   var out = { moduleId: MA_CONFIG.moduleId, moduleName: MA_CONFIG.moduleName, sections: sections, generatedAt: new Date().toISOString() };
   if (!session) return out;
+  var resp = maResponsibility_(session);
+  var engineer = resp.responsible && resp.side !== 'ACC' && !!me.contractor && me.contractor !== 'NONE';
+  var accEngineer = resp.responsible && resp.side === 'ACC' && !me.contractor;
+  out.covering = resp.covering;
+  out.listed = resp.listed;
+  var nobody = manager ? maNobodyResponsibleFor_(session) : [];
+  if (nobody.length) {
+    sections.push(vmwSection_('nobody-responsible', 'Nobody responsible', 'No engineer is responsible today — add one in Settings → Module Access, or cover it yourself in Settings → My delegations.', 'warning',
+      nobody.map(function (c) { return { id: 'nobody|' + c, title: c, subtitle: 'No responsible engineer available for ' + MA_CONFIG.moduleName, meta: '', flag: '', link: { page: 'settings', recordId: '' } }; })));
+  }
 
   var routes = vlRead_(ss, SHEET_VROUTES).rows.map(function (r) { return vrOut_(r, today); });
   var actions = vlRead_(ss, SHEET_VACTIONS).rows.map(vaOut_);
@@ -52,7 +66,7 @@ function handleGetMyWork(params, session) {
       .sort(function (a, b) { return a['Planned date'] < b['Planned date'] ? -1 : 1; });
     sections.push(vmwSection_('vib-my-routes', 'My vibration routes', 'Tick each point when measured, then submit for your engineer.', 'action', mine.map(function (r) { return routeItem(r); })));
   }
-  if (who.engineer) {
+  if (engineer) {
     var c = me.contractor;
     sections.push(vmwSection_('vib-routes-confirm', 'Routes to confirm', 'Submitted by the technician — confirm or return.', 'action',
       routes.filter(function (r) { return r['Contractor'] === c && r['Status'] === 'Submitted'; }).map(function (r) { return routeItem(r, ' · submitted ' + String(r['Submitted at']).slice(0, 10)); })));
@@ -75,7 +89,7 @@ function handleGetMyWork(params, session) {
       actions.filter(function (a) { return a['Contractor'] === c && ['Open', 'Waiting Stoppage'].indexOf(a['Status']) !== -1 && a['Due date'] && a['Due date'] <= soon; })
         .sort(function (a, b) { return a['Due date'] < b['Due date'] ? -1 : 1; }).map(function (a) { return actionItem(a, 'Due ' + a['Due date'] + ' · ' + (a['Owner'] || 'no owner')); })));
   }
-  if (who.acc) {
+  if (accEngineer) {
     sections.push(vmwSection_('vib-reports-review', 'Reports to review', 'Sent by the contractor — approve or return.', 'action',
       reports.filter(function (r) { return r['Workflow status'] === 'ACC review'; }).map(function (r) { return reportItem(r, 'Received ' + r['Received date']); })));
     sections.push(vmwSection_('vib-actions-agree', 'Actions to agree', 'Draft actions — add the ACC recommendation, agreed action, owner and due date.', 'action',

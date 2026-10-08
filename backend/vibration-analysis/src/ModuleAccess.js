@@ -227,8 +227,16 @@ function maResolve_(session) {
   var cfg = maLoadConfig_();
   var email = maNormEmail_(session.email);
   var mine = cfg.people.filter(function (p) { return p.email === email; });
-  base.member = mine.length > 0;
   base.responsibilities = mine.map(function (p) { return p.responsibility; });
+  // A colleague covering through an active delegation is a member for the
+  // time of the cover, as the responsible engineer of that side.
+  var cover = maResponsibility_(session).covering;
+  if (cover.length) {
+    var resp = maSideFor_(base.contractor) === "ACC" ? MA_RESP.ACC : MA_RESP.CONTRACTOR;
+    if (base.responsibilities.indexOf(resp) === -1) base.responsibilities.push(resp);
+    base.covering = cover;
+  }
+  base.member = mine.length > 0 || cover.length > 0;
   if (!base.member) return base;
 
   var overrides = cfg.userOverrides[email] || {};
@@ -467,6 +475,15 @@ function maResponsibleEmails_(responsibility, contractor) {
     if (responsibility !== MA_RESP.ACC && contractor && p.contractor !== contractor) return;
     if (out.indexOf(p.email) === -1) out.push(p.email);
   });
+  // whoever is covering through an active delegation gets the notices too
+  if (responsibility === MA_RESP.ACC || (responsibility === MA_RESP.CONTRACTOR && contractor)) {
+    var side = responsibility === MA_RESP.ACC ? "ACC" : "Contractor";
+    var today = maToday_();
+    maDelegations_().forEach(function (d) {
+      if (d.side !== side || (side === "Contractor" && d.contractor !== contractor)) return;
+      if (maDelegationState_(d, today) === "Active" && out.indexOf(d.to) === -1) out.push(d.to);
+    });
+  }
   return out;
 }
 
@@ -488,4 +505,266 @@ function maHandleAdminPost_(data, actingUser) {
     case "maSetTabLevels": return maSetTabLevels_(data.changes || []);
     default: return null;
   }
+}
+
+// ─── Responsible engineers and delegation ───────────────────────────────────
+// My Work for a module goes only to its responsible engineers: the people
+// listed here as "Contractor Responsible Engineer" (for their own contractor)
+// or "ACC Responsible Engineer". More than one per contractor is fine.
+//
+// When one is away they delegate — themselves, or their manager for them
+// (same contractor / ACC) — to a colleague of the same contractor for a set
+// of dates. A manager can also take the work themselves. While a delegation
+// is active the colleague is responsible too ("covering for …").
+// Same-contractor is checked when the delegation is USED: it only counts for
+// a signed-in person whose own organisation matches, whatever was typed.
+//
+// Sheet MA_DELEGATIONS (created on first use), one row per delegation.
+// Starting or ending one notifies (bell + email, via the module's maNotify_):
+// the contractor's managers, ACC managers, the module's ACC engineers, the
+// colleague, and the engineer when someone else set it up.
+
+var MA_DELEGATION_SHEET = "MA_DELEGATIONS";
+var MA_DELEGATION_HEADERS = ["DelegationId", "FromEmail", "ToEmail", "Side", "Contractor", "StartDate", "EndDate", "Reason", "CreatedBy", "CreatedAt", "Status", "EndedBy", "EndedAt"];
+var MA_DELEGATION_MAX_DAYS = 120;
+// these three run for any signed-in person; the rules are inside
+var MA_SELF_ACTIONS = ["getMyDelegations", "maCreateDelegation", "maEndDelegation"];
+
+function maToday_() {
+  return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd");
+}
+
+function maYmd_(v) {
+  if (!v) return "";
+  if (Object.prototype.toString.call(v) === "[object Date]") return isNaN(v.getTime()) ? "" : Utilities.formatDate(v, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd");
+  var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[1] + "-" + m[2] + "-" + m[3] : "";
+}
+
+function maDelegations_() {
+  return (maReadRows_(MA_DELEGATION_SHEET) || []).map(function (r, i) {
+    return {
+      row: i + 2, id: String(r[0] || ""), from: maNormEmail_(r[1]), to: maNormEmail_(r[2]), side: String(r[3] || ""),
+      contractor: String(r[4] || ""), start: maYmd_(r[5]), end: maYmd_(r[6]), reason: String(r[7] || ""),
+      createdBy: maNormEmail_(r[8]), createdAt: String(r[9] || ""), status: String(r[10] || ""), endedBy: maNormEmail_(r[11]), endedAt: String(r[12] || ""),
+    };
+  }).filter(function (d) { return d.id; });
+}
+
+// Upcoming / Active / Ended (by hand) / Expired (end date passed)
+function maDelegationState_(d, today) {
+  if (d.status === "Ended") return "Ended";
+  if (d.end < today) return "Expired";
+  if (d.start > today) return "Upcoming";
+  return "Active";
+}
+
+function maSideFor_(contractor) {
+  return contractor === "ACC" ? "ACC" : "Contractor";
+}
+
+// Is this person a responsible engineer for this module (listed, or covering
+// through an active delegation)? side: "ACC" | "Contractor".
+function maResponsibility_(session) {
+  var out = { side: "", contractor: "", listed: false, covering: [], responsible: false, manager: false };
+  if (!session) return out;
+  var email = maNormEmail_(session.email);
+  var contractor = maContractorForOrg_(session.orgId);
+  var roles = session.roles || [];
+  out.contractor = contractor;
+  out.side = maSideFor_(contractor);
+  if (!contractor) return out;
+  var cfg = maLoadConfig_();
+  var want = out.side === "ACC" ? MA_RESP.ACC : MA_RESP.CONTRACTOR;
+  out.listed = cfg.people.some(function (p) {
+    return p.email === email && p.responsibility === want && (out.side === "ACC" || p.contractor === contractor);
+  });
+  out.manager = out.side === "ACC" ? roles.indexOf("ROLE-MGR") !== -1 : roles.indexOf("ROLE-CMGR") !== -1;
+  var today = maToday_();
+  maDelegations_().forEach(function (d) {
+    if (d.to !== email || d.contractor !== contractor || d.side !== out.side) return;
+    if (maDelegationState_(d, today) !== "Active") return;
+    out.covering.push({ from: d.from, until: d.end, id: d.id });
+  });
+  out.responsible = out.listed || out.covering.length > 0;
+  return out;
+}
+
+// Everyone responsible right now for a contractor (or ACC): listed people
+// plus colleagues covering through an active delegation.
+function maResponsibleNow_(contractor) {
+  var side = maSideFor_(contractor);
+  var want = side === "ACC" ? MA_RESP.ACC : MA_RESP.CONTRACTOR;
+  var out = maLoadConfig_().people.filter(function (p) {
+    return p.responsibility === want && (side === "ACC" || p.contractor === contractor);
+  }).map(function (p) { return p.email; });
+  var today = maToday_();
+  maDelegations_().forEach(function (d) {
+    if (d.side === side && d.contractor === contractor && maDelegationState_(d, today) === "Active" && out.indexOf(d.to) === -1) out.push(d.to);
+  });
+  return out;
+}
+
+// Who can actually do the work for a contractor (or ACC) today: listed
+// engineers who are not away, plus colleagues covering through an active
+// delegation. Empty = nobody responsible.
+function maCoveredNow_(contractor) {
+  var side = maSideFor_(contractor);
+  var want = side === "ACC" ? MA_RESP.ACC : MA_RESP.CONTRACTOR;
+  var today = maToday_();
+  var active = maDelegations_().filter(function (d) { return maDelegationState_(d, today) === "Active"; });
+  var away = {};
+  active.forEach(function (d) { if (d.from) away[d.from] = true; });
+  var out = maLoadConfig_().people.filter(function (p) {
+    return p.responsibility === want && (side === "ACC" || p.contractor === contractor) && !away[p.email];
+  }).map(function (p) { return p.email; });
+  active.forEach(function (d) {
+    if (d.side === side && d.contractor === contractor && out.indexOf(d.to) === -1) out.push(d.to);
+  });
+  return out;
+}
+
+// Contractors (and ACC) with nobody responsible, as seen by this person:
+// a manager sees their own side, the App Owner ACC plus every contractor
+// in MA_CONFIG.orgToContractor. Everyone else: [].
+function maNobodyResponsibleFor_(session) {
+  if (!session) return [];
+  var me = maResponsibility_(session);
+  var list = [];
+  if (maIsAdmin_(session)) {
+    list.push("ACC");
+    Object.keys(MA_CONFIG.orgToContractor || {}).forEach(function (o) { var c = MA_CONFIG.orgToContractor[o]; if (c && list.indexOf(c) === -1) list.push(c); });
+  } else if (me.manager && me.contractor) {
+    list.push(me.contractor);
+  }
+  return list.filter(function (c) { return maCoveredNow_(c).length === 0; });
+}
+
+function maPeopleWith_(responsibility, contractor) {
+  return maLoadConfig_().people.filter(function (p) {
+    return p.responsibility === responsibility && (!contractor || p.contractor === contractor);
+  }).map(function (p) { return p.email; });
+}
+
+function maDelegationNotify_(d, verb, actor) {
+  var who = [d.to, d.from]
+    .concat(d.side === "Contractor" ? maPeopleWith_(MA_RESP.CONTRACTOR_MANAGER, d.contractor) : [])
+    .concat(maPeopleWith_(MA_RESP.ACC_MANAGER, ""))
+    .concat(maPeopleWith_(MA_RESP.ACC, ""));
+  var list = [];
+  who.forEach(function (e) { e = maNormEmail_(e); if (e && e !== maNormEmail_(actor) && list.indexOf(e) === -1) list.push(e); });
+  if (!list.length || typeof maNotify_ !== "function") return;
+  var whom = d.from ? d.from : "the " + d.contractor + " engineers";
+  var subject = MA_CONFIG.moduleName + ": " + d.to + (verb === "ended" ? " no longer covers " : " covers ") + whom + (verb === "ended" ? "" : " from " + d.start + " to " + d.end);
+  var body = subject + "." + (d.reason ? "\nReason: " + d.reason : "") + "\nSet by " + actor + ".";
+  try { maNotify_(list, subject, body, d.contractor); } catch (e) { /* never block the delegation */ }
+}
+
+// The delegations this person may see / manage, and who they could pick.
+function maGetMyDelegations_(session) {
+  if (!session) return { error: "Please log in again." };
+  var me = maResponsibility_(session);
+  var email = maNormEmail_(session.email);
+  var admin = maIsAdmin_(session);
+  var today = maToday_();
+  var want = me.side === "ACC" ? MA_RESP.ACC : MA_RESP.CONTRACTOR;
+  var engineers = maLoadConfig_().people.filter(function (p) {
+    return p.responsibility === want && (me.side === "ACC" || p.contractor === me.contractor);
+  }).map(function (p) { return { email: p.email, displayName: p.displayName }; });
+  var list = maDelegations_().filter(function (d) {
+    if (admin) return true;
+    if (d.from === email || d.to === email || d.createdBy === email) return true;
+    return me.manager && d.contractor === me.contractor;
+  }).map(function (d) {
+    var o = {}; Object.keys(d).forEach(function (k) { if (k !== "row") o[k] = d[k]; });
+    o.state = maDelegationState_(d, today);
+    return o;
+  }).reverse();
+  return {
+    status: "ok", moduleId: MA_CONFIG.moduleId, moduleName: MA_CONFIG.moduleName, today: today,
+    side: me.side, contractor: me.contractor, listed: me.listed, manager: me.manager, admin: admin, covering: me.covering,
+    engineers: engineers, delegations: list,
+    nobodyResponsible: maNobodyResponsibleFor_(session),
+  };
+}
+
+function maCreateDelegation_(data, session) {
+  if (!session) return { error: "Please log in again." };
+  var actor = maNormEmail_(session.email);
+  var me = maResponsibility_(session);
+  if (!me.contractor) return { error: "Your account has no contractor." };
+  var from = maNormEmail_(data.from == null ? actor : data.from);
+  var to = maNormEmail_(data.to);
+  var start = maYmd_(data.startDate);
+  var end = maYmd_(data.endDate);
+  var reason = String(data.reason || "").trim();
+  var want = me.side === "ACC" ? MA_RESP.ACC : MA_RESP.CONTRACTOR;
+  var listed = function (e) {
+    return maLoadConfig_().people.some(function (p) { return p.email === e && p.responsibility === want && (me.side === "ACC" || p.contractor === me.contractor); });
+  };
+  // who may set it up: the engineer, or a manager of the same contractor (or ACC)
+  if (from === actor) {
+    if (!listed(from)) return { error: "You are not a responsible engineer for " + MA_CONFIG.moduleName + "." };
+  } else if (!(me.manager || maIsAdmin_(session))) {
+    return { error: "Only the engineer or their manager can delegate this." };
+  } else if (from && !listed(from)) {
+    return { error: from + " is not a " + me.contractor + " responsible engineer for " + MA_CONFIG.moduleName + "." };
+  }
+  // from "" = no engineer free; only a manager covering it themselves
+  if (!from && !(to === actor && me.manager)) return { error: "Pick the engineer who is away." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return { error: "Pick the colleague who will cover." };
+  if (to === from) return { error: "Pick a different colleague." };
+  // same contractor (ACC delegates to ACC); the use-time check in
+  // maResponsibility_ covers colleagues not in the people list
+  var other = maLoadConfig_().people.filter(function (p) { return p.email === to && p.contractor && p.contractor !== me.contractor; })[0];
+  if (other) return { error: to + " is with " + other.contractor + " — pick a colleague from " + me.contractor + "." };
+  if (!start || !end) return { error: "Give the start and end dates." };
+  if (end < start) return { error: "The end date is before the start date." };
+  var today = maToday_();
+  if (end < today) return { error: "The end date is in the past." };
+  var days = (new Date(end + "T00:00:00Z") - new Date(start + "T00:00:00Z")) / 864e5;
+  if (days > MA_DELEGATION_MAX_DAYS) return { error: "A delegation can last up to " + MA_DELEGATION_MAX_DAYS + " days." };
+  var overlaps = function (d) { return d.start <= end && d.end >= start && ["Upcoming", "Active"].indexOf(maDelegationState_(d, today)) !== -1; };
+  var all = maDelegations_();
+  if (from && all.some(function (d) { return d.from === from && d.contractor === me.contractor && overlaps(d); })) return { error: from + " already has a delegation on these dates." };
+  if (all.some(function (d) { return d.from === to && d.contractor === me.contractor && overlaps(d); })) return { error: to + " is away on these dates (delegated their own work)." };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { error: "Server is busy — please try again." };
+  try {
+    var sheet = maEnsureSheet_(MA_DELEGATION_SHEET, MA_DELEGATION_HEADERS).sheet;
+    var d = { id: "DLG-" + Utilities.getUuid().slice(0, 8), from: from, to: to, side: me.side, contractor: me.contractor, start: start, end: end, reason: reason, createdBy: actor, createdAt: new Date().toISOString(), status: "Active" };
+    sheet.appendRow([d.id, d.from, d.to, d.side, d.contractor, d.start, d.end, d.reason, d.createdBy, d.createdAt, d.status, "", ""]);
+    maDelegationNotify_(d, "started", actor);
+    return { status: "ok", delegationId: d.id };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function maEndDelegation_(data, session) {
+  if (!session) return { error: "Please log in again." };
+  var actor = maNormEmail_(session.email);
+  var me = maResponsibility_(session);
+  var d = maDelegations_().filter(function (x) { return x.id === String(data.delegationId || ""); })[0];
+  if (!d) return { error: "Not found" };
+  var may = maIsAdmin_(session) || [d.from, d.to, d.createdBy].indexOf(actor) !== -1 || (me.manager && me.contractor === d.contractor);
+  if (!may) return { error: "Not found" };
+  if (["Ended", "Expired"].indexOf(maDelegationState_(d, maToday_())) !== -1) return { error: "This delegation has already ended." };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return { error: "Server is busy — please try again." };
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(MA_DELEGATION_SHEET);
+    sheet.getRange(d.row, 11, 1, 3).setValues([["Ended", actor, new Date().toISOString()]]);
+    maDelegationNotify_(d, "ended", actor);
+    return { status: "ok" };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function maHandleSelfAction_(action, data, session) {
+  if (action === "getMyDelegations") return maGetMyDelegations_(session);
+  if (action === "maCreateDelegation") return maCreateDelegation_(data, session);
+  if (action === "maEndDelegation") return maEndDelegation_(data, session);
+  return null;
 }

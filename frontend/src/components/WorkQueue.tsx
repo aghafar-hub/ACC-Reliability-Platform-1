@@ -23,7 +23,10 @@ function Item({ moduleId, sectionId, item, onOpen }: { moduleId: string; section
 
   function open() {
     if (onOpen?.(moduleId, item, sectionId)) return;
-    if (!path || !item.link) return;
+    if (!item.link) return;
+    // platform pages (e.g. "Nobody responsible" → Settings → My delegations)
+    if (item.link.page === 'settings') { navigate('/settings?tab=delegations'); return; }
+    if (!path) return;
     navigate(path);
     embeddedNav.navigateTo(moduleId, item.link.page, item.link.recordId || undefined);
   }

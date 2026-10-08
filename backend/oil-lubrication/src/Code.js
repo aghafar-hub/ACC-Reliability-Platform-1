@@ -184,6 +184,11 @@ function doGet(e) {
     // getContractorScope_ for what null vs. a contractor label means.
     var scope = getContractorScope_(auth.session);
 
+    // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
+    if (MA_SELF_ACTIONS.indexOf(action) !== -1) {
+      return outputResult_(maHandleSelfAction_(action, e.parameter, auth.session), callback);
+    }
+
     var accessDenial = maCheckRead_(auth.session, action);
     if (accessDenial) {
       return outputResult_({ error: accessDenial, accessDenied: true }, callback);
