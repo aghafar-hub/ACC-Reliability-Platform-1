@@ -208,6 +208,16 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 
 **Global search:** machines (ID or name), VIB IDs and report IDs (e.g. `VL-2026-07-RHI-L1`) from the top bar.
 
+## Notification bell
+
+Everything Vibration emails about also appears in the platform's bell (top right), next to Oil's notices, newest first:
+- **Reports:** sent to ACC, approved, returned, reopened.
+- **Findings:** new draft actions / findings added from an approved report.
+- **Actions:** each step (opened, waiting, closure requested, closed, returned, cancelled).
+- **Routes:** assigned, submitted, confirmed, returned, rescheduled to a new technician, cancelled, ACC emergency route.
+
+Each person gets their own copy with its own read / unread. Tapping one opens the report, action or route; a technician's route notice opens the checklist in My Work. Email settings don't affect the bell.
+
 ## Sheets
 
 | Tab | Holds |
@@ -222,5 +232,6 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 | `Vibration Routes` | one row per route |
 | `Vibration Route Points` | one row per VIB point on a route (Done / skip reason / machine comment) |
 | `Vibration Route Suggestions` | dismissed suggestions with the reason |
+| `Vibration Notifications` | one row per notice per person (read / unread) |
 
 Columns are read by header name. Missing columns are added on the first save.

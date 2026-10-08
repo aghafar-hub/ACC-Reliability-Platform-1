@@ -71,6 +71,7 @@
  *   Routes.js             suggestions, routes, technician checklist, confirm / return, emergency routes
  *   MyWork.js             getMyWork for the platform My Work page, by role
  *   Dashboard.js          getVibDashboard: condition, reports received, worst machines, actions
+ *   VibNotifications.js   the platform bell: each person's own vibration notices
  */
 
 function doGet(e) {
@@ -179,6 +180,9 @@ function dispatch(action, params, session) {
   if (action==='getMyWork')             return handleGetMyWork(params, session);
   // Dashboard.js
   if (action==='getVibDashboard')       return handleGetVibDashboard(params, session);
+  // VibNotifications.js
+  if (action==='getVibNotifications')   return handleGetVibNotifications(params, session);
+  if (action==='markVibNotificationsRead') return vlLocked_(function () { return handleMarkVibNotificationsRead(params, session); });
   return {error: 'Unknown action: ' + action};
 }
 

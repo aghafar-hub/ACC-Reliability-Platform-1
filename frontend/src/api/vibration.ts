@@ -62,3 +62,25 @@ export async function saveVibRouteProgress(
 export async function submitVibRoute(sessionToken: string, routeId: string) {
   return call(sessionToken, { action: 'vibRouteTransition', routeId, to: 'submit' });
 }
+
+// The platform bell: this person's own vibration notices (backend
+// VibNotifications.js). Same shape as Oil's in-app notifications.
+export type VibNotification = {
+  notificationId: string;
+  type: string;
+  message: string;
+  contractor: string;
+  linkPage: string;
+  linkRecordId: string;
+  createdDate: string;
+  read: boolean;
+};
+
+export async function getVibNotifications(sessionToken: string, limit = 30): Promise<{ notifications: VibNotification[]; unreadCount: number }> {
+  const json = await call(sessionToken, { action: 'getVibNotifications', limit: String(limit) });
+  return { notifications: json.notifications || [], unreadCount: json.unreadCount || 0 };
+}
+
+export async function markVibNotificationsRead(sessionToken: string, notificationId: string | null) {
+  return call(sessionToken, notificationId ? { action: 'markVibNotificationsRead', notificationId } : { action: 'markVibNotificationsRead', all: 'true' });
+}

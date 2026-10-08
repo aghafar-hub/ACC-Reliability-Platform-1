@@ -221,6 +221,7 @@
 .notif-bell-icon.kind-lab { --kind: #7c3aed; }
 .notif-bell-icon.kind-stock { --kind: #0d9488; }
 .notif-bell-icon.kind-late { --kind: #dc2626; }
+.notif-bell-icon.kind-vib { --kind: #2563eb; }
 
 .notif-bell-dot {
   width: 9px;

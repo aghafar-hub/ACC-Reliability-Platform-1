@@ -9,9 +9,15 @@ import {
   markNotificationRead,
   type InAppNotification,
 } from '../api/oilLubrication';
+import { getVibNotifications, markVibNotificationsRead } from '../api/vibration';
 import './NotificationBell.css';
 
 const POLL_INTERVAL_MS = 60000;
+
+// One feed for the whole platform: Oil Lubrication's and Vibration's own
+// notices (each module keeps its list), merged newest first. `module` says
+// which backend to mark read and where a tap opens.
+type BellItem = InAppNotification & { module: 'oil' | 'vib' };
 
 // Patch 15 ("in app notification... must have one at the top right... the
 // notification is related to [the whole] platform not only lubrication" —
@@ -51,21 +57,26 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
     window.addEventListener('acc:open-notifications', show);
     return () => window.removeEventListener('acc:open-notifications', show);
   }, []);
-  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
+  const [notifications, setNotifications] = useState<BellItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     if (!sessionToken || !claims?.email) return;
-    try {
-      const result = await getInAppNotifications(sessionToken, 30);
-      setNotifications(result.notifications);
-      setUnreadCount(result.unreadCount);
-    } catch {
-      // Best-effort — a failed poll just tries again next interval, same as
-      // the rest of this shell's background sync.
-    }
+    // Each module on its own: one that fails (offline, not set up, no
+    // access) just leaves its part out until the next poll.
+    const [oil, vib] = await Promise.all([
+      getInAppNotifications(sessionToken, 30).catch(() => null),
+      getVibNotifications(sessionToken, 30).catch(() => null),
+    ]);
+    if (!oil && !vib) return;
+    const items: BellItem[] = [
+      ...(oil?.notifications || []).map((n) => ({ ...n, module: 'oil' as const })),
+      ...(vib?.notifications || []).map((n) => ({ ...n, module: 'vib' as const })),
+    ].sort((a, b) => String(b.createdDate).localeCompare(String(a.createdDate)));
+    setNotifications(items.slice(0, 40));
+    setUnreadCount((oil?.unreadCount || 0) + (vib?.unreadCount || 0));
   }, [sessionToken, claims?.email]);
 
   useEffect(() => {
@@ -95,15 +106,27 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
 
   if (!sessionToken || !claims?.email) return null;
 
-  async function handleOpen(n: InAppNotification) {
+  async function handleOpen(n: BellItem) {
     // Optimistic — the bell's own next poll self-corrects if this blind
     // POST silently fails (see markNotificationRead's own comment).
     setNotifications((prev) => prev.map((x) => (x.notificationId === n.notificationId ? { ...x, read: true } : x)));
     setUnreadCount((prev) => Math.max(0, prev - (n.read ? 0 : 1)));
     setOpen(false);
-    if (!n.read) markNotificationRead(sessionToken as string, n.notificationId).catch(() => {});
+    if (!n.read) {
+      if (n.module === 'vib') markVibNotificationsRead(sessionToken as string, n.notificationId).catch(() => {});
+      else markNotificationRead(sessionToken as string, n.notificationId).catch(() => {});
+    }
 
-    if (n.linkPage === 'routines' && n.linkRecordId && onOpenRoutine) {
+    if (n.module === 'vib') {
+      if (n.linkPage === 'mywork-route' && n.linkRecordId) {
+        // the technician's checklist lives in My Work
+        if (!onOpenRoutine) navigate(`/my-work?vibRoute=${encodeURIComponent(n.linkRecordId)}`);
+        window.dispatchEvent(new CustomEvent('acc:open-vib-route', { detail: n.linkRecordId }));
+      } else if (n.linkPage) {
+        navigate('/vibration-analysis');
+        embeddedNav.navigateTo('vibration-analysis', n.linkPage, n.linkRecordId || undefined);
+      }
+    } else if (n.linkPage === 'routines' && n.linkRecordId && onOpenRoutine) {
       onOpenRoutine(n.linkRecordId);
     } else if (n.linkPage) {
       navigate('/oil-lubrication');
@@ -115,10 +138,11 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
     setNotifications((prev) => prev.map((x) => ({ ...x, read: true })));
     setUnreadCount(0);
     markAllNotificationsRead(sessionToken as string).catch(() => {});
+    markVibNotificationsRead(sessionToken as string, null).catch(() => {});
   }
 
   const shown = onlyUnread ? notifications.filter((n) => !n.read) : notifications;
-  const groups: { label: string; items: InAppNotification[] }[] = [];
+  const groups: { label: string; items: BellItem[] }[] = [];
   shown.forEach((n) => {
     const label = dayGroup(n.createdDate);
     const g = groups.find((x) => x.label === label);
@@ -222,9 +246,15 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
 
 // What a notification is about, from its type: an icon, a colour and a
 // short label for the line under the message.
-type Kind = { icon: 'route' | 'action' | 'flask' | 'droplet' | 'bell'; tone: 'route' | 'action' | 'lab' | 'stock' | 'late'; label: string };
-function kindOf(n: InAppNotification): Kind {
+type Kind = { icon: 'route' | 'action' | 'flask' | 'droplet' | 'bell' | 'graphs'; tone: 'route' | 'action' | 'lab' | 'stock' | 'late' | 'vib'; label: string };
+function kindOf(n: BellItem): Kind {
   const t = (n.type || '').toLowerCase();
+  if (n.module === 'vib') {
+    if (t.startsWith('vib-report')) return { icon: 'graphs', tone: 'vib', label: 'Vibration report' };
+    if (t.startsWith('vib-action')) return { icon: 'action', tone: 'action', label: 'Vibration action' };
+    if (t.startsWith('vib-route')) return { icon: 'route', tone: 'route', label: 'Vibration route' };
+    return { icon: 'graphs', tone: 'vib', label: 'Vibration' };
+  }
   if (t.includes('overdue') || t.includes('escalation') || t.includes('due-soon')) return { icon: 'bell', tone: 'late', label: t.includes('due-soon') ? 'Due soon' : 'Overdue' };
   if (t.startsWith('lab-report')) return { icon: 'flask', tone: 'lab', label: 'Lab report' };
   if (t.includes('stock') || t.includes('oil-equivalent')) return { icon: 'droplet', tone: 'stock', label: 'Oil stock' };

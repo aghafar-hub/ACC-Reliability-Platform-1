@@ -52,6 +52,8 @@ var MA_CONFIG = {
     getVibRoute: ["routes", "mywork"],
     getMyWork: ["mywork"],
     getVibDashboard: ["dashboard"],
+    // a person reads only their own notices (session email) — technicians too
+    getVibNotifications: "open",
     getVibActionHistory: ["actions"],
     getVibLimits: ["limits", "equipment", "newreading", "log", "dashboard"],
     getVibEquipmentSummary: ["equipment", "dashboard", "newreading", "trends"],
@@ -94,6 +96,7 @@ var MA_CONFIG = {
     saveVibRouteProgress: ["routes", "mywork"],
     vibRouteTransition: ["routes", "mywork"],
     dismissVibSuggestion: ["routes"],
+    markVibNotificationsRead: "open",
     maSetStatus: "admin",
     maAddPeople: "admin",
     maRemovePerson: "admin",

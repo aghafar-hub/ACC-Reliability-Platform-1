@@ -464,6 +464,19 @@ export default function MyWork({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // A vibration route opened from the work queue (checklist in place).
   const [vibRouteId, setVibRouteId] = useState<string | null>(null);
+  // A vibration route from the bell: ?vibRoute=ID in the address (normal
+  // shell) or the acc:open-vib-route event (already on this page /
+  // technician shell).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('vibRoute');
+    if (q) setVibRouteId(q);
+    const open = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setVibRouteId(id);
+    };
+    window.addEventListener('acc:open-vib-route', open);
+    return () => window.removeEventListener('acc:open-vib-route', open);
+  }, []);
 
   // Opened from NotificationBell's onOpenRoutine (TechnicianShell) — same
   // "arrived here wanting one specific record" pattern

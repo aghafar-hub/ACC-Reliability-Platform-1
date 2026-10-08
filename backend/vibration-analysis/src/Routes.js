@@ -166,9 +166,12 @@ function vrCanSee_(who, r) {
   return String(r['Technician']).toLowerCase() === String(who.me.email).toLowerCase();
 }
 
-function vrNotify_(to, subject, body, me) {
+// link: { routeId, contractor, tech } — tech: the technician's notice opens the
+// checklist in My Work; the others open the route on the Routes page.
+function vrNotify_(to, subject, body, me, link) {
   try {
     var list = (to || []).filter(function (e, i) { return e && to.indexOf(e) === i && e !== me.email; });
+    if (link) vnAdd_(SpreadsheetApp.getActiveSpreadsheet(), list, 'vib-route', subject, link.contractor, link.tech ? 'mywork-route' : 'routes', link.routeId, me);
     if (list.length) MailApp.sendEmail({ to: list.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' });
   } catch (e) {}
 }
@@ -235,8 +238,8 @@ function handleCreateVibRoute(params, session) {
     'Machines': machines.length, 'Points': nPoints, 'Points done': 0, 'Created by': me.email, 'Created at': vlNowIso_(), 'Updated at': vlNowIso_(),
   }));
   vlAudit_(ss, me.email, 'Route created', id, type + ' · ' + machines.join(', ') + (tech ? ' · ' + tech : ''));
-  if (tech) vrNotify_([tech], 'Vibration route ' + id + ' assigned to you', machines.length + ' machine(s), planned ' + date + '.', me);
-  else if (type === 'Emergency') vrNotify_(maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor), 'ACC emergency vibration route ' + id, (d.reason || '') + '\nMachines: ' + machines.join(', ') + '\nAssign a technician.', me);
+  if (tech) vrNotify_([tech], 'Vibration route ' + id + ' assigned to you', machines.length + ' machine(s), planned ' + date + '.', me, { routeId: id, contractor: contractor, tech: true });
+  else if (type === 'Emergency') vrNotify_(maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor), 'ACC emergency vibration route ' + id, (d.reason || '') + '\nMachines: ' + machines.join(', ') + '\nAssign a technician.', me, { routeId: id, contractor: contractor });
   return { status: 'ok', routeId: id };
 }
 
@@ -320,18 +323,18 @@ function handleVibRouteTransition(params, session) {
     var open = pts.filter(function (p) { return p['Done'] !== 'Yes' && !String(p['Skip reason'] || '').trim(); });
     if (open.length) return { status: 'error', error: open.length + ' point(s) are not done — tick them or give a skip reason. The route stays open until every point is resolved.' };
     ch['Status'] = 'Submitted'; ch['Submitted by'] = me.email; ch['Submitted at'] = vlNowIso_(); ch['Return reason'] = '';
-    vrNotify_(maResponsibleEmails_(MA_RESP.CONTRACTOR, r['Contractor']), 'Vibration route ' + id + ' submitted', 'Submitted by ' + me.email + ' — review and confirm.', me);
+    vrNotify_(maResponsibleEmails_(MA_RESP.CONTRACTOR, r['Contractor']), 'Vibration route ' + id + ' submitted', 'Submitted by ' + me.email + ' — review and confirm.', me, { routeId: id, contractor: r['Contractor'] });
   } else if (to === 'confirm') {
     if (!eng) return { status: 'error', error: 'Only the contractor engineer confirms the route.' };
     if (st !== 'Submitted') return { status: 'error', error: 'Only a submitted route can be confirmed.' };
     ch['Status'] = 'Closed'; ch['Confirmed by'] = me.email; ch['Confirmed at'] = vlNowIso_();
-    vrNotify_(maResponsibleEmails_(MA_RESP.ACC, ''), 'Vibration route ' + id + ' completed', r['Name'] + ' — field work confirmed by ' + me.email + '. The readings follow in the contractor report (Vibration Log).', me);
+    vrNotify_(maResponsibleEmails_(MA_RESP.ACC, ''), 'Vibration route ' + id + ' completed', r['Name'] + ' — field work confirmed by ' + me.email + '. The readings follow in the contractor report (Vibration Log).', me, { routeId: id, contractor: r['Contractor'] });
   } else if (to === 'return') {
     if (!eng) return { status: 'error', error: 'Only the contractor engineer returns the route.' };
     if (st !== 'Submitted') return { status: 'error', error: 'Only a submitted route can be returned.' };
     if (!reason) return { status: 'error', error: 'Say what needs correcting.' };
     ch['Status'] = 'Returned'; ch['Return reason'] = reason;
-    vrNotify_([r['Technician']], 'Vibration route ' + id + ' returned', reason, me);
+    vrNotify_([r['Technician']], 'Vibration route ' + id + ' returned', reason, me, { routeId: id, contractor: r['Contractor'], tech: true });
   } else if (to === 'assign') {
     if (!eng && !accEmergency) return { status: 'error', error: 'Only the contractor engineer assigns the technician.' };
     if (['Closed', 'Cancelled', 'Submitted'].indexOf(st) !== -1) return { status: 'error', error: 'A ' + st.toLowerCase() + ' route can\'t be reassigned.' };
@@ -341,7 +344,7 @@ function handleVibRouteTransition(params, session) {
     if (r['Technician'] && !reason) return { status: 'error', error: 'Give the reason for reassigning.' };
     ch['Technician'] = tech;
     if (st === 'Unassigned') ch['Status'] = 'Assigned';
-    vrNotify_([tech], 'Vibration route ' + id + ' assigned to you', r['Name'] + ', planned ' + vlDate_(r['Planned date']) + '.', me);
+    vrNotify_([tech], 'Vibration route ' + id + ' assigned to you', r['Name'] + ', planned ' + vlDate_(r['Planned date']) + '.', me, { routeId: id, contractor: r['Contractor'], tech: true });
   } else if (to === 'reschedule') {
     if (!eng && !accEmergency) return { status: 'error', error: 'Only the contractor engineer reschedules the route.' };
     if (['Closed', 'Cancelled'].indexOf(st) !== -1) return { status: 'error', error: 'A ' + st.toLowerCase() + ' route can\'t be rescheduled.' };
@@ -354,7 +357,7 @@ function handleVibRouteTransition(params, session) {
     if (['Closed', 'Cancelled'].indexOf(st) !== -1) return { status: 'error', error: 'This route is already ' + st.toLowerCase() + '.' };
     if (!reason) return { status: 'error', error: 'Give the reason for cancelling.' };
     ch['Status'] = 'Cancelled'; ch['Cancel reason'] = reason;
-    if (r['Technician']) vrNotify_([r['Technician']], 'Vibration route ' + id + ' cancelled', reason, me);
+    if (r['Technician']) vrNotify_([r['Technician']], 'Vibration route ' + id + ' cancelled', reason, me, { routeId: id, contractor: r['Contractor'], tech: true });
   } else {
     return { status: 'error', error: 'Unknown step: ' + to };
   }
