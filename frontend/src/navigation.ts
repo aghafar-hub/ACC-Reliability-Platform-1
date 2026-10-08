@@ -30,8 +30,8 @@ export type NavItem = {
 export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'dashboard', label: 'Vibration Dashboard', icon: 'dashboard' },
   { id: 'log', label: 'Vibration Log', icon: 'compliance' },
-  { id: 'registry', label: 'Equipment Reading', icon: 'graphs' },
-  { id: 'graphs', label: 'Graphs', icon: 'graphs' },
+  { id: 'equipment', label: 'Equipment', icon: 'registry' },
+  { id: 'trends', label: 'Trends', icon: 'graphs' },
   { id: 'newreading', label: 'New reading', icon: 'plus' },
   { id: 'actions', label: 'Vibration Actions', icon: 'action' },
   { id: 'compliance', label: 'Compliance Tracker', icon: 'compliance' },
@@ -150,17 +150,16 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
       {
         label: 'Equipment',
         icon: 'ti-engine',
-        pages: ['registry', 'graphs', 'equipreg'],
+        pages: ['equipment', 'trends', 'equipreg', 'newreading'],
         views: [
-          { id: 'registry', label: 'Readings' },
-          { id: 'graphs', label: 'Trends' },
+          { id: 'equipment', label: 'Equipment' },
+          { id: 'trends', label: 'Trends' },
           { id: 'equipreg', label: 'Register' },
         ],
       },
       { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
     ],
     more: [
-      { id: 'newreading', label: 'New reading', icon: 'ti-plus' },
       { id: 'compliance', label: 'Compliance (old)', icon: 'ti-calendar-check' },
       { id: 'limits', label: 'Limits setting', icon: 'ti-adjustments' },
     ],

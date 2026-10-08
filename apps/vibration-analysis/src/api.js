@@ -328,3 +328,9 @@ export function saveVibEntries(webhookUrl, reportId, entries) {
 export function vibReportTransition(webhookUrl, fields) {
   return postVerified(webhookUrl, "vibReportTransition", fields);
 }
+export function getVibEquipmentSummary(webhookUrl) {
+  return getChecked(webhookUrl, "getVibEquipmentSummary");
+}
+export function saveVibReadings(webhookUrl, fields) {
+  return postVerified(webhookUrl, "saveVibReadings", fields);
+}

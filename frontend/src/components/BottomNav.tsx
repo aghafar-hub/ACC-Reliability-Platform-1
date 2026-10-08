@@ -43,7 +43,7 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   const activePage = mainModule ? embeddedNav.activePageFor(mainModule.id) : null;
   const onMain = !!mainModule && location.pathname.startsWith(mainModule.route);
   const homeActive = contractorStaff ? location.pathname === '/my-work' : onMain && (activePage === 'dashboard' || !activePage);
-  const equipmentPage = mainModule?.id === OIL ? 'equipment' : 'equipreg';
+  const equipmentPage = 'equipment';
   const equipmentActive = onMain && activePage === equipmentPage;
 
   const quick = useQuickActions();

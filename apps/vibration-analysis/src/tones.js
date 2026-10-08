@@ -18,3 +18,11 @@ export function reportTone(T, status) {
 export function workflowTone(T, wf) {
   return { Draft: T.warning, "ACC review": T.info, Returned: T.danger, Approved: T.success }[wf] || T.textSecondary;
 }
+
+// Categorical palette in fixed order (same as Oil's pointHistory.js
+// SERIES_LIGHT / SERIES_DARK): one colour per series, never cycled by rank.
+export const SERIES_LIGHT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+export const SERIES_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
+export function seriesColors(themeName) {
+  return /dark/i.test(String(themeName || "")) ? SERIES_DARK : SERIES_LIGHT;
+}

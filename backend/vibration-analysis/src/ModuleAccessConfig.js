@@ -3,7 +3,7 @@
 // VIBRATION_SUB_TABS, plus "settings" (this module's own Settings page).
 
 var MA_ALL_VIB_TABS = [
-  "dashboard", "log", "equipment", "routes", "registry", "graphs", "newreading", "actions",
+  "dashboard", "log", "equipment", "trends", "routes", "newreading", "actions",
   "compliance", "equipreg", "limits", "settings",
 ];
 
@@ -45,15 +45,16 @@ var MA_CONFIG = {
     readLastActionNo: ["actions"],
     getVibLog: ["log", "dashboard"],
     getVibReport: ["log", "dashboard", "equipment"],
-    getVibEquipmentHistory: ["equipment", "log", "dashboard", "graphs"],
+    getVibEquipmentHistory: ["equipment", "log", "dashboard", "trends"],
+    getVibEquipmentSummary: ["equipment", "dashboard", "newreading", "trends"],
   },
 
   sectionTabs: {
-    rms: ["graphs", "registry", "dashboard", "newreading"],
-    spm: ["graphs", "registry", "dashboard", "newreading"],
+    rms: ["trends", "equipment", "dashboard", "newreading"],
+    spm: ["trends", "equipment", "dashboard", "newreading"],
     compliance: ["compliance", "dashboard", "newreading"],
-    lastRms: ["dashboard", "registry", "newreading", "graphs", "compliance"],
-    lastSpm: ["dashboard", "registry", "newreading", "graphs", "compliance"],
+    lastRms: ["dashboard", "equipment", "newreading", "trends", "compliance"],
+    lastSpm: ["dashboard", "equipment", "newreading", "trends", "compliance"],
     actions: ["actions", "dashboard"],
   },
 
@@ -61,10 +62,10 @@ var MA_CONFIG = {
     append: maVibGenericSheetTabs_,
     updateRow: maVibGenericSheetTabs_,
     deleteRow: maVibGenericSheetTabs_,
-    upsertLastRMS: ["newreading", "registry"],
-    upsertLastSPM: ["newreading", "registry"],
-    deleteLastRMS: ["newreading", "registry"],
-    deleteLastSPM: ["newreading", "registry"],
+    upsertLastRMS: ["newreading", "equipment"],
+    upsertLastSPM: ["newreading", "equipment"],
+    deleteLastRMS: ["newreading", "equipment"],
+    deleteLastSPM: ["newreading", "equipment"],
     updateCompliance: ["compliance", "newreading"],
     markMissingCompliance: ["compliance"],
     updateRegisterLimits: ["limits", "equipreg"],
@@ -77,6 +78,7 @@ var MA_CONFIG = {
     saveVibReport: ["log"],
     saveVibEntries: ["log"],
     vibReportTransition: ["log"],
+    saveVibReadings: ["newreading", "equipment"],
     maSetStatus: "admin",
     maAddPeople: "admin",
     maRemovePerson: "admin",
@@ -91,7 +93,7 @@ var VIB_WRITE_ACTIONS = Object.keys(MA_CONFIG.writeRules);
 function maVibGenericSheetTabs_(data) {
   switch (data.sheet) {
     case SHEET_RMS:
-    case SHEET_SPM: return ["newreading", "registry"];
+    case SHEET_SPM: return ["newreading", "equipment"];
     case SHEET_RMS_REG:
     case SHEET_SPM_REG: return ["equipreg", "limits"];
     case SHEET_COMPLIANCE: return ["compliance"];

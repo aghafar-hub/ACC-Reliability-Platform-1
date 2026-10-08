@@ -1,53 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  appendRow,
-  deleteLastRMS,
-  deleteLastSPM,
-  deleteRow,
-  getRmsSpmHistory,
   getStartupBundle,
   readAll,
   setCurrentPage,
-  updateRow,
-  upsertLastRMS,
-  upsertLastSPM,
 } from "./api";
 import { configStore, DEFAULT_WEBHOOK_URL, loadThresholdOverrides, saveThresholdOverrides } from "./config";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
-import { classifyComplianceStatus, resolveThresholds, rmsStatus, spmStatus, vibPointKey } from "./domain";
+import { classifyComplianceStatus, vibPointKey } from "./domain";
 import { PAGE_TITLES } from "./navigation";
 import {
-  RMS_HEADERS,
-  rmsToRow,
   rowToAction,
   rowToCompliance,
   rowToLastRMS,
   rowToLastSPM,
   rowToRmsRegister,
-  rowToRMS,
   rowToSpmRegister,
-  rowToSPM,
   rowToVibPoint,
-  SPM_HEADERS,
-  spmToRow,
 } from "./parsers";
 import { useTheme } from "./ThemeContext";
 
 import Dashboard from "./pages/Dashboard";
-import NewReading from "./pages/NewReading";
 import EquipmentRegister from "./pages/EquipmentRegister";
-import EquipmentReadings from "./pages/EquipmentReadings";
-import GraphsDashboard from "./pages/GraphsDashboard";
 import ComplianceTracker from "./pages/ComplianceTracker";
 import ActionTracker from "./pages/ActionTracker";
 import LimitsSettings from "./pages/LimitsSettings";
 import Settings from "./pages/Settings";
 import VibrationLog from "./pages/VibrationLog";
+import VibEquipment from "./pages/VibEquipment";
+import VibTrends from "./pages/VibTrends";
 import { buildEquipment } from "./vibModel";
 
-const RMS_SHEET = "📥 RMS DATA"; // original `qi`
-const SPM_SHEET = "📥 SPM DATA"; // original `bi`
 
 // Top-level app shell: owns every page's data (loaded once via readAll() and
 // kept in memory — there's no per-page fetching), routing between the 9
@@ -69,17 +52,16 @@ export default function App({ navBridge } = {}) {
   useEffect(() => {
     setCurrentPage(page);
   }, [page]);
-  const [graphAsset, setGraphAsset] = useState("");
   // Vibration Log: the report open on the Log tab (null = the timeline).
   const [openReportId, setOpenReportId] = useState(null);
+  // Equipment: the machine open on the Equipment tab (null = the list).
+  const [selectedEq, setSelectedEq] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
   const [config, setConfig] = useState(() => configStore.load());
   const [logoUrl, setLogoUrl] = useState(() => configStore.loadLogo());
 
-  const [rms, setRms] = useState([]);
-  const [spm, setSpm] = useState([]);
   const [compliance, setCompliance] = useState([]);
   const [rmsRegister, setRmsRegister] = useState([]);
   const [spmRegister, setSpmRegister] = useState([]);
@@ -89,20 +71,6 @@ export default function App({ navBridge } = {}) {
   const [vibPoints, setVibPoints] = useState([]);
   const [thresholdsMap, setThresholdsMap] = useState({});
   const [syncState, setSyncState] = useState({ status: "idle", message: "Not synced yet" });
-
-  // PERFORMANCE: `rms`/`spm` (RMS/SPM DATA — 6,500+/5,700+ rows) are loaded
-  // lazily, not as part of the app's first-load fetch — see getStartupBundle's
-  // own comment in the backend and loadRmsSpmHistory below. `startupLoaded`
-  // gates the lazy fetch so it never races the startup fetch itself against
-  // the same Apps Script Web App deployment (which doesn't reliably serve
-  // simultaneous GETs — see oil-lubrication's own App.jsx for the same
-  // constraint). `rmsSpmLoadedRef`/`loadingHistoryRef` make the lazy loader
-  // idempotent: loaded once (by either path) and never refetched just from
-  // re-visiting the same page, and never double-fired if already in flight.
-  const [startupLoaded, setStartupLoaded] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const rmsSpmLoadedRef = useRef(false);
-  const loadingHistoryRef = useRef(false);
 
   // Mirrors of webhookUrl/config kept in refs so async callbacks (sync,
   // per-reading upsert calls) always read the latest value without having
@@ -138,7 +106,9 @@ export default function App({ navBridge } = {}) {
     // Clicking the Vibration Log tab again goes back to the timeline.
     navBridge.navigate = (p) => {
       if (p === "log") setOpenReportId(null);
-      setPage(p);
+      if (p === "equipment") setSelectedEq(null);
+      // old page ids from bookmarks / links
+      setPage({ registry: "equipment", graphs: "trends" }[p] || p);
     };
     navBridge.onNavigate?.(page);
   });
@@ -163,8 +133,6 @@ export default function App({ navBridge } = {}) {
     try {
       const data = await readAll(url);
       if (data.error) throw new Error(data.error);
-      setRms((data.rms || []).map(rowToRMS));
-      setSpm((data.spm || []).map(rowToSPM));
       setCompliance((data.compliance || []).map(rowToCompliance));
       setRmsRegister((data.rmsRegister || []).map(rowToRmsRegister));
       setSpmRegister((data.spmRegister || []).map(rowToSpmRegister));
@@ -193,8 +161,6 @@ export default function App({ navBridge } = {}) {
       // readAll() already included rms/spm above, so the lazy history loader
       // below has nothing left to fetch — mark it done so it doesn't fire a
       // redundant getRmsSpmHistory() call the next time a history page opens.
-      rmsSpmLoadedRef.current = true;
-      setStartupLoaded(true);
     } catch (err) {
       setSyncState({
         status: "error",
@@ -228,8 +194,6 @@ export default function App({ navBridge } = {}) {
       if (data.error && /unknown action/i.test(data.error)) {
         const full = await readAll(url);
         if (full.error) throw new Error(full.error);
-        setRms((full.rms || []).map(rowToRMS));
-        setSpm((full.spm || []).map(rowToSPM));
         setCompliance((full.compliance || []).map(rowToCompliance));
         setRmsRegister((full.rmsRegister || []).map(rowToRmsRegister));
         setSpmRegister((full.spmRegister || []).map(rowToSpmRegister));
@@ -247,7 +211,6 @@ export default function App({ navBridge } = {}) {
           if (full.config.contractors) merged.contractors = full.config.contractors;
           setConfig(merged);
         }
-        rmsSpmLoadedRef.current = true;
         const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         setSyncState({
           status: "ok",
@@ -301,49 +264,8 @@ export default function App({ navBridge } = {}) {
           ? "Sync timed out — check your webhook URL in Settings"
           : String(err.message || err).slice(0, 80),
       });
-    } finally {
-      setStartupLoaded(true);
     }
   }, []);
-
-  // Fetches rms/spm (the reading history getStartupBundle() leaves out) the
-  // first time a page that actually needs it — Graphs Dashboard or
-  // Equipment Readings — is opened. Guarded so it only ever runs once
-  // (rmsSpmLoadedRef) and never twice concurrently (loadingHistoryRef).
-  const loadRmsSpmHistory = useCallback(async () => {
-    if (rmsSpmLoadedRef.current || loadingHistoryRef.current) return;
-    const url = configRef.current?.webhookUrl || webhookRef.current;
-    if (!url) return;
-    loadingHistoryRef.current = true;
-    setHistoryLoading(true);
-    try {
-      const data = await getRmsSpmHistory(url);
-      if (data.error) throw new Error(data.error);
-      setRms((data.rms || []).map(rowToRMS));
-      setSpm((data.spm || []).map(rowToSPM));
-      rmsSpmLoadedRef.current = true;
-    } catch {
-      // Leave rmsSpmLoadedRef false so the next visit to a history page
-      // retries — same best-effort handling as the rest of this app's reads.
-    } finally {
-      loadingHistoryRef.current = false;
-      setHistoryLoading(false);
-    }
-  }, []);
-
-  // PERFORMANCE: fetch rms/spm lazily, only the first time the user actually
-  // opens a page that needs reading history — never on first mount. Waits
-  // for startupLoaded so this never races loadStartupBundle() against the
-  // same Apps Script Web App deployment (see this file's rmsSpmLoadedRef
-  // comment above for why that matters). Has to sit after loadRmsSpmHistory's
-  // own declaration above — referencing it any earlier is a temporal-dead-
-  // zone ReferenceError at runtime (same constraint noted below for syncNow).
-  useEffect(() => {
-    if (!startupLoaded) return;
-    if (page !== "graphs" && page !== "registry") return;
-    if (rmsSpmLoadedRef.current || loadingHistoryRef.current) return;
-    loadRmsSpmHistory();
-  }, [page, startupLoaded, loadRmsSpmHistory]);
 
   // Mirrors apps/oil-analysis's own Patch 35 wiring — lets the shell's own
   // TopBar show this module's Sync button instead of this module
@@ -398,139 +320,6 @@ export default function App({ navBridge } = {}) {
     [actions, compliance]
   );
 
-  const nextSeq = (list) => {
-    let max = 0;
-    list.forEach((r) => {
-      const n = parseInt(r.seq, 10);
-      if (!isNaN(n) && n > max) max = n;
-    });
-    return max + 1;
-  };
-
-  // Called right after a new/updated RMS reading is saved — recomputes its
-  // status and pushes an upsertLastRMS write so the Dashboard's "current
-  // status" reflects it without a full re-sync. Ported from the original's
-  // `vn`.
-  const applyLastRms = useCallback(
-    (reading) => {
-      const thresholds = resolveThresholds(thresholdsMap, reading.equipmentId, rmsRegMap, spmRegMap);
-      const status = rmsStatus(reading.maxVel, thresholds);
-      setLastRms((prev) => [
-        ...prev.filter((r) => !(r.equipmentId === reading.equipmentId && r.point === reading.point)),
-        { ...reading, _id: `LRMS|${reading.equipmentId}|${reading.point}`, readingStatus: status, machineStatus: "" },
-      ]);
-      const url = configRef.current?.webhookUrl || webhookRef.current;
-      const reg = registryMap[reading.equipmentId] || {};
-      upsertLastRMS(url, {
-        equipmentId: reading.equipmentId,
-        equipmentName: reading.equipmentName || reg.equipment || "",
-        line: reg.line || "",
-        point: reading.point,
-        date: reading.date,
-        axial: reading.axial ?? "",
-        horizontal: reading.horizontal ?? "",
-        vertical: reading.vertical ?? "",
-        maxVelocity: reading.maxVel ?? "",
-        readingStatus: status,
-      });
-    },
-    [thresholdsMap, rmsRegMap, spmRegMap, registryMap]
-  );
-
-  const applyLastSpm = useCallback(
-    (reading) => {
-      const thresholds = resolveThresholds(thresholdsMap, reading.equipmentId, rmsRegMap, spmRegMap);
-      const status = spmStatus(reading.hdm, thresholds);
-      const spmType = (spmRegMap[reading.equipmentId] || {}).spmType || "";
-      setLastSpm((prev) => [
-        ...prev.filter((r) => !(r.equipmentId === reading.equipmentId && r.point === reading.point)),
-        { ...reading, _id: `LSPM|${reading.equipmentId}|${reading.point}`, spmType, readingStatus: status, machineStatus: "" },
-      ]);
-      const url = configRef.current?.webhookUrl || webhookRef.current;
-      const reg = registryMap[reading.equipmentId] || {};
-      upsertLastSPM(url, {
-        equipmentId: reading.equipmentId,
-        equipmentName: reading.equipmentName || reg.equipment || "",
-        line: reg.line || "",
-        point: reading.point,
-        spmType,
-        date: reading.date,
-        hdm: reading.hdm ?? "",
-        hdc: reading.hdc ?? "",
-        gs: reading.gs ?? "",
-        readingStatus: status,
-      });
-    },
-    [thresholdsMap, rmsRegMap, spmRegMap, registryMap]
-  );
-
-  // Full CRUD for RMS DATA / SPM DATA rows, each keeping the Last Reading
-  // sheets and the Dashboard's in-memory status in sync as a side effect.
-  // Ported from the original's `Vr`.
-  const mutations = useMemo(
-    () => ({
-      addRMS: (reading) => {
-        const seq = nextSeq(rms);
-        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "RMS")] || "";
-        const record = { ...reading, seq, vibId, _id: `RMS|${reading.equipmentId}|${reading.point}|${reading.date}` };
-        setRms((prev) => [...prev, record]);
-        const url = configRef.current?.webhookUrl || webhookRef.current;
-        appendRow(url, RMS_SHEET, rmsToRow(record), RMS_HEADERS);
-        applyLastRms(record);
-      },
-      updateRMS: (reading) => {
-        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "RMS")] || reading.vibId || "";
-        const record = { ...reading, vibId, _id: `RMS|${reading.equipmentId}|${reading.point}|${reading.date}` };
-        setRms((prev) => prev.map((r) => (r._id === reading._id ? record : r)));
-        const url = configRef.current?.webhookUrl || webhookRef.current;
-        updateRow(url, RMS_SHEET, reading._matchCols, reading._matchValues, rmsToRow(record));
-        applyLastRms(record);
-      },
-      deleteRMS: (reading) => {
-        setRms((prev) => prev.filter((r) => r._id !== reading._id));
-        const url = configRef.current?.webhookUrl || webhookRef.current;
-        deleteRow(url, RMS_SHEET, reading._matchCols, reading._matchValues);
-        const remaining = rms.filter((r) => r._id !== reading._id && r.equipmentId === reading.equipmentId && r.point === reading.point);
-        if (remaining.length === 0) {
-          setLastRms((prev) => prev.filter((r) => !(r.equipmentId === reading.equipmentId && r.point === reading.point)));
-          deleteLastRMS(url, reading.equipmentId, reading.point);
-        } else {
-          applyLastRms(remaining.sort((a, b) => (b.date > a.date ? 1 : -1))[0]);
-        }
-      },
-      addSPM: (reading) => {
-        const seq = nextSeq(spm);
-        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "SPM")] || "";
-        const record = { ...reading, seq, vibId, type: "SPM", _id: `SPM|${reading.equipmentId}|${reading.point}|${reading.date}` };
-        setSpm((prev) => [...prev, record]);
-        const url = configRef.current?.webhookUrl || webhookRef.current;
-        appendRow(url, SPM_SHEET, spmToRow(record), SPM_HEADERS);
-        applyLastSpm(record);
-      },
-      updateSPM: (reading) => {
-        const vibId = vibIdMap[vibPointKey(reading.equipmentId, reading.point, "SPM")] || reading.vibId || "";
-        const record = { ...reading, vibId, _id: `SPM|${reading.equipmentId}|${reading.point}|${reading.date}` };
-        setSpm((prev) => prev.map((r) => (r._id === reading._id ? record : r)));
-        const url = configRef.current?.webhookUrl || webhookRef.current;
-        updateRow(url, SPM_SHEET, reading._matchCols, reading._matchValues, spmToRow(record));
-        applyLastSpm(record);
-      },
-      deleteSPM: (reading) => {
-        setSpm((prev) => prev.filter((r) => r._id !== reading._id));
-        const url = configRef.current?.webhookUrl || webhookRef.current;
-        deleteRow(url, SPM_SHEET, reading._matchCols, reading._matchValues);
-        const remaining = spm.filter((r) => r._id !== reading._id && r.equipmentId === reading.equipmentId && r.point === reading.point);
-        if (remaining.length === 0) {
-          setLastSpm((prev) => prev.filter((r) => !(r.equipmentId === reading.equipmentId && r.point === reading.point)));
-          deleteLastSPM(url, reading.equipmentId, reading.point);
-        } else {
-          applyLastSpm(remaining.sort((a, b) => (b.date > a.date ? 1 : -1))[0]);
-        }
-      },
-    }),
-    [rms, spm, applyLastRms, applyLastSpm, vibIdMap]
-  );
-
   let content;
   if (page === "log") {
     content = <VibrationLog webhookUrl={webhookUrl} openReportId={openReportId} setOpenReportId={setOpenReportId} scopeEquipment={scopeEquipment} />;
@@ -543,25 +332,32 @@ export default function App({ navBridge } = {}) {
         rmsRegMap={rmsRegMap}
         spmRegMap={spmRegMap}
         thresholdsMap={thresholdsMap}
-        setPage={setPage}
-        setGraphAsset={setGraphAsset}
+        setPage={(p) => setPage({ graphs: "equipment", registry: "equipment" }[p] || p)}
+        setGraphAsset={(id) => setSelectedEq(id || null)}
         syncState={syncState}
       />
     );
-  } else if (page === "newreading") {
+  } else if (page === "equipment" || page === "newreading") {
     content = (
-      <NewReading
-        registryList={registryList}
-        rmsRegMap={rmsRegMap}
-        spmRegMap={spmRegMap}
-        thresholdsMap={thresholdsMap}
-        mutations={mutations}
+      <VibEquipment
+        key={page}
         webhookUrl={webhookUrl}
-        compliance={compliance}
-        setCompliance={setCompliance}
-        vibIdMap={vibIdMap}
+        scopeEquipment={scopeEquipment}
+        selectedEq={page === "equipment" ? selectedEq : null}
+        setSelectedEq={(id) => {
+          setSelectedEq(id);
+          if (page !== "equipment") setPage("equipment");
+        }}
+        startAdding={page === "newreading"}
+        onAddClosed={() => page === "newreading" && setPage("equipment")}
+        onOpenReport={(id) => {
+          setOpenReportId(id);
+          setPage("log");
+        }}
       />
     );
+  } else if (page === "trends") {
+    content = <VibTrends webhookUrl={webhookUrl} scopeEquipment={scopeEquipment} />;
   } else if (page === "equipreg") {
     content = (
       <EquipmentRegister
@@ -572,33 +368,6 @@ export default function App({ navBridge } = {}) {
         setRmsRegister={setRmsRegister}
         setSpmRegister={setSpmRegister}
         vibIdMap={vibIdMap}
-      />
-    );
-  } else if (page === "registry") {
-    content = (
-      <EquipmentReadings
-        registryList={registryList}
-        rms={rms}
-        spm={spm}
-        rmsRegMap={rmsRegMap}
-        spmRegMap={spmRegMap}
-        thresholdsMap={thresholdsMap}
-        mutations={mutations}
-        historyLoading={historyLoading}
-      />
-    );
-  } else if (page === "graphs") {
-    content = (
-      <GraphsDashboard
-        registryList={registryList}
-        rms={rms}
-        spm={spm}
-        graphAsset={graphAsset}
-        setGraphAsset={setGraphAsset}
-        thresholdsMap={thresholdsMap}
-        rmsRegMap={rmsRegMap}
-        spmRegMap={spmRegMap}
-        historyLoading={historyLoading}
       />
     );
   } else if (page === "compliance") {

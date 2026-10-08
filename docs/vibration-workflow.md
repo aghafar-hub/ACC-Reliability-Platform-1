@@ -69,6 +69,24 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 **Audit**
 - Every change is written to the `Vibration Audit` tab and shown in the report's History tab.
 
+## New Reading, Equipment, Trends (step 2)
+
+- **New Reading**: one machine, one measurement date, the numbers of each of its VIB IDs (only the fields that
+  VIB ID takes). The reading goes into that month's report for the machine's contractor scope; when there is
+  none a Draft is started (it then shows as *Awaiting report* until the contractor's report arrives). A VIB ID
+  already read on that date needs **Replace**. Not allowed into an Approved / historic / skipped month (ACC
+  reopens it first) or, for a contractor, a report that is with ACC. Opened from the Equipment list, the machine
+  page or the phone's ＋ — always over the Equipment list.
+- **Equipment list**: each machine's status = worst final status of its latest month with readings, compared with
+  the month before (▲ worse / ▼ better), worst point, last measured; tiles for *got worse* and *not measured in
+  90 days*; donut by status and bars by scope (both filter the list).
+- **Machine page**: one card per point (latest RMS max, SPM HDm, G's with status), trend per point with the limit
+  bands, report timeline (one line, ● ▲ ◆ ■ per month — opens that report), all readings, its reports.
+- **Trends**: up to 6 machines on one chart (highest point value per date); limit bands only when all picked
+  machines share the same limits.
+- The old pages *Equipment Reading*, *Graphs* and the old *New reading* were replaced (they read the old RMS /
+  SPM DATA tabs, which the Vibration Log now holds).
+
 ## Sheets
 
 | Tab | Holds |
