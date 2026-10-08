@@ -137,3 +137,16 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - [ ] Works in all 5 themes and at 390 px wide; no console errors.
 - [ ] Page reachable from the module tabs (and global search if it has records).
 - [ ] Playwright check added to the test-copy suite.
+
+## One rule per element (both modules)
+
+| Element | Rule |
+|---|---|
+| Page title | `<p>` in `s.sectionTitle` (22px Space Grotesk), left, 12.5px subtitle under it. Dashboards 26px / 14px. Never an `<h1>` (the shell underlines those). |
+| Sub-pages of a page | Underlined tabs (Oil Inventory's TabBar): 13.5px, 600 / 700 when on, 3px accent underline, count badge. |
+| Filters and view switches | Round chips: radius 999, 12.5px, padding 6px 14px; on = accent fill, white text, 700. Contractor = `ContractorChips`. |
+| Buttons | `s.btn` (neutral) / `s.btnPrimary` (accent): radius 6, 13px. |
+| Inputs, selects | radius 6. |
+| Cards | `s.card`: radius 10, padding 20. |
+| Tables | Full-page lists: 15px (inherit). Compact tables inside dashboard cards and dense lab grids: 12.5–13.5px. |
+| Smallest text | 12px. |

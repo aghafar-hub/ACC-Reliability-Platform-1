@@ -168,6 +168,11 @@ export default function OilReportSearch({
 
   return (
     <div>
+      {/* page title: same as every page (sectionTitle + 12.5px subtitle) */}
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Analysis Report</p>
+        <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 0" }}>Lab results per lubrication point · search an LP-ID or pick one from the list</p>
+      </div>
       <LabReviewPanel samples={samples} equipmentRegistry={equipmentRegistry} />
       <div style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 20px", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
@@ -571,7 +576,7 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
       }}
       aria-pressed={filter === key}
       data-testid={`points-filter-${key}`}
-      style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderColor: filter === key ? T[color] || T.accent : T.border, color: filter === key ? T[color] || T.accent : T.textSecondary, fontWeight: filter === key ? 700 : 500 }}
+      style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderRadius: 999, borderColor: filter === key ? T[color] || T.accent : T.border, color: filter === key ? T[color] || T.accent : T.textSecondary, fontWeight: filter === key ? 700 : 500 }}
     >
       {label} <strong style={{ color: T[color] || T.textPrimary }}>{n}</strong>
     </button>

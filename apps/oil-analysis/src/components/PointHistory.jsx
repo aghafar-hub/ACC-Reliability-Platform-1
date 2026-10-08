@@ -63,7 +63,7 @@ function Seg({ T, s, active, onClick, children, testid }) {
       onClick={onClick}
       aria-pressed={active}
       data-testid={testid}
-      style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderColor: active ? T.accent : T.border, color: active ? T.accent : T.textSecondary, fontWeight: active ? 700 : 500 }}
+      style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderRadius: 999, borderColor: active ? T.accent : T.border, color: active ? T.accent : T.textSecondary, fontWeight: active ? 700 : 500 }}
     >
       {children}
     </button>

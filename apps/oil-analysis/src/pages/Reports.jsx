@@ -237,7 +237,7 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
                 type="button"
                 aria-pressed={on}
                 onClick={() => setContractor(c)}
-                style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderColor: on ? T.accent : T.border, background: on ? T.accent : T.cardBg, color: on ? "#fff" : T.textSecondary, fontWeight: on ? 700 : 500 }}
+                style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderRadius: 999, borderColor: on ? T.accent : T.border, background: on ? T.accent : T.cardBg, color: on ? "#fff" : T.textSecondary, fontWeight: on ? 700 : 500 }}
               >
                 {c === ALL ? "All contractors" : c}
               </button>

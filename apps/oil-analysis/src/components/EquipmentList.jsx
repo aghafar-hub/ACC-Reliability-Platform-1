@@ -142,7 +142,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
         type="button"
         onClick={() => { setHealthFilter(active ? "all" : key); setLimit(PAGE); }}
         aria-pressed={active}
-        style={{ ...s.btn, borderColor: active ? color : T.border, color: active ? color : T.textSecondary, fontWeight: active ? 700 : 500 }}
+        style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderRadius: 999, borderColor: active ? color : T.border, color: active ? color : T.textSecondary, fontWeight: active ? 700 : 500 }}
       >
         {label} <strong style={{ marginLeft: 4, color }}>{n}</strong>
       </button>
@@ -229,14 +229,14 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
         {chip("Good", "Good", counts.Good, "success")}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}>
-        <div style={{ display: "inline-flex", border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div role="group" aria-label="View" style={{ display: "inline-flex", gap: 6 }}>
           {[["equipment", "Equipment"], ["points", "Lubrication points"]].map(([k, label]) => (
             <button
               key={k}
               type="button"
               aria-pressed={view === k}
               onClick={() => { setView(k); setLimit(PAGE); }}
-              style={{ ...s.btn, border: "none", borderRadius: 0, background: view === k ? T.accent : "transparent", color: view === k ? T.accentText : T.textSecondary }}
+              style={{ ...s.btn, padding: "6px 14px", fontSize: 12.5, borderRadius: 999, background: view === k ? T.accent : T.cardBg, borderColor: view === k ? T.accent : T.border, color: view === k ? T.accentText : T.textSecondary, fontWeight: view === k ? 700 : 500 }}
             >
               {label}
             </button>

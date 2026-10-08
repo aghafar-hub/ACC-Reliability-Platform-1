@@ -97,16 +97,9 @@ export default function EquipmentRegister({
     return list;
   }, [rows, line, eqType, equipmentId, search]);
 
-  const thStyle = {
-    padding: "8px 10px",
-    color: T.textSecondary,
-    fontWeight: 700,
-    fontSize: 12,
-    borderBottom: `1px solid ${T.border}`,
-    background: T.tableHead,
-    textAlign: "left",
-  };
-  const tdStyle = { padding: "7px 10px", borderBottom: `1px solid ${T.border2}`, fontSize: 12.5 };
+  // same as every list table (theme th / td, 15px like Oil's lists)
+  const thStyle = { ...s.th };
+  const tdStyle = { ...s.td };
   const hasVibData = Object.keys(vibIdMap || {}).length > 0;
 
   const save = (form) => {
@@ -232,7 +225,7 @@ export default function EquipmentRegister({
       </div>
 
       <div style={{ ...s.card, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <table style={s.table}>
           <thead>
             <tr>
               <th style={thStyle}>Equipment ID</th>

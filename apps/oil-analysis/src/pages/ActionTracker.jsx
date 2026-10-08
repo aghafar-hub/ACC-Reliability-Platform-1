@@ -364,6 +364,13 @@ export default function ActionTracker({
 
   return (
     <div>
+      {/* page title: same as every page (sectionTitle + 12.5px subtitle) */}
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Actions</p>
+        <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 0" }} data-testid="actions-subtitle">
+          {openCount} open · {statusCounts[ACTION_STATUS.CLOSURE_REQUESTED] || 0} waiting for closure · {visible.length} in this view
+        </p>
+      </div>
       <div
         style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.15fr) minmax(0, 1.25fr) 170px", gap: 14 }}
         data-testid="action-top"

@@ -665,25 +665,21 @@ export default function Equipment({
       {/* ── search ─────────────────────────────────────────────────────── */}
       <div
         style={{
-          textAlign: selection ? "left" : "center",
-          padding: selection ? "0 0 20px" : "8px 0 18px",
+          textAlign: "left",
+          padding: "0 0 20px",
           transition: "padding 0.15s",
         }}
       >
         {!selection && (
           <>
-            <div
-              style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: T.textMuted, marginBottom: 8 }}
-            >
-              Equipment Lookup
-            </div>
-            <p style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px", color: T.textPrimary }}>Oil Equipment</p>
-            <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 auto 14px", maxWidth: 520 }}>
+            {/* page title: same as every page (sectionTitle + 12.5px subtitle, left) */}
+            <p style={{ ...s.sectionTitle, margin: 0 }}>Oil Equipment</p>
+            <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 12px" }}>
               Every machine and lubrication point, worst first. Search for one, or filter the list below.
             </p>
           </>
         )}
-        <div style={{ position: "relative", width: "100%", maxWidth: selection ? 420 : 520, margin: selection ? 0 : "0 auto" }}>
+        <div style={{ position: "relative", width: "100%", maxWidth: selection ? 420 : 520, margin: 0 }}>
           <div style={{ position: "relative" }}>
             <i
               className="ti ti-search"
@@ -1134,16 +1130,13 @@ export default function Equipment({
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", borderBottom: `1px solid ${T.border}`, paddingBottom: 14 }}>
+          <div role="group" aria-label="Point pages" style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}`, overflowX: "auto" }}>
             {LP_TABS.map((t) => (
               <button
                 key={t.key}
-                style={{
-                  ...s.btn,
-                  background: lpTab === t.key ? T.accent : "transparent",
-                  color: lpTab === t.key ? T.accentText : T.textSecondary,
-                  borderColor: lpTab === t.key ? T.accent : T.border,
-                }}
+                type="button"
+                aria-pressed={lpTab === t.key}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", border: 0, borderBottom: `3px solid ${lpTab === t.key ? T.accent : "transparent"}`, marginBottom: -1, background: "none", color: lpTab === t.key ? T.accent : T.textSecondary, fontWeight: lpTab === t.key ? 700 : 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}
                 onClick={() => setLpTab(t.key)}
               >
                 <i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label}

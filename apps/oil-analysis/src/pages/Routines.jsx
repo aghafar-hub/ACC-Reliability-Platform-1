@@ -667,7 +667,7 @@ export default function Routines({
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSgType(t)}
-                    style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderColor: on ? T.accent : T.border, color: on ? T.accent : T.textSecondary, fontWeight: on ? 700 : 500 }}
+                    style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderRadius: 999, borderColor: on ? T.accent : T.border, color: on ? T.accent : T.textSecondary, fontWeight: on ? 700 : 500 }}
                   >
                     {t !== "All" && <i className={`ti ${TYPE_ICON[t] || "ti-route"}`} aria-hidden="true" />} {t === "All" ? "All" : t} <span style={{ fontWeight: 500 }}>{n}</span>
                   </button>
@@ -813,12 +813,17 @@ export default function Routines({
           {STATUS_FILTERS.map((st) => (
             <button
               key={st}
+              type="button"
+              aria-pressed={instanceStatusFilter === st}
               style={{
                 ...s.btn,
-                fontSize: 12,
-                background: instanceStatusFilter === st ? T.accent : "transparent",
+                padding: "6px 14px",
+                fontSize: 12.5,
+                borderRadius: 999,
+                background: instanceStatusFilter === st ? T.accent : T.cardBg,
                 color: instanceStatusFilter === st ? T.accentText : T.textSecondary,
                 borderColor: instanceStatusFilter === st ? T.accent : T.border,
+                fontWeight: instanceStatusFilter === st ? 700 : 500,
               }}
               onClick={() => setInstanceStatusFilter(st)}
             >
@@ -955,30 +960,21 @@ export default function Routines({
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {ROUTE_TYPE_TABS.map((t) => (
+      {/* route types + Suggestions: underlined sub-tabs, the same as Oil Inventory's */}
+      <div role="group" aria-label="Route type" style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}`, overflowX: "auto" }}>
+        {[...ROUTE_TYPE_TABS.map((t) => ({ ...t, n: routeTypeCounts[t.key] ?? 0, on: routeTypeTab === t.key, go: () => setRouteTypeTab(t.key) })),
+          { key: "suggestions", label: "Suggestions", icon: "ti-bulb", n: (suggestions || []).length, on: false, go: () => { refreshSuggestions(); setView("suggestions"); } }].map((t) => (
           <button
             key={t.key}
-            style={{
-              ...s.btn,
-              background: routeTypeTab === t.key ? T.accent : "transparent",
-              color: routeTypeTab === t.key ? T.accentText : T.textSecondary,
-              borderColor: routeTypeTab === t.key ? T.accent : T.border,
-            }}
-            onClick={() => setRouteTypeTab(t.key)}
+            type="button"
+            aria-pressed={t.on}
+            onClick={t.go}
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", border: 0, borderBottom: `3px solid ${t.on ? T.accent : "transparent"}`, marginBottom: -1, background: "none", color: t.on ? T.accent : T.textSecondary, fontWeight: t.on ? 700 : 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}
           >
-            <i className={`ti ${t.icon}`} aria-hidden="true" /> {t.label} ({routeTypeCounts[t.key] ?? 0})
+            <i className={`ti ${t.icon}`} aria-hidden="true" style={{ fontSize: 16 }} /> {t.label}
+            <span style={{ fontSize: 12, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: T.cardSubBg, color: T.textSecondary }}>{t.n}</span>
           </button>
         ))}
-        <button
-          style={{ ...s.btn, color: T.info || T.accent, borderColor: T.info || T.accent }}
-          onClick={() => {
-            refreshSuggestions();
-            setView("suggestions");
-          }}
-        >
-          <i className="ti ti-bulb" aria-hidden="true" /> Suggestions ({(suggestions || []).length})
-        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
@@ -1037,12 +1033,17 @@ export default function Routines({
           {DUE_STATUS_FILTERS.map((st) => (
             <button
               key={st}
+              type="button"
+              aria-pressed={dueStatusFilter === st}
               style={{
                 ...s.btn,
-                fontSize: 12,
-                background: dueStatusFilter === st ? T.accent : "transparent",
+                padding: "6px 14px",
+                fontSize: 12.5,
+                borderRadius: 999,
+                background: dueStatusFilter === st ? T.accent : T.cardBg,
                 color: dueStatusFilter === st ? T.accentText : T.textSecondary,
                 borderColor: dueStatusFilter === st ? T.accent : T.border,
+                fontWeight: dueStatusFilter === st ? 700 : 500,
               }}
               onClick={() => setDueStatusFilter(st)}
             >

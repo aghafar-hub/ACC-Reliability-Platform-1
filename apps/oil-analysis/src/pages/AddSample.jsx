@@ -165,25 +165,19 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+      <div role="group" aria-label="Add report" style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}`, overflowX: "auto" }}>
         <button
-          style={{
-            ...s.btn,
-            fontSize: 12,
-            background: mode === "manual" ? T.accent : "transparent",
-            color: mode === "manual" ? T.accentText : T.textSecondary,
-          }}
+          type="button"
+          aria-pressed={mode === "manual"}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", border: 0, borderBottom: `3px solid ${mode === "manual" ? T.accent : "transparent"}`, marginBottom: -1, background: "none", color: mode === "manual" ? T.accent : T.textSecondary, fontWeight: mode === "manual" ? 700 : 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}
           onClick={() => setMode("manual")}
         >
           <i className="ti ti-edit" aria-hidden="true" /> Manual Entry
         </button>
         <button
-          style={{
-            ...s.btn,
-            fontSize: 12,
-            background: mode === "bulk" ? T.accent : "transparent",
-            color: mode === "bulk" ? T.accentText : T.textSecondary,
-          }}
+          type="button"
+          aria-pressed={mode === "bulk"}
+          style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", border: 0, borderBottom: `3px solid ${mode === "bulk" ? T.accent : "transparent"}`, marginBottom: -1, background: "none", color: mode === "bulk" ? T.accent : T.textSecondary, fontWeight: mode === "bulk" ? 700 : 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}
           onClick={() => setMode("bulk")}
         >
           <i className="ti ti-file-upload" aria-hidden="true" /> Import Lab Reports (PDF)
@@ -191,13 +185,9 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
         {reviewCount !== null && (
           <button
             data-testid="tab-review"
-            style={{
-              ...s.btn,
-              fontSize: 12,
-              background: mode === "review" ? T.accent : "transparent",
-              color: mode === "review" ? T.accentText : T.textSecondary,
-              borderColor: mode === "review" ? T.accent : T.warning,
-            }}
+            type="button"
+            aria-pressed={mode === "review"}
+            style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 14px", border: 0, borderBottom: `3px solid ${mode === "review" ? T.accent : "transparent"}`, marginBottom: -1, background: "none", color: mode === "review" ? T.accent : T.textSecondary, fontWeight: mode === "review" ? 700 : 600, fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap" }}
             onClick={() => setMode("review")}
           >
             <i className="ti ti-list-check" aria-hidden="true" /> Review ({reviewCount})

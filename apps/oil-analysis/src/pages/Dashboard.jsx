@@ -187,18 +187,19 @@ function styleSheet(T) {
 .odb h3 { font-size: 16px; font-weight: 700; margin: 0; }
 .odb-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
 .odb-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.odb-seg { display: inline-flex; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; padding: 3px; }
-.odb-seg button { border: 0; background: none; color: var(--c-text); font: 600 13.5px inherit; font-family: inherit; padding: 7px 13px; border-radius: 7px; cursor: pointer; }
-.odb-seg button.on { background: var(--c-text); color: var(--c-card); }
-.odb-select { height: 38px; border: 1px solid var(--c-border); border-radius: 10px; background: var(--c-card); color: var(--c-text); padding: 0 10px; font: 500 13.5px inherit; font-family: inherit; }
-.odb-btn { border: 1px solid var(--c-border); background: var(--c-card); color: var(--c-accent); font: 600 13.5px inherit; font-family: inherit; padding: 8px 14px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
+/* filters = round chips, the same as ContractorChips on every other page */
+.odb-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.odb-seg button { border: 1px solid var(--c-border); background: var(--c-card); color: var(--c-sub); font: 500 12.5px inherit; font-family: inherit; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.odb-seg button.on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-accent-text); font-weight: 700; }
+.odb-select { height: 33px; border: 1px solid var(--c-border); border-radius: 6px; background: var(--c-card); color: var(--c-text); padding: 0 10px; font: 400 13px inherit; font-family: inherit; }
+.odb-btn { border: 1px solid var(--c-border); background: var(--c-card); color: var(--c-accent); font: 600 13px inherit; font-family: inherit; padding: 8px 14px; border-radius: 6px; cursor: pointer; white-space: nowrap; }
 .odb-btn--primary { background: var(--c-accent); color: var(--c-accent-text); border-color: var(--c-accent); }
 .odb-link { border: 0; background: none; color: var(--c-accent); font: 600 13.5px inherit; font-family: inherit; cursor: pointer; padding: 0; }
 .odb-muted { color: var(--c-sub); font-size: 13px; }
 .odb-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 12.5px; }
 .odb-section { display: flex; align-items: baseline; gap: 12px; margin: 22px 0 10px; flex-wrap: wrap; }
 .odb-section h3 { font-size: 17px; }
-.odb-card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 14px; padding: 16px 18px; min-width: 0; }
+.odb-card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; padding: 16px 18px; min-width: 0; }
 .odb-grid4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
 .odb-att { border-top: 4px solid; display: flex; flex-direction: column; }
 .odb-tag { align-self: flex-start; display: inline-flex; gap: 5px; align-items: center; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
@@ -245,7 +246,7 @@ function styleSheet(T) {
 .odb-table tbody tr:hover td { background: color-mix(in srgb, var(--c-accent) 6%, transparent); }
 .odb-table small { display: block; color: var(--c-sub); font-size: 12.5px; }
 .odb-pill { display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.odb-att-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--c-card); border: 1px solid var(--c-border); border-left: 4px solid; border-radius: 12px; padding: 12px 14px; color: var(--c-text); font-family: inherit; cursor: pointer; }
+.odb-att-row { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--c-card); border: 1px solid var(--c-border); border-left: 4px solid; border-radius: 10px; padding: 12px 14px; color: var(--c-text); font-family: inherit; cursor: pointer; }
 .odb-att-row > b { font-family: 'Space Grotesk',sans-serif; font-size: 28px; min-width: 34px; text-align: center; }
 .odb-att-row span { flex: 1; min-width: 0; }
 .odb-att-row strong { display: block; font-size: 15px; }

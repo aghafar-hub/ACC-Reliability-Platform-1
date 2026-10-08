@@ -180,7 +180,7 @@ export default function Activity({ webhookUrl }) {
                 aria-pressed={on}
                 data-testid={`activity-kind-${k}`}
                 onClick={() => setKindFilter(k)}
-                style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderColor: on ? T.accent : T.border, color: on ? T.accent : T.textSecondary, fontWeight: on ? 700 : 500 }}
+                style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderRadius: 999, borderColor: on ? T.accent : T.border, color: on ? T.accent : T.textSecondary, fontWeight: on ? 700 : 500 }}
               >
                 {k === "all" ? `All ${result.entries.length}` : `${ACTION_LABEL[k]} ${counts[k]}`}
               </button>

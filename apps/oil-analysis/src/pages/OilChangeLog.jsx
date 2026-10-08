@@ -439,12 +439,12 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
               key={key}
               style={{
                 fontFamily: "inherit",
-                fontSize: 12,
-                fontWeight: 600,
-                padding: "7px 14px",
+                fontSize: 12.5,
+                fontWeight: groupBy === key ? 700 : 500,
+                padding: "6px 14px",
                 borderRadius: 999,
-                border: "none",
-                background: groupBy === key ? T.accent : "transparent",
+                border: `1px solid ${groupBy === key ? T.accent : T.border}`,
+                background: groupBy === key ? T.accent : T.cardBg,
                 color: groupBy === key ? T.accentText : T.textSecondary,
                 cursor: "pointer",
               }}
