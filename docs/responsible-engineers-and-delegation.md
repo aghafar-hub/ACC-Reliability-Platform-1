@@ -89,7 +89,8 @@ The person who made the change is not notified.
   others.
 - **Work by module:** the same sections as before, now with a count per
   module.
-- **My work / My team tabs:** managers and the App Owner get both.
+- **My work / My team tabs:** managers, the App Owner and contractor
+  responsible engineers get both.
 
 ## My team (managers, `components/TeamTab.tsx`)
 
@@ -99,9 +100,15 @@ module's own `TeamHistory.js` `teamCollect_` reads the events from what the
 sheets already record. Nothing is entered by hand, so work from before the
 platform started isn't there.
 
-- **Who sees whom:** a contractor manager sees their own contractor; an ACC
-  manager and the App Owner see ACC and every contractor, with company
-  chips. Engineers and technicians get an error.
+- **Who sees whom:**
+  - A contractor manager sees their own contractor.
+  - An ACC manager and the App Owner see ACC and every contractor, with
+    company chips.
+  - A contractor's responsible engineer (listed, or covering) sees only
+    their own contractor's technicians, and only in the modules where they
+    are responsible. They get the Technicians list without the Engineers
+    tab.
+  - ACC engineers, technicians and visitors get no My team tab.
 - **Controls:** period chips (This month, Last 3 months, This year), sub-tabs
   Engineers | Technicians, and sorting By name or Most overdue. It is
   workload, not a ranking.

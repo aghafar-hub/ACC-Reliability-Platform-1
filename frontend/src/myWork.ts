@@ -85,7 +85,8 @@ export type TeamEvent = {
 };
 export type TeamPerson = { email: string; name: string; contractor: string; kind: 'engineer' | 'technician'; listed: boolean; open: number; overdue: number };
 export type TeamWaiting = { contractor: string; waiting: number; overdue: number; moduleId: string; moduleName: string };
-export type TeamHistory = { people: TeamPerson[]; events: TeamEvent[]; teams: TeamWaiting[]; scope: string; failed: string[] };
+// techOnly: a contractor's responsible engineer — their own technicians only.
+export type TeamHistory = { people: TeamPerson[]; events: TeamEvent[]; teams: TeamWaiting[]; scope: string; failed: string[]; techOnly: boolean };
 
 export async function fetchTeamHistory(sessionToken: string, from: string, to: string): Promise<TeamHistory> {
   const modules = MODULE_BACKENDS.filter((m) => m.myWork);
@@ -95,13 +96,19 @@ export async function fetchTeamHistory(sessionToken: string, from: string, to: s
   const teams: TeamWaiting[] = [];
   const failed: string[] = [];
   let scope = '';
+  let answered = 0;
+  let techOnly = 0;
   results.forEach((r, i) => {
     const m = modules[i];
     const j = r.status === 'fulfilled' ? r.value : null;
-    if (!j || j.status !== 'ok') {
+    if (!j) {
       failed.push(m.name);
       return;
     }
+    // not responsible in this module (or it doesn't provide team history)
+    if (j.status !== 'ok') return;
+    answered++;
+    if (j.techOnly) techOnly++;
     scope = scope || j.scope;
     (j.people || []).forEach((p: TeamPerson) => {
       const had = people.get(p.email);
@@ -118,5 +125,5 @@ export async function fetchTeamHistory(sessionToken: string, from: string, to: s
     (j.teams || []).forEach((t: TeamWaiting) => teams.push({ ...t, moduleId: m.id, moduleName: m.name }));
   });
   events.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-  return { people: [...people.values()], events, teams, scope, failed };
+  return { people: [...people.values()], events, teams, scope, failed, techOnly: answered > 0 && techOnly === answered };
 }

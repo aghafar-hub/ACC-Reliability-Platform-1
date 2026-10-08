@@ -773,7 +773,8 @@ function maHandleSelfAction_(action, data, session) {
 // ─── My team: work history for managers ──────────────────────────────────────
 // A contractor manager sees their own contractor's engineers and
 // technicians; an ACC manager and the App Owner see ACC and every
-// contractor. Each module supplies its events through
+// contractor; a contractor's responsible engineer sees their own
+// technicians only. Each module supplies its events through
 // teamCollect_(from, to) → { events: [...], open: { email: {open, overdue} },
 // teams: [{ contractor, waiting, overdue }] }, where an event is
 // { who, date: "yyyy-MM-dd", kind, label, title, contractor, side: "ACC" |
@@ -791,6 +792,10 @@ function maTeamScope_(session) {
     var c = maContractorForOrg_(session.orgId);
     return c && c !== "ACC" ? { all: false, contractor: c } : null;
   }
+  // A contractor's responsible engineer (listed, or covering) sees their
+  // own technicians only.
+  var resp = maResponsibility_(session);
+  if (resp.responsible && resp.side !== "ACC" && resp.contractor) return { all: false, contractor: resp.contractor, techOnly: true };
   return null;
 }
 
@@ -809,7 +814,7 @@ function maCoveringOn_(delegations, email, ymd) {
 
 function maTeamHistory_(data, session) {
   var scope = maTeamScope_(session);
-  if (!scope) return { error: "Only managers and the App Owner can see team history." };
+  if (!scope) return { error: "Only managers, the App Owner and responsible engineers can see team history." };
   if (typeof teamCollect_ !== "function") return { error: MA_CONFIG.moduleName + " doesn't provide team history yet." };
   var today = maToday_();
   var to = maYmd_(data.to) || today;
@@ -841,6 +846,7 @@ function maTeamHistory_(data, session) {
     e.covering = maCoveringOn_(delegations, e.who, e.date);
     events.push(e);
   });
+  if (scope.techOnly) events = events.filter(function (e) { return (kindOf[e.who] || (e.side === "Technician" ? "technician" : "engineer")) === "technician"; });
   events.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 
   var people = {};
@@ -864,8 +870,9 @@ function maTeamHistory_(data, session) {
   return {
     status: "ok", moduleId: MA_CONFIG.moduleId, moduleName: MA_CONFIG.moduleName, from: from, to: to, today: today,
     scope: scope.all ? "all" : scope.contractor,
-    people: Object.keys(people).map(function (k) { return people[k]; }),
+    techOnly: !!scope.techOnly,
+    people: Object.keys(people).map(function (k) { return people[k]; }).filter(function (p) { return !scope.techOnly || p.kind === "technician"; }),
     events: events,
-    teams: (got.teams || []).filter(function (t) { return inScope(t.contractor); }),
+    teams: scope.techOnly ? [] : (got.teams || []).filter(function (t) { return inScope(t.contractor); }),
   };
 }

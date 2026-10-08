@@ -11,8 +11,8 @@ import './TeamTab.css';
 // My Work → My team (managers and the App Owner). What each engineer and
 // technician did in the period, what they still have in hand, and their
 // dated history — from every module at once. A contractor manager gets
-// their own contractor only; the backend decides (ModuleAccess.js
-// maTeamScope_). Shown as workload, sorted by name or by overdue — not as
+// their own contractor only; a contractor's responsible engineer gets their
+// own technicians only. The backend decides (ModuleAccess.js maTeamScope_). Shown as workload, sorted by name or by overdue — not as
 // a ranking.
 
 type Period = 'month' | 'quarter' | 'year';
@@ -103,6 +103,10 @@ export default function TeamTab() {
     return [...set].sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || a.localeCompare(b));
   }, [data]);
 
+  useEffect(() => {
+    if (data?.techOnly) setKind('technician');
+  }, [data]);
+
   const rows = useMemo(() => {
     if (!data) return [];
     const r = rowsFor(data, kind, company);
@@ -159,6 +163,7 @@ export default function TeamTab() {
         )}
       </div>
 
+      {!data?.techOnly && (
       <div className="tm-tabs" role="tablist">
         {(
           [
@@ -171,9 +176,13 @@ export default function TeamTab() {
           </button>
         ))}
       </div>
+      )}
 
       {error && <p className="mywork-error">{error}</p>}
       {!data && !error && <div className="tm-loading">Loading the team's work…</div>}
+      {data && !data.techOnly && data.people.length === 0 && data.events.length === 0 && data.failed.length === 0 && data.scope === '' && (
+        <p className="tm-muted" data-testid="team-none">Team history is for managers and responsible engineers.</p>
+      )}
       {data && (
         <>
           {data.failed.length > 0 && <p className="tm-muted">Couldn't reach {data.failed.join(', ')} — not included.</p>}

@@ -459,6 +459,9 @@ export default function MyWork({
   const { access } = useModuleAccess();
   // Managers and the App Owner also get My team (what their people did).
   const isManager = !!claims?.roles.some((r) => r === ROLE.ADMIN || r === ROLE.MANAGER || r === ROLE.CONTRACTOR_MANAGER);
+  // A contractor's responsible engineer (listed or covering) sees their technicians.
+  const isTechLead = Object.values(access).some((a) => a?.responsibilities?.includes('Contractor Responsible Engineer'));
+  const showTeam = isManager || isTechLead;
   const [view, setView] = useState<'mine' | 'team'>(() => (new URLSearchParams(window.location.search).get('tab') === 'team' ? 'team' : 'mine'));
   const oilAccess = access['oil-analysis'];
   // Phase 0: My Work is Oil Lubrication's "mywork" tab.
@@ -623,14 +626,16 @@ export default function MyWork({
           <h1>My Work</h1>
           <p className="settings-intro" data-testid="mywork-subtitle">
             {view === 'team'
-              ? 'What your engineers and technicians did, and what they have in hand.'
+              ? isManager
+                ? 'What your engineers and technicians did, and what they have in hand.'
+                : 'What your technicians did, and what they have in hand.'
               : loaded
                 ? `${toDo} to do · ${overdueCount} overdue${moduleCount > 1 ? ` · across ${moduleCount} modules` : ''}`
                 : "What's waiting for you, across every module."}
           </p>
         </>
       )}
-      {isManager && (
+      {showTeam && (
         <div className="tm-tabs mywork-views" role="tablist" aria-label="My Work view">
           <button type="button" role="tab" aria-selected={view === 'mine'} className={view === 'mine' ? 'tm-tab tm-tab--on' : 'tm-tab'} onClick={() => setView('mine')} data-testid="mywork-view-mine">
             My work
@@ -640,7 +645,7 @@ export default function MyWork({
           </button>
         </div>
       )}
-      {isManager && view === 'team' ? (
+      {showTeam && view === 'team' ? (
         <TeamTab />
       ) : (
         <>
