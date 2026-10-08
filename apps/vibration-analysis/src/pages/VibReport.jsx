@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibReport, saveVibEntries, vibReportTransition } from "../api";
+import { getVibActions, getVibReport, saveVibEntries, vibReportTransition } from "../api";
+import { generateVibReportPdf } from "../vibPdf";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ModalShell, { FormSection, StepTrail } from "../components/ModalShell";
@@ -29,6 +30,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState(null);
   const [notice, setNotice] = useState("");
+  const [busyPdf, setBusyPdf] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -79,8 +81,29 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   const notMeasured = coverage.filter((c) => !(+c["Readings in app"] > 0) && c.Outcome !== "Report not imported");
   const title = rep ? `${rep.Contractor} · ${rep["Report scope"]} · ${monthLabel(rep.Month)}` : reportId;
 
+  // PDF of this report with the actions its findings went to (left out
+  // when the person can't read actions).
+  const pdf = async () => {
+    setBusyPdf(true);
+    try {
+      let acts = { actions: [], findings: [] };
+      try {
+        acts = await getVibActions(webhookUrl);
+      } catch {
+        /* no access to actions */
+      }
+      await generateVibReportPdf({ reports: [{ report: rep, entries }], actions: acts.actions, findings: acts.findings });
+    } finally {
+      setBusyPdf(false);
+    }
+  };
   const buttons = rep && (
     <>
+      {!editing && (
+        <button type="button" style={s.btnGhost} onClick={pdf} disabled={busyPdf} data-testid="vrep-pdf">
+          <i className="ti ti-download" aria-hidden="true" /> {busyPdf ? "Making PDF…" : "PDF"}
+        </button>
+      )}
       {rep["Report file"] && (
         <a href={rep["Report file"]} target="_blank" rel="noreferrer" style={{ ...s.btnGhost, textDecoration: "none" }}>
           <i className="ti ti-file-type-pdf" aria-hidden="true" /> Report file

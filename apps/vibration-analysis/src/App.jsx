@@ -21,7 +21,7 @@ import {
 } from "./parsers";
 import { useTheme } from "./ThemeContext";
 
-import Dashboard from "./pages/Dashboard";
+import VibDashboard from "./pages/VibDashboard";
 import EquipmentRegister from "./pages/EquipmentRegister";
 import ComplianceTracker from "./pages/ComplianceTracker";
 import VibActions from "./pages/VibActions";
@@ -76,7 +76,7 @@ export default function App({ navBridge } = {}) {
   const [vibPoints, setVibPoints] = useState([]);
   // Own limits, intervals and Active / Inactive (backend Limits.js).
   const [vibLimits, setVibLimits] = useState(null);
-  const [thresholdsMap, setThresholdsMap] = useState({});
+  const [, setThresholdsMap] = useState({});
   const [syncState, setSyncState] = useState({ status: "idle", message: "Not synced yet" });
 
   // Mirrors of webhookUrl/config kept in refs so async callbacks (sync,
@@ -108,6 +108,34 @@ export default function App({ navBridge } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount, mirroring the original's mount-only effect
   }, []);
 
+  // Global search in the shell's top bar: machines by Equipment ID or
+  // name, VIB IDs (both open the machine) and report IDs (VL-2026-07-RHI-L1).
+  // Answers from the data already loaded, so it works offline too.
+  function searchAll(query) {
+    const sq = (v) => String(v ?? "").replace(/\s+/g, "").toLowerCase();
+    const q = sq(query);
+    if (q.length < 2) return [];
+    const out = [];
+    const rep = String(query).trim().toUpperCase();
+    if (/^VL-\d{4}-\d{2}-[A-Z]+-[A-Z0-9]+$/.test(rep)) out.push({ kind: "report", title: rep, subtitle: "Vibration report", page: "log", recordId: rep });
+    const list = Object.values(scopeEquipment).filter((x) => x.points.length);
+    for (const x of list) {
+      if (!(sq(x.id).includes(q) || String(x.name || "").toLowerCase().includes(String(query).trim().toLowerCase()))) continue;
+      out.push({ kind: "machine", title: x.id, subtitle: [x.name, x.contractor && `${x.contractor} · ${x.scope}`, `${x.points.length} VIB IDs`].filter(Boolean).join(" · "), page: "equipment", recordId: x.id });
+      if (out.length >= 8) break;
+    }
+    let vib = 0;
+    for (const x of list) {
+      for (const p of x.points) {
+        if (!sq(p.vibId).includes(q) || sq(x.id) === q) continue;
+        out.push({ kind: "VIB ID", title: p.vibId, subtitle: [x.id, x.name, p.description].filter(Boolean).join(" · "), page: "equipment", recordId: x.id });
+        if (++vib >= 6) break;
+      }
+      if (vib >= 6) break;
+    }
+    return out;
+  }
+
   useEffect(() => {
     if (!navBridge) return;
     // Clicking the Vibration Log tab again goes back to the timeline.
@@ -121,6 +149,7 @@ export default function App({ navBridge } = {}) {
       // old page ids from bookmarks / links
       setPage({ registry: "equipment", graphs: "trends" }[p] || p);
     };
+    navBridge.search = searchAll;
     navBridge.onNavigate?.(page);
   });
 
@@ -293,8 +322,6 @@ export default function App({ navBridge } = {}) {
     navBridge.onSyncStateChange?.({ syncState: syncState.status, pendingSyncCount: 0 });
   }, [navBridge, syncState.status]);
 
-  const rmsRegMap = useMemo(() => Object.fromEntries(rmsRegister.map((r) => [r.equipmentId, r])), [rmsRegister]);
-  const spmRegMap = useMemo(() => Object.fromEntries(spmRegister.map((r) => [r.equipmentId, r])), [spmRegister]);
   const registryMap = useMemo(() => {
     const map = {};
     rmsRegister.forEach((r) => (map[r.equipmentId] = { ...map[r.equipmentId], ...r }));
@@ -337,16 +364,17 @@ export default function App({ navBridge } = {}) {
     content = <VibrationLog webhookUrl={webhookUrl} openReportId={openReportId} setOpenReportId={setOpenReportId} scopeEquipment={scopeEquipment} />;
   } else if (page === "dashboard") {
     content = (
-      <Dashboard
-        lastRms={lastRms}
-        lastSpm={lastSpm}
-        registryMap={registryMap}
-        rmsRegMap={rmsRegMap}
-        spmRegMap={spmRegMap}
-        thresholdsMap={thresholdsMap}
-        setPage={(p) => setPage({ graphs: "equipment", registry: "equipment" }[p] || p)}
-        setGraphAsset={(id) => setSelectedEq(id || null)}
-        syncState={syncState}
+      <VibDashboard
+        webhookUrl={webhookUrl}
+        onOpenPage={setPage}
+        onOpenMachine={(id) => {
+          setSelectedEq(id);
+          setPage("equipment");
+        }}
+        onOpenReport={(id) => {
+          setOpenReportId(id);
+          setPage("log");
+        }}
       />
     );
   } else if (page === "equipment" || page === "newreading") {

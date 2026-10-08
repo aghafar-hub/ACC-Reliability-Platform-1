@@ -51,6 +51,7 @@ var MA_CONFIG = {
     getVibRoutes: ["routes", "mywork", "dashboard"],
     getVibRoute: ["routes", "mywork"],
     getMyWork: ["mywork"],
+    getVibDashboard: ["dashboard"],
     getVibActionHistory: ["actions"],
     getVibLimits: ["limits", "equipment", "newreading", "log", "dashboard"],
     getVibEquipmentSummary: ["equipment", "dashboard", "newreading", "trends"],

@@ -367,3 +367,6 @@ export function vibRouteTransition(webhookUrl, fields) {
 export function dismissVibSuggestion(webhookUrl, fields) {
   return postVerified(webhookUrl, "dismissVibSuggestion", fields);
 }
+export function getVibDashboard(webhookUrl) {
+  return getChecked(webhookUrl, "getVibDashboard");
+}

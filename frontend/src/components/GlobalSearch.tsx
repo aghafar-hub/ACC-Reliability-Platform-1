@@ -12,6 +12,13 @@ import "./GlobalSearch.css";
 // data it already holds (embeddedNav.search), so it works offline too.
 // Desktop: a box in the top bar (Ctrl/⌘ K). Phone: a search button that
 // opens a full-screen search.
+const KIND_LABEL: Record<string, string> = {
+  sample: "Lab report",
+  point: "Point",
+  machine: "Machine",
+  "VIB ID": "VIB ID",
+  report: "Report",
+};
 type Hit = SearchResult & {
   moduleId: string;
   route: string;
@@ -107,7 +114,7 @@ export default function GlobalSearch() {
     >
       {query.trim().length < 2 ? (
         <p className="gsearch-empty">
-          Type an LP ID, equipment, report ID or sample ID.
+          Type an LP ID, equipment, VIB ID, report ID or sample ID.
         </p>
       ) : hits.length === 0 ? (
         <p className="gsearch-empty">Nothing found for “{query.trim()}”.</p>
@@ -125,10 +132,10 @@ export default function GlobalSearch() {
             onClick={() => choose(h)}
           >
             <span className="gsearch-kind">
-              {h.kind === "sample" ? "Lab report" : "Point"}
+              {KIND_LABEL[h.kind] || h.kind}
             </span>
             <span className="gsearch-text">
-              <b className={h.kind === "point" ? "gsearch-mono" : undefined}>
+              <b className={h.kind === "sample" ? undefined : "gsearch-mono"}>
                 {h.title}
               </b>
               {h.subtitle && <small>{h.subtitle}</small>}
@@ -148,7 +155,7 @@ export default function GlobalSearch() {
             ref={inputRef}
             type="search"
             value={query}
-            placeholder="Search equipment, LP ID, sample ID…"
+            placeholder="Search equipment, LP ID, VIB ID, sample ID…"
             aria-label="Search equipment, LP ID or sample ID"
             onFocus={() => setOpen(true)}
             onChange={(e) => {

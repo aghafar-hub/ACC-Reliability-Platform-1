@@ -184,6 +184,30 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 - **ACC engineer:** reports to review, actions to agree, closures to approve, overdue reports.
 - **Managers:** escalations (10+ days late), view only. Managers don't approve reports or actions.
 
+## Dashboard, PDFs, offline checklist, search (step 6)
+
+**Dashboard** (backend `Dashboard.js`, one request `getVibDashboard`)
+- **Tiles:** Danger machines, Alert machines (new this month), last month's reports in, follow-up readings due in 14 days, open actions (past due, no owner). Each tile opens the list behind it.
+- **Machine condition:** each active machine counted once, by the worst final status in its latest report month. A machine with no report reading in the last 3 months counts as "Not read 3 m".
+- **Reports received:** one square per contractor scope per month (3, 6 or 12 months). Received, received late, missing / overdue (45-day rule), not imported, due / in review. A square opens that report.
+- **On time this year:** received on time ÷ reports that were due this year (skipped and not-yet-due months left out).
+- **Condition by scope:** the same counts per scope; tap a row to filter the donut and the worst machines.
+- **Worst machines:** Caution or above, worst level first, then highest reading against its Danger limit. Each row shows the point, value and a 6-month trend, and opens the machine.
+- A contractor account sees only its own machines, reports and actions.
+
+**PDFs** (made in the browser, `vibPdf.js`)
+- **Report PDF** (report page): summary, machines with their worst point, findings and the actions they went to, every reading with system / report / final status.
+- **Month PDF** (Vibration Log): the chosen reports of one month in one file.
+- **Dashboard PDF:** tiles, reports-received table and the machines needing attention.
+
+**Technician checklist offline** (My Work)
+- Every change is kept on the phone first.
+- With no connection, Save waits and sends by itself when the phone is back online. Submit waits for a connection.
+- Opening the route again later brings back the changes not yet sent.
+- If the route changed on the server meanwhile (engineer returned it, another device saved), the technician chooses: keep my changes, or use the server copy.
+
+**Global search:** machines (ID or name), VIB IDs and report IDs (e.g. `VL-2026-07-RHI-L1`) from the top bar.
+
 ## Sheets
 
 | Tab | Holds |

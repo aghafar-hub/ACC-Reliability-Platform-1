@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibLog, saveVibReport, vibReportTransition } from "../api";
+import { getVibActions, getVibLog, getVibReport, saveVibReport, vibReportTransition } from "../api";
+import { generateVibReportPdf } from "../vibPdf";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -30,6 +31,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
   const [view, setView] = useState("Timeline");
   const [adding, setAdding] = useState(null);
   const [skipping, setSkipping] = useState(null);
+  const [pdfOpen, setPdfOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -127,6 +129,9 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
         right={
           <>
             <ContractorChips value={contractor} onChange={setContractor} options={contractors} testid="vlog-contractor" />
+            <button type="button" style={s.btnGhost} onClick={() => setPdfOpen(true)} disabled={!reports.length} data-testid="vlog-pdf">
+              <i className="ti ti-download" aria-hidden="true" /> Month PDF
+            </button>
             {(me.acc || me.contractor) && (
               <button type="button" style={s.btnPrimary} onClick={() => setAdding({})} data-testid="vlog-add">
                 <i className="ti ti-plus" aria-hidden="true" /> Add report
@@ -224,6 +229,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
           }}
         />
       )}
+      {pdfOpen && <MonthPdfModal webhookUrl={webhookUrl} reports={reports} onClose={() => setPdfOpen(false)} />}
       {skipping && (
         <SkipModal
           webhookUrl={webhookUrl}
@@ -574,6 +580,102 @@ function SkipModal({ webhookUrl, cell, onClose, onSaved }) {
         <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 6 }}>The month stops counting as overdue. This is kept in the report history.</div>
       </FormSection>
       {error && <div role="alert" style={{ color: T.danger, fontSize: 13 }}>{error}</div>}
+    </ModalShell>
+  );
+}
+
+// Combined PDF for one month: every report of that month (one scope or all
+// scopes the person can see), each with its machines, findings and readings.
+function MonthPdfModal({ webhookUrl, reports, onClose }) {
+  const { T, s } = useTheme();
+  const withData = reports.filter((r) => +r.Entries > 0 || ["Draft", "ACC review", "Returned", "Approved"].includes(r["Workflow status"]));
+  const months = [...new Set(withData.map((r) => r.Month))].sort().reverse();
+  const [month, setMonth] = useState(months[0] || "");
+  const inMonth = withData.filter((r) => r.Month === month);
+  const [picked, setPicked] = useState(null); // null = all of the month
+  const chosen = inMonth.filter((r) => !picked || picked.includes(r["Report ID"]));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const make = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const list = [];
+      for (const r of chosen) {
+        const d = await getVibReport(webhookUrl, r["Report ID"]);
+        list.push({ report: d.report, entries: d.entries || [] });
+      }
+      let acts = { actions: [], findings: [] };
+      try {
+        acts = await getVibActions(webhookUrl);
+      } catch {
+        /* no access to actions */
+      }
+      await generateVibReportPdf({ reports: list, actions: acts.actions, findings: acts.findings });
+      onClose();
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggle = (id) => {
+    const cur = picked || inMonth.map((r) => r["Report ID"]);
+    setPicked(cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+  };
+  return (
+    <ModalShell
+      icon="file-download"
+      title="Month PDF"
+      subtitle="One PDF with the chosen reports of a month: machines, findings and actions, every reading."
+      onClose={onClose}
+      width={560}
+      testid="vlog-pdf-modal"
+      footer={
+        <>
+          <button type="button" style={s.btnGhost} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" style={s.btnPrimary} onClick={make} disabled={busy || !chosen.length} data-testid="vlog-pdf-make">
+            {busy ? "Making PDF…" : `Make PDF (${chosen.length})`}
+          </button>
+        </>
+      }
+    >
+      <FormSection icon="calendar" title="Month and reports">
+        <label style={{ display: "block", marginBottom: 12 }}>
+          <span style={{ ...s.label, fontSize: 12 }}>Month</span>
+          <select
+            style={{ ...s.select, width: "100%" }}
+            value={month}
+            onChange={(e) => {
+              setMonth(e.target.value);
+              setPicked(null);
+            }}
+            data-testid="vlog-pdf-month"
+          >
+            {months.map((m) => (
+              <option key={m} value={m}>
+                {monthLabel(m)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {inMonth.map((r) => (
+          <label key={r["Report ID"]} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", fontSize: 13, color: T.textPrimary }}>
+            <input type="checkbox" checked={!picked || picked.includes(r["Report ID"])} onChange={() => toggle(r["Report ID"])} />
+            {r.Contractor} · {r["Report scope"]}
+            <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>
+              {r["Workflow status"]} · {r.Entries || 0} readings
+            </span>
+          </label>
+        ))}
+      </FormSection>
+      {error && (
+        <div role="alert" style={{ color: T.danger, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
     </ModalShell>
   );
 }

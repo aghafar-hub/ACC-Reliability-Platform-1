@@ -70,6 +70,7 @@
  *   VibActions.js         actions: 4-part record, automatic drafts from approved reports, open / closure flow
  *   Routes.js             suggestions, routes, technician checklist, confirm / return, emergency routes
  *   MyWork.js             getMyWork for the platform My Work page, by role
+ *   Dashboard.js          getVibDashboard: condition, reports received, worst machines, actions
  */
 
 function doGet(e) {
@@ -176,6 +177,8 @@ function dispatch(action, params, session) {
   if (action==='vibRouteTransition')    return vlLocked_(function () { return handleVibRouteTransition(params, session); });
   if (action==='dismissVibSuggestion')  return vlLocked_(function () { return handleDismissVibSuggestion(params, session); });
   if (action==='getMyWork')             return handleGetMyWork(params, session);
+  // Dashboard.js
+  if (action==='getVibDashboard')       return handleGetVibDashboard(params, session);
   return {error: 'Unknown action: ' + action};
 }
 

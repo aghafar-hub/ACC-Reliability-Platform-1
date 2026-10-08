@@ -626,3 +626,16 @@
   flex: 1;
   width: auto;
 }
+
+/* vibration checklist: no connection / waiting to send */
+.vibr-offline {
+  border: 1px solid var(--shell-warning, #9a5500);
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--shell-warning, #9a5500) 10%, var(--shell-card-bg, #fff));
+  color: var(--shell-text, #14202e);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 10px 0;
+  font-size: 13.5px;
+}
+.vibr-offline div { margin-top: 3px; }
