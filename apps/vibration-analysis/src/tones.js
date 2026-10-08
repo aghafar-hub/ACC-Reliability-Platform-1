@@ -33,3 +33,8 @@ export const STAGES = ["Draft", "Open", "Waiting Stoppage", "Closure Requested",
 export function stageTone(T, st) {
   return { Draft: T.warning, Open: T.danger, "Waiting Stoppage": T.accent, "Closure Requested": T.info, Closed: T.success, Cancelled: T.textSecondary }[st] || T.textSecondary;
 }
+
+// Route statuses.
+export function routeTone(T, st) {
+  return { Unassigned: T.warning, Assigned: T.accent, "In Progress": T.info, Submitted: T.info, Returned: T.danger, Closed: T.success, Cancelled: T.textSecondary }[st] || T.textSecondary;
+}

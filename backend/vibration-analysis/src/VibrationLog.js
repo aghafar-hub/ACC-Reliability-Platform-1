@@ -174,7 +174,8 @@ function vlActor_(session) {
   var c = maContractorForOrg_(session.orgId) || '';
   var contractor = c === 'ACC' ? '' : (c || 'NONE');
   var roles = session.roles || [];
-  var accRoles = ['ROLE-ADMIN', 'ROLE-RENG', 'ROLE-MGR'];
+  // Managers view and get escalations only (agreed decision 7) — they don't approve.
+  var accRoles = ['ROLE-ADMIN', 'ROLE-RENG'];
   var canApprove = !contractor && (maIsAdmin_(session) || roles.some(function (r) { return accRoles.indexOf(r) !== -1; }));
   return { email: session.email || '', contractor: contractor, acc: !contractor, canApprove: canApprove, roles: roles };
 }

@@ -19,7 +19,7 @@ import { STAGES, stageTone } from "../tones";
 
 const OPEN = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 
-export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onOpenReport, onOpenMachine }) {
+export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onOpenReport, onOpenMachine, openActionId, setOpenActionId }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [data, setData] = useState(null);
@@ -32,7 +32,9 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
   const [view, setView] = useState("Board");
   const [tab, setTab] = useState("actions");
   const [quick, setQuick] = useState("");
-  const [openId, setOpenId] = useState(null);
+  // the open action lives in App (so My Work links can open one)
+  const openId = openActionId;
+  const setOpenId = setOpenActionId;
   const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {

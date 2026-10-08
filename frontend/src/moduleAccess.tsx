@@ -39,7 +39,7 @@ export type ModuleBackend = { id: string; name: string; url: string; secret?: st
 
 export const MODULE_BACKENDS: ModuleBackend[] = [
   { id: 'oil-analysis', name: 'Oil Lubrication', url: OIL_ANALYSIS_URL, secret: OIL_API_SECRET, path: '/oil-lubrication', myWork: true },
-  { id: 'vibration-analysis', name: 'Vibration Analysis', url: VIBRATION_ANALYSIS_URL, path: '/vibration-analysis' },
+  { id: 'vibration-analysis', name: 'Vibration Analysis', url: VIBRATION_ANALYSIS_URL, path: '/vibration-analysis', myWork: true },
 ];
 
 export function moduleBackend(moduleId: string): ModuleBackend {

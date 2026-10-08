@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { tapHaptic } from '../haptics';
 import WorkQueue from '../components/WorkQueue';
+import VibRouteDetail from './VibRouteDetail';
 import { fetchMyWork, myWorkModules, type ModuleWork } from '../myWork';
 import './MyWork.css';
 
@@ -461,6 +462,8 @@ export default function MyWork({
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A vibration route opened from the work queue (checklist in place).
+  const [vibRouteId, setVibRouteId] = useState<string | null>(null);
 
   // Opened from NotificationBell's onOpenRoutine (TechnicianShell) — same
   // "arrived here wanting one specific record" pattern
@@ -486,6 +489,7 @@ export default function MyWork({
     load();
   }, [load]);
 
+  const [workVersion, setWorkVersion] = useState(0);
   useEffect(() => {
     if (!sessionToken || !workModuleKey) return;
     let cancelled = false;
@@ -496,7 +500,7 @@ export default function MyWork({
       cancelled = true;
     };
     // workModules changes only when workModuleKey does
-  }, [sessionToken, workModuleKey]);
+  }, [sessionToken, workModuleKey, workVersion]);
 
   const mine = useMemo(() => {
     const email = (claims?.email || '').trim().toLowerCase();
@@ -532,6 +536,25 @@ export default function MyWork({
     </div>
   );
 
+  if (vibRouteId && sessionToken) {
+    return (
+      <div className="mywork">
+        <VibRouteDetail
+          routeId={vibRouteId}
+          sessionToken={sessionToken}
+          onBack={() => {
+            setVibRouteId(null);
+            setWorkVersion((v) => v + 1);
+          }}
+          onSubmitted={() => {
+            setVibRouteId(null);
+            setWorkVersion((v) => v + 1);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (selected && sessionToken) {
     return (
       <div className="mywork">
@@ -560,7 +583,20 @@ export default function MyWork({
       {maintenanceBanner}
       {error && <p className="mywork-error">{error}</p>}
       {((canSeeOilWork && routines === null) || (workModules.length > 0 && work === null)) && !error && <SkeletonCards count={4} />}
-      {work && queueCount > 0 && <WorkQueue work={work} showModuleNames={workModules.length > 1} />}
+      {work && queueCount > 0 && (
+        <WorkQueue
+          work={work}
+          showModuleNames={workModules.length > 1}
+          onOpen={(moduleId, item, sectionId) => {
+            // a technician's own vibration route opens as a checklist right here
+            if (moduleId === 'vibration-analysis' && sectionId === 'vib-my-routes' && item.link?.recordId) {
+              setVibRouteId(item.link.recordId);
+              return true;
+            }
+            return false;
+          }}
+        />
+      )}
       {routinesLoaded && (work !== null || workModules.length === 0) && queueCount === 0 && todo.length === 0 && awaiting.length === 0 && (
         <p className="mywork-empty">Nothing waiting for you right now — routes assigned to you and work for your role will show up here.</p>
       )}

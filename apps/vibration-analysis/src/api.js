@@ -352,3 +352,18 @@ export function saveVibAction(webhookUrl, item) {
 export function vibActionTransition(webhookUrl, fields) {
   return postVerified(webhookUrl, "vibActionTransition", fields);
 }
+export function getVibRoutes(webhookUrl, days) {
+  return getChecked(webhookUrl, "getVibRoutes", { days: String(days || 30) });
+}
+export function getVibRoute(webhookUrl, routeId) {
+  return getChecked(webhookUrl, "getVibRoute", { routeId });
+}
+export function createVibRoute(webhookUrl, route) {
+  return postVerified(webhookUrl, "createVibRoute", { route });
+}
+export function vibRouteTransition(webhookUrl, fields) {
+  return postVerified(webhookUrl, "vibRouteTransition", fields);
+}
+export function dismissVibSuggestion(webhookUrl, fields) {
+  return postVerified(webhookUrl, "dismissVibSuggestion", fields);
+}

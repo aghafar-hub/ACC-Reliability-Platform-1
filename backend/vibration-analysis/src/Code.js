@@ -68,6 +68,8 @@
  *   Readings.js           New Reading (one machine, one date) + equipment summary
  *   Limits.js             limits per equipment / VIB ID, interval, Active / Inactive (App Owner only, history kept)
  *   VibActions.js         actions: 4-part record, automatic drafts from approved reports, open / closure flow
+ *   Routes.js             suggestions, routes, technician checklist, confirm / return, emergency routes
+ *   MyWork.js             getMyWork for the platform My Work page, by role
  */
 
 function doGet(e) {
@@ -166,6 +168,14 @@ function dispatch(action, params, session) {
   if (action==='getVibActionHistory')   return handleGetVibActionHistory(params, session);
   if (action==='saveVibAction')         return vlLocked_(function () { return handleSaveVibAction(params, session); });
   if (action==='vibActionTransition')   return vlLocked_(function () { return handleVibActionTransition(params, session); });
+  // Routes.js + MyWork.js
+  if (action==='getVibRoutes')          return handleGetVibRoutes(params, session);
+  if (action==='getVibRoute')           return handleGetVibRoute(params, session);
+  if (action==='createVibRoute')        return vlLocked_(function () { return handleCreateVibRoute(params, session); });
+  if (action==='saveVibRouteProgress')  return vlLocked_(function () { return handleSaveVibRouteProgress(params, session); });
+  if (action==='vibRouteTransition')    return vlLocked_(function () { return handleVibRouteTransition(params, session); });
+  if (action==='dismissVibSuggestion')  return vlLocked_(function () { return handleDismissVibSuggestion(params, session); });
+  if (action==='getMyWork')             return handleGetMyWork(params, session);
   return {error: 'Unknown action: ' + action};
 }
 

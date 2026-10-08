@@ -3,7 +3,7 @@
 // VIBRATION_SUB_TABS, plus "settings" (this module's own Settings page).
 
 var MA_ALL_VIB_TABS = [
-  "dashboard", "log", "equipment", "trends", "routes", "newreading", "actions",
+  "dashboard", "log", "equipment", "trends", "routes", "newreading", "actions", "mywork",
   "compliance", "equipreg", "limits", "settings",
 ];
 
@@ -27,7 +27,8 @@ var MA_CONFIG = {
   // Matches what each role could do before Phase 0: technician-only
   // accounts never saw this module (they only get the My Work screen).
   defaultRoleLevels: {
-    "ROLE-TECH": { "*": "Hidden" },
+    // Technicians only see My Work (their vibration routes open there).
+    "ROLE-TECH": { mywork: "Edit", "*": "Hidden" },
     "ROLE-CENG": { "*": "Edit" },
     "ROLE-RENG": { "*": "Edit" },
     "ROLE-MGR": { "*": "Edit" },
@@ -47,6 +48,9 @@ var MA_CONFIG = {
     getVibReport: ["log", "dashboard", "equipment"],
     getVibEquipmentHistory: ["equipment", "log", "dashboard", "trends"],
     getVibActions: ["actions", "dashboard", "equipment"],
+    getVibRoutes: ["routes", "mywork", "dashboard"],
+    getVibRoute: ["routes", "mywork"],
+    getMyWork: ["mywork"],
     getVibActionHistory: ["actions"],
     getVibLimits: ["limits", "equipment", "newreading", "log", "dashboard"],
     getVibEquipmentSummary: ["equipment", "dashboard", "newreading", "trends"],
@@ -85,6 +89,10 @@ var MA_CONFIG = {
     saveVibLimits: ["limits"],
     saveVibAction: ["actions"],
     vibActionTransition: ["actions"],
+    createVibRoute: ["routes"],
+    saveVibRouteProgress: ["routes", "mywork"],
+    vibRouteTransition: ["routes", "mywork"],
+    dismissVibSuggestion: ["routes"],
     maSetStatus: "admin",
     maAddPeople: "admin",
     maRemovePerson: "admin",

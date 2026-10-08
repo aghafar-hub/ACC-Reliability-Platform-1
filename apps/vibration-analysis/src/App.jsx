@@ -30,6 +30,7 @@ import VibrationLog from "./pages/VibrationLog";
 import VibEquipment from "./pages/VibEquipment";
 import VibTrends from "./pages/VibTrends";
 import VibLimits from "./pages/VibLimits";
+import VibRoutes from "./pages/VibRoutes";
 import { buildEquipment } from "./vibModel";
 
 
@@ -57,6 +58,9 @@ export default function App({ navBridge } = {}) {
   const [openReportId, setOpenReportId] = useState(null);
   // Equipment: the machine open on the Equipment tab (null = the list).
   const [selectedEq, setSelectedEq] = useState(null);
+  // Routes / Actions: the record open on those tabs (deep links from My Work).
+  const [openRouteId, setOpenRouteId] = useState(null);
+  const [openActionId, setOpenActionId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
@@ -107,9 +111,13 @@ export default function App({ navBridge } = {}) {
   useEffect(() => {
     if (!navBridge) return;
     // Clicking the Vibration Log tab again goes back to the timeline.
-    navBridge.navigate = (p) => {
-      if (p === "log") setOpenReportId(null);
-      if (p === "equipment") setSelectedEq(null);
+    // A record id (from My Work, notifications, search) opens that record.
+    navBridge.navigate = (p, recordId) => {
+      const rec = typeof recordId === "string" ? recordId : null;
+      if (p === "log") setOpenReportId(rec);
+      if (p === "equipment") setSelectedEq(rec);
+      if (p === "routes") setOpenRouteId(rec);
+      if (p === "actions") setOpenActionId(rec);
       // old page ids from bookmarks / links
       setPage({ registry: "equipment", graphs: "trends" }[p] || p);
     };
@@ -382,6 +390,8 @@ export default function App({ navBridge } = {}) {
         webhookUrl={webhookUrl}
         scopeEquipment={scopeEquipment}
         oldActions={actions}
+        openActionId={openActionId}
+        setOpenActionId={setOpenActionId}
         onOpenReport={(id) => {
           setOpenReportId(id);
           setPage("log");
@@ -392,6 +402,8 @@ export default function App({ navBridge } = {}) {
         }}
       />
     );
+  } else if (page === "routes") {
+    content = <VibRoutes webhookUrl={webhookUrl} openRouteId={openRouteId} setOpenRouteId={setOpenRouteId} />;
   } else if (page === "limits") {
     content = <VibLimits webhookUrl={webhookUrl} limits={vibLimits} reload={reloadLimits} scopeEquipment={scopeEquipment} />;
   } else if (page === "settings") {

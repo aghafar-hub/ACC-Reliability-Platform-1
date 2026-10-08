@@ -167,6 +167,7 @@
 
 .mywork-detail-title {
   font-family: var(--font-display);
+  color: var(--shell-text, inherit);
   margin: 0 0 0.25rem;
   font-size: 1.15rem;
 }
@@ -559,4 +560,69 @@
 }
 .mywork-ring-text--done {
   fill: var(--shell-success, #18734a);
+}
+
+/* Vibration route checklist (VibRouteDetail) */
+.vibr-machine {
+  border: 1px solid var(--shell-border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-sm, 8px);
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.vibr-machine-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.vibr-point {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.35rem 0.4rem;
+  border-radius: 6px;
+}
+.vibr-point--done {
+  background: #22c55e14;
+}
+.vibr-point--skip {
+  background: #f59e0b14;
+}
+.vibr-check {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  min-height: 40px;
+  flex: 1 1 220px;
+  cursor: pointer;
+}
+.vibr-check input {
+  width: 22px;
+  height: 22px;
+}
+.vibr-check span {
+  display: flex;
+  flex-direction: column;
+}
+.vibr-vib {
+  font-size: 0.78rem;
+  color: var(--shell-text-secondary, #a9b3c6);
+}
+.vibr-skip {
+  flex: 1 1 200px;
+}
+.vibr-route-comment {
+  min-height: 70px;
+  margin-bottom: 0.75rem;
+}
+.vibr-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.vibr-actions .mywork-btn-primary {
+  flex: 1;
+  width: auto;
 }

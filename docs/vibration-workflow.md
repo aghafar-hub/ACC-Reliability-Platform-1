@@ -144,6 +144,46 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
   - a closure request, to the ACC engineers;
   - a decision, to the owner and the contractor engineer.
 
+## Routes and My Work (step 5)
+
+**Suggestions** (worked out on every read)
+- **Interval due**: an Active machine whose last measurement + its interval falls inside the window (Next 7 / 14 / 30 / 60 / 90 days), or a machine never measured.
+- **Follow-up**: an action with *Follow-up reading = Yes* that is Open or Waiting Stoppage. It is due on the last finding date + the follow-up days, and stays until the machine is measured again.
+- A follow-up replaces the interval suggestion for that machine.
+- No suggestion for a machine already on an active route (no duplicate active work).
+- A suggestion can be **dismissed** with a reason; the reason is kept.
+
+**Routes**
+- The contractor engineer groups its own Active machines (two-pane picker) and sets the date and technician.
+- An ACC engineer can raise an **Emergency** route for any machine; a reason is required.
+- A route with no technician is *Unassigned* until the contractor engineer assigns one.
+- **Flow:** Unassigned → Assigned → In Progress → Submitted → Closed. Returned (with a reason) goes back to the technician. Cancelled needs a reason.
+- **Reassign** and **reschedule** need a reason.
+- A machine can't be on two active routes.
+
+**Technician (in My Work, not the module)**
+- One **Done** box per VIB point, or a skip reason.
+- A comment per machine and one for the route.
+- **Submit** only when every point is done or skipped; a partial route stays open.
+- Done means the field work was done. Readings come with the report.
+
+**Contractor engineer**
+- **Confirm & close**, or **Return** with a reason.
+- Closing notifies the ACC engineers; there is no ACC approval gate.
+
+**Notifications**
+- Assignment → technician.
+- Submission → contractor engineer.
+- Return → technician.
+- Closed → ACC engineers.
+- Emergency route → contractor engineer.
+
+**My Work** (backend `MyWork.js`)
+- **Technician:** my vibration routes. The checklist opens right in My Work.
+- **Contractor engineer:** routes to confirm, routes with no technician, measurements due in 7 days, reports to send, actions waiting for their recommendation, their actions due.
+- **ACC engineer:** reports to review, actions to agree, closures to approve, overdue reports.
+- **Managers:** escalations (10+ days late), view only. Managers don't approve reports or actions.
+
 ## Sheets
 
 | Tab | Holds |
@@ -155,5 +195,8 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 | `Vibration Limits` | limit / interval / status changes, with reason; Active = Yes for the current one |
 | `Vibration Actions` | one row per action (4 parts, owner, due date, closure) |
 | `Vibration Action Findings` | one row per finding (report, machine, severity, points) |
+| `Vibration Routes` | one row per route |
+| `Vibration Route Points` | one row per VIB point on a route (Done / skip reason / machine comment) |
+| `Vibration Route Suggestions` | dismissed suggestions with the reason |
 
 Columns are read by header name. Missing columns are added on the first save.

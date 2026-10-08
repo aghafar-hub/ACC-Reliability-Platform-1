@@ -32,6 +32,7 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'log', label: 'Vibration Log', icon: 'compliance' },
   { id: 'equipment', label: 'Equipment', icon: 'registry' },
   { id: 'trends', label: 'Trends', icon: 'graphs' },
+  { id: 'routes', label: 'Routes', icon: 'action' },
   { id: 'newreading', label: 'New reading', icon: 'plus' },
   { id: 'actions', label: 'Vibration Actions', icon: 'action' },
   { id: 'compliance', label: 'Compliance Tracker', icon: 'compliance' },
@@ -157,6 +158,7 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
           { id: 'equipreg', label: 'Register' },
         ],
       },
+      { label: 'Routes', icon: 'ti-route', pages: ['routes'] },
       { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
     ],
     more: [
