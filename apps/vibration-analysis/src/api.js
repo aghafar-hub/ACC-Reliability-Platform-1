@@ -334,3 +334,21 @@ export function getVibEquipmentSummary(webhookUrl) {
 export function saveVibReadings(webhookUrl, fields) {
   return postVerified(webhookUrl, "saveVibReadings", fields);
 }
+export function getVibLimits(webhookUrl) {
+  return getChecked(webhookUrl, "getVibLimits");
+}
+export function saveVibLimits(webhookUrl, change) {
+  return postVerified(webhookUrl, "saveVibLimits", { change });
+}
+export function getVibActions(webhookUrl) {
+  return getChecked(webhookUrl, "getVibActions");
+}
+export function getVibActionHistory(webhookUrl, actionId) {
+  return getChecked(webhookUrl, "getVibActionHistory", { actionId });
+}
+export function saveVibAction(webhookUrl, item) {
+  return postVerified(webhookUrl, "saveVibAction", { item });
+}
+export function vibActionTransition(webhookUrl, fields) {
+  return postVerified(webhookUrl, "vibActionTransition", fields);
+}

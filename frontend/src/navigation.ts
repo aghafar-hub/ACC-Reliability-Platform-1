@@ -36,7 +36,7 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'actions', label: 'Vibration Actions', icon: 'action' },
   { id: 'compliance', label: 'Compliance Tracker', icon: 'compliance' },
   { id: 'equipreg', label: 'Equipment Register', icon: 'registry' },
-  { id: 'limits', label: 'Limits setting', icon: 'limits' },
+  { id: 'limits', label: 'Limits & intervals', icon: 'limits' },
   // No "Settings" entry here on purpose — it's the exact same embedded
   // page as the platform-level Settings page's own "Vibration Analysis"
   // tab (both call embeddedNav.navigateTo('vibration-analysis', 'settings')
@@ -161,7 +161,7 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
     ],
     more: [
       { id: 'compliance', label: 'Compliance (old)', icon: 'ti-calendar-check' },
-      { id: 'limits', label: 'Limits setting', icon: 'ti-adjustments' },
+      { id: 'limits', label: 'Limits & intervals', icon: 'ti-adjustments' },
     ],
   },
 ];

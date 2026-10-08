@@ -66,6 +66,8 @@
  *   ModuleAccessConfig.js Phase 0: this module's tabs + which tabs each request needs
  *   VibrationLog.js       Vibration Log: reports, readings per VIB ID, coverage, 45-day rule
  *   Readings.js           New Reading (one machine, one date) + equipment summary
+ *   Limits.js             limits per equipment / VIB ID, interval, Active / Inactive (App Owner only, history kept)
+ *   VibActions.js         actions: 4-part record, automatic drafts from approved reports, open / closure flow
  */
 
 function doGet(e) {
@@ -156,6 +158,14 @@ function dispatch(action, params, session) {
   // Readings.js
   if (action==='getVibEquipmentSummary') return handleGetVibEquipmentSummary(params, session);
   if (action==='saveVibReadings')       return vlLocked_(function () { return handleSaveVibReadings(params, session); });
+  // Limits.js
+  if (action==='getVibLimits')          return handleGetVibLimits(params, session);
+  if (action==='saveVibLimits')         return vlLocked_(function () { return handleSaveVibLimits(params, session); });
+  // VibActions.js
+  if (action==='getVibActions')         return handleGetVibActions(params, session);
+  if (action==='getVibActionHistory')   return handleGetVibActionHistory(params, session);
+  if (action==='saveVibAction')         return vlLocked_(function () { return handleSaveVibAction(params, session); });
+  if (action==='vibActionTransition')   return vlLocked_(function () { return handleVibActionTransition(params, session); });
   return {error: 'Unknown action: ' + action};
 }
 

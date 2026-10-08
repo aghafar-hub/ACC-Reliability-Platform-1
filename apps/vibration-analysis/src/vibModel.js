@@ -17,8 +17,10 @@ export function scopeOf(contractor, line) {
   return "";
 }
 
-// equipmentId → { id, name, line, contractor, scope, rms:[a,b,c], spm:[a,b,c], points:[vibPoint] }
-export function buildEquipment(vibPoints, rmsRegister, spmRegister) {
+// equipmentId → { id, name, line, contractor, scope, rms:[a,b,c], spm:[a,b,c], gs, vibLimits, interval, status, points:[vibPoint] }
+// `limits` (getVibLimits) adds the App Owner's own limits, interval and
+// Active / Inactive on top of the Registers (backend Limits.js).
+export function buildEquipment(vibPoints, rmsRegister, spmRegister, limits) {
   const eq = {};
   const get = (id) => (eq[id] ||= { id, name: "", line: "", contractor: "", scope: "", rms: null, spm: null, points: [] });
   rmsRegister.forEach((r) => {
@@ -39,7 +41,20 @@ export function buildEquipment(vibPoints, rmsRegister, spmRegister) {
     x.contractor ||= p.contractor;
     x.points.push(p);
   });
+  const lim = Object.fromEntries((limits?.equipment || []).map((e) => [e.equipmentId, e]));
   Object.values(eq).forEach((x) => {
+    const l = lim[x.id];
+    if (l) {
+      x.rms = l.rms || x.rms;
+      x.spm = l.spm || x.spm;
+      x.gs = l.gs || null;
+      x.interval = l.interval;
+      x.status = l.status;
+    }
+    x.vibLimits = {};
+    x.points.forEach((p) => {
+      if (limits?.vibLimits?.[p.vibId]) x.vibLimits[p.vibId] = limits.vibLimits[p.vibId];
+    });
     x.scope = scopeOf(x.contractor, x.line);
     x.points.sort((a, b) => a.positionCode.localeCompare(b.positionCode) || familyOrder(a.family) - familyOrder(b.family) || a.vibId.localeCompare(b.vibId));
   });
@@ -63,13 +78,23 @@ export function fieldsFor(point) {
 }
 
 // System status of one reading against the equipment's limits.
+// Same order as the backend: VIB ID limit > equipment limit > Register > default.
+export function limitsFor(point, eqInfo) {
+  const own = eqInfo?.vibLimits?.[point.vibId];
+  if (own) return own;
+  if (point.family === "RMS") return eqInfo?.rms || RMS_DEFAULT;
+  if (point.family === "SPM") return eqInfo?.spm || SPM_DEFAULT;
+  return eqInfo?.gs || null;
+}
 export function systemStatus(point, eqInfo, r) {
+  const lim = limitsFor(point, eqInfo);
   if (point.family === "RMS") {
     const vals = [r.h, r.v, r.a].map((x) => parseFloat(x)).filter((n) => !isNaN(n));
-    return vals.length ? band(Math.max(...vals), eqInfo?.rms || RMS_DEFAULT) : "";
+    return vals.length ? band(Math.max(...vals), lim) : "";
   }
-  if (point.family === "SPM") return band(r.hdm, eqInfo?.spm || SPM_DEFAULT);
-  return r.g !== "" && r.g != null && !isNaN(parseFloat(r.g)) ? "No limits" : "";
+  if (point.family === "SPM") return band(r.hdm, lim);
+  const has = r.g !== "" && r.g != null && !isNaN(parseFloat(r.g));
+  return has ? (lim ? band(r.g, lim) : "No limits") : "";
 }
 
 export function monthLabel(m) {

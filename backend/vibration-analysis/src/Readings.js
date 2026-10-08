@@ -28,6 +28,7 @@ function handleSaveVibReadings(params, session) {
   if (!eq || !eq.vibIds) return { status: 'error', error: 'Unknown equipment, or it has no active VIB IDs: ' + eqId };
   if (me.contractor && eq.contractor !== me.contractor) return { status: 'error', error: 'This equipment belongs to another contractor.' };
   if (!eq.scope) return { status: 'error', error: 'This equipment has no line in the registers, so it has no report scope.' };
+  if (eq.inactive) return { status: 'error', error: eqId + ' is Inactive. The App Owner can make it Active again under Limits & intervals.' };
   if (!date) return { status: 'error', error: 'Pick the measurement date.' };
   if (date > vlToday_()) return { status: 'error', error: 'The measurement date is in the future.' };
   var filled = list.filter(function (x) {
@@ -116,7 +117,8 @@ function handleGetVibEquipmentSummary(params, session) {
       equipmentId: eqId, name: e.name, line: e.line, contractor: e.contractor, scope: e.scope, vibIds: e.vibIds,
       status: last ? x.months[last].worst : '', lastMonth: last || '', lastDate: last ? x.months[last].date : '',
       lastReportId: last ? x.months[last].reportId : '', prevStatus: prev ? x.months[prev].worst : '', prevMonth: prev || '',
-      readings: x.count, rms: e.rms, spm: e.spm,
+      readings: x.count, rms: e.rms, spm: e.spm, gs: e.gs, interval: e.interval, inactive: e.inactive,
+      nextDue: last && x.months[last].date ? vlAddDays_(x.months[last].date, e.interval || VL_DEFAULT_INTERVAL) : '',
       points: Object.keys(x.points).sort().map(function (k) { return x.points[k]; }),
     });
   });

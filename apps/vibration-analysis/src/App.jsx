@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getStartupBundle,
   readAll,
+  getVibLimits,
   setCurrentPage,
 } from "./api";
-import { configStore, DEFAULT_WEBHOOK_URL, loadThresholdOverrides, saveThresholdOverrides } from "./config";
+import { configStore, DEFAULT_WEBHOOK_URL, loadThresholdOverrides } from "./config";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import { classifyComplianceStatus, vibPointKey } from "./domain";
@@ -24,11 +25,11 @@ import Dashboard from "./pages/Dashboard";
 import EquipmentRegister from "./pages/EquipmentRegister";
 import ComplianceTracker from "./pages/ComplianceTracker";
 import ActionTracker from "./pages/ActionTracker";
-import LimitsSettings from "./pages/LimitsSettings";
 import Settings from "./pages/Settings";
 import VibrationLog from "./pages/VibrationLog";
 import VibEquipment from "./pages/VibEquipment";
 import VibTrends from "./pages/VibTrends";
+import VibLimits from "./pages/VibLimits";
 import { buildEquipment } from "./vibModel";
 
 
@@ -69,6 +70,8 @@ export default function App({ navBridge } = {}) {
   const [lastSpm, setLastSpm] = useState([]);
   const [actions, setActions] = useState([]);
   const [vibPoints, setVibPoints] = useState([]);
+  // Own limits, intervals and Active / Inactive (backend Limits.js).
+  const [vibLimits, setVibLimits] = useState(null);
   const [thresholdsMap, setThresholdsMap] = useState({});
   const [syncState, setSyncState] = useState({ status: "idle", message: "Not synced yet" });
 
@@ -113,15 +116,6 @@ export default function App({ navBridge } = {}) {
     navBridge.onNavigate?.(page);
   });
 
-  const setThreshold = useCallback((equipmentId, value) => {
-    setThresholdsMap((prev) => {
-      const next = { ...prev };
-      if (value === null) delete next[equipmentId];
-      else next[equipmentId] = value;
-      saveThresholdOverrides(next);
-      return next;
-    });
-  }, []);
 
   const syncNow = useCallback(async () => {
     const url = configRef.current?.webhookUrl || webhookRef.current;
@@ -257,6 +251,10 @@ export default function App({ navBridge } = {}) {
       }
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setSyncState({ status: "ok", message: `✓ Loaded — ${time}` });
+      // after the bundle, never alongside it (one request at a time)
+      getVibLimits(url)
+        .then(setVibLimits)
+        .catch(() => {});
     } catch (err) {
       setSyncState({
         status: "error",
@@ -310,7 +308,13 @@ export default function App({ navBridge } = {}) {
   }, [vibPoints]);
 
   // Equipment → scope, limits and VIB IDs, shared by the redesigned pages.
-  const scopeEquipment = useMemo(() => buildEquipment(vibPoints, rmsRegister, spmRegister), [vibPoints, rmsRegister, spmRegister]);
+  const scopeEquipment = useMemo(() => buildEquipment(vibPoints, rmsRegister, spmRegister, vibLimits), [vibPoints, rmsRegister, spmRegister, vibLimits]);
+  const reloadLimits = useCallback(async () => {
+    const url = configRef.current?.webhookUrl || webhookRef.current;
+    const d = await getVibLimits(url);
+    setVibLimits(d);
+    return d;
+  }, []);
 
   const actionCounts = useMemo(
     () => ({
@@ -386,16 +390,7 @@ export default function App({ navBridge } = {}) {
       />
     );
   } else if (page === "limits") {
-    content = (
-      <LimitsSettings
-        registryList={registryList}
-        thresholdsMap={thresholdsMap}
-        setThresholds={setThreshold}
-        rmsRegMap={rmsRegMap}
-        spmRegMap={spmRegMap}
-        webhookUrl={webhookUrl}
-      />
-    );
+    content = <VibLimits webhookUrl={webhookUrl} limits={vibLimits} reload={reloadLimits} scopeEquipment={scopeEquipment} />;
   } else if (page === "settings") {
     content = (
       <Settings

@@ -183,7 +183,7 @@ function vlActor_(session) {
 
 // Builds the lookups everything here needs: VIB ID → point, equipment →
 // {name, line, contractor, scope, rms/spm limits}.
-function vlMasterData_(ss) {
+function vlMasterData_(ss, opts) {
   var points = readVibRegistry(ss);
   var rmsReg = readSheet(ss, SHEET_RMS_REG);
   var spmReg = readSheet(ss, SHEET_SPM_REG);
@@ -213,7 +213,10 @@ function vlMasterData_(ss) {
     x.vibIds++;
   });
   Object.keys(eq).forEach(function (id) { eq[id].scope = vlScopeOf_(eq[id]); });
-  return { vib: vib, eq: eq };
+  var master = { vib: vib, eq: eq };
+  lmApply_(ss, master); // Limits.js: custom limits, interval, Active / Inactive
+  Object.keys(eq).forEach(function (id) { eq[id].inactive = eq[id].status === 'Inactive'; });
+  return master;
 }
 
 // RHI reports per line; ASEC sends one report for the cement mills.
@@ -230,7 +233,7 @@ function vlScopes_(master) {
   var out = {};
   Object.keys(master.eq).forEach(function (id) {
     var x = master.eq[id];
-    if (!x.contractor || !x.scope || !x.vibIds) return;
+    if (!x.contractor || !x.scope || !x.vibIds || x.inactive) return;
     var k = x.contractor + '|' + x.scope;
     if (!out[k]) out[k] = { contractor: x.contractor, scope: x.scope, equipment: 0, vibIds: 0 };
     out[k].equipment++;
@@ -430,13 +433,14 @@ function handleSaveVibEntries(params, session) {
       [H, V, A].forEach(function (n) { if (n !== null && (maxV === null || n > maxV)) maxV = n; });
       if (maxV === null) { problems.push(line + 'no H / V / A value.'); return; }
       if ([H, V, A].some(function (n) { return n !== null && n < 0; })) { problems.push(line + 'velocity can\'t be negative.'); return; }
-      lim = eq.rms || VL_RMS_DEFAULT; sys = vlBand_(maxV, lim);
+      lim = lmFor_(master, eq, vibId, 'RMS'); sys = vlBand_(maxV, lim);
     } else if (fam === 'SPM') {
       if (HDm === null && HDc === null) { problems.push(line + 'no HDm / HDc value.'); return; }
-      lim = eq.spm || VL_SPM_DEFAULT; sys = vlBand_(HDm, lim);
+      lim = lmFor_(master, eq, vibId, 'SPM'); sys = vlBand_(HDm, lim);
     } else {
       if (G === null) { problems.push(line + 'no G\'s value.'); return; }
-      sys = 'No limits';
+      lim = lmFor_(master, eq, vibId, 'Gs');
+      sys = lim ? vlBand_(G, lim) : 'No limits';
     }
     var rs = vlLevel_(x.reportStatus);
     var fin = rs || (sys === 'No limits' ? '' : sys);
@@ -503,7 +507,7 @@ function vlCounts_(entries, master, rep) {
   entries.forEach(function (o) { if (o['Report differs'] === 'Yes') c.differs++; });
   Object.keys(master.eq).forEach(function (id) {
     var x = master.eq[id];
-    if (x.contractor === rep['Contractor'] && x.scope === rep['Report scope'] && x.vibIds) c.inScope++;
+    if (x.contractor === rep['Contractor'] && x.scope === rep['Report scope'] && x.vibIds && !x.inactive) c.inScope++;
   });
   return c;
 }
@@ -521,6 +525,7 @@ function vlWriteCoverage_(ss, rep, entries, master) {
     var x = master.eq[eqId];
     if (x.contractor !== rep['Contractor'] || x.scope !== rep['Report scope'] || !x.vibIds) return;
     var n = per[eqId] || 0;
+    if (x.inactive && !n) return;
     t.sheet.appendRow(vlRowFrom_(t.headers, {
       'Report ID': id, 'Month': vlMonth_(rep['Month']), 'Contractor': rep['Contractor'], 'Report scope': rep['Report scope'],
       'Line': x.line, 'Equipment ID': eqId, 'Equipment name': x.name, 'Compliance mark (old)': '',
@@ -597,7 +602,10 @@ function handleVibReportTransition(params, session) {
   var saved = vlWriteReport_(ss, rep, changes);
   vlAudit_(ss, me.email, { submit: 'Sent to ACC', approve: 'Approved', 'return': 'Returned', reopen: 'Reopened' }[to], id, reason);
   vlNotify_(ss, to, saved, me, reason);
-  return { status: 'ok', reportId: id, report: vlReportOut_(saved, today) };
+  // Approved readings are checked against the limits: abnormal machines get
+  // a finding on their open action, or a new draft action (VibActions.js).
+  var findings = to === 'approve' ? vaApplyFindings_(ss, saved, me) : null;
+  return { status: 'ok', reportId: id, report: vlReportOut_(saved, today), findings: findings };
 }
 
 // Report upload / decision notifications (workflow: "Report upload → both

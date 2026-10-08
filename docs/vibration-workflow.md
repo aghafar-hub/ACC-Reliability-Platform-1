@@ -87,6 +87,34 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 - The old pages *Equipment Reading*, *Graphs* and the old *New reading* were replaced (they read the old RMS /
   SPM DATA tabs, which the Vibration Log now holds).
 
+## Limits, intervals and automatic draft actions (step 3)
+
+**Limits & intervals** (More → Limits & intervals)
+- Only the **App Owner** changes them. Everyone else sees the page view only.
+- Every change needs a **reason** and adds a row to `Vibration Limits`. The replaced row is kept with Active = No, so nothing is overwritten.
+- Readings already saved keep the limits they were judged with (*Limits used* on each reading). A change applies to new readings only.
+
+**Order of limits**
+1. VIB ID limit.
+2. Machine limit for that family (RMS / SPM / G's).
+3. RMS / SPM Register.
+4. Defaults: RMS 2.8 / 7.1 / 18 mm/s, SPM 20 / 35 / 50 dBsv.
+
+G's has no limits, and gets no system status, unless 1 or 2 sets them.
+
+**Interval and Active / Inactive**
+- Each machine has a measurement **interval** in days (default 30). The machine page shows the next due date.
+- Each machine is **Active** or **Inactive**. An inactive machine is left out of report scopes and coverage, and takes no new readings.
+
+**Automatic draft actions**
+- When ACC **approves** a report, every machine whose worst final status is Caution, Alert or Danger gets a **finding**:
+  - The finding is added to the machine's **open action**, and the action's severity goes up if needed.
+  - When the machine has no open action, a new **Draft** action is created.
+- Normal machines: keep monitoring, no action.
+- Approving the same report again (after a reopen) replaces its findings instead of adding them twice.
+- A new finding on an action that is waiting for closure moves the action back to **Open**.
+- Default follow-up reading: Alert → 30 days, Danger → 7 days.
+
 ## Sheets
 
 | Tab | Holds |
@@ -95,5 +123,8 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 | `Vibration Log Entries` | one row per VIB ID reading |
 | `Report Coverage` | one row per machine per report |
 | `Vibration Audit` | who did what, when (created automatically) |
+| `Vibration Limits` | limit / interval / status changes, with reason; Active = Yes for the current one |
+| `Vibration Actions` | one row per action (4 parts, owner, due date, closure) |
+| `Vibration Action Findings` | one row per finding (report, machine, severity, points) |
 
 Columns are read by header name. Missing columns are added on the first save.

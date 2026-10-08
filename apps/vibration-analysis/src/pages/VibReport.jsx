@@ -28,6 +28,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   const [family, setFamily] = useState("All");
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState(null);
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -153,6 +154,11 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
             right={buttons}
           />
           {wf !== "Historic" && wf !== "Closed" && <StepTrail steps={STEPS} current={wf === "Returned" ? "Draft" : wf} testid="vrep-steps" />}
+          {notice && (
+            <div role="status" data-testid="vrep-notice" style={{ ...s.card, marginBottom: 14, borderLeft: `4px solid ${T.info}`, color: T.textPrimary }}>
+              {notice}
+            </div>
+          )}
           {wf === "Returned" && (
             <div role="status" style={{ ...s.card, marginBottom: 14, borderLeft: `4px solid ${T.danger}`, background: T.dangerBg, color: T.textPrimary }}>
               <b>Returned by ACC:</b> {rep["Return reason"]}
@@ -266,8 +272,11 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
           step={step}
           rep={rep}
           onClose={() => setStep(null)}
-          onDone={() => {
+          onDone={(r) => {
             setStep(null);
+            const f = r?.findings;
+            if (f && (f.created.length || f.added.length)) setNotice(`Checked against the limits: ${f.created.length} new draft action(s), ${f.added.length} finding(s) added to open actions. See the Actions tab.`);
+            else if (f) setNotice("Checked against the limits: no machine needs an action.");
             load();
           }}
         />
@@ -428,8 +437,8 @@ function StepModal({ webhookUrl, step, rep, onClose, onDone }) {
     if (cfg.reason && !reason.trim()) return setError("Please give the reason.");
     setBusy(true);
     try {
-      await vibReportTransition(webhookUrl, { reportId: rep["Report ID"], to: step, reason });
-      onDone();
+      const r = await vibReportTransition(webhookUrl, { reportId: rep["Report ID"], to: step, reason });
+      onDone(r);
     } catch (e) {
       setError(String(e.message || e));
       setBusy(false);

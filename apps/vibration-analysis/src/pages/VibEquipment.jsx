@@ -312,7 +312,9 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
             {eqId} · {name} {row?.status && <LevelPill level={row.status} testid="vm-status" />}
           </span>
         }
-        subtitle={[info?.line, info?.contractor, `${positions.length} points · ${(info?.points || []).length} VIB IDs`, row?.lastDate ? `last measured ${shortDate(row.lastDate)}` : "not measured yet", row?.prevStatus ? `before: ${row.prevStatus}` : ""].filter(Boolean).join(" · ")}
+        subtitle={[info?.line, info?.contractor, `${positions.length} points · ${(info?.points || []).length} VIB IDs`, row?.lastDate ? `last measured ${shortDate(row.lastDate)}` : "not measured yet",
+          row?.nextDue ? `next due ${shortDate(row.nextDue)} (every ${row.interval} days)` : "",
+          row?.inactive ? "Inactive" : "", row?.prevStatus ? `before: ${row.prevStatus}` : ""].filter(Boolean).join(" · ")}
         right={
           <button type="button" style={s.btnPrimary} onClick={onAdd} data-testid="vm-new-reading">
             <i className="ti ti-plus" aria-hidden="true" /> New reading
