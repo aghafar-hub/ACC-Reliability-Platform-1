@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
 import ModuleAccessPanel from '../components/ModuleAccessPanel';
+import DelegationsPanel from '../components/DelegationsPanel';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { tabLevel, useModuleAccess } from '../moduleAccess';
@@ -12,13 +13,15 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'users' | 'module-access';
+type GeneralSubTabId = 'appearance' | 'delegations' | 'users' | 'module-access';
 
 // One list of sections, shown as the left navigation (design reference):
 // the platform's own settings first, then each module's.
 type Section = { id: string; group: 'Platform' | 'Modules'; label: string; hint: string; icon: string; tab: SettingsTabId; sub?: GeneralSubTabId };
 const SECTIONS: Section[] = [
   { id: 'appearance', group: 'Platform', label: 'Appearance', hint: 'Colour theme · install the app', icon: 'palette', tab: 'general', sub: 'appearance' },
+  // Responsible engineers, managers and the App Owner (filtered below).
+  { id: 'delegations', group: 'Platform', label: 'My delegations', hint: 'Cover while you are away', icon: 'users', tab: 'general', sub: 'delegations' },
   { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
   // Phase 0 — App Owner only (filtered below).
   { id: 'module-access', group: 'Platform', label: 'Module Access', hint: 'Who opens which module and tab', icon: 'shield', tab: 'general', sub: 'module-access' },
@@ -43,16 +46,23 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const embeddedNav = useEmbeddedNav();
   const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
-  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>('appearance');
+  // ?tab=delegations opens straight on My delegations (My Work's "Nobody responsible" link)
+  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>(searchParams.get('tab') === 'delegations' ? 'delegations' : 'appearance');
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
   const { access } = useModuleAccess();
+  // anyone who can be responsible, manage, or be asked to cover
+  const canDelegate =
+    isAppOwner ||
+    !!claims?.roles.some((r) => r === ROLE.RELIABILITY_ENGINEER || r === ROLE.CONTRACTOR_ENGINEER || r === ROLE.MANAGER || r === ROLE.CONTRACTOR_MANAGER) ||
+    Object.values(access).some((a) => a?.responsibilities?.some((x) => /Responsible Engineer|Manager/.test(x)));
   // A module's own settings page is a section like any other (Phase 0):
   // hidden for anyone whose access hides it; Users / Module Access are for
   // the App Admin only.
   const sections = SECTIONS.filter((x) => {
     if (x.tab !== 'general') return tabLevel(access[x.tab], 'settings') !== 'Hidden';
     if (x.sub === 'module-access' || x.sub === 'users') return isAppOwner;
+    if (x.sub === 'delegations') return canDelegate;
     return true;
   });
   const current = sections.find((x) => (activeTab === 'general' ? x.sub === generalSubTab : x.tab === activeTab)) || sections[0];
@@ -140,6 +150,7 @@ export default function Settings() {
               <InstallCard />
             </>
           )}
+          {generalSubTab === 'delegations' && canDelegate && <DelegationsPanel />}
           {generalSubTab === 'users' && isAppOwner && <AccountsPanel />}
           {generalSubTab === 'module-access' && isAppOwner && <ModuleAccessPanel />}
         </div>

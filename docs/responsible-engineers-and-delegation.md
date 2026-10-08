@@ -49,6 +49,35 @@ bell and by email, and the bell link opens My Work. They reach:
 
 The person who made the change is not notified.
 
+## The screen: Settings → My delegations
+
+`frontend/src/components/DelegationsPanel.tsx` asks every module for
+`getMyDelegations` and shows the answers together.
+
+- **Who sees it:** engineers, managers and the App Owner. Technicians and
+  visitors don't.
+- **Your responsibility:** one tile per module. It shows one of
+  "Responsible engineer", "Covering for X until …", "Away — Y covers until …"
+  or "Not a responsible engineer here".
+- **Nobody responsible:** a warning above the tiles for managers and the App
+  Owner. My Work's "Nobody responsible" card links here with
+  `/settings?tab=delegations`.
+- **Delegations:** one row per delegation, even when it covers several
+  modules. Chips switch between Active & upcoming, Ended and All. The row
+  shows who is away → who covers, the dates and number of days, the
+  modules, the contractor, the reason and who set it up. Its End now button
+  (Cancel for an upcoming one) ends the delegation in every module it covers.
+- **New delegation (popup):**
+  - Modules: chips, starting with the ones you're listed in.
+  - Who is away: you, or, for a manager, any listed engineer or "No
+    engineer free — I'll cover it myself".
+  - Who covers: people in your own company with an engineer or manager
+    account. Anyone already away on those dates is greyed out.
+  - Dates, an optional reason, and a summary of what will happen.
+  - The request is sent once per module, with no automatic retry, so it is
+    never saved twice. Only a covering colleague who is not listed gets no
+    New delegation button, so they can't pass the work on.
+
 ## Sheet
 
 `MA_DELEGATIONS` is created on first use in each module spreadsheet. Its

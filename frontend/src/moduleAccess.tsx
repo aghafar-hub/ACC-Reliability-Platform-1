@@ -53,14 +53,17 @@ const STORAGE_PREFIX = 'acc.moduleAccess.v1:';
 
 // ─── Talking to a module backend ─────────────────────────────────────────────
 
-export async function moduleGet(moduleId: string, sessionToken: string, params: Record<string, string>): Promise<any> {
+// opts.attempts: 1 for a request that changes something (e.g. starting a
+// delegation), so a slow answer is never sent twice.
+export async function moduleGet(moduleId: string, sessionToken: string, params: Record<string, string>, opts: { attempts?: number } = {}): Promise<any> {
+  const attempts = opts.attempts ?? 3;
   const m = moduleBackend(moduleId);
   const url = new URL(m.url);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   if (m.secret) url.searchParams.set('secret', m.secret);
   if (sessionToken) url.searchParams.set('sessionToken', sessionToken);
   let lastErr: unknown;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     url.searchParams.set('_', `${Date.now()}_${attempt}`);
     try {
       const res = await fetch(url.toString(), { cache: 'no-store' });
@@ -68,7 +71,7 @@ export async function moduleGet(moduleId: string, sessionToken: string, params: 
       return await res.json();
     } catch (err) {
       lastErr = err;
-      if (attempt < 3) await new Promise((r) => setTimeout(r, 400 * attempt));
+      if (attempt < attempts) await new Promise((r) => setTimeout(r, 400 * attempt));
     }
   }
   throw lastErr;
