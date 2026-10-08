@@ -1,0 +1,288 @@
+.tm {
+  min-width: 0;
+}
+.tm-muted,
+.tm-loading {
+  color: var(--shell-text-secondary);
+  font-size: 13px;
+}
+.tm-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.tm-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tm-chip {
+  border: 1px solid var(--shell-border);
+  background: var(--shell-card-bg);
+  color: var(--shell-text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tm-chip--on {
+  background: var(--shell-accent);
+  border-color: var(--shell-accent);
+  color: var(--shell-accent-text);
+}
+.tm-secondary {
+  background: var(--shell-card-bg);
+  color: var(--shell-text);
+  border: 1px solid var(--shell-border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Engineers | Technicians — underline tabs like the module tab bars */
+.tm-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--shell-border);
+  margin-bottom: 14px;
+}
+.tm-tab {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--shell-text-secondary);
+  padding: 9px 12px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.tm-tab--on {
+  color: var(--shell-accent);
+  border-bottom-color: var(--shell-accent);
+}
+.tm-tab-count {
+  font-size: 12px;
+  color: var(--shell-text-secondary);
+  margin-left: 2px;
+}
+
+.tm-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.tm-tile {
+  background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tm-tile--late {
+  border-left: 4px solid var(--shell-danger);
+}
+.tm-tile-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--shell-text-secondary);
+}
+.tm-tile-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--shell-text);
+  line-height: 1.2;
+}
+.tm-tile-sub {
+  font-size: 12px;
+  color: var(--shell-text-secondary);
+}
+.tm-tiles--small .tm-tile-value {
+  font-size: 22px;
+}
+
+.tm-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+/* the people table: a grid on desktop, cards on a phone */
+.tm-table {
+  background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tm-tr {
+  display: grid;
+  grid-template-columns: minmax(180px, 2.2fr) repeat(4, minmax(70px, 1fr)) minmax(100px, 1.2fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  text-align: left;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--shell-text);
+}
+.tm-th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--shell-text-secondary);
+  background: var(--shell-bg);
+  border-bottom: 1px solid var(--shell-border);
+}
+.tm-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--shell-border);
+  background: none;
+  cursor: pointer;
+}
+.tm-row:last-child {
+  border-bottom: 0;
+}
+.tm-row:hover {
+  background: color-mix(in srgb, var(--shell-accent) 5%, transparent);
+}
+.tm-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.tm-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-sub {
+  font-size: 12px;
+  color: var(--shell-text-secondary);
+}
+.tm-late {
+  color: var(--shell-danger);
+  font-weight: 700;
+}
+.tm-warn {
+  color: var(--shell-warning);
+  font-weight: 700;
+}
+.tm-waiting {
+  margin-top: 10px;
+}
+
+/* a person's history */
+.tm-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tm-history li + li {
+  border-top: 1px solid var(--shell-border);
+}
+.tm-ev {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--shell-text);
+  cursor: pointer;
+}
+.tm-ev > .ti {
+  color: var(--shell-text-secondary);
+}
+.tm-ev-date {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--shell-text-secondary);
+}
+.tm-ev-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tm-ev-label {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.tm-ev-title {
+  font-size: 12.5px;
+  color: var(--shell-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tm-ev-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.tm-tag {
+  font-size: 12px;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--shell-text-secondary);
+}
+.tm-tag--cover {
+  border-color: var(--shell-accent);
+  color: var(--shell-accent);
+}
+.tm-tag--ok {
+  border-color: var(--shell-success);
+  color: var(--shell-success);
+}
+.tm-tag--late {
+  border-color: var(--shell-danger);
+  color: var(--shell-danger);
+}
+
+@media (max-width: 720px) {
+  .tm-th {
+    display: none;
+  }
+  .tm-tr {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 6px;
+  }
+  .tm-name {
+    grid-column: 1 / -1;
+  }
+  .tm-row > span[data-label] {
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+  }
+  .tm-row > span[data-label]::before {
+    content: attr(data-label);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--shell-text-secondary);
+  }
+}

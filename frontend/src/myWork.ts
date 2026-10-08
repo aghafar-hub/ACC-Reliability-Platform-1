@@ -28,11 +28,16 @@ export type WorkSection = {
   items: WorkItem[];
 };
 
+export type Covering = { from: string; until: string; id: string };
+
 export type ModuleWork = {
   moduleId: string;
   moduleName: string;
   sections: WorkSection[];
   error?: string;
+  // responsible-engineer work through a delegation (backend ModuleAccess.js)
+  covering?: Covering[];
+  listed?: boolean;
 };
 
 // Modules that provide My Work and that this person can see My Work in
@@ -48,6 +53,70 @@ export async function fetchMyWork(sessionToken: string, modules: ModuleBackend[]
     if (r.status === 'rejected') return { moduleId: m.id, moduleName: m.name, sections: [], error: "Couldn't load — try again." };
     const json = r.value || {};
     if (json.error) return { moduleId: m.id, moduleName: m.name, sections: [], error: String(json.error) };
-    return { moduleId: m.id, moduleName: json.moduleName || m.name, sections: Array.isArray(json.sections) ? json.sections : [] };
+    return {
+      moduleId: m.id,
+      moduleName: json.moduleName || m.name,
+      sections: Array.isArray(json.sections) ? json.sections : [],
+      covering: Array.isArray(json.covering) ? json.covering : [],
+      listed: !!json.listed,
+    };
   });
+}
+
+// ─── My team (managers) ──────────────────────────────────────────────────────
+// Every module answers GET getTeamHistory the same way (backend
+// ModuleAccess.js maTeamHistory_ + the module's TeamHistory.js).
+
+export type TeamEvent = {
+  who: string;
+  date: string;
+  kind: string;
+  label: string;
+  title: string;
+  contractor: string;
+  home: string;
+  side: 'ACC' | 'Contractor' | 'Technician';
+  link?: { page: string; recordId?: string };
+  onTime: boolean | null;
+  days: number | null;
+  covering: string;
+  moduleId: string;
+  moduleName: string;
+};
+export type TeamPerson = { email: string; name: string; contractor: string; kind: 'engineer' | 'technician'; listed: boolean; open: number; overdue: number };
+export type TeamWaiting = { contractor: string; waiting: number; overdue: number; moduleId: string; moduleName: string };
+export type TeamHistory = { people: TeamPerson[]; events: TeamEvent[]; teams: TeamWaiting[]; scope: string; failed: string[] };
+
+export async function fetchTeamHistory(sessionToken: string, from: string, to: string): Promise<TeamHistory> {
+  const modules = MODULE_BACKENDS.filter((m) => m.myWork);
+  const results = await Promise.allSettled(modules.map((m) => moduleGet(m.id, sessionToken, { action: 'getTeamHistory', from, to })));
+  const people = new Map<string, TeamPerson>();
+  const events: TeamEvent[] = [];
+  const teams: TeamWaiting[] = [];
+  const failed: string[] = [];
+  let scope = '';
+  results.forEach((r, i) => {
+    const m = modules[i];
+    const j = r.status === 'fulfilled' ? r.value : null;
+    if (!j || j.status !== 'ok') {
+      failed.push(m.name);
+      return;
+    }
+    scope = scope || j.scope;
+    (j.people || []).forEach((p: TeamPerson) => {
+      const had = people.get(p.email);
+      if (!had) people.set(p.email, { ...p });
+      else {
+        had.open += p.open;
+        had.overdue += p.overdue;
+        had.listed = had.listed || p.listed;
+        had.name = had.name || p.name;
+        if (p.kind === 'engineer') had.kind = 'engineer';
+      }
+    });
+    (j.events || []).forEach((e: TeamEvent) => events.push({ ...e, moduleId: m.id, moduleName: m.name }));
+    (j.teams || []).forEach((t: TeamWaiting) => teams.push({ ...t, moduleId: m.id, moduleName: m.name }));
+  });
+  events.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  return { people: [...people.values()], events, teams, scope, failed };
 }

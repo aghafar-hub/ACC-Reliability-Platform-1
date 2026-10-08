@@ -86,7 +86,22 @@ export default function WorkQueue({ work, showModuleNames, onOpen }: { work: Mod
       {work.map((m) =>
         m.sections.length === 0 && !m.error ? null : (
           <div key={m.moduleId} className="wq-module" data-testid={`wq-module-${m.moduleId}`}>
-            {showModuleNames && <p className="mywork-section-title">{m.moduleName}</p>}
+            {(showModuleNames || (m.covering || []).length > 0) && (
+              <div className="wq-module-head">
+                <p className="mywork-section-title">{m.moduleName}</p>
+                <span className="wq-module-count">
+                  {(() => {
+                    const n = m.sections.reduce((k, s) => k + s.total, 0);
+                    return `${n} item${n === 1 ? '' : 's'}`;
+                  })()}
+                </span>
+                {(m.covering || []).map((c) => (
+                  <span key={c.id} className="wq-cover-badge" data-testid="wq-cover-badge">
+                    Covering for {c.from ? c.from.split('@')[0] : 'the team'}
+                  </span>
+                ))}
+              </div>
+            )}
             {m.error && <p className="mywork-error">{m.moduleName}: {m.error}</p>}
             <div className="wq-grid">
               {m.sections.map((s) => (

@@ -79,6 +79,57 @@ The person who made the change is not notified.
 - **Covering colleagues** who are not listed themselves get no New
   delegation button, so they can't pass the work on.
 
+## My Work page (`frontend/src/pages/MyWork.tsx`)
+
+- **Header:** live numbers ("3 to do · 1 overdue · across 2 modules").
+- **Covering banner:** shown while covering for someone, e.g. "Covering for
+  X until …", with the modules and a link to My delegations. Each module's
+  header also carries a "Covering for X" badge.
+- **Summary tiles:** To do now, Overdue, Due soon (7 days), Waiting for
+  others.
+- **Work by module:** the same sections as before, now with a count per
+  module.
+- **My work / My team tabs:** managers and the App Owner get both.
+
+## My team (managers, `components/TeamTab.tsx`)
+
+Every module answers GET `getTeamHistory` (from, to) the same way.
+`ModuleAccess.js` `maTeamHistory_` handles scope and covering, and the
+module's own `TeamHistory.js` `teamCollect_` reads the events from what the
+sheets already record. Nothing is entered by hand, so work from before the
+platform started isn't there.
+
+- **Who sees whom:** a contractor manager sees their own contractor; an ACC
+  manager and the App Owner see ACC and every contractor, with company
+  chips. Engineers and technicians get an error.
+- **Controls:** period chips (This month, Last 3 months, This year), sub-tabs
+  Engineers | Technicians, and sorting By name or Most overdue. It is
+  workload, not a ranking.
+- **Engineers:**
+  - Columns:
+    - Done.
+    - Within 3 days: answers given within 3 days of the request.
+    - Avg. days to answer.
+    - Late answers.
+    - Last activity.
+  - "Not listed" marks someone who isn't on the people list, and "N while
+    covering" counts work done during a cover.
+  - Tiles: work done, answered within 3 days, and what is waiting with each
+    team now.
+- **Technicians:**
+  - Columns: routes done, on time (by the due date), in hand now, overdue,
+    and last activity.
+- **History popup:** tapping a person opens their dated history. Each line
+  shows the module tag, a "Covering for X" tag, and the days taken or
+  on-time / late; tapping it opens the record.
+
+What counts:
+
+| Module | Technicians | Engineers |
+|---|---|---|
+| Oil | Route submitted | Route confirmed / returned, lab report uploaded / validated / returned, closure requested, closure approved / returned (ACC), action rescheduled |
+| Vibration | Route submitted | Route confirmed, report sent (on time = 45-day due date), closure requested, report approved / returned (ACC), action closed (ACC) |
+
 ## Sheet
 
 `MA_DELEGATIONS` is created on first use in each module spreadsheet. Its

@@ -15,11 +15,16 @@ import {
   type RoutineItem,
   type OilPlan,
 } from '../api/oilLubrication';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { ROLE } from '../auth/session';
 import { tapHaptic } from '../haptics';
 import WorkQueue from '../components/WorkQueue';
+import TeamTab from '../components/TeamTab';
+import { TablerIcon } from '../icons';
 import VibRouteDetail from './VibRouteDetail';
 import { fetchMyWork, myWorkModules, type ModuleWork } from '../myWork';
+import '../components/TeamTab.css';
 import './MyWork.css';
 
 const OPEN_STATUSES: string[] = [ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS];
@@ -450,7 +455,11 @@ export default function MyWork({
   onInitialRoutineConsumed?: () => void;
 }) {
   const { sessionToken, claims } = useAuth();
+  const navigate = useNavigate();
   const { access } = useModuleAccess();
+  // Managers and the App Owner also get My team (what their people did).
+  const isManager = !!claims?.roles.some((r) => r === ROLE.ADMIN || r === ROLE.MANAGER || r === ROLE.CONTRACTOR_MANAGER);
+  const [view, setView] = useState<'mine' | 'team'>(() => (new URLSearchParams(window.location.search).get('tab') === 'team' ? 'team' : 'mine'));
   const oilAccess = access['oil-analysis'];
   // Phase 0: My Work is Oil Lubrication's "mywork" tab.
   const canSeeOilWork = tabLevel(oilAccess, 'mywork') !== 'Hidden';
@@ -585,13 +594,90 @@ export default function MyWork({
     );
   }
 
+  // Live numbers for the header and the summary tiles.
+  const allItems = (work || []).flatMap((m) => m.sections.flatMap((sct) => sct.items));
+  const toDo = (work || []).reduce((n, m) => n + m.sections.filter((sct) => sct.severity === 'action').reduce((k, sct) => k + sct.total, 0), 0) + todo.length;
+  const overdueCount = allItems.filter((it) => it.flag === 'overdue').length + todo.filter((r) => isRouteOverdue(r)).length;
+  const dueSoon = allItems.filter((it) => it.flag === 'due').length;
+  const moduleCount = (work || []).filter((m) => m.sections.length > 0).length + (todo.length || awaiting.length ? 1 : 0);
+  // Covering for an engineer (delegation): one line per person and date.
+  const covers = new Map<string, { from: string; until: string; modules: string[] }>();
+  (work || []).forEach((m) =>
+    (m.covering || []).forEach((c) => {
+      const key = c.from + '|' + c.until;
+      const had = covers.get(key) || { from: c.from, until: c.until, modules: [] };
+      had.modules.push(m.moduleName);
+      covers.set(key, had);
+    }),
+  );
+  const loaded = routinesLoaded && (work !== null || workModules.length === 0);
+  const fmtDay = (s: string) => {
+    const d = new Date(s + 'T00:00:00');
+    return isNaN(d.getTime()) ? s : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
   return (
     <div className="mywork">
       {showHeading && (
         <>
           <h1>My Work</h1>
-          <p className="settings-intro">What's waiting for you, across every module.</p>
+          <p className="settings-intro" data-testid="mywork-subtitle">
+            {view === 'team'
+              ? 'What your engineers and technicians did, and what they have in hand.'
+              : loaded
+                ? `${toDo} to do · ${overdueCount} overdue${moduleCount > 1 ? ` · across ${moduleCount} modules` : ''}`
+                : "What's waiting for you, across every module."}
+          </p>
         </>
+      )}
+      {isManager && (
+        <div className="tm-tabs mywork-views" role="tablist" aria-label="My Work view">
+          <button type="button" role="tab" aria-selected={view === 'mine'} className={view === 'mine' ? 'tm-tab tm-tab--on' : 'tm-tab'} onClick={() => setView('mine')} data-testid="mywork-view-mine">
+            My work
+          </button>
+          <button type="button" role="tab" aria-selected={view === 'team'} className={view === 'team' ? 'tm-tab tm-tab--on' : 'tm-tab'} onClick={() => setView('team')} data-testid="mywork-view-team">
+            My team
+          </button>
+        </div>
+      )}
+      {isManager && view === 'team' ? (
+        <TeamTab />
+      ) : (
+        <>
+      {[...covers.values()].map((c) => (
+        <div key={c.from + c.until} className="mywork-cover" data-testid="mywork-covering">
+          <TablerIcon className="ti-user-check" size={18} />
+          <span>
+            <strong>Covering for {c.from ? c.from.split('@')[0] : 'the team'}</strong> until {fmtDay(c.until)} · {c.modules.join(' + ')}. Their engineer work is below — you can approve and close.
+          </span>
+          <button type="button" className="mywork-cover-link" onClick={() => navigate('/settings?tab=delegations')}>
+            My delegations
+          </button>
+        </div>
+      ))}
+      {loaded && (toDo > 0 || overdueCount > 0 || dueSoon > 0 || awaiting.length > 0) && (
+        <div className="tm-tiles mywork-tiles" data-testid="mywork-tiles">
+          <div className="tm-tile">
+            <span className="tm-tile-label">To do now</span>
+            <span className="tm-tile-value">{toDo}</span>
+            <span className="tm-tile-sub">needs you to act</span>
+          </div>
+          <div className={overdueCount ? 'tm-tile tm-tile--late' : 'tm-tile'}>
+            <span className="tm-tile-label">Overdue</span>
+            <span className="tm-tile-value">{overdueCount}</span>
+            <span className="tm-tile-sub">{overdueCount ? 'deal with these first' : 'nothing late'}</span>
+          </div>
+          <div className="tm-tile">
+            <span className="tm-tile-label">Due soon</span>
+            <span className="tm-tile-value">{dueSoon}</span>
+            <span className="tm-tile-sub">next 7 days</span>
+          </div>
+          <div className="tm-tile">
+            <span className="tm-tile-label">Waiting for others</span>
+            <span className="tm-tile-value">{awaiting.length}</span>
+            <span className="tm-tile-sub">sent for approval</span>
+          </div>
+        </div>
       )}
       {maintenanceBanner}
       {error && <p className="mywork-error">{error}</p>}
@@ -643,6 +729,8 @@ export default function MyWork({
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

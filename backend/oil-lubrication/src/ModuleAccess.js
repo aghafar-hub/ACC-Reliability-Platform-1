@@ -528,7 +528,7 @@ var MA_DELEGATION_SHEET = "MA_DELEGATIONS";
 var MA_DELEGATION_HEADERS = ["DelegationId", "FromEmail", "ToEmail", "Side", "Contractor", "StartDate", "EndDate", "Reason", "CreatedBy", "CreatedAt", "Status", "EndedBy", "EndedAt"];
 var MA_DELEGATION_MAX_DAYS = 120;
 // these three run for any signed-in person; the rules are inside
-var MA_SELF_ACTIONS = ["getMyDelegations", "maCreateDelegation", "maEndDelegation"];
+var MA_SELF_ACTIONS = ["getMyDelegations", "maCreateDelegation", "maEndDelegation", "getTeamHistory"];
 
 function maToday_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd");
@@ -536,7 +536,7 @@ function maToday_() {
 
 function maYmd_(v) {
   if (!v) return "";
-  if (Object.prototype.toString.call(v) === "[object Date]") return isNaN(v.getTime()) ? "" : Utilities.formatDate(v, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd");
+  if (Object.prototype.toString.call(v) === "[object Date]") return isNaN(v.getTime()) ? "" : String(Utilities.formatDate(v, Session.getScriptTimeZone() || "Etc/UTC", "yyyy-MM-dd")).slice(0, 10);
   var m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
   return m ? m[1] + "-" + m[2] + "-" + m[3] : "";
 }
@@ -766,5 +766,106 @@ function maHandleSelfAction_(action, data, session) {
   if (action === "getMyDelegations") return maGetMyDelegations_(session);
   if (action === "maCreateDelegation") return maCreateDelegation_(data, session);
   if (action === "maEndDelegation") return maEndDelegation_(data, session);
+  if (action === "getTeamHistory") return maTeamHistory_(data, session);
   return null;
+}
+
+// ─── My team: work history for managers ──────────────────────────────────────
+// A contractor manager sees their own contractor's engineers and
+// technicians; an ACC manager and the App Owner see ACC and every
+// contractor. Each module supplies its events through
+// teamCollect_(from, to) → { events: [...], open: { email: {open, overdue} },
+// teams: [{ contractor, waiting, overdue }] }, where an event is
+// { who, date: "yyyy-MM-dd", kind, label, title, contractor, side: "ACC" |
+// "Contractor" | "Technician", link: { page, recordId }, onTime, days }.
+// This wrapper scopes it, marks work done while covering for someone and
+// lists the people.
+
+var MA_TEAM_MAX_DAYS = 400;
+
+function maTeamScope_(session) {
+  if (!session) return null;
+  var roles = session.roles || [];
+  if (maIsAdmin_(session) || roles.indexOf("ROLE-MGR") !== -1) return { all: true, contractor: "" };
+  if (roles.indexOf("ROLE-CMGR") !== -1) {
+    var c = maContractorForOrg_(session.orgId);
+    return c && c !== "ACC" ? { all: false, contractor: c } : null;
+  }
+  return null;
+}
+
+// Who was this person covering for on that day ("" if nobody). A cover
+// ended early stops counting from the day it was ended.
+function maCoveringOn_(delegations, email, ymd) {
+  for (var i = 0; i < delegations.length; i++) {
+    var d = delegations[i];
+    if (d.to !== email || d.start > ymd) continue;
+    var end = d.end;
+    if (d.status === "Ended" && d.endedAt) { var e = maYmd_(d.endedAt); if (e && e < end) end = e; }
+    if (ymd <= end) return d.from || "the team";
+  }
+  return "";
+}
+
+function maTeamHistory_(data, session) {
+  var scope = maTeamScope_(session);
+  if (!scope) return { error: "Only managers and the App Owner can see team history." };
+  if (typeof teamCollect_ !== "function") return { error: MA_CONFIG.moduleName + " doesn't provide team history yet." };
+  var today = maToday_();
+  var to = maYmd_(data.to) || today;
+  var from = maYmd_(data.from) || (to.slice(0, 8) + "01");
+  if (from > to) return { error: "The start date is after the end date." };
+  if ((new Date(to + "T00:00:00Z") - new Date(from + "T00:00:00Z")) / 864e5 > MA_TEAM_MAX_DAYS) return { error: "Pick a period of up to " + MA_TEAM_MAX_DAYS + " days." };
+
+  var cfg = maLoadConfig_();
+  var delegations = maDelegations_();
+  // the company each person belongs to, as far as this module knows
+  var homeOf = {};
+  var kindOf = {};
+  cfg.people.forEach(function (p) {
+    if (!homeOf[p.email]) homeOf[p.email] = p.contractor;
+    if (p.responsibility === MA_RESP.TECH) kindOf[p.email] = kindOf[p.email] || "technician";
+    if (p.responsibility === MA_RESP.ACC || p.responsibility === MA_RESP.CONTRACTOR) kindOf[p.email] = "engineer";
+  });
+  delegations.forEach(function (d) { if (!homeOf[d.to]) homeOf[d.to] = d.contractor; });
+  var inScope = function (c) { return scope.all || c === scope.contractor; };
+
+  var got = teamCollect_(from, to) || {};
+  var events = [];
+  (got.events || []).forEach(function (e) {
+    e.who = maNormEmail_(e.who);
+    if (!e.who || !e.date || e.date < from || e.date > to) return;
+    var home = homeOf[e.who] || (e.side === "ACC" ? "ACC" : e.contractor || "");
+    if (!inScope(home)) return;
+    e.home = home;
+    e.covering = maCoveringOn_(delegations, e.who, e.date);
+    events.push(e);
+  });
+  events.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+
+  var people = {};
+  var add = function (email, contractor, kind) {
+    if (!email || !inScope(contractor)) return;
+    if (!people[email]) people[email] = { email: email, name: "", contractor: contractor, kind: kind, listed: false, open: 0, overdue: 0 };
+  };
+  cfg.people.forEach(function (p) {
+    var k = p.responsibility === MA_RESP.TECH ? "technician" : (p.responsibility === MA_RESP.ACC || p.responsibility === MA_RESP.CONTRACTOR) ? "engineer" : "";
+    if (!k || kindOf[p.email] !== k) return;
+    add(p.email, p.contractor, k);
+    if (people[p.email]) { people[p.email].listed = true; if (p.displayName) people[p.email].name = p.displayName; }
+  });
+  events.forEach(function (e) { add(e.who, e.home, kindOf[e.who] || (e.side === "Technician" ? "technician" : "engineer")); });
+  var open = got.open || {};
+  Object.keys(open).forEach(function (email) {
+    var em = maNormEmail_(email);
+    add(em, homeOf[em] || open[email].contractor || "", kindOf[em] || "technician");
+    if (people[em]) { people[em].open += open[email].open || 0; people[em].overdue += open[email].overdue || 0; }
+  });
+  return {
+    status: "ok", moduleId: MA_CONFIG.moduleId, moduleName: MA_CONFIG.moduleName, from: from, to: to, today: today,
+    scope: scope.all ? "all" : scope.contractor,
+    people: Object.keys(people).map(function (k) { return people[k]; }),
+    events: events,
+    teams: (got.teams || []).filter(function (t) { return inScope(t.contractor); }),
+  };
 }

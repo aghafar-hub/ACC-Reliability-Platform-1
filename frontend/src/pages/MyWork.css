@@ -639,3 +639,65 @@
   font-size: 13.5px;
 }
 .vibr-offline div { margin-top: 3px; }
+
+/* Step 3 redesign: covering banner, summary tiles, My work | My team */
+.mywork-views {
+  margin-top: 4px;
+}
+.mywork-cover {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--shell-accent);
+  background: color-mix(in srgb, var(--shell-accent) 7%, var(--shell-card-bg));
+  color: var(--shell-text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 13.5px;
+}
+.mywork-cover > .ti {
+  color: var(--shell-accent);
+}
+.mywork-cover > span {
+  flex: 1;
+  min-width: 200px;
+}
+.mywork-cover-link {
+  border: 1px solid var(--shell-border);
+  background: var(--shell-card-bg);
+  color: var(--shell-text);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mywork-tiles {
+  margin-bottom: 18px;
+}
+.wq-module-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 0.75rem;
+}
+.wq-module-head .mywork-section-title {
+  margin: 0;
+}
+.wq-module-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--shell-text-secondary);
+}
+.wq-cover-badge {
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--shell-accent);
+  color: var(--shell-accent);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
