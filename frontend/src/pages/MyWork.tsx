@@ -598,10 +598,18 @@ export default function MyWork({
   }
 
   // Live numbers for the header and the summary tiles.
-  const allItems = (work || []).flatMap((m) => m.sections.flatMap((sct) => sct.items));
-  const toDo = (work || []).reduce((n, m) => n + m.sections.filter((sct) => sct.severity === 'action').reduce((k, sct) => k + sct.total, 0), 0) + todo.length;
-  const overdueCount = allItems.filter((it) => it.flag === 'overdue').length + todo.filter((r) => isRouteOverdue(r)).length;
-  const dueSoon = allItems.filter((it) => it.flag === 'due').length;
+  // Each record once: summary sections are skipped, and a record listed in
+  // two sections (e.g. overdue actions + escalations) counts once.
+  const byFlag = (flag: string) => {
+    const seen = new Set<string>();
+    (work || []).forEach((m) =>
+      m.sections.filter((sct) => !sct.summary).forEach((sct) => sct.items.forEach((it) => it.flag === flag && seen.add(m.moduleId + '|' + it.id))),
+    );
+    return seen.size;
+  };
+  const toDo = (work || []).reduce((n, m) => n + m.sections.filter((sct) => sct.severity === 'action' && !sct.summary).reduce((k, sct) => k + sct.total, 0), 0) + todo.length;
+  const overdueCount = byFlag('overdue') + todo.filter((r) => isRouteOverdue(r)).length;
+  const dueSoon = byFlag('due');
   const moduleCount = (work || []).filter((m) => m.sections.length > 0).length + (todo.length || awaiting.length ? 1 : 0);
   // Covering for an engineer (delegation): one line per person and date.
   const covers = new Map<string, { from: string; until: string; modules: string[] }>();

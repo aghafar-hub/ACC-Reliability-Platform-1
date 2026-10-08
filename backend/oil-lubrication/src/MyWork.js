@@ -9,6 +9,8 @@
 //         items: [{ id, title, subtitle, meta, flag, link: { page, recordId } }] } ] }
 //
 //   flag: "overdue" | "returned" | "due" | "" — shown as a badge.
+//   summary: true on a section that only sums up records listed elsewhere
+//     (team summary, overdue per technician) — not counted in the tiles.
 //   link: the module page (and record) the item opens.
 //
 // Sections by role (a person with several roles gets them all). Engineer
@@ -210,6 +212,8 @@ function getMyWork(session) {
     perTech.sort(function (a, b) { return b.n - a.n; });
     perTech.forEach(function (x) { delete x.n; });
     sections.push(section_("tech-overdue", "Overdue work per technician", "Technicians with overdue routes.", "warning", perTech));
+    // overviews of records already counted elsewhere: My Work's tiles skip them
+    sections.forEach(function (sc) { if (sc.id === "team" || sc.id === "tech-overdue") sc.summary = true; });
   }
 
   out.sections = sections.filter(function (s) { return s.total > 0; });

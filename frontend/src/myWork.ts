@@ -25,6 +25,8 @@ export type WorkSection = {
   hint?: string;
   severity: 'action' | 'warning' | 'info';
   total: number;
+  // only sums up records listed elsewhere (e.g. team summary) — not counted
+  summary?: boolean;
   items: WorkItem[];
 };
 

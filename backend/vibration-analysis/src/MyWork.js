@@ -77,8 +77,12 @@ function handleGetMyWork(params, session) {
       var allRoutes = {};
       vlRead_(ss, SHEET_VROUTES).rows.forEach(function (r) { allRoutes[r['Route ID']] = r; });
       var sugg = vrSuggestions_(ss, master, me, 7, allRoutes).list;
+      var suggItem = function (s) { return { id: s.key, title: s.equipmentId + ' · ' + s.name, subtitle: s.reason, meta: 'Due ' + s.due, flag: s.overdue ? 'overdue' : 'due', link: { page: 'routes' } }; };
+      // already late first, in their own card; the rest are due within 7 days
+      sections.push(vmwSection_('vib-measure-overdue', 'Measurements overdue', 'Past the interval or follow-up date — put them on a route first.', 'warning',
+        sugg.filter(function (s) { return s.overdue; }).map(suggItem)));
       sections.push(vmwSection_('vib-due', 'Measurements due in 7 days', 'Interval due or follow-up readings — put them on a route.', 'info',
-        sugg.map(function (s) { return { id: s.key, title: s.equipmentId + ' · ' + s.name, subtitle: s.reason, meta: 'Due ' + s.due, flag: s.overdue ? 'overdue' : 'due', link: { page: 'routes' } }; })));
+        sugg.filter(function (s) { return !s.overdue; }).map(suggItem)));
     } catch (e) {}
     sections.push(vmwSection_('vib-reports-send', 'Reports to send to ACC', 'Draft or returned reports, and months past the 45-day deadline.', 'action',
       reports.filter(function (r) { return r['Contractor'] === c && (['Draft', 'Returned'].indexOf(r['Workflow status']) !== -1); })
