@@ -407,3 +407,35 @@
     padding-right: max(12px, env(safe-area-inset-right, 0px));
   }
 }
+
+/* Mobile proposal M1 — compact phone header: the module or page name,
+   search and sync only. The bell lives in the bottom bar's Alerts (its
+   panel stays mounted here, only the button hides), settings, account and
+   language move to More. */
+:root {
+  --topbar-h: calc(54px + env(safe-area-inset-top, 0px));
+}
+@media (max-width: 860px) {
+  .shell-topbar {
+    height: var(--topbar-h);
+    box-sizing: border-box;
+    gap: 6px;
+  }
+  .shell-topbar-menu-btn,
+  .shell-topbar .notif-bell-trigger,
+  .shell-topbar-icon-btn:not(.gsearch-phone-btn),
+  .shell-topbar-user {
+    display: none !important;
+  }
+  .shell-topbar-module {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .shell-topbar-crumb .shell-topbar-sep,
+  .shell-topbar-crumb .shell-topbar-page {
+    display: none;
+  }
+  .shell-topbar-sync {
+    border: 0;
+  }
+}

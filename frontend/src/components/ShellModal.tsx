@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { TablerIcon } from '../icons';
+import { useBackClose } from '../mobile/useBackClose';
 import './ShellModal.css';
 
 // The shell's copy of the module apps' ModalShell / FormSection (design
@@ -29,6 +30,7 @@ export default function ShellModal({
   testid?: string;
   children: ReactNode;
 }) {
+  useBackClose(true, onClose);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);

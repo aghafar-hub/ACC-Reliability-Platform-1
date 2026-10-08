@@ -116,6 +116,9 @@
   .sm-shade {
     padding: 0;
     align-items: stretch;
+    /* the visible height: shrinks with the keyboard so the footer stays above it */
+    bottom: auto;
+    height: var(--app-vh, 100%);
   }
   .sm-box {
     max-width: 100% !important;
@@ -124,7 +127,7 @@
     border: 0;
   }
   .sm-head {
-    padding: 14px 16px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
   }
   .sm-body {
     padding: 14px 16px;

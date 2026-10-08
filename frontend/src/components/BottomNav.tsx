@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useBackClose } from '../mobile/useBackClose';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ORG_ACC } from '../auth/session';
@@ -20,13 +21,21 @@ import './BottomNav.css';
 // - Alerts opens the notification panel; More opens the full menu.
 
 
-export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
+export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore: () => void; moreOpen?: boolean }) {
   const location = useLocation();
   const navigate = useNavigate();
   const embeddedNav = useEmbeddedNav();
   const { claims } = useAuth();
   const { access } = useModuleAccess();
   const [sheetOpen, setSheetOpen] = useState(false);
+  useBackClose(sheetOpen, () => setSheetOpen(false));
+  // unread notices, reported by the bell (NotificationBell.tsx)
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    const on = (e: Event) => setUnread(Number((e as CustomEvent<number>).detail) || 0);
+    window.addEventListener('acc:unread', on);
+    return () => window.removeEventListener('acc:unread', on);
+  }, []);
 
   const oil = canOpenModule(access[OIL]);
   const vib = canOpenModule(access[VIB]);
@@ -48,7 +57,8 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
 
   const quick = useQuickActions();
 
-  const slots: { key: string; label: string; icon: string; active: boolean; onClick: () => void; plus?: boolean }[] = [];
+  const slots: { key: string; label: string; icon: string; active: boolean; onClick: () => void; plus?: boolean; badge?: number }[] = [];
+
   if (contractorStaff) {
     slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: homeActive, onClick: () => { tapHaptic(); navigate('/my-work'); } });
   } else if (mainModule) {
@@ -62,8 +72,10 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
   if (quick.length) {
     slots.push({ key: 'plus', label: 'Add', icon: 'plus', active: sheetOpen, plus: true, onClick: () => { tapHaptic(); setSheetOpen(true); } });
   }
-  slots.push({ key: 'alerts', label: 'Alerts', icon: 'bell', active: false, onClick: () => { tapHaptic(); window.dispatchEvent(new Event('acc:open-notifications')); } });
-  slots.push({ key: 'more', label: 'More', icon: 'menu', active: !slots.some((s) => s.active), onClick: () => { tapHaptic(); onOpenMore(); } });
+  slots.push({ key: 'alerts', label: 'Alerts', icon: 'bell', active: false, badge: unread, onClick: () => { tapHaptic(); window.dispatchEvent(new Event('acc:open-notifications')); } });
+  slots.push({ key: 'more', label: 'More', icon: 'menu', active: moreOpen || !slots.some((s) => s.active), onClick: () => { tapHaptic(); onOpenMore(); } });
+
+  if (moreOpen) slots.forEach((sl) => (sl.active = sl.key === 'more'));
 
   return (
     <>
@@ -84,7 +96,10 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
               onClick={s.onClick}
               data-testid={`bottom-${s.key}`}
             >
-              <Icon name={s.icon} size={22} />
+              <span className="bottom-nav-icon">
+                <Icon name={s.icon} size={22} />
+                {!!s.badge && <span className="bottom-nav-badge">{s.badge > 99 ? '99+' : s.badge}</span>}
+              </span>
               <span>{s.label}</span>
             </button>
           ),
@@ -93,7 +108,7 @@ export default function BottomNav({ onOpenMore }: { onOpenMore: () => void }) {
       {sheetOpen && (
         <>
           <div className="quick-sheet-backdrop" onClick={() => setSheetOpen(false)} aria-hidden="true" />
-          <div className="quick-sheet" role="dialog" aria-label="Log from the field" data-testid="quick-sheet">
+          <div className="quick-sheet" role="dialog" aria-modal="true" aria-label="Log from the field" data-testid="quick-sheet">
             <div className="quick-sheet-grab" aria-hidden="true" />
             <p className="quick-sheet-title">Log from the field</p>
             {quick.map((q) => (

@@ -38,7 +38,9 @@ export default defineConfig({
     // StaleWhileRevalidate, not precached, so installing the app never
     // waits on downloading either module up front.
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt': a new version waits for the person to tap Reload
+      // (src/mobile/UpdatePrompt.tsx) instead of reloading mid-form.
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icons/favicon-16.png', 'icons/favicon-32.png', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'ACC Reliability Platform',
@@ -51,6 +53,10 @@ export default defineConfig({
         start_url: '.',
         scope: '.',
         display: 'standalone',
+        display_override: ['standalone', 'minimal-ui'],
+        // phones and tablets in either direction (charts read better sideways)
+        orientation: 'any',
+        categories: ['business', 'productivity'],
         background_color: '#F3F5F8',
         theme_color: '#FFFFFF',
         icons: [
@@ -66,6 +72,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // The first install takes over the open page at once (as before);
+        // later versions wait for the person's Reload (registerType 'prompt').
+        clientsClaim: true,
         // Default globPatterns (JS/CSS/HTML/fonts) already cover the
         // shell's own built output; icons/manifest are picked up via
         // includeAssets above.

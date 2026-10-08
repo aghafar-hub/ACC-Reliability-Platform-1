@@ -222,11 +222,14 @@
 }
 
 @media (max-width: 860px) {
+  /* a small tag on the header's bottom edge, clear of the page content */
   .env-ribbon {
-    font-size: 12px;
-    padding: 1px 10px;
-    /* sits on top of the bottom bar */
-    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    font-size: 10px;
+    padding: 0 8px;
+    bottom: auto;
+    top: calc(var(--topbar-h, 54px) - 8px);
+    border-radius: 6px;
+    z-index: 60;
   }
 
   .env-ribbon-extra {
@@ -238,4 +241,20 @@
    Dynamic Island (the rail handles the left edge, Sidebar.css). */
 .app-shell-right {
   padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Mobile proposal M1 — on phones the page itself scrolls (not a box inside
+   the module), so the browser bar collapses, a tap on the status bar goes
+   to the top, the header and page strip stay pinned, and the scroll
+   position can be kept per page (mobile/ScrollKeeper.tsx). The embedded
+   apps size themselves to the screen with inline styles; these undo that
+   on phones only. */
+@media (max-width: 860px) {
+  .app-content--embedded > div,
+  .app-content--embedded .app-main,
+  .app-content--embedded .app-content {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
 }

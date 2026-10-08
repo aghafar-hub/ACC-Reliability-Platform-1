@@ -177,3 +177,24 @@
   font-size: 13px;
   color: var(--shell-text-secondary, #4a5a70);
 }
+
+/* M1: unread count on Alerts */
+.bottom-nav-icon {
+  position: relative;
+  display: inline-flex;
+}
+.bottom-nav-badge {
+  position: absolute;
+  top: -5px;
+  inset-inline-start: 13px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--shell-danger, #c42b2b);
+  color: #fff;
+  font: 700 10.5px/17px var(--sans);
+  text-align: center;
+  border: 2px solid var(--shell-card-bg, #fff);
+  box-sizing: content-box;
+}

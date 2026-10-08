@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useBackClose } from '../mobile/useBackClose';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useEmbeddedNav } from '../embeddedNav';
@@ -61,6 +62,12 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
   const [unreadCount, setUnreadCount] = useState(0);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // the phone's bottom bar shows the same count on Alerts
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('acc:unread', { detail: unreadCount }));
+  }, [unreadCount]);
+  // phone back gesture closes the panel
+  useBackClose(open, () => setOpen(false));
 
   const refresh = useCallback(async () => {
     if (!sessionToken || !claims?.email) return;

@@ -121,11 +121,32 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - Every filter affects every chart on the page.
 - Missing lab values are left out of charts, never drawn as 0.
 
-## 8. Phone
+## 8. Phone (≤860 px; mobile app design, M1)
 
-- No sideways page scroll at 390 px; tables scroll in their card.
+- **Header:** module or page name, search, and sync only. The bell lives in
+  the bottom bar's Alerts (with an unread badge). Settings, account,
+  language and sign-out are in **More**.
+- **Bottom bar:** Home · Equipment · ＋ · Alerts · More. **More** is a sheet
+  listing every page of every module, plus My Work, Settings, My
+  delegations and Sign out (`src/mobile/MoreSheet.tsx`).
+- **Module pages:** an **Oil | Vibration** switch, then the pages as a
+  chip strip you swipe sideways. Both stay pinned under the header.
+  Switching module keeps the same kind of page (Dashboard → Dashboard).
+- **Back:** every sheet, popup and panel adds a history step
+  (`useBackClose` in `src/mobile/useBackClose.ts`), so the iPhone swipe and
+  the Android back button close it instead of leaving the page.
+- **Scrolling:** the page itself scrolls (no inner scroll box), so the
+  browser bar collapses and a status-bar tap goes to the top. Each page's
+  scroll position is kept for the visit (`ScrollKeeper`).
+- **Keyboard:** `--app-vh` follows the visible height. The bottom bar
+  hides while typing, and full-screen forms keep their footer above the
+  keyboard (`src/mobile/viewport.ts`).
+- **Updates:** a "New version ready — Reload" prompt replaces the silent
+  reload, and asks the person to finish an open form first
+  (`UpdatePrompt.tsx`).
+- No sideways page scroll at 360 px and 390 px; tables scroll in their card.
 - Tile and chart grids use `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`.
-- Popups are full-screen sheets; the bottom bar stays.
+- Popups are full-screen sheets that close with Back.
 
 ## 9. Checklist for a new or redesigned page
 

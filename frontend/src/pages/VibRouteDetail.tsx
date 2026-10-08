@@ -49,6 +49,19 @@ function writeDraft(routeId: string, d: Draft | null) {
 function snapshot(route: VibRoute, points: VibRoutePoint[]) {
   return JSON.stringify([route.Status, route.Technician, route['Route comment'] || '', points.map((p) => [p['VIB ID'], p.Done, p['Skip reason'] || '', p['Equipment comment'] || ''])]);
 }
+// does the server's checklist already equal what the phone copy holds?
+function draftMatchesServer(d: Draft, points: VibRoutePoint[], route: VibRoute) {
+  if ((route['Route comment'] || '') !== (d.routeComment || '')) return false;
+  return points.every((p) => {
+    const st = d.state[p['VIB ID']];
+    if (!st) return true;
+    const done = p.Done === 'Yes';
+    if (done !== st.done) return false;
+    if (!st.done && (p['Skip reason'] || '') !== (st.skip || '')) return false;
+    const c = d.eqComments[p['Equipment ID']];
+    return c === undefined || (p['Equipment comment'] || '') === c;
+  });
+}
 const isOffline = (err: unknown) => (typeof navigator !== 'undefined' && navigator.onLine === false) || err instanceof TypeError || /network|failed to fetch|load failed/i.test(String((err as Error)?.message || err));
 
 export default function VibRouteDetail({ routeId, sessionToken, onBack, onSubmitted }: { routeId: string; sessionToken: string; onBack: () => void; onSubmitted: () => void }) {
@@ -98,10 +111,19 @@ export default function VibRouteDetail({ routeId, sessionToken, onBack, onSubmit
       const d = await getVibRoute(sessionToken, routeId);
       applyServer(d.route, d.points);
       setOffline(false);
-      if (draft) {
-        applyDraft(draft);
-        setBase(draft.base);
-        setConflict(draft.base !== snapshot(d.route, d.points));
+      // read the phone copy again: a waiting save may have been sent (and
+      // the copy cleared) while this was loading — that's not a conflict
+      let current = readDraft(routeId);
+      // the server already holds exactly these changes (the save went
+      // through but the page closed before clearing the copy): it's saved
+      if (current && draftMatchesServer(current, d.points, d.route)) {
+        writeDraft(routeId, null);
+        current = null;
+      }
+      if (draft && current) {
+        applyDraft(current);
+        setBase(current.base);
+        setConflict(current.base !== snapshot(d.route, d.points));
       }
     } catch (err) {
       if (draft && isOffline(err)) {

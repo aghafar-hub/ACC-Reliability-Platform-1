@@ -1,6 +1,9 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
+import MoreSheet from './mobile/MoreSheet';
+import ScrollKeeper from './mobile/ScrollKeeper';
+import UpdatePrompt from './mobile/UpdatePrompt';
 import ModuleTabs from './components/ModuleTabs';
 import OfflineBanner from './components/OfflineBanner';
 import QuickLink from './components/QuickLink';
@@ -44,6 +47,8 @@ function isDarkColor(hex: string): boolean {
 function ShellRoot() {
   const { palette } = useShellTheme();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Phone "More" (bottom bar) — a sheet with every page, settings and account.
+  const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
 
   // Belt-and-suspenders: every link inside Sidebar already closes the
@@ -156,10 +161,13 @@ function ShellRoot() {
         </main>
         {/* <=860px only (BottomNav.css) — fixed to the viewport bottom, so
             it's a sibling of <main>, not nested inside it. */}
-        <BottomNav onOpenMore={() => setMobileNavOpen(true)} />
+        <BottomNav onOpenMore={() => setMoreOpen(true)} moreOpen={moreOpen} />
+        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
+        <ScrollKeeper />
         <InstallBanner />
       </div>
       <SaveBlockedToast />
+      <UpdatePrompt />
     </div>
   );
 }

@@ -120,37 +120,78 @@
 .module-action--active {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--shell-accent, #1e5bb8) 30%, transparent);
 }
-.module-tabs-picker {
+.module-tabs-phone {
   display: none;
 }
 
-/* Phone: page picker + bottom sheet instead of the tab row. */
+/* Phone: Oil | Vibration switch + a sideways-scrolling strip of pages. */
 @media (max-width: 860px) {
   .module-tabs {
-    padding: 8px 16px;
+    padding: 6px 0 8px;
+    position: sticky;
+    top: var(--topbar-h, 56px);
+    z-index: 40;
+    background: var(--shell-bg, #f3f5f8);
   }
   .module-tabs-row {
     display: none;
   }
-  .module-tabs-picker {
+  .module-tabs-phone {
     display: block;
   }
-  .module-picker-btn {
-    width: 100%;
-    min-height: 44px;
+  .mt-switch {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border: 1px solid var(--shell-border, #d9e0e8);
-    border-radius: 10px;
-    background: var(--shell-bg, #f3f5f8);
-    color: var(--shell-text, #0f1b2d);
-    font: 600 16px var(--sans);
-    padding: 0 14px;
+    margin: 0 16px 8px;
+    padding: 3px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--shell-border, #d9e0e8) 70%, transparent);
+  }
+  .mt-switch-btn {
+    flex: 1;
+    min-height: 36px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--shell-text-secondary, #4b5563);
+    font: 600 14px var(--sans);
     cursor: pointer;
   }
+  .mt-switch-btn--on {
+    background: var(--shell-card-bg, #fff);
+    color: var(--shell-text, #0f1b2d);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+  .mt-strip {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 16px 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-inline: 16px;
+  }
+  .mt-strip::-webkit-scrollbar {
+    display: none;
+  }
+  .mt-chip {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--shell-border, #d9e0e8);
+    background: var(--shell-card-bg, #fff);
+    color: var(--shell-text-secondary, #4b5563);
+    font: 600 13.5px var(--sans);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .mt-chip--on {
+    background: var(--shell-accent, #1e5bb8);
+    border-color: var(--shell-accent, #1e5bb8);
+    color: var(--shell-accent-text, #fff);
+  }
   .module-tabs-sub {
-    padding: 8px 0 0;
+    padding: 8px 16px 0;
   }
 }
 .module-sheet-backdrop {

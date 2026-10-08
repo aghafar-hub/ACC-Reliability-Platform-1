@@ -1,0 +1,114 @@
+/* Mobile proposal M1 — shared phone pieces (More sheet, update prompt,
+   keyboard handling). Desktop is untouched: everything here is either a
+   component only phones open, or inside the <=860px media query. */
+
+.more-sheet {
+  max-height: min(88vh, calc(var(--app-vh, 100vh) - 24px));
+  padding-top: 8px;
+}
+.more-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px 12px;
+  border-bottom: 1px solid var(--shell-border, #d9e0e8);
+}
+.more-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--shell-accent, #1e5bb8);
+  color: var(--shell-accent-text, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.more-account-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.more-account-text b {
+  font-size: 14.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--shell-text, #0f1b2d);
+}
+.more-account-text span {
+  font-size: 12.5px;
+  color: var(--shell-text-secondary, #4b5563);
+}
+.more-lang {
+  border: 1px solid var(--shell-border, #d9e0e8);
+  background: var(--shell-card-bg, #fff);
+  color: var(--shell-text-secondary, #4b5563);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: 600 12.5px var(--sans);
+}
+.more-group {
+  margin-top: 6px;
+}
+.more-group-title {
+  margin: 12px 6px 2px;
+  font: 700 12px var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--shell-text-secondary, #4b5563);
+}
+.more-signout {
+  color: var(--shell-danger, #c42b2b);
+  border-bottom: 0;
+}
+
+/* New-version prompt (UpdatePrompt.tsx) */
+.update-toast {
+  position: fixed;
+  z-index: 2100;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 24px;
+  width: min(460px, calc(100% - 24px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 14px;
+  background: #111827;
+  color: #fff;
+  font: 500 13.5px var(--sans);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+}
+.update-toast span {
+  flex: 1;
+}
+.update-toast button {
+  border: 0;
+  background: none;
+  color: #9dc1ff;
+  font: 700 14px var(--sans);
+  padding: 8px 6px;
+  cursor: pointer;
+}
+.update-toast .update-toast-x {
+  color: #9ca3af;
+  padding: 8px 4px;
+}
+@media (max-width: 860px) {
+  .update-toast {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Keyboard open (viewport.ts): the bottom bar steps aside so the form
+   and its buttons get the room. */
+@media (max-width: 860px) {
+  html.kb-open .bottom-nav,
+  html.kb-open .env-ribbon {
+    display: none !important;
+  }
+}

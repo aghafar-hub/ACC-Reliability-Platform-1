@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBackClose } from '../mobile/useBackClose';
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmbeddedNav, type SearchResult } from "../embeddedNav";
@@ -33,6 +34,7 @@ export default function GlobalSearch() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
+  useBackClose(phoneOpen, () => setPhoneOpen(false));
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
