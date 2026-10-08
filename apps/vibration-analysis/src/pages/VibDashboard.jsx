@@ -37,7 +37,15 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
   const load = useCallback(async () => {
     setError("");
     try {
-      setD(await getVibDashboard(webhookUrl));
+      const res = await getVibDashboard(webhookUrl);
+      // an unexpected answer (old server, error page) shows the error card
+      // with Retry instead of breaking the page
+      if (!res || !Array.isArray(res.months) || !Array.isArray(res.machines)) {
+        setD(null);
+        setError(res?.error || "The server sent an unexpected answer. Check the connection and try again.");
+        return;
+      }
+      setD(res);
     } catch (e) {
       setError(String(e.message || e));
     }

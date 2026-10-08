@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
 import EquipmentList from "../components/EquipmentList";
@@ -904,11 +905,11 @@ export default function Equipment({
           </div>
         );
         return (
-          <div data-testid="machine-view">
+          <div data-testid="machine-view" style={isMobile ? { paddingBottom: 72 } : undefined}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 24, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
+                  <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: isMobile ? 20 : 24, fontWeight: 700, color: T.textHighlight }}>{selection.id}</span>
                   <SmallBadge T={T} color={HEALTH_COLOR[machineHealth]}>{machineHealth}</SmallBadge>
                 </div>
                 <div style={{ fontSize: 14, color: T.textSecondary, marginTop: 4 }}>{groupRows[0]?.description || ""}</div>
@@ -919,11 +920,27 @@ export default function Equipment({
                   </span>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                {onCreateRoute && pointActionControl("Create Route", "ti-route", (lpCode) => createRouteFor(lpCode, "Oil Change"))}
-                {pointActionControl("New Action", "ti-clipboard-plus", newActionFor)}
-                {onOpenReport && pointActionControl("Full Report", "ti-file-analytics", onOpenReport)}
-              </div>
+              {/* phone: the actions sit in a bar pinned above the bottom bar (portalled:
+                  the shell's embedded box uses contain:layout, which would trap position:fixed) */}
+              {(() => {
+                const bar = (
+                  <div
+                    data-testid="machine-action-bar"
+                    style={
+                      isMobile
+                        ? { position: "fixed", left: 0, right: 0, bottom: "calc(62px + env(safe-area-inset-bottom, 0px))", zIndex: 250, display: "flex", gap: 8, padding: "10px 12px", fontFamily: "'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif", background: `linear-gradient(180deg, ${T.appBg}00, ${T.appBg} 35%)` }
+                        : { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }
+                    }
+                    className={isMobile ? "machine-actions-phone" : undefined}
+                  >
+                    {isMobile && <style>{`.machine-actions-phone>*{flex:1 1 0;min-width:0;min-height:44px;max-width:none!important;justify-content:center}html.kb-open .machine-actions-phone{display:none!important}`}</style>}
+                    {onCreateRoute && pointActionControl("Create Route", "ti-route", (lpCode) => createRouteFor(lpCode, "Oil Change"))}
+                    {pointActionControl("New Action", "ti-clipboard-plus", newActionFor)}
+                    {onOpenReport && pointActionControl("Full Report", "ti-file-analytics", onOpenReport)}
+                  </div>
+                );
+                return isMobile ? createPortal(bar, document.body) : bar;
+              })()}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(300px, 2fr) minmax(0, 3fr)", gap: 14, marginBottom: 14 }} data-testid="machine-summary">

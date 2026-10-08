@@ -17,7 +17,12 @@ export function useBackClose(open: boolean, close: () => void) {
     if (!open) return;
     const id = Math.random().toString(36).slice(2);
     stack.push(id);
-    window.history.pushState({ ...(window.history.state || {}), accSheet: id }, '');
+    // a popup that just closed may still have its entry on top (its Back is
+    // deferred): reuse that entry, so opening one popup straight after
+    // another (e.g. Create route → the new route) doesn't get closed by it
+    const cur = window.history.state?.accSheet;
+    if (cur && !stack.slice(0, -1).includes(cur)) window.history.replaceState({ ...window.history.state, accSheet: id }, '');
+    else window.history.pushState({ ...(window.history.state || {}), accSheet: id }, '');
     let popped = false;
     const onPop = () => {
       if (stack[stack.length - 1] !== id) return;
@@ -32,7 +37,9 @@ export function useBackClose(open: boolean, close: () => void) {
       const at = stack.indexOf(id);
       if (at !== -1) stack.splice(at, 1);
       // closed from the UI: drop the entry we added (only if it's still on top)
-      if (window.history.state?.accSheet === id) window.history.back();
+      setTimeout(() => {
+        if (window.history.state?.accSheet === id) window.history.back();
+      }, 0);
     };
   }, [open]);
 }

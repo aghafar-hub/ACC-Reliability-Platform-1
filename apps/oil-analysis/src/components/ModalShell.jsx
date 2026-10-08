@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
+import useBackClose from "../hooks/useBackClose";
 
 // The one frame every form popup uses (design D5): a header with an icon,
 // title, a short subtitle and optional status pill; a scrolling body; and
@@ -11,6 +12,8 @@ import useIsMobile from "../hooks/useIsMobile";
 export default function ModalShell({ icon, title, subtitle, badge, headerExtra, onClose, footer, width = 780, testid, children }) {
   const { T } = useTheme();
   const isMobile = useIsMobile();
+  // phone back gesture / Android back closes the popup
+  useBackClose(true, onClose);
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", onKey);
@@ -22,6 +25,8 @@ export default function ModalShell({ icon, title, subtitle, badge, headerExtra, 
         position: "fixed",
         fontFamily: "'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif",
         inset: 0,
+        // phone: the visible height, so the footer stays above the keyboard
+        ...(isMobile ? { bottom: "auto", height: "var(--app-vh, 100%)" } : {}),
         background: "rgba(8, 15, 28, 0.55)",
         zIndex: 1000,
         display: "flex",
@@ -31,7 +36,10 @@ export default function ModalShell({ icon, title, subtitle, badge, headerExtra, 
       }}
       onClick={onClose}
     >
+      {/* fields never wider than the popup (a phone form ran off the edge) */}
+      <style>{`[data-acc-modal] input,[data-acc-modal] select,[data-acc-modal] textarea{box-sizing:border-box;max-width:100%}@media (max-width:860px){[data-acc-modal-foot]>*:not(button){flex:1 1 auto;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}[data-acc-modal-foot]>button{flex:0 0 auto;min-height:44px}[data-acc-modal] [style*="grid-column: span"]{grid-column:1/-1!important}}`}</style>
       <div
+        data-acc-modal=""
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === "string" ? title : undefined}
@@ -50,7 +58,7 @@ export default function ModalShell({ icon, title, subtitle, badge, headerExtra, 
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: isMobile ? "14px 16px" : "18px 22px", borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: isMobile ? "calc(12px + env(safe-area-inset-top, 0px)) 16px 12px" : "18px 22px", borderBottom: `1px solid ${T.border}` }}>
           {icon && (
             <span
               aria-hidden="true"
@@ -79,12 +87,13 @@ export default function ModalShell({ icon, title, subtitle, badge, headerExtra, 
         <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 16px" : "18px 22px", background: T.appBg }}>{children}</div>
         {footer && (
           <div
+            data-acc-modal-foot=""
             style={{
               display: "flex",
               justifyContent: "flex-end",
               alignItems: "center",
               gap: 10,
-              flexWrap: "wrap",
+              flexWrap: isMobile ? "nowrap" : "wrap",
               padding: isMobile ? "12px 16px calc(12px + env(safe-area-inset-bottom))" : "14px 22px",
               borderTop: `1px solid ${T.border}`,
               background: T.cardBg,

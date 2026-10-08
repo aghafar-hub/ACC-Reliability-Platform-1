@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor } from "../SessionContext";
 import * as api from "../api";
@@ -187,6 +188,10 @@ function styleSheet(T) {
 .odb h3 { font-size: 16px; font-weight: 700; margin: 0; }
 .odb-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
 .odb-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.odb-chip-filter, .odb-chip-on, .odb-chip-off { flex: 0 0 auto; min-height: 36px; padding: 0 13px; border-radius: 999px; font: 600 13px inherit; font-family: inherit; white-space: nowrap; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.odb-chip-filter { border: 1px solid ${T.accent}66; background: ${T.accent}14; color: ${T.accent}; }
+.odb-chip-on { border: 1px solid ${T.accent}; background: ${T.accent}; color: ${T.accentText}; }
+.odb-chip-off { border: 1px solid ${T.border}; background: ${T.cardBg}; color: ${T.textSecondary}; }
 /* filters = round chips, the same as ContractorChips on every other page */
 .odb-seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .odb-seg button { border: 1px solid var(--c-border); background: var(--c-card); color: var(--c-sub); font: 500 12.5px inherit; font-family: inherit; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
@@ -282,6 +287,8 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
   const { T } = useTheme();
   const scopedContractor = useSessionContractor();
   const phone = useIsPhone();
+  // phone: the filters live in a bottom sheet; one row of chips shows them
+  const [filterOpen, setFilterOpen] = useState(false);
   const [contractor, setContractor] = useState(scopedContractor || "All");
   const [area, setArea] = useState("All");
   const [periodDays, setPeriodDays] = useState(90);
@@ -333,6 +340,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
   }, [webhookUrl, periodDays]);
 
   const period = PERIODS.find((p) => p.days === periodDays) || PERIODS[1];
+  const activeFilters = (contractor !== "All" ? 1 : 0) + (area !== "All" ? 1 : 0);
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   const areaOptions = useMemo(() => ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean))).sort()], [registry]);
   const scoped = useMemo(() => scopeRegistry(registry, { contractor, area }), [registry, contractor, area]);
@@ -726,6 +734,16 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
             {today} · {fmtNum(m.equipment)} equipment · {fmtNum(m.points)} lubrication points · {m.sampledPoints} sampled
           </p>
         </div>
+        {phone ? (
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", width: "100%", scrollbarWidth: "none", paddingBottom: 2 }} data-testid="dashboard-filter-row">
+            <button type="button" className="odb-chip-filter" onClick={() => setFilterOpen(true)} data-testid="dashboard-filters">
+              <i className="ti ti-filter" aria-hidden="true" /> Filters{activeFilters ? ` · ${activeFilters}` : ""}
+            </button>
+            <button type="button" className="odb-chip-on" onClick={() => setFilterOpen(true)}>{period.label}</button>
+            {!scopedContractor && <button type="button" className={contractor === "All" ? "odb-chip-off" : "odb-chip-on"} onClick={() => setFilterOpen(true)}>{contractor === "All" ? "All contractors" : contractor}</button>}
+            {areaOptions.length > 2 && <button type="button" className={area === "All" ? "odb-chip-off" : "odb-chip-on"} onClick={() => setFilterOpen(true)}>{area === "All" ? "All areas" : area}</button>}
+          </div>
+        ) : (
         <div className="odb-controls">
           {!scopedContractor && (
             <Seg label="Contractor" value={contractor} onChange={setContractor} options={["All", ...CONTRACTORS].map((c) => ({ value: c, label: c }))} />
@@ -744,7 +762,43 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
             <i className={`ti ${exporting ? "ti-loader" : "ti-file-download"}`} aria-hidden="true" /> {exporting ? "Preparing…" : "Export PDF"}
           </button>
         </div>
+        )}
       </div>
+      <BottomSheet
+        open={phone && filterOpen}
+        title="Filters"
+        hint="Apply to every card and chart on this page"
+        onClose={() => setFilterOpen(false)}
+        testid="dashboard-filter-sheet"
+        footer={
+          <>
+            <SheetButton onClick={() => { setContractor("All"); setArea("All"); setPeriodDays(90); }}>Reset</SheetButton>
+            <SheetButton primary grow={2} onClick={() => setFilterOpen(false)} testid="dashboard-filter-show">Show {fmtNum(m.equipment)} equipment</SheetButton>
+          </>
+        }
+      >
+        <SheetGroup label="Period">
+          {PERIODS.map((p) => (
+            <SheetChip key={p.days} on={periodDays === p.days} onClick={() => setPeriodDays(p.days)}>{p.label}</SheetChip>
+          ))}
+        </SheetGroup>
+        {!scopedContractor && (
+          <SheetGroup label="Contractor">
+            {["All", ...CONTRACTORS].map((c) => (
+              <SheetChip key={c} on={contractor === c} onClick={() => setContractor(c)}>{c}</SheetChip>
+            ))}
+          </SheetGroup>
+        )}
+        {areaOptions.length > 2 && (
+          <SheetGroup label="Area">
+            <select style={{ width: "100%", minHeight: 44, fontSize: 15, borderRadius: 10, border: `1px solid ${T.border}`, background: T.cardBg, color: T.textPrimary, padding: "0 10px", fontFamily: "inherit" }} aria-label="Dashboard area" value={area} onChange={(e) => setArea(e.target.value)}>
+              {areaOptions.map((a) => (
+                <option key={a} value={a}>{a === "All" ? "All areas" : a}</option>
+              ))}
+            </select>
+          </SheetGroup>
+        )}
+      </BottomSheet>
 
       <div className="odb-section">
         <h3>Needs attention</h3>

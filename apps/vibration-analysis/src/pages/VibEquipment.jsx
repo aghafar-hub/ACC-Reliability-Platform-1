@@ -7,7 +7,10 @@ import { Donut, StackedBars } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
 import { LevelPill, LevelSymbol, StatePill } from "../components/Level";
 import TrendChart from "../components/TrendChart";
-import { LEVEL_RANK, LEVELS, levelColor, worstLevel } from "../levels";
+// shapes so a level never relies on colour alone (design reference §5)
+const LEVEL_SYMBOL = { Normal: "●", Caution: "▲", Alert: "◆", Danger: "■" };
+import { LEVEL_RANK, LEVELS, levelColor, levelInk, worstLevel } from "../levels";
+import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
 import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, monthLabel, shortDate } from "../vibModel";
 import { seriesColors } from "../tones";
 import NewReadingModal from "./VibNewReading";
@@ -76,6 +79,9 @@ export default function VibEquipment({ webhookUrl, scopeEquipment, selectedEq, s
 function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
+  // phone: charts fold into a one-line bar; scope in a sheet
+  const [chartsOpen, setChartsOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [contractor, setContractor] = useState("All");
   const [scope, setScope] = useState("All");
   const [show, setShow] = useState("All");
@@ -118,6 +124,21 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
       {!data && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading…</div>}
       {data && (
         <>
+          {isMobile && (
+            <button type="button" onClick={() => setChartsOpen((v) => !v)} aria-expanded={chartsOpen} data-testid="veq-summary"
+              style={{ ...s.card, width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer", fontFamily: "inherit", color: T.textPrimary, textAlign: "left", marginBottom: 10 }}>
+              <span style={{ fontSize: 14 }}><b style={{ fontSize: 16 }}>{base.length}</b> machines</span>
+              <span aria-hidden="true" style={{ flex: 1, height: 8, borderRadius: 4, overflow: "hidden", display: "flex", background: T.border }}>
+                {LEVELS.map((l) => (
+                  <span key={l} style={{ width: `${(count(l) / Math.max(1, base.length)) * 100}%`, background: levelColor(T, l) }} />
+                ))}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: levelInk(T, "Alert") }}>◆ {count("Alert")}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: levelInk(T, "Danger") }}>■ {count("Danger")}</span>
+              <i className={`ti ti-chevron-${chartsOpen ? "up" : "down"}`} aria-hidden="true" style={{ color: T.textSecondary }} />
+            </button>
+          )}
+          {(!isMobile || chartsOpen) && (
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr)", marginBottom: 14 }}>
             <div style={{ ...s.card, marginBottom: 0, display: "flex", gap: 14, alignItems: "center" }} data-testid="veq-donut">
               <Donut
@@ -157,6 +178,66 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
               <Tile icon="ti-clock-exclamation" value={stale.length} label={`Not measured in ${STALE_DAYS} days`} tone={stale.length ? T.warning : undefined} onClick={() => setShow("Not measured 90 d")} testid="veq-tile-stale" />
             </div>
           </div>
+          )}
+          {isMobile ? (
+            <>
+              <input style={{ ...s.input, width: "100%", boxSizing: "border-box", minHeight: 44, fontSize: 15, marginBottom: 10 }} type="search" placeholder="Find by ID or name" value={q} onChange={(e) => setQ(e.target.value)} data-testid="veq-find" />
+              <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 6, scrollbarWidth: "none" }} data-testid="veq-show-chips">
+                {["All", "Needs attention", "Got worse", "Not measured 90 d", ...LEVELS].map((o) => {
+                  const on = show === o;
+                  const lv = LEVELS.includes(o);
+                  return (
+                    <button key={o} type="button" aria-pressed={on} onClick={() => setShow(o)}
+                      style={{ flex: "0 0 auto", whiteSpace: "nowrap", minHeight: 38, padding: "0 13px", borderRadius: 999, border: `1px solid ${on ? T.accent : T.border}`, background: on ? T.accent : T.cardBg, color: on ? T.accentText : T.textSecondary, fontWeight: 600, fontSize: 13, fontFamily: "inherit", cursor: "pointer" }}>
+                      {lv ? `${LEVEL_SYMBOL[o] || ""} ${o}` : o}
+                    </button>
+                  );
+                })}
+                <button type="button" onClick={() => setSheetOpen(true)} data-testid="veq-filters"
+                  style={{ flex: "0 0 auto", whiteSpace: "nowrap", minHeight: 38, padding: "0 13px", borderRadius: 999, border: `1px solid ${T.accent}66`, background: T.accent + "14", color: T.accent, fontWeight: 600, fontSize: 13, fontFamily: "inherit", cursor: "pointer" }}>
+                  <i className="ti ti-filter" aria-hidden="true" /> Scope{scope !== "All" ? ` · ${scope}` : ""}
+                </button>
+              </div>
+              <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "0 2px 8px" }}>{rows.length} of {base.length} shown · worst first</p>
+              {rows.length === 0 ? (
+                <div style={{ ...s.card, textAlign: "center", color: T.textSecondary }}>No machines match these filters.</div>
+              ) : (
+                rows.map((e) => {
+                  const wp = e.points.filter((p) => p.final === e.status && p.date && p.date.slice(0, 7) === e.lastMonth)[0];
+                  const up = worse(e);
+                  const down = e.prevStatus && (LEVEL_RANK[e.status] || 0) < (LEVEL_RANK[e.prevStatus] || 0);
+                  const old = e.lastDate && daysBetween(e.lastDate, today) > STALE_DAYS;
+                  return (
+                    <button key={e.equipmentId} type="button" onClick={() => onOpen(e.equipmentId)} data-testid={`veq-row-${e.equipmentId}`}
+                      style={{ ...s.card, display: "block", width: "100%", textAlign: "left", padding: "11px 12px", marginBottom: 8, cursor: "pointer", fontFamily: "inherit", color: T.textPrimary }}>
+                      <span style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: "block", fontWeight: 700, fontSize: 14.5 }}>{e.equipmentId}</span>
+                          <span style={{ display: "block", fontSize: 12.5, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{[e.name, `${e.contractor} · ${e.scope || "—"}`].filter(Boolean).join(" · ")}</span>
+                          <span style={{ display: "flex", flexWrap: "wrap", gap: "2px 10px", fontSize: 12, color: T.textSecondary, marginTop: 4 }}>
+                            <span style={{ color: up ? T.alert : down ? T.success : undefined, fontWeight: up || down ? 700 : 400 }}>{up ? "▲ worse" : down ? "▼ better" : e.prevStatus ? "same" : "first report"}{e.prevStatus ? ` (was ${e.prevStatus})` : ""}</span>
+                            <span style={{ color: old ? T.warning : undefined }}>measured {e.lastDate ? shortDate(e.lastDate) : "—"}</span>
+                            {wp && <span>{wp.point} · {wp.value ?? "–"} {UNIT[wp.family] || ""}</span>}
+                          </span>
+                        </span>
+                        {e.status ? <LevelPill level={e.status} /> : <span style={{ fontSize: 12, color: T.textMuted }}>No readings</span>}
+                        <i className="ti ti-chevron-right" aria-hidden="true" style={{ color: T.textMuted, marginTop: 2 }} />
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+              <BottomSheet open={sheetOpen} title="Scope" hint="Show one line or area" onClose={() => setSheetOpen(false)} testid="veq-sheet"
+                footer={<SheetButton primary onClick={() => setSheetOpen(false)}>Show {rows.length} machines</SheetButton>}>
+                <SheetGroup label="Scope">
+                  {["All", ...scopes].map((sc) => (
+                    <SheetChip key={sc} on={scope === sc} onClick={() => setScope(sc)}>{sc === "All" ? "All scopes" : sc}</SheetChip>
+                  ))}
+                </SheetGroup>
+              </BottomSheet>
+            </>
+          ) : (
+          <>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
             <input style={{ ...s.input, width: 220 }} placeholder="Find by ID or name" value={q} onChange={(e) => setQ(e.target.value)} data-testid="veq-find" />
             <select style={s.select} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
@@ -219,6 +300,8 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </>
       )}
     </div>

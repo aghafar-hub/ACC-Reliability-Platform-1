@@ -48,6 +48,7 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 | Need | Component | File |
 |---|---|---|
 | Any form popup (create / edit) | `ModalShell` + `FormSection` (+ `StepTrail` for a workflow, `ReadValue` for locked values) | `components/ModalShell.jsx` |
+| Phone filters / short choices | `BottomSheet` + `SheetGroup`, `SheetChip`, `SheetButton` (Reset · Show N …) | `components/BottomSheet.jsx` |
 | Contractor switch | `ContractorChips` ("All contractors · RHI · ASEC"); `ContractorTag` for a Location / contractor cell | `components/ContractorChips.jsx` |
 | Number tiles | `InvTile` pattern: icon square, big number, label, sub-line, coloured left border when it needs attention, clickable to the list behind it | `pages/OilInventory.jsx`, `pages/TeamWorkload.jsx` (`Tile`) |
 | One total split into parts | `Donut` with its legend beside it (numbers in text) | `components/DashCharts.jsx` |
@@ -121,7 +122,7 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - Every filter affects every chart on the page.
 - Missing lab values are left out of charts, never drawn as 0.
 
-## 8. Phone (≤860 px; mobile app design, M1)
+## 8. Phone (≤860 px; mobile app design, M1–M2)
 
 - **Header:** module or page name, search, and sync only. The bell lives in
   the bottom bar's Alerts (with an unread badge). Settings, account,
@@ -147,6 +148,19 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - No sideways page scroll at 360 px and 390 px; tables scroll in their card.
 - Tile and chart grids use `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`.
 - Popups are full-screen sheets that close with Back.
+- **Lists are cards, not tables** (M2): code + status badge with its symbol
+  (● ▲ ◆) on the first line, name, then the reason in the status ink. The
+  list keeps its desktop `data-testid`s. A summary bar (% good + health
+  bar) sits above, charts open from it.
+- **Filters:** one row of chips (most used choices + a **Filters** chip
+  with the count of active ones). The rest live in a `BottomSheet` whose
+  footer says what you'll get ("Show 611 equipment").
+- **Machine / record pages:** the main actions sit in a bar pinned above
+  the bottom bar (portalled to `body`: the shell's embedded box uses
+  `contain: layout`, which traps `position: fixed`). It hides while typing.
+- **Form popups** (`ModalShell`): full screen, footer pinned with buttons
+  at 44 px; a field that spans two grid columns on desktop spans the one
+  column on a phone.
 
 ## 9. Checklist for a new or redesigned page
 
