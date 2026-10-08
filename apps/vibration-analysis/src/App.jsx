@@ -24,7 +24,7 @@ import { useTheme } from "./ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import EquipmentRegister from "./pages/EquipmentRegister";
 import ComplianceTracker from "./pages/ComplianceTracker";
-import ActionTracker from "./pages/ActionTracker";
+import VibActions from "./pages/VibActions";
 import Settings from "./pages/Settings";
 import VibrationLog from "./pages/VibrationLog";
 import VibEquipment from "./pages/VibEquipment";
@@ -378,15 +378,18 @@ export default function App({ navBridge } = {}) {
     content = <ComplianceTracker compliance={compliance} lastRms={lastRms} lastSpm={lastSpm} registryMap={registryMap} />;
   } else if (page === "actions") {
     content = (
-      <ActionTracker
-        actions={actions}
-        setActions={setActions}
-        registryList={registryList}
-        registryMap={registryMap}
-        lastRms={lastRms}
-        lastSpm={lastSpm}
+      <VibActions
         webhookUrl={webhookUrl}
-        config={config}
+        scopeEquipment={scopeEquipment}
+        oldActions={actions}
+        onOpenReport={(id) => {
+          setOpenReportId(id);
+          setPage("log");
+        }}
+        onOpenMachine={(id) => {
+          setSelectedEq(id);
+          setPage("equipment");
+        }}
       />
     );
   } else if (page === "limits") {

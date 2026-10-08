@@ -26,3 +26,10 @@ export const SERIES_DARK = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181
 export function seriesColors(themeName) {
   return /dark/i.test(String(themeName || "")) ? SERIES_DARK : SERIES_LIGHT;
 }
+
+// Action stages (design reference §5: Draft = warning, Open = danger,
+// Waiting Stoppage = accent, Closure Requested = info, Closed = success).
+export const STAGES = ["Draft", "Open", "Waiting Stoppage", "Closure Requested", "Closed"];
+export function stageTone(T, st) {
+  return { Draft: T.warning, Open: T.danger, "Waiting Stoppage": T.accent, "Closure Requested": T.info, Closed: T.success, Cancelled: T.textSecondary }[st] || T.textSecondary;
+}

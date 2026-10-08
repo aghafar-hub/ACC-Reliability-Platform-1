@@ -115,6 +115,35 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 - A new finding on an action that is waiting for closure moves the action back to **Open**.
 - Default follow-up reading: Alert → 30 days, Danger → 7 days.
 
+## Actions (step 4)
+
+**Actions page**
+- Donut of open actions by stage.
+- Open actions by scope, coloured by severity.
+- Tiles: *Past due*, *No owner*, and (for ACC) *Waiting for your closure*. Each one filters the list.
+- Board or table. The Closed column shows the last 60 days.
+- The old **📋 Action Tracker** stays as a read-only tab.
+
+**The action pop-up**
+- Steps: Draft → Open → Waiting Stoppage → Closure Requested → Closed.
+- Findings (each links to its report) and a link to the machine page.
+- The four recommendations, the plan, closure, and history.
+
+**Who does what**
+
+| Stage | Contractor engineer | ACC engineer / manager |
+|---|---|---|
+| Draft | analysis + contractor recommendation | ACC recommendation, agreed action, owner, due date, priority, severity, follow-up reading; **Agree & open** (all three needed); **Cancel** with reason |
+| Open | **Waiting stoppage** (one way), **Request closure** with evidence or comment | changes the plan; due date change needs a reason |
+| Closure Requested | — | **Close** (closure date, verifier, evidence, comments saved) or **Return** with what is still needed (→ Open) |
+
+**Rules**
+- One open action per machine. *Add action* points to the existing one.
+- Emails go out on:
+  - assignment, to the owner;
+  - a closure request, to the ACC engineers;
+  - a decision, to the owner and the contractor engineer.
+
 ## Sheets
 
 | Tab | Holds |
