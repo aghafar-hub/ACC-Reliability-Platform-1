@@ -14,23 +14,16 @@ import './Settings.css';
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
 type GeneralSubTabId = 'appearance' | 'users' | 'module-access';
 
-const TABS: { id: SettingsTabId; label: string; icon: string }[] = [
-  { id: 'general', label: 'General', icon: 'settings' },
-  { id: 'oil-analysis', label: 'Oil Lubrication', icon: 'droplet' },
-  { id: 'vibration-analysis', label: 'Vibration Analysis', icon: 'graphs' },
-];
-
-// "General" own sub-tabs (user request: "can we make subtab for users as
-// we did in oil setting") — same bordered-segmented-control pattern as the
-// module-level TABS above (and as apps/oil-analysis/src/pages/Settings.jsx's
-// own SETTINGS_SUB_TABS strip), one level down: Appearance (the theme
-// picker, previously shown unconditionally) and Users (AccountsPanel,
-// previously stacked directly underneath it on the same screen).
-const GENERAL_SUB_TABS: { id: GeneralSubTabId; label: string; icon: string }[] = [
-  { id: 'appearance', label: 'Appearance', icon: 'settings' },
-  { id: 'users', label: 'Users', icon: 'action' },
+// One list of sections, shown as the left navigation (design reference):
+// the platform's own settings first, then each module's.
+type Section = { id: string; group: 'Platform' | 'Modules'; label: string; hint: string; icon: string; tab: SettingsTabId; sub?: GeneralSubTabId };
+const SECTIONS: Section[] = [
+  { id: 'appearance', group: 'Platform', label: 'Appearance', hint: 'Colour theme · install the app', icon: 'palette', tab: 'general', sub: 'appearance' },
+  { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
   // Phase 0 — App Owner only (filtered below).
-  { id: 'module-access', label: 'Module Access', icon: 'compliance' },
+  { id: 'module-access', group: 'Platform', label: 'Module Access', hint: 'Who opens which module and tab', icon: 'shield', tab: 'general', sub: 'module-access' },
+  { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Connection, registries, alerts', icon: 'droplet', tab: 'oil-analysis' },
+  { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Connection and readings', icon: 'graphs', tab: 'vibration-analysis' },
 ];
 
 // Platform-level Settings (Patch 29) — one page with tabs for each module
@@ -54,86 +47,106 @@ export default function Settings() {
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
   const { access } = useModuleAccess();
-  // A module's own settings page is a tab like any other (Phase 0): hidden
-  // here for anyone whose access hides it.
-  const tabs = TABS.filter((t) => t.id === 'general' || tabLevel(access[t.id], 'settings') !== 'Hidden');
-  const generalSubTabs = GENERAL_SUB_TABS.filter((t) => t.id !== 'module-access' || isAppOwner);
+  // A module's own settings page is a section like any other (Phase 0):
+  // hidden for anyone whose access hides it; Users / Module Access are for
+  // the App Admin only.
+  const sections = SECTIONS.filter((x) => {
+    if (x.tab !== 'general') return tabLevel(access[x.tab], 'settings') !== 'Hidden';
+    if (x.sub === 'module-access' || x.sub === 'users') return isAppOwner;
+    return true;
+  });
+  const current = sections.find((x) => (activeTab === 'general' ? x.sub === generalSubTab : x.tab === activeTab)) || sections[0];
 
-  // Opened straight on a module's tab (a link, or a reload on that tab):
-  // send that module to its own settings page too, not just on a click.
+  // Opened straight on a module's section (a link, or a reload on it): send
+  // that module to its own settings page too, not just on a click.
   // navigateTo waits for the module if it hasn't loaded yet.
   useEffect(() => {
     if (activeTab !== 'general') embeddedNav.navigateTo(activeTab, 'settings');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  function selectTab(tabId: SettingsTabId) {
-    if (tabId === 'general') {
+  function select(sec: Section) {
+    if (sec.tab === 'general') {
+      if (sec.sub) setGeneralSubTab(sec.sub);
       setSearchParams({});
       return;
     }
-    // Drives the embedded app to its own native "settings" page — a no-op
-    // if that module hasn't finished mounting yet, in which case it just
-    // opens there once it has (navBridge.navigate queues against the same
-    // activePage state the module reads on mount).
-    embeddedNav.navigateTo(tabId, 'settings');
-    setSearchParams({ module: tabId });
+    // Drives the embedded app to its own native "settings" page — it opens
+    // there once mounted if it hasn't finished loading yet.
+    embeddedNav.navigateTo(sec.tab, 'settings');
+    setSearchParams({ module: sec.tab });
   }
 
   return (
     <div className="settings-page">
-      <h1>Settings</h1>
+      <header className="settings-head">
+        <h1>Settings</h1>
+        <p className="settings-sub">Appearance, accounts and each module's own settings.</p>
+      </header>
 
-      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={tab.id === activeTab}
-            className={tab.id === activeTab ? 'settings-tab settings-tab--active' : 'settings-tab'}
-            onClick={() => selectTab(tab.id)}
-          >
-            <Icon name={tab.icon} size={16} />
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
+      <nav className="settings-nav" aria-label="Settings sections">
+        {(['Platform', 'Modules'] as const).map((group) => {
+          const items = sections.filter((x) => x.group === group);
+          if (!items.length) return null;
+          return (
+            <div key={group} className="settings-nav-group">
+              <div className="settings-nav-label">{group}</div>
+              {items.map((sec) => {
+                const on = sec.id === current.id;
+                return (
+                  <button
+                    key={sec.id}
+                    type="button"
+                    data-section={sec.id}
+                    aria-current={on ? 'page' : undefined}
+                    className={on ? 'settings-nav-item settings-nav-item--active' : 'settings-nav-item'}
+                    onClick={() => select(sec)}
+                  >
+                    <span className="settings-nav-icon">
+                      <Icon name={sec.icon} size={17} />
+                    </span>
+                    <span className="settings-nav-text">
+                      <span className="settings-nav-name">{sec.label}</span>
+                      <span className="settings-nav-hint">{sec.hint}</span>
+                    </span>
+                    <Icon name="chevronRight" size={16} style={{ opacity: on ? 1 : 0.35, flexShrink: 0 }} />
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </nav>
+
+      <section className="settings-section-head" aria-live="polite">
+        <span className="settings-section-icon">
+          <Icon name={current.icon} size={20} />
+        </span>
+        <span>
+          <span className="settings-section-title">{current.label}</span>
+          <span className="settings-section-hint">{current.hint}</span>
+        </span>
+      </section>
 
       {activeTab === 'general' && (
-        <div className="settings-panel">
-          <div className="settings-subtabs" role="tablist" aria-label="General settings sections">
-            {generalSubTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={tab.id === generalSubTab}
-                className={tab.id === generalSubTab ? 'settings-subtab settings-subtab--active' : 'settings-subtab'}
-                onClick={() => setGeneralSubTab(tab.id)}
-              >
-                <Icon name={tab.icon} size={14} />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-
+        <div className="settings-body">
           {generalSubTab === 'appearance' && (
             <>
-              <p className="settings-intro">
-                Choose a colour theme. Applies instantly across the sidebar, every page, and both modules.
-              </p>
-              <ThemePicker />
+              <div className="settings-card">
+                <p className="settings-card-title">Colour theme</p>
+                <p className="settings-intro">Applies instantly across the menu, every page and both modules.</p>
+                <ThemePicker />
+              </div>
               <InstallCard />
             </>
           )}
-          {generalSubTab === 'users' && <AccountsPanel />}
+          {generalSubTab === 'users' && isAppOwner && <AccountsPanel />}
           {generalSubTab === 'module-access' && isAppOwner && <ModuleAccessPanel />}
         </div>
       )}
-      {/* For a module tab, nothing else renders here on purpose — that
-          module's own Settings page appears directly below, rendered by
-          EmbeddedOilAnalysis/EmbeddedVibrationAnalysis in App.tsx. */}
+      {/* For a module section, its own Settings page appears in the right
+          column — rendered by EmbeddedOilAnalysis/EmbeddedVibrationAnalysis
+          in App.tsx and placed there by Settings.css's grid. */}
     </div>
   );
 }

@@ -69,18 +69,16 @@ function toggleRole(current: string[], roleId: string): string[] {
 
 function RoleCheckboxes({ selected, onChange, idPrefix }: { selected: string[]; onChange: (next: string[]) => void; idPrefix: string }) {
   return (
-    <div className="accounts-role-checkboxes">
-      {ROLE_OPTIONS.map((r) => (
-        <label key={r.id} className="accounts-role-checkbox">
-          <input
-            type="checkbox"
-            id={`${idPrefix}-${r.id}`}
-            checked={selected.includes(r.id)}
-            onChange={() => onChange(toggleRole(selected, r.id))}
-          />
-          {r.label}
-        </label>
-      ))}
+    <div className="accounts-role-checkboxes" role="group" aria-label="Roles">
+      {ROLE_OPTIONS.map((r) => {
+        const on = selected.includes(r.id);
+        return (
+          <label key={r.id} className={on ? 'accounts-role-chip on' : 'accounts-role-chip'}>
+            <input type="checkbox" id={`${idPrefix}-${r.id}`} checked={on} onChange={() => onChange(toggleRole(selected, r.id))} />
+            {r.label}
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -148,6 +146,8 @@ export default function AccountsPanel() {
 
   const [editingRolesId, setEditingRolesId] = useState<string | null>(null);
   const [localUsers, setLocalUsers] = useState<Record<string, OrgUser>>({});
+  const [query, setQuery] = useState('');
+  const [orgFilter, setOrgFilter] = useState('All');
 
   if (!claims?.roles.includes(ROLE.ADMIN)) return null;
 
@@ -186,104 +186,144 @@ export default function AccountsPanel() {
   }
 
   const displayUsers = users.map((u) => localUsers[u.userId] ?? u);
+  const q = query.trim().toLowerCase();
+  const shownUsers = displayUsers.filter(
+    (u) => (orgFilter === 'All' || u.orgId === orgFilter) && (!q || u.email.toLowerCase().includes(q) || u.roles.map(roleLabel).join(' ').toLowerCase().includes(q)),
+  );
+  const countFor = (orgId: string) => displayUsers.filter((u) => u.orgId === orgId).length;
 
   return (
     <div className="accounts-panel">
-      <p className="accounts-panel-title">Accounts</p>
-      <p className="settings-intro">Add a new account, or reset an existing one's password.</p>
-
-      <form className="accounts-form" onSubmit={handleCreate}>
-        <input
-          type="email"
-          placeholder="email@company.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <select value={orgId} onChange={(e) => setOrgId(e.target.value)}>
-          {ORGS.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <button type="submit" disabled={creating}>
-          {creating ? 'Adding…' : 'Add account'}
-        </button>
-      </form>
-      <RoleCheckboxes selected={newRoles} onChange={setNewRoles} idPrefix="new" />
-      {createError && <p className="auth-error">{createError}</p>}
-      {newAccount && (
-        <div className="accounts-temp-password">
-          <strong>{newAccount.email}</strong> — temporary password: <code>{newAccount.tempPassword}</code>{' '}
-          <CopyButton value={newAccount.tempPassword} />
-          <br />
-          Share this with them directly — it won't be shown again.
+      <div className="accounts-tiles">
+        <div className="accounts-tile">
+          <span className="accounts-tile-num">{displayUsers.length}</span>
+          <span className="accounts-tile-label">Accounts</span>
         </div>
-      )}
+        {ORGS.map((o) => (
+          <div className="accounts-tile" key={o.id}>
+            <span className="accounts-tile-num">{countFor(o.id)}</span>
+            <span className="accounts-tile-label">{o.label}</span>
+          </div>
+        ))}
+      </div>
 
-      <table className="accounts-table">
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Org</th>
-            <th>Roles</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {displayUsers.map((u) => (
-            <tr key={u.userId}>
-              <td>{u.email}</td>
-              <td>{orgLabel(u.orgId)}</td>
-              <td>
-                {editingRolesId === u.userId ? (
-                  sessionToken && (
-                    <EditRolesRow
-                      user={u}
-                      sessionToken={sessionToken}
-                      onDone={(updated) => {
-                        if (updated) setLocalUsers((prev) => ({ ...prev, [u.userId]: updated }));
-                        setEditingRolesId(null);
-                      }}
-                    />
-                  )
-                ) : u.roles.length ? (
-                  u.roles.map(roleLabel).join(', ')
-                ) : (
-                  '—'
-                )}
-              </td>
-              <td>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  {editingRolesId !== u.userId && (
-                    <button type="button" onClick={() => setEditingRolesId(u.userId)}>
-                      Edit roles
-                    </button>
-                  )}
-                  <button type="button" onClick={() => handleReset(u.userId)} disabled={resettingId === u.userId}>
-                    {resettingId === u.userId ? 'Resetting…' : 'Reset password'}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {!loading && users.length === 0 && (
-            <tr>
-              <td colSpan={4}>No accounts yet.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      {resetError && <p className="auth-error">{resetError}</p>}
-      {resetResult && (
-        <div className="accounts-temp-password">
-          <strong>{resetResult.email}</strong> — new temporary password: <code>{resetResult.tempPassword}</code>{' '}
-          <CopyButton value={resetResult.tempPassword} />
-          <br />
-          Share this with them directly — it won't be shown again.
+      <div className="settings-card">
+        <p className="settings-card-title">Add an account</p>
+        <p className="settings-intro">They get a temporary password to change on first sign-in.</p>
+        <form className="accounts-form" onSubmit={handleCreate}>
+          <input type="email" placeholder="email@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required aria-label="Email" />
+          <div className="accounts-org-chips" role="group" aria-label="Organisation">
+            {ORGS.map((o) => (
+              <button key={o.id} type="button" aria-pressed={orgId === o.id} className={orgId === o.id ? 'accounts-chip on' : 'accounts-chip'} onClick={() => setOrgId(o.id)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <button type="submit" className="accounts-primary" disabled={creating}>
+            {creating ? 'Adding…' : 'Add account'}
+          </button>
+        </form>
+        <div className="accounts-roles-label">Roles</div>
+        <RoleCheckboxes selected={newRoles} onChange={setNewRoles} idPrefix="new" />
+        {createError && <p className="auth-error">{createError}</p>}
+        {newAccount && (
+          <div className="accounts-temp-password">
+            <strong>{newAccount.email}</strong> — temporary password: <code>{newAccount.tempPassword}</code> <CopyButton value={newAccount.tempPassword} />
+            <br />
+            Share this with them directly — it won't be shown again.
+          </div>
+        )}
+      </div>
+
+      <div className="settings-card">
+        <div className="accounts-list-head">
+          <p className="settings-card-title">Accounts</p>
+          <input type="search" className="accounts-search" placeholder="Search email or role…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search accounts" />
+          <div className="accounts-org-chips" role="group" aria-label="Show">
+            {['All', ...ORGS.map((o) => o.id)].map((id) => (
+              <button key={id} type="button" aria-pressed={orgFilter === id} className={orgFilter === id ? 'accounts-chip on' : 'accounts-chip'} onClick={() => setOrgFilter(id)}>
+                {id === 'All' ? 'All' : orgLabel(id)}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+        <div className="accounts-table-wrap">
+          <table className="accounts-table">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Org</th>
+                <th>Roles</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {shownUsers.map((u) => (
+                <tr key={u.userId}>
+                  <td>
+                    <span className="accounts-user">
+                      <span className="accounts-avatar">{u.email.slice(0, 2).toUpperCase()}</span>
+                      {u.email}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="accounts-org-tag">{orgLabel(u.orgId)}</span>
+                  </td>
+                  <td>
+                    {editingRolesId === u.userId ? (
+                      sessionToken && (
+                        <EditRolesRow
+                          user={u}
+                          sessionToken={sessionToken}
+                          onDone={(updated) => {
+                            if (updated) setLocalUsers((prev) => ({ ...prev, [u.userId]: updated }));
+                            setEditingRolesId(null);
+                          }}
+                        />
+                      )
+                    ) : u.roles.length ? (
+                      <span className="accounts-role-pills">
+                        {u.roles.map((r) => (
+                          <span key={r} className="accounts-role-pill">
+                            {roleLabel(r)}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td>
+                    <div className="accounts-row-actions">
+                      {editingRolesId !== u.userId && (
+                        <button type="button" onClick={() => setEditingRolesId(u.userId)}>
+                          Edit roles
+                        </button>
+                      )}
+                      <button type="button" onClick={() => handleReset(u.userId)} disabled={resettingId === u.userId}>
+                        {resettingId === u.userId ? 'Resetting…' : 'Reset password'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!loading && shownUsers.length === 0 && (
+                <tr>
+                  <td colSpan={4}>{users.length === 0 ? 'No accounts yet.' : 'No accounts match.'}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {resetError && <p className="auth-error">{resetError}</p>}
+        {resetResult && (
+          <div className="accounts-temp-password">
+            <strong>{resetResult.email}</strong> — new temporary password: <code>{resetResult.tempPassword}</code> <CopyButton value={resetResult.tempPassword} />
+            <br />
+            Share this with them directly — it won't be shown again.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,91 +1,217 @@
+/* Settings (design reference): a left navigation of sections — Platform,
+   then Modules — and the chosen section on the right under its own header.
+   The page's own container (.shell-page-content) becomes the grid while
+   Settings is open, so a module's embedded settings page (a sibling of this
+   component, see App.tsx) lands in the right column too. */
+.shell-page-content:has(> .settings-page) {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  column-gap: 24px;
+  align-items: start;
+}
+
 .settings-page {
-  max-width: 960px;
+  display: contents;
 }
 
-/* A bordered segmented control — reads like a bank of physical selector
-   switches on an equipment panel — instead of the thin underline-tabs
-   default. The active segment is a solid accent fill, not just a colored
-   label, so the current section is unmistakable at a glance. */
-.settings-tabs {
-  display: inline-flex;
-  gap: 0;
-  margin: 1.25rem 0 1.5rem;
-  padding: 3px;
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-md);
+.settings-head {
+  grid-column: 1 / -1;
+}
+
+.settings-head h1 {
+  margin-bottom: 6px;
+}
+
+.settings-sub {
+  margin: 0 0 20px;
+  color: var(--shell-text-secondary);
+  font-size: 14px;
+}
+
+.settings-nav {
+  grid-column: 1;
+  grid-row: 2 / span 2;
+  position: sticky;
+  top: 12px;
   background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 14px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.settings-tab {
+.settings-nav-label {
+  padding: 6px 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--shell-text-secondary);
+}
+
+.settings-nav-item {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-height: 40px;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--shell-text-secondary);
-  font-size: 0.88rem;
-  font-weight: 600;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--shell-text);
+  text-align: left;
   font-family: var(--sans);
   cursor: pointer;
-  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
+  transition: background var(--motion-fast) var(--motion-ease);
 }
 
-.settings-tab:active {
-  transform: scale(0.96);
+.settings-nav-item:hover {
+  background: color-mix(in srgb, var(--shell-accent) 8%, transparent);
 }
 
-.settings-tab:hover {
+.settings-nav-item--active {
+  background: color-mix(in srgb, var(--shell-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--shell-accent) 35%, transparent);
+  color: var(--shell-accent);
+}
+
+.settings-nav-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--shell-accent) 12%, transparent);
+  color: var(--shell-accent);
+}
+
+.settings-nav-item--active .settings-nav-icon {
+  background: var(--shell-accent);
+  color: var(--shell-accent-text, #fff);
+}
+
+.settings-nav-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-nav-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.settings-nav-hint {
+  font-size: 12px;
+  color: var(--shell-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-section-head {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.settings-section-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--shell-accent) 14%, transparent);
+  color: var(--shell-accent);
+  flex-shrink: 0;
+}
+
+.settings-section-title {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
   color: var(--shell-text);
 }
 
-.settings-tab--active {
-  background: var(--shell-accent);
-  color: var(--shell-accent-text);
-}
-
-.settings-panel {
-  max-width: 640px;
-}
-
-/* General's own sub-tabs (Appearance / Users) — same bordered-segmented-
-   control language as .settings-tabs above, one size down, so it reads as
-   nested inside the General section rather than a second top-level row. */
-.settings-subtabs {
-  display: inline-flex;
-  gap: 0;
-  margin: 0 0 1.25rem;
-  padding: 2px;
-  border: 1px solid var(--shell-border);
-  border-radius: var(--radius-sm);
-  background: var(--shell-card-bg);
-}
-
-.settings-subtab {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-height: 32px;
-  padding: 0.4rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--radius-sm) - 2px);
+.settings-section-hint {
+  display: block;
+  font-size: 13px;
   color: var(--shell-text-secondary);
-  font-size: 0.8rem;
-  font-weight: 600;
-  font-family: var(--sans);
-  cursor: pointer;
-  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
 
-.settings-subtab:hover {
+.settings-body,
+.shell-page-content:has(> .settings-page) > :not(.settings-page) {
+  grid-column: 2;
+  min-width: 0;
+}
+
+/* A module's own settings page in the right column: no full-bleed
+   negative margins there. */
+.shell-page-content:has(> .settings-page) > .app-content--embedded {
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  border-radius: 14px;
+}
+
+.settings-card {
+  background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.settings-card-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--shell-text);
 }
 
-.settings-subtab--active {
-  background: var(--shell-accent);
-  color: var(--shell-accent-text);
+/* Phone / narrow: one column; the navigation becomes a row of chips. */
+@media (max-width: 860px) {
+  .shell-page-content:has(> .settings-page) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .settings-nav {
+    grid-column: 1;
+    grid-row: auto;
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 6px;
+    margin-bottom: 14px;
+  }
+  .settings-nav-group {
+    display: flex;
+    gap: 6px;
+  }
+  .settings-nav-label,
+  .settings-nav-hint,
+  .settings-nav-item > svg:last-child {
+    display: none;
+  }
+  .settings-nav-item {
+    width: auto;
+    white-space: nowrap;
+    padding: 6px 10px 6px 6px;
+  }
+  .settings-nav-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .settings-section-head,
+  .settings-body,
+  .shell-page-content:has(> .settings-page) > :not(.settings-page) {
+    grid-column: 1;
+  }
 }

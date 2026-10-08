@@ -106,7 +106,7 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
   return (
     <div style={{ ...s.card, marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <i className="ti ti-clock-hour-4" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+        <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-clock-hour-4" style={{ fontSize: 18 }} aria-hidden="true" /></span>
         <div>
           <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Sampling Intervals</p>
           <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
@@ -252,7 +252,7 @@ function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
   return (
     <div style={{ ...s.card, marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <i className="ti ti-mail" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+        <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-mail" style={{ fontSize: 18 }} aria-hidden="true" /></span>
         <div>
           <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Email Notifications</p>
           <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
@@ -361,7 +361,7 @@ function DashboardTargetCard({ T, s, webhookUrl, isAdmin }) {
   return (
     <div style={{ ...s.card, marginBottom: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <i className="ti ti-target" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+        <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-target" style={{ fontSize: 18 }} aria-hidden="true" /></span>
         <div>
           <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>On-time target</p>
           <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
@@ -506,8 +506,7 @@ export default function Settings({
   // nothing for a non-admin to see on this tab at all.
   if (!isAdmin) {
     return (
-      <div style={{ maxWidth: 740 }}>
-        <p style={s.sectionTitle}>Settings</p>
+      <div>
         <div style={{ ...s.card, textAlign: "center", padding: 40 }}>
           <i className="ti ti-lock" style={{ fontSize: 32, color: T.textMuted, display: "block", marginBottom: 12 }} aria-hidden="true" />
           <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.textPrimary }}>Admin access required</p>
@@ -520,38 +519,46 @@ export default function Settings({
   }
 
   return (
-    <div style={{ maxWidth: 740 }}>
-      <p style={s.sectionTitle}>Settings</p>
-
-      <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 20, flexWrap: "wrap" }}>
-        {SETTINGS_SUB_TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setSubTab(t.id)}
-            style={{
-              padding: "10px 16px",
-              cursor: "pointer",
-              background: "transparent",
-              border: "none",
-              borderBottom: subTab === t.id ? `2px solid ${T.accent}` : "2px solid transparent",
-              color: subTab === t.id ? T.accent : T.textSecondary,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            <i className={`ti ${t.icon}`} aria-hidden="true" />
-            {t.label}
-          </button>
-        ))}
+    <div data-testid="oil-settings">
+      {/* The shell's Settings page already titles this section; just the
+          section's own tabs here (underlined, with icons — design reference). */}
+      <div role="group" aria-label="Oil settings" style={{ display: "flex", gap: 4, borderBottom: `1px solid ${T.border}`, marginBottom: 18, overflowX: "auto" }}>
+        {SETTINGS_SUB_TABS.map((t) => {
+          const on = subTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setSubTab(t.id)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                padding: "10px 14px",
+                cursor: "pointer",
+                background: "none",
+                border: 0,
+                borderBottom: `3px solid ${on ? T.accent : "transparent"}`,
+                marginBottom: -1,
+                color: on ? T.accent : T.textSecondary,
+                fontSize: 13.5,
+                fontWeight: on ? 700 : 600,
+                fontFamily: "inherit",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <i className={`ti ${t.icon}`} aria-hidden="true" style={{ fontSize: 16 }} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {subTab === "connection" && (
         <div style={{ ...s.card, marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <i className="ti ti-plug" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+            <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-plug" style={{ fontSize: 18 }} aria-hidden="true" /></span>
             <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Connection</p>
           </div>
 
@@ -634,7 +641,7 @@ export default function Settings({
         <>
           <div style={{ ...s.card, marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <i className="ti ti-database-import" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+              <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-database-import" style={{ fontSize: 18 }} aria-hidden="true" /></span>
               <div>
                 <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
                 <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
@@ -656,7 +663,7 @@ export default function Settings({
 
           <div style={{ ...s.card, marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <i className="ti ti-list-check" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+              <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-list-check" style={{ fontSize: 18 }} aria-hidden="true" /></span>
               <div>
                 <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
                 <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
@@ -762,7 +769,7 @@ export default function Settings({
 
           <div style={{ ...s.card, marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <i className="ti ti-settings" style={{ color: T.accent, fontSize: 18 }} aria-hidden="true" />
+              <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-settings" style={{ fontSize: 18 }} aria-hidden="true" /></span>
               <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Sync &amp; Cache Preferences</p>
             </div>
 

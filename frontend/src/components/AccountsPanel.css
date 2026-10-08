@@ -1,80 +1,149 @@
+/* Users (Settings → Platform): tiles, an "Add an account" card and the
+   accounts list — the design reference's card / chip language. */
 .accounts-panel {
-  margin-top: 2rem;
-  max-width: 760px;
+  min-width: 0;
 }
 
-.accounts-panel-title {
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 0.25rem;
+.accounts-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.accounts-tile {
+  background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.accounts-tile-num {
+  font-size: 24px;
+  font-weight: 800;
   color: var(--shell-text);
+  line-height: 1.15;
+}
+
+.accounts-tile-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--shell-text-secondary);
 }
 
 .accounts-form {
   display: flex;
-  gap: 0.5rem;
+  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
-.accounts-form input[type='email'] {
+.accounts-form input[type='email'],
+.accounts-search {
   flex: 1;
   min-width: 220px;
   min-height: 40px;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--shell-border, #e2e8f0);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--shell-border);
+  border-radius: 10px;
+  background: var(--shell-bg, transparent);
+  color: var(--shell-text);
+  font-size: 14px;
   font-family: var(--sans);
   box-sizing: border-box;
 }
 
-.accounts-form select {
+.accounts-primary {
   min-height: 40px;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--shell-border, #e2e8f0);
-  border-radius: var(--radius-sm);
-  font-size: 0.9rem;
-  font-family: var(--sans);
-}
-
-.accounts-form button {
-  min-height: 40px;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 1.1rem;
   border: none;
-  border-radius: var(--radius-sm);
-  background: var(--shell-accent, #1d4ed8);
+  border-radius: 10px;
+  background: var(--shell-accent);
   color: var(--shell-accent-text, #fff);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform var(--motion-fast) var(--motion-ease);
 }
 
-.accounts-form button:active {
-  transform: scale(0.96);
-}
-
-.accounts-form button:disabled {
+.accounts-primary:disabled {
   opacity: 0.6;
   cursor: default;
 }
 
-.accounts-role-checkboxes {
+.accounts-org-chips {
   display: flex;
-  gap: 0.9rem;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
-  font-size: 0.82rem;
 }
 
-.accounts-role-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  color: var(--shell-text);
+.accounts-chip {
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  background: var(--shell-card-bg);
+  color: var(--shell-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--sans);
   cursor: pointer;
+}
+
+.accounts-chip.on {
+  background: var(--shell-accent);
+  border-color: var(--shell-accent);
+  color: var(--shell-accent-text, #fff);
+}
+
+.accounts-roles-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--shell-text-secondary);
+  margin: 4px 0 6px;
+}
+
+.accounts-role-checkboxes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+/* A role is a chip you tick; the real checkbox stays for keyboards and
+   screen readers but is visually hidden. */
+.accounts-role-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  color: var(--shell-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.accounts-role-chip input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.accounts-role-chip.on {
+  border-color: var(--shell-accent);
+  background: color-mix(in srgb, var(--shell-accent) 12%, transparent);
+  color: var(--shell-accent);
+}
+
+.accounts-role-chip:has(input:focus-visible) {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 2px;
 }
 
 .accounts-role-actions {
@@ -87,10 +156,10 @@
   background: #ecfdf5;
   border: 1px solid #6ee7b7;
   color: #065f46;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   padding: 0.75rem 1rem;
   font-size: 0.85rem;
-  margin-bottom: 1rem;
+  margin: 10px 0 0;
 }
 
 .accounts-temp-password code {
@@ -111,37 +180,107 @@
   cursor: pointer;
 }
 
-.accounts-copy-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
+.accounts-list-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.accounts-list-head .settings-card-title {
+  margin: 0;
+}
+
+.accounts-table-wrap {
+  overflow-x: auto;
 }
 
 .accounts-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
+  font-size: 13.5px;
+  color: var(--shell-text);
 }
 
 .accounts-table th,
 .accounts-table td {
   text-align: left;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--shell-border, #e2e8f0);
+  padding: 10px;
+  border-bottom: 1px solid var(--shell-border);
+  vertical-align: middle;
 }
 
 .accounts-table th {
   color: var(--shell-text-secondary);
   font-weight: 600;
+  font-size: 12.5px;
 }
 
-.accounts-table button {
-  min-height: 36px;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--shell-border, #e2e8f0);
-  border-radius: var(--radius-sm);
+.accounts-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.accounts-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--shell-accent);
+  color: var(--shell-accent-text, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.accounts-org-tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--shell-accent) 12%, transparent);
+  color: var(--shell-accent);
+}
+
+.accounts-role-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.accounts-role-pill {
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--shell-border);
+  font-size: 12px;
+  color: var(--shell-text-secondary);
+  white-space: nowrap;
+}
+
+.accounts-row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.accounts-table button,
+.accounts-role-actions button {
+  min-height: 34px;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--shell-border);
+  border-radius: 8px;
   background: transparent;
   color: var(--shell-text);
-  font-size: 0.8rem;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .accounts-table button:disabled {
