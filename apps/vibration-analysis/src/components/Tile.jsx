@@ -35,8 +35,8 @@ export function PageHeader({ title, subtitle, right, testid, big }) {
   return (
     <div data-testid={testid} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
       <div style={{ minWidth: 0 }}>
-        <p style={{ ...s.sectionTitle, margin: 0, ...(big ? { fontSize: 26 } : null) }}>{title}</p>
-        {subtitle && <p style={{ fontSize: big ? 14 : 12.5, color: T.textSecondary, margin: big ? "4px 0 0" : "2px 0 0" }}>{subtitle}</p>}
+        <p data-testid="page-title" style={{ ...s.sectionTitle, margin: 0, ...(big ? { fontSize: 26 } : null) }}>{title}</p>
+        {subtitle && <p data-testid="page-subtitle" style={{ fontSize: big ? 14 : 12.5, color: T.textSecondary, margin: big ? "4px 0 0" : "2px 0 0" }}>{subtitle}</p>}
       </div>
       {right && <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{right}</div>}
     </div>
