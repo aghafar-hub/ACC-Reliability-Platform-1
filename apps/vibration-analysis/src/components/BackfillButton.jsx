@@ -33,7 +33,7 @@ export default function BackfillButton({ webhookUrl }) {
 
   return (
     <div>
-      <button style={{ ...s.btn, opacity: state === "loading" ? 0.6 : 1 }} disabled={state === "loading"} onClick={run}>
+      <button style={{ ...s.btnPrimary, opacity: state === "loading" ? 0.6 : 1 }} disabled={state === "loading"} onClick={run}>
         {state === "loading" ? "⏳ Running…" : "▶ Run Backfill Now"}
       </button>
       {message && (

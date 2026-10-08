@@ -82,7 +82,7 @@ export default function TopBar({ title, sheetUrl, onSync, syncState, setMobileOp
         )}
         <button
           onClick={onSync}
-          style={{ ...s.btn, display: "flex", alignItems: "center", gap: 6 }}
+          style={{ ...s.btnPrimary, display: "flex", alignItems: "center", gap: 6 }}
           disabled={syncState.status === "loading"}
         >
           <Icon d={ICONS.sync} size={13} /> {syncState.status === "loading" ? "Syncing…" : "Sync"}

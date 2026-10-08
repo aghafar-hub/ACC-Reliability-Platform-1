@@ -64,7 +64,7 @@ export default function ComplianceTimeline({ months }) {
                 onMouseEnter={() => setHover(m)}
                 onMouseLeave={() => setHover(null)}
               />
-              <text x={cx} y={axisY + dotSpacing * 0.7 + 13} textAnchor="middle" fontSize="9" fill={T.textMuted}>
+              <text x={cx} y={axisY + dotSpacing * 0.7 + 13} textAnchor="middle" fontSize="12" fill={T.textMuted}>
                 {letter}
               </text>
               {(month === "01" || i === 0) && (
@@ -101,7 +101,7 @@ export default function ComplianceTimeline({ months }) {
                   x={Math.max(2, boxX) + boxWidth / 2}
                   y={Math.max(2, boxY) + 16}
                   textAnchor="middle"
-                  fontSize="11"
+                  fontSize="12"
                   fontWeight="700"
                   fill={T.textHighlight}
                 >
@@ -111,7 +111,7 @@ export default function ComplianceTimeline({ months }) {
                   x={Math.max(2, boxX) + boxWidth / 2}
                   y={Math.max(2, boxY) + 32}
                   textAnchor="middle"
-                  fontSize="11"
+                  fontSize="12"
                   fill={color}
                   fontWeight="600"
                 >

@@ -27,26 +27,28 @@ export default function Tile({ icon, label, value, sub, tone, onClick, testid })
 }
 
 // The page header every redesigned page starts with: title, live-number
-// subtitle, controls on the right.
-export function PageHeader({ title, subtitle, right, testid }) {
+// subtitle, controls on the right. Same as Oil's pages (Oil Inventory,
+// Routines): a <p> title in sectionTitle, 12.5px subtitle. `big` is the
+// dashboard size (Oil Dashboard: 26px title, 14px subtitle).
+export function PageHeader({ title, subtitle, right, testid, big }) {
   const { T, s } = useTheme();
   return (
-    <div data-testid={testid} style={{ display: "flex", alignItems: "flex-start", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
+    <div data-testid={testid} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
       <div style={{ minWidth: 0 }}>
-        <h1 style={s.sectionTitle}>{title}</h1>
-        {subtitle && <div style={{ fontSize: 13, color: T.textSecondary, marginTop: 3 }}>{subtitle}</div>}
+        <p style={{ ...s.sectionTitle, margin: 0, ...(big ? { fontSize: 26 } : null) }}>{title}</p>
+        {subtitle && <p style={{ fontSize: big ? 14 : 12.5, color: T.textSecondary, margin: big ? "4px 0 0" : "2px 0 0" }}>{subtitle}</p>}
       </div>
-      {right && <div style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{right}</div>}
+      {right && <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>{right}</div>}
     </div>
   );
 }
 
-// Underlined sub-page tabs with counts (Oil Inventory's TabBar). Buttons,
-// not a role="tablist".
+// Underlined sub-page tabs with counts — the same as Oil Inventory's
+// TabBar. Buttons, not a role="tablist".
 export function TabBar({ tabs, value, onChange, testid }) {
   const { T } = useTheme();
   return (
-    <div data-testid={testid} style={{ display: "flex", gap: 4, borderBottom: `1px solid ${T.border}`, marginBottom: 14, overflowX: "auto" }}>
+    <div role="group" data-testid={testid} style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: `1px solid ${T.border}`, overflowX: "auto" }}>
       {tabs.map((t) => {
         const on = t.id === value;
         return (
@@ -55,10 +57,27 @@ export function TabBar({ tabs, value, onChange, testid }) {
             type="button"
             aria-pressed={on}
             onClick={() => onChange(t.id)}
-            style={{ background: "none", border: "none", borderBottom: `2px solid ${on ? T.accent : "transparent"}`, color: on ? T.accent : T.textSecondary, fontFamily: "inherit", fontWeight: on ? 700 : 500, padding: "9px 14px", fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "10px 14px",
+              border: 0,
+              borderBottom: `3px solid ${on ? T.accent : "transparent"}`,
+              marginBottom: -1,
+              background: "none",
+              color: on ? T.accent : T.textSecondary,
+              fontWeight: on ? 700 : 600,
+              fontSize: 13.5,
+              fontFamily: "inherit",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
           >
-            {t.label}
-            {t.count != null && <span style={{ marginLeft: 6, fontSize: 11, padding: "1px 7px", borderRadius: 9, background: T.cardSubBg, color: T.textSecondary }}>{t.count}</span>}
+            {t.icon && <i className={`ti ${t.icon}`} aria-hidden="true" style={{ fontSize: 16 }} />} {t.label}
+            {t.count != null && (
+              <span style={{ fontSize: 12, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: t.tone ? t.tone + "1F" : T.cardSubBg, color: t.tone || T.textSecondary }}>{t.count}</span>
+            )}
           </button>
         );
       })}

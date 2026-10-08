@@ -109,7 +109,7 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
       {!data && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading…</div>}
       {data && (
         <>
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0,1fr)) minmax(0,1.6fr)", marginBottom: 14 }}>
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0,1fr)) minmax(0,1.6fr)", marginBottom: 14, alignItems: "start" }}>
             <Tile icon="ti-clock-exclamation" value={active.filter((r) => r.overdue).length} label="Overdue routes" sub={active.filter((r) => r.overdue).map((r) => r["Route ID"]).slice(0, 3).join(" · ") || "None"} tone={active.some((r) => r.overdue) ? T.danger : undefined} testid="vr-tile-overdue" />
             <Tile icon="ti-repeat" value={sugg.filter((x) => x.type === "Follow-up").length} label="Follow-up readings due" sub="made from actions (Alert 30 d, Danger 7 d)" tone={sugg.some((x) => x.type === "Follow-up") ? T.alert : undefined} onClick={() => setTab("suggestions")} testid="vr-tile-followup" />
             <Tile

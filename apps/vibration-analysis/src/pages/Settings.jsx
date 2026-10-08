@@ -241,7 +241,7 @@ export default function Settings({
               />
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button style={s.btn} onClick={runTest} disabled={testing}>
+              <button style={s.btnPrimary} onClick={runTest} disabled={testing}>
                 {testing ? "Testing…" : "Test Connection"}
               </button>
               <button style={s.btnSecondary} onClick={onSync}>
@@ -291,7 +291,7 @@ export default function Settings({
 
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
             <span style={{ fontSize: 12, color: T.success, fontWeight: 700, alignSelf: "center" }}>{saveMessage}</span>
-            <button style={s.btn} onClick={saveConfiguration}>
+            <button style={s.btnPrimary} onClick={saveConfiguration}>
               Save Configuration
             </button>
           </div>

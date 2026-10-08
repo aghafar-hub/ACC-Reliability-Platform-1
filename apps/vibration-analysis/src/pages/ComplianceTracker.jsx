@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import Tile, { PageHeader } from "../components/Tile";
+import useIsMobile from "../hooks/useIsMobile";
 import ComplianceRow from "../components/ComplianceRow";
 import Icon from "../components/Icon";
 import { ICONS } from "../components/icons";
@@ -18,6 +20,7 @@ const TILES = [
 // `Im`.
 export default function ComplianceTracker({ compliance, lastRms, lastSpm, registryMap }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
   const [line, setLine] = useState("");
   const [eqType, setEqType] = useState("");
   const [equipmentId, setEquipmentId] = useState("");
@@ -104,35 +107,19 @@ export default function ComplianceTracker({ compliance, lastRms, lastSpm, regist
   const hasActiveFilter = line || eqType || equipmentId || statusFilter || monthFilter || search;
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 10, marginBottom: 16 }}>
+    <div style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
+      <PageHeader title="Compliance (old tracker)" subtitle={`${compliance.length} machines · monthly marks from the old Compliance Tracker · tap a tile to filter`} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 16 }}>
         {TILES.map((tile) => (
-          <div
+          <Tile
             key={tile.key}
+            icon={{ Normal: "ti-circle-check", Caution: "ti-alert-triangle", Alarm: "ti-alert-octagon", Missing: "ti-help-circle" }[tile.key] || "ti-point"}
+            value={tileCounts[tile.key]}
+            label={tile.label}
+            sub={statusFilter === tile.key ? "filter on · tap to clear" : null}
+            tone={statusFilter === tile.key || tile.key === "Alarm" ? T[tile.colorKey] : undefined}
             onClick={() => setStatusFilter(statusFilter === tile.key ? "" : tile.key)}
-            style={{
-              ...s.card,
-              cursor: "pointer",
-              textAlign: "center",
-              padding: "14px 10px",
-              borderColor: statusFilter === tile.key ? T[tile.colorKey] : T.border,
-              boxShadow: statusFilter === tile.key ? `0 0 0 2px ${T[tile.colorKey]}33` : "none",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: T[tile.colorKey],
-                marginBottom: 4,
-                letterSpacing: 0.5,
-                textTransform: "uppercase",
-              }}
-            >
-              {tile.label}
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: T.textHighlight }}>{tileCounts[tile.key]}</div>
-          </div>
+          />
         ))}
       </div>
 

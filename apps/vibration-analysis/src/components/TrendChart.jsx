@@ -59,7 +59,7 @@ export default function TrendChart({ T, series, limits, unit, height = 260, mark
         {ticks.map((v) => (
           <g key={v}>
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={T.border2 || T.border} strokeWidth="1" />
-            <text x={L - 6} y={y(v) + 4} fontSize="11" textAnchor="end" fill={T.textSecondary}>
+            <text x={L - 6} y={y(v) + 4} fontSize="12" textAnchor="end" fill={T.textSecondary}>
               {v}
             </text>
           </g>
@@ -69,14 +69,14 @@ export default function TrendChart({ T, series, limits, unit, height = 260, mark
             v < yMax ? (
               <g key={i}>
                 <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke={T.textMuted} strokeDasharray="4 4" />
-                <text x={W - R - 4} y={y(v) - 4} fontSize="11" textAnchor="end" fill={T.textSecondary}>
+                <text x={W - R - 4} y={y(v) - 4} fontSize="12" textAnchor="end" fill={T.textSecondary}>
                   {["Caution", "Alert", "Danger"][i]} {v}
                 </text>
               </g>
             ) : null
           )}
         {months.map((m) => (
-          <text key={m} x={x(m)} y={H - 8} fontSize="11" textAnchor="middle" fill={T.textSecondary}>
+          <text key={m} x={x(m)} y={H - 8} fontSize="12" textAnchor="middle" fill={T.textSecondary}>
             {new Date(m + "T00:00:00").toLocaleDateString("en-GB", { month: "short", year: m.endsWith("-01-01") || m === months[0] ? "2-digit" : undefined })}
           </text>
         ))}
@@ -84,7 +84,7 @@ export default function TrendChart({ T, series, limits, unit, height = 260, mark
           mk.date >= dates[0] && mk.date <= dates[dates.length - 1] ? (
             <g key={i}>
               <line x1={x(mk.date)} x2={x(mk.date)} y1={TOP} y2={H - B} stroke={T.textSecondary} strokeDasharray="2 3" />
-              <text x={x(mk.date) + 4} y={TOP + 10} fontSize="11" fill={T.textSecondary}>
+              <text x={x(mk.date) + 4} y={TOP + 10} fontSize="12" fill={T.textSecondary}>
                 {mk.label}
               </text>
             </g>

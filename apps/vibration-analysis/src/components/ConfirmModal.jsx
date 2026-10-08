@@ -11,7 +11,7 @@ export default function ConfirmModal({ label, message, onConfirm, onCancel, dang
         <button style={s.btnSecondary} onClick={onCancel}>
           Cancel
         </button>
-        <button style={danger ? s.btnDanger : s.btn} onClick={onConfirm}>
+        <button style={danger ? s.btnDanger : s.btnPrimary} onClick={onConfirm}>
           Confirm
         </button>
       </div>

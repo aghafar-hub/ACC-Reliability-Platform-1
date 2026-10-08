@@ -245,7 +245,7 @@ function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontWeight: 700, color: tone }}>
               {st}
               <span style={{ background: T.cardBg, color: tone, borderRadius: 999, padding: "1px 8px", fontSize: 12 }}>{list.length}</span>
-              {st === "Closed" && <span style={{ fontSize: 11, fontWeight: 400, color: T.textSecondary }}>last 60 days</span>}
+              {st === "Closed" && <span style={{ fontSize: 12, fontWeight: 400, color: T.textSecondary }}>last 60 days</span>}
             </div>
             {list.map((a) => (
               <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />

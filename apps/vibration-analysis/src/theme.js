@@ -284,71 +284,78 @@ export const T = THEMES[DEFAULT_THEME];
 // ThemeContext recomputes this once per theme change (see ThemeContext.jsx)
 // and every component reads from the resulting `s` object.
 export function buildStyles(T) {
+  // Same values as Oil Lubrication's buildStyles (apps/oil-analysis/src/
+  // theme.js) so both modules look the same: card, btn, btnPrimary, select,
+  // input, label, table, th, td, sectionTitle, metricCard, infoBar. The
+  // extra keys below are Vibration's names for the same shapes.
+  const btn = {
+    background: T.cardSubBg,
+    border: `1px solid ${T.border}`,
+    color: T.textPrimary,
+    borderRadius: 6,
+    padding: "8px 14px",
+    fontSize: 13,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  };
+  const btnPrimary = {
+    background: T.accent,
+    border: "none",
+    color: T.accentText,
+    borderRadius: 6,
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  };
   return {
     page: { background: T.appBg, minHeight: "100%", color: T.textPrimary },
-    card: { background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 16 },
-    cardSub: { background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: 12 },
-    btn: {
-      background: T.accent,
-      color: T.accentText,
-      border: "none",
-      borderRadius: 8,
-      padding: "8px 14px",
-      fontSize: 13,
-      fontWeight: 600,
-      cursor: "pointer",
-    },
-    btnSecondary: {
-      background: "transparent",
+    sectionTitle: {
+      fontFamily: "'Space Grotesk','IBM Plex Sans',sans-serif",
+      fontSize: 22,
+      fontWeight: 700,
       color: T.textPrimary,
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      padding: "8px 14px",
-      fontSize: 13,
-      fontWeight: 600,
-      cursor: "pointer",
+      margin: "0 0 16px",
     },
-    btnDanger: {
-      background: "transparent",
-      color: T.danger,
-      border: `1px solid ${T.danger}`,
-      borderRadius: 8,
-      padding: "8px 14px",
-      fontSize: 13,
-      fontWeight: 600,
-      cursor: "pointer",
-    },
-    btnSm: {
-      background: T.accent,
-      color: T.accentText,
-      border: "none",
-      borderRadius: 6,
-      padding: "5px 10px",
-      fontSize: 12,
-      fontWeight: 600,
-      cursor: "pointer",
-    },
-    input: {
+    metricCard: { background: T.metricBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px" },
+    metric: { background: T.metricBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 14px" },
+    infoBar: { background: T.infoBarBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: "10px 14px" },
+    select: {
       background: T.inputBg,
-      color: T.textPrimary,
       border: `1px solid ${T.border}`,
+      color: T.textPrimary,
       borderRadius: 6,
       padding: "8px 10px",
-      fontSize: 13,
+      cursor: "pointer",
+    },
+    card: { background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: 20, marginBottom: 20 },
+    cardSub: { background: T.cardSubBg, border: `1px solid ${T.border2}`, borderRadius: 8, padding: 12 },
+    btn,
+    btnPrimary,
+    // Vibration names for Oil's two button shapes
+    btnGhost: btn,
+    btnSecondary: btn,
+    btnDanger: { ...btn, background: "transparent", color: T.danger, border: `1px solid ${T.danger}`, fontWeight: 600 },
+    btnSm: { ...btnPrimary, padding: "5px 10px", fontSize: 12 },
+    input: {
       width: "100%",
+      background: T.inputBg,
+      border: `1px solid ${T.border}`,
+      color: T.textPrimary,
+      borderRadius: 6,
+      padding: "8px 10px",
       boxSizing: "border-box",
     },
-    label: { fontSize: 12, color: T.textSecondary, marginBottom: 4, display: "block", fontWeight: 600 },
-    metric: { background: T.metricBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 16px" },
-    // Same keys as Oil Lubrication's buildStyles (docs/design-reference.md),
-    // used by the redesigned pages and the shared components.
-    sectionTitle: { fontFamily: "'Space Grotesk','IBM Plex Sans',sans-serif", fontSize: 22, fontWeight: 700, color: T.textPrimary, margin: 0 },
-    btnPrimary: { background: T.accent, border: "none", color: T.accentText, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 },
-    btnGhost: { background: T.cardBg, border: `1px solid ${T.border}`, color: T.textPrimary, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 },
-    select: { background: T.inputBg, border: `1px solid ${T.border}`, color: T.textPrimary, borderRadius: 8, padding: "8px 10px", fontSize: 13, cursor: "pointer" },
-    table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
-    th: { textAlign: "left", padding: "8px 10px", borderBottom: `1px solid ${T.border}`, color: T.textSecondary, fontWeight: 600, fontSize: 12, background: T.tableHead, whiteSpace: "nowrap" },
-    td: { padding: "8px 10px", borderBottom: `1px solid ${T.border2}`, color: T.textPrimary },
+    // Oil sets 12px / 600 on its form labels (ModalShell forms); same here.
+    label: { display: "block", color: T.textSecondary, marginBottom: 4, fontSize: 12, fontWeight: 600 },
+    table: { width: "100%", borderCollapse: "collapse" },
+    th: { textAlign: "left", padding: "8px 10px", borderBottom: `1px solid ${T.border}`, color: T.textSecondary, fontWeight: 600 },
+    td: { padding: "8px 10px", borderBottom: `1px solid ${T.border}`, color: T.textPrimary },
   };
 }
 

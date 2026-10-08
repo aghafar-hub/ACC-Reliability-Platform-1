@@ -339,7 +339,7 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
                 {["RMS", "SPM", "Gs"].map((f) =>
                   f in p.fam ? (
                     <div key={f}>
-                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", color: T.textMuted }}>{f === "RMS" ? "RMS MAX" : f === "SPM" ? "SPM HDm" : "G's"}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", color: T.textMuted }}>{f === "RMS" ? "RMS MAX" : f === "SPM" ? "SPM HDm" : "G's"}</div>
                       <div style={{ fontSize: 22, fontWeight: 700, color: T.textPrimary }}>{p.fam[f] ? (f === "RMS" ? p.fam[f]["Max velocity (mm/s)"] : f === "SPM" ? p.fam[f]["HDm (dBsv)"] : p.fam[f]["G's (g)"]) ?? "–" : "–"}</div>
                       <div style={{ fontSize: 12, color: T.textSecondary }}>{UNIT[f]}</div>
                       {p.fam[f]?.["Final status"] && <LevelPill level={p.fam[f]["Final status"]} />}
@@ -372,7 +372,7 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
           </div>
           <TrendChart T={T} series={series} limits={limits} unit={UNIT[metric]} testid="vm-chart" />
           <div style={{ borderTop: `1px solid ${T.border2}`, marginTop: 12, paddingTop: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".05em", color: T.textMuted, marginBottom: 8 }}>REPORT TIMELINE (FINAL STATUS)</div>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", color: T.textMuted, marginBottom: 8 }}>REPORT TIMELINE (FINAL STATUS)</div>
             <div style={{ display: "flex", gap: 0, overflowX: "auto", paddingBottom: 4 }} data-testid="vm-timeline">
               {months.map((m, i) => (
                 <button
@@ -384,7 +384,7 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
                 >
                   <span style={{ position: "absolute", top: 12, left: i === 0 ? "50%" : 0, right: i === months.length - 1 ? "50%" : 0, height: 2, background: T.border }} />
                   <span style={{ position: "relative", display: "inline-flex", background: T.cardBg, padding: "0 3px" }}>{m.worst ? <LevelSymbol level={m.worst} size={15} /> : <span style={{ width: 10, height: 10, borderRadius: "50%", border: `2px solid ${T.textMuted}` }} />}</span>
-                  <div style={{ fontSize: 11, color: T.textSecondary, marginTop: 2 }}>{new Date(m.month + "-01T00:00:00").toLocaleDateString("en-GB", { month: "short", year: "2-digit" })}</div>
+                  <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 2 }}>{new Date(m.month + "-01T00:00:00").toLocaleDateString("en-GB", { month: "short", year: "2-digit" })}</div>
                 </button>
               ))}
             </div>

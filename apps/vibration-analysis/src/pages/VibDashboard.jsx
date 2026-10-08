@@ -115,6 +115,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
   return (
     <div style={{ padding: isMobile ? "14px 12px" : "20px 24px" }} data-testid="vib-dashboard">
       <PageHeader
+        big
         title="Vibration Dashboard"
         subtitle={
           d

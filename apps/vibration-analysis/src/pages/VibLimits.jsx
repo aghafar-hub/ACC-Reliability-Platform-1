@@ -43,7 +43,7 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
   const lim = (l, src) => (
     <span style={{ whiteSpace: "nowrap" }}>
       {l ? l.join(" / ") : <span style={{ color: T.textMuted }}>no limits</span>}
-      {src && <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: src === "Own" ? T.accent : T.textMuted }}>{src}</span>}
+      {src && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700, color: src === "Own" ? T.accent : T.textMuted }}>{src}</span>}
     </span>
   );
 

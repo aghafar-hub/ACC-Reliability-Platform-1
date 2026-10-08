@@ -138,7 +138,7 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
                       <td style={s.td}>
                         <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {fieldsFor(p).map((k) => (
-                            <label key={k} style={{ display: "flex", flexDirection: "column", fontSize: 11, color: T.textSecondary }}>
+                            <label key={k} style={{ display: "flex", flexDirection: "column", fontSize: 12, color: T.textSecondary }}>
                               {LABEL[k]}
                               <input
                                 type="number"

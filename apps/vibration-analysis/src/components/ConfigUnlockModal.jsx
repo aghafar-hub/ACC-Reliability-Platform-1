@@ -73,7 +73,7 @@ export default function ConfigUnlockModal({ onUnlock, onCancel }) {
           <button style={{ ...s.btnSecondary, flex: 1 }} onClick={onCancel}>
             Cancel
           </button>
-          <button style={{ ...s.btn, flex: 1 }} onClick={submit}>
+          <button style={{ ...s.btnPrimary, flex: 1 }} onClick={submit}>
             Unlock
           </button>
         </div>

@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import Tile, { PageHeader } from "../components/Tile";
+import useIsMobile from "../hooks/useIsMobile";
 import { updateRegisterLimits } from "../api";
 import EquipmentEditModal from "../components/EquipmentEditModal";
 import Icon from "../components/Icon";
@@ -25,6 +27,7 @@ export default function EquipmentRegister({
   vibIdMap,
 }) {
   const { T, s } = useTheme();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [line, setLine] = useState("");
   const [eqType, setEqType] = useState("");
@@ -170,24 +173,13 @@ export default function EquipmentRegister({
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))", gap: 10, marginBottom: 16 }}>
-        <div style={s.metric}>
-          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>Total Equipment</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: T.textHighlight }}>{rows.length}</div>
-        </div>
-        <div style={s.metric}>
-          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>RMS Registered</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: T.accent }}>{rmsRegister.length}</div>
-        </div>
-        <div style={s.metric}>
-          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>SPM Registered</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: T.info }}>{spmRegister.length}</div>
-        </div>
-        <div style={s.metric}>
-          <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 3 }}>Lines</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: T.textHighlight }}>{lines.length}</div>
-        </div>
+    <div style={{ padding: isMobile ? "14px 12px" : "20px 24px" }}>
+      <PageHeader title="Equipment Register" subtitle={`${rows.length} machines · ${rmsRegister.length} RMS · ${spmRegister.length} SPM · ${lines.length} lines`} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginBottom: 16 }}>
+        <Tile icon="ti-list-details" value={rows.length} label="Total Equipment" />
+        <Tile icon="ti-wave-sine" value={rmsRegister.length} label="RMS Registered" />
+        <Tile icon="ti-gauge" value={spmRegister.length} label="SPM Registered" />
+        <Tile icon="ti-building-factory-2" value={lines.length} label="Lines" />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>

@@ -109,7 +109,7 @@ export default function EquipmentEditModal({ row, lines, onClose, onSave }) {
         <button style={s.btnSecondary} onClick={onClose}>
           Cancel
         </button>
-        <button style={s.btn} onClick={() => onSave(form)}>
+        <button style={s.btnPrimary} onClick={() => onSave(form)}>
           Save Changes
         </button>
       </div>
