@@ -40,6 +40,15 @@ function doPost(e) {
         return ok_(listOrgUsers_(session));
       case 'listRoles':
         return ok_(listRoles_());
+      // Arabic word list (Translations.js)
+      case 'getTranslations':
+        return ok_(getTranslations_());
+      case 'addTranslationTerms':
+        requireAppAdmin_(session.userId);
+        return ok_(addTranslationTerms_(session.email || session.userId, body.terms));
+      case 'saveTranslation':
+        requireAppAdmin_(session.userId);
+        return ok_(saveTranslation_(session.email || session.userId, body.key, body.arabic, body.status));
       // Additional actions (Asset Master, RBAC admin, settings) are wired
       // up as their implementations land — see the open backend tasks.
       default:
