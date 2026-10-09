@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useModuleNotice } from '../components/ModuleAccessNotice';
+import { setPlant } from '../plant';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
 import { canOpenModule, useModuleAccess } from '../moduleAccess';
 
@@ -30,7 +31,10 @@ export default function EmbeddedVibrationAnalysis() {
   // "Vibration Analysis" side tab (?module=vibration-analysis on
   // /settings) — see EmbeddedOilAnalysis.tsx for the full rationale.
   const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
-  const { sessionToken } = useAuth();
+  const { sessionToken, claims } = useAuth();
+  // the signed-in user, for the per-user copy of the plant summary
+  const userRef = useRef('');
+  userRef.current = claims?.userId || claims?.email || '';
   const { access, settled } = useModuleAccess();
   const moduleAccess = access[MODULE_ID];
   const allowedToMount = (settled || !!moduleAccess) && canOpenModule(moduleAccess);
@@ -47,6 +51,8 @@ export default function EmbeddedVibrationAnalysis() {
       // button instead of this module rendering a second bar for it — see
       // EmbeddedOilAnalysis.tsx for the original version of this pattern.
       onSyncStateChange: (info) => embeddedNav.setSyncInfo(MODULE_ID, info),
+      // Plant overview (Home + Equipment) — see plant.ts
+      onPlant: (summary) => setPlant(userRef.current, MODULE_ID, summary),
     };
     embeddedNav.register(MODULE_ID, navBridge);
     embeddedNav.setLoadState(MODULE_ID, 'loading');

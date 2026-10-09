@@ -49,11 +49,10 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
     setSheetOpen(false);
   }
 
-  const activePage = mainModule ? embeddedNav.activePageFor(mainModule.id) : null;
-  const onMain = !!mainModule && location.pathname.startsWith(mainModule.route);
-  const homeActive = contractorStaff ? location.pathname === '/my-work' : onMain && (activePage === 'dashboard' || !activePage);
-  const equipmentPage = 'equipment';
-  const equipmentActive = onMain && activePage === equipmentPage;
+  // Home (ACC staff) = the Plant overview; Equipment = every machine across
+  // the modules (pages/PlantOverview.tsx, pages/PlantEquipment.tsx)
+  const homeActive = contractorStaff ? location.pathname === '/my-work' : location.pathname === '/';
+  const equipmentActive = location.pathname.startsWith('/equipment');
 
   const quick = useQuickActions();
 
@@ -62,12 +61,12 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
   if (contractorStaff) {
     slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: homeActive, onClick: () => { tapHaptic(); navigate('/my-work'); } });
   } else if (mainModule) {
-    slots.push({ key: 'home', label: 'Dashboard', icon: 'dashboard', active: homeActive, onClick: () => openPage(mainModule.id, mainModule.route, 'dashboard') });
+    slots.push({ key: 'home', label: 'Home', icon: 'dashboard', active: homeActive, onClick: () => { tapHaptic(); navigate('/'); } });
   } else {
     slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
   }
   if (mainModule) {
-    slots.push({ key: 'equipment', label: 'Equipment', icon: 'equipment', active: equipmentActive, onClick: () => openPage(mainModule.id, mainModule.route, equipmentPage) });
+    slots.push({ key: 'equipment', label: 'Equipment', icon: 'equipment', active: equipmentActive, onClick: () => { tapHaptic(); navigate('/equipment'); } });
   }
   if (quick.length) {
     slots.push({ key: 'plus', label: 'Add', icon: 'plus', active: sheetOpen, plus: true, onClick: () => { tapHaptic(); setSheetOpen(true); } });

@@ -33,6 +33,8 @@ import VibLimits from "./pages/VibLimits";
 import VibRoutes from "./pages/VibRoutes";
 import { buildEquipment } from "./vibModel";
 import { installPhoneCardTables } from "./phoneCardTables";
+import { buildVibPlant } from "./plantSummary";
+import { getVibActions, getVibEquipmentSummary } from "./api";
 
 
 // Top-level app shell: owns every page's data (loaded once via readAll() and
@@ -323,6 +325,22 @@ export default function App({ navBridge } = {}) {
     if (!navBridge) return;
     navBridge.onSyncStateChange?.({ syncState: syncState.status, pendingSyncCount: 0 });
   }, [navBridge, syncState.status]);
+
+  // Plant overview (platform Home + Equipment): this module's summary per
+  // machine, handed to the shell — see plantSummary.js. Read at start and
+  // after each sync, from the same calls the Equipment and Actions pages use.
+  useEffect(() => {
+    if (!navBridge || !webhookUrl || syncState.status !== "ok") return;
+    let cancelled = false;
+    Promise.all([getVibEquipmentSummary(webhookUrl), getVibActions(webhookUrl).catch(() => null)])
+      .then(([summary, actions]) => {
+        if (!cancelled && summary?.equipment) navBridge.onPlant?.(buildVibPlant({ summary, actions }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [navBridge, webhookUrl, syncState.status]);
 
   const registryMap = useMemo(() => {
     const map = {};

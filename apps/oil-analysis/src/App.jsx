@@ -26,6 +26,7 @@ import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
 import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, formatDate } from "./parsers";
 import * as api from "./api";
 import { installPhoneCardTables } from "./phoneCardTables";
+import { buildOilPlant } from "./plantSummary";
 import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
 let toastId = 0;
@@ -1107,7 +1108,8 @@ function AppShell({ config, setConfig, navBridge }) {
     setMobileNavOpen(false);
   }
 
-  // recordId: a routine ID (routines), an LP_ID (equipment / oilreport), or
+  // recordId: a routine ID (routines), an LP_ID (equipment / oilreport),
+  // { machine: Equipment_ID } (equipment, machine view), or
   // { newRoute: {...} } to open New Route pre-filled (the shell's ＋ menu).
   function navigate(nextPage, recordId) {
     if (nextPage === "oilreport" && typeof recordId === "string" && recordId) {
@@ -1117,6 +1119,10 @@ function AppShell({ config, setConfig, navBridge }) {
     if (nextPage !== "equipment") setSelectedEquipment(null);
     if (nextPage === "equipment" && typeof recordId === "string" && recordId) {
       setEquipmentFocus({ sel: { mode: "lp", id: recordId }, n: Date.now() });
+    }
+    // { machine: Equipment_ID } (the platform's Equipment page): the machine view
+    if (nextPage === "equipment" && recordId && typeof recordId === "object" && recordId.machine) {
+      setEquipmentFocus({ sel: { mode: "equipment", id: String(recordId.machine) }, n: Date.now() });
     }
     if (nextPage === "routines" && recordId && typeof recordId === "object" && recordId.newRoute) {
       setDeepLinkNewRoute(recordId.newRoute);
@@ -1150,6 +1156,28 @@ function AppShell({ config, setConfig, navBridge }) {
     }
     return [...points, ...reports];
   }
+
+  // Every top-up, once: the health rule's leak check needs them for every
+  // point (Equipment page + the platform's Plant overview).
+  const [allTopUps, setAllTopUps] = useState(null);
+  useEffect(() => {
+    if (!config.webhookUrl) return;
+    let cancelled = false;
+    api.getAllTopUps(config.webhookUrl).then((t) => { if (!cancelled) setAllTopUps(t); }).catch(() => { if (!cancelled) setAllTopUps([]); });
+    return () => { cancelled = true; };
+  }, [config.webhookUrl]);
+
+  // Plant overview (platform Home + Equipment): this module's summary per
+  // machine, handed to the shell — see plantSummary.js.
+  const plant = useMemo(() => {
+    if (!navBridge || !(equipmentRegistry || []).length || allTopUps === null) return null;
+    return buildOilPlant({ registry: equipmentRegistry, samples, actions, oilChanges, topUps: allTopUps });
+  }, [navBridge, equipmentRegistry, samples, actions, oilChanges, allTopUps]);
+  useEffect(() => {
+    if (!plant) return;
+    const t = setTimeout(() => navBridge.onPlant?.(plant), 300);
+    return () => clearTimeout(t);
+  }, [plant, navBridge]);
 
   useEffect(() => {
     if (!navBridge) return;
@@ -1329,6 +1357,7 @@ function AppShell({ config, setConfig, navBridge }) {
           {visitedPages.has("equipment") && (
             <div style={{ display: page === "equipment" ? undefined : "none" }}>
               <Equipment
+                allTopUps={allTopUps}
                 samples={samples}
                 equipmentRegistry={equipmentRegistry}
                 actions={actions}

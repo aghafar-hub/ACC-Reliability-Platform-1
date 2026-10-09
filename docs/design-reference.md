@@ -180,6 +180,27 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
   the header (`phoneCardTables.js`). Number grids (readings H / V / A…)
   stay tables that scroll in their card.
 
+## 8b. Plant overview (Home) and platform Equipment
+
+- **Home** (`/`, `pages/PlantOverview.tsx`) joins every module: machine
+  condition, Needs attention across modules, a card per module with a
+  **Dashboard ›** link into that module, open actions by area and the work
+  due in the next 5 weeks. ACC staff land here; contractors still land on
+  My Work and see only their own machines.
+- **Equipment** (`/equipment`, `/equipment/:id`, `pages/PlantEquipment.tsx`):
+  every machine once, worst first, then one page per machine — overall
+  condition first, then a panel per module with **Open in … ›**.
+- **One machine = one Equipment ID.** These pages name machines by
+  Equipment ID only (no LP-… or VIB-… point codes); the name is a hint.
+- **Overall condition = the worse of the modules, as Good / Fair / Poor.**
+  Vibration maps Normal → Good, Caution → Fair, Alert and Danger → Poor;
+  each module panel keeps its own word (■ Danger stays visible there).
+- **Data:** each module builds its part (`apps/*/src/plantSummary.js`) from
+  the data it already holds and hands it over the navBridge
+  (`onPlant`); the shell keeps a per-user copy on the device
+  (`frontend/src/plant.ts`). A new module adds a `plantSummary.js` with the
+  same shape and one entry in `PLANT_MODULES`.
+
 ## 9. Checklist for a new or redesigned page
 
 - [ ] Header with live-number subtitle; controls on the right.

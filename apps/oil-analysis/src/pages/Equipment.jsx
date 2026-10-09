@@ -251,6 +251,8 @@ function HistoryTable({ T, s, rows, empty, columns, renderActions }) {
 // of oil analysis / oil-change / action history — the combined view is
 // what lets you see all of it in one place instead of hunting down each
 // point separately.
+const NO_TOP_UPS = [];
+
 export default function Equipment({
   samples,
   equipmentRegistry,
@@ -274,6 +276,7 @@ export default function Equipment({
   initialCode,
   onCodeChange,
   focus,
+  allTopUps: topUpsProp,
 }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
@@ -282,13 +285,15 @@ export default function Equipment({
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   // Every top-up, once — the leak rule in the health score needs them for
   // every point, not just the one open.
-  const [allTopUps, setAllTopUps] = useState([]);
+  // (loaded once by App and passed down; fetched here only when used alone)
+  const [ownTopUps, setOwnTopUps] = useState([]);
   useEffect(() => {
-    if (!webhookUrl) return;
+    if (!webhookUrl || topUpsProp !== undefined) return;
     let cancelled = false;
-    api.getAllTopUps(webhookUrl).then((t) => { if (!cancelled) setAllTopUps(t); }).catch(() => {});
+    api.getAllTopUps(webhookUrl).then((t) => { if (!cancelled) setOwnTopUps(t); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [webhookUrl]);
+  }, [webhookUrl, topUpsProp]);
+  const allTopUps = topUpsProp !== undefined ? topUpsProp || NO_TOP_UPS : ownTopUps;
   const lpIndex = useMemo(() => indexByLp({ samples, actions, oilChanges, topUps: allTopUps }), [samples, actions, oilChanges, allTopUps]);
   // Stock products, for the oil-stock gauge on a point page (D5).
   const [products, setProducts] = useState(null);

@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode, useRef } from 'react';
+import type { PlantSummary } from './plant';
 
 /**
  * navBridge is a plain JS object (not React state) handed to an embedded
@@ -35,6 +36,9 @@ export type NavBridge = {
   // Global search (top bar): the module answers from the data it already
   // holds — points, sample IDs, … — so search works offline too.
   search?: (query: string) => SearchResult[];
+  // Plant overview (Home + Equipment): the module hands over its summary per
+  // machine whenever its data changes — see plant.ts.
+  onPlant?: (summary: PlantSummary) => void;
 };
 
 export type NavRecord = string | Record<string, unknown>;

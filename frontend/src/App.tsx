@@ -1,3 +1,5 @@
+import PlantOverview from './pages/PlantOverview';
+import { PlantEquipmentList, PlantMachinePage } from './pages/PlantEquipment';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
@@ -128,10 +130,11 @@ function ShellRoot() {
                 nav slots are meant for — which aren't designed yet. Back to
                 plain placeholders, same treatment as Reliability Measures/
                 Compressors below, until the real high-level pages are built. */}
-            <Route path="/" element={<ComingSoon title="Dashboard" />} />
+            <Route path="/" element={<PlantOverview />} />
             <Route path="/my-work" element={<MyWork />} />
             <Route path="/quick/:key" element={<QuickLink />} />
-            <Route path="/equipment" element={<ComingSoon title="Equipment" />} />
+            <Route path="/equipment" element={<PlantEquipmentList />} />
+            <Route path="/equipment/:id" element={<PlantMachinePage />} />
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />

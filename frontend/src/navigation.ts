@@ -73,7 +73,7 @@ export const OIL_SUB_TABS: SubTab[] = [
 ];
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', to: '/', icon: 'dashboard' },
+  { label: 'Plant overview', to: '/', icon: 'dashboard' },
   { label: 'My Work', to: '/my-work', icon: 'action' },
   { label: 'Equipment', to: '/equipment', icon: 'registry' },
   {

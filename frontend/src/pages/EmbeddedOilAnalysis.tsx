@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { PLATFORM_CORE_URL } from '../config';
+import { setPlant } from '../plant';
 import { useEmbeddedNav, type NavBridge } from '../embeddedNav';
 import { useModuleNotice } from '../components/ModuleAccessNotice';
 import { canOpenModule, useModuleAccess } from '../moduleAccess';
@@ -66,6 +67,9 @@ export default function EmbeddedOilAnalysis() {
   // Equipment, not this module's own LOW-level ones — see App.tsx.)
   const visible = location.pathname === BASE_ROUTE || (location.pathname === '/settings' && searchParams.get('module') === MODULE_ID);
   const { sessionToken, claims } = useAuth();
+  // the signed-in user, for the per-user copy of the plant summary
+  const userRef = useRef('');
+  userRef.current = claims?.userId || claims?.email || '';
   const { access, settled } = useModuleAccess();
   const moduleAccess = access[MODULE_ID];
   // Phase 0: wait until we know whether this person may open the module at
@@ -90,6 +94,8 @@ export default function EmbeddedOilAnalysis() {
       // button/pending-count instead of this module rendering a second bar
       // for it — see embeddedNav.tsx's NavBridge.onSyncStateChange.
       onSyncStateChange: (info) => embeddedNav.setSyncInfo(MODULE_ID, info),
+      // Plant overview (Home + Equipment) — see plant.ts
+      onPlant: (summary) => setPlant(userRef.current, MODULE_ID, summary),
     };
     embeddedNav.register(MODULE_ID, navBridge);
     embeddedNav.setLoadState(MODULE_ID, 'loading');
