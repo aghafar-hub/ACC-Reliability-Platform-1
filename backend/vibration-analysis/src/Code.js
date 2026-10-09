@@ -179,6 +179,9 @@ function dispatch(action, params, session) {
   if (action==='saveVibReadings')       return vlLocked_(function () { return handleSaveVibReadings(params, session); });
   // Limits.js
   if (action==='getVibLimits')          return handleGetVibLimits(params, session);
+  // Settings → Equipment & IDs (PlatformEquipment.js), App Owner only
+  if (action==='getIdCheck')            return handleGetIdCheck(params);
+  if (action==='markIdCheck')           return handleMarkIdCheck(params, session && session.email);
   if (action==='saveVibLimits')         return vlLocked_(function () { return handleSaveVibLimits(params, session); });
   // VibActions.js
   if (action==='getVibActions')         return handleGetVibActions(params, session);

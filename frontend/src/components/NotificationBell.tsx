@@ -124,7 +124,10 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
       else markNotificationRead(sessionToken as string, n.notificationId).catch(() => {});
     }
 
-    if (n.linkPage === 'mywork') {
+    if (n.linkPage === 'idcheck') {
+      // a module found IDs that don't match the platform list (App Owner)
+      navigate('/settings?tab=equipment-ids');
+    } else if (n.linkPage === 'mywork') {
       // delegation started / ended — the cover shows in My Work
       navigate('/my-work');
     } else if (n.module === 'vib') {

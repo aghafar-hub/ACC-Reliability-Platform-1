@@ -43,7 +43,7 @@ function vcKey_(action, params, session) {
     if (k === 'sessionToken' || k === 'callback' || k === 'action' || k === 'fresh' || k === 'secret' || k === '_') return;
     p.push(k + '=' + params[k]);
   });
-  var key = ['vc', vcVersion_(), vlToday_(), action, who, p.join('&')].join('|');
+  var key = ['vc', vcVersion_(), peSig_(), vlToday_(), action, who, p.join('&')].join('|');
   return key.length > 240 ? key.slice(0, 200) + '#' + key.length + key.slice(-30) : key;
 }
 

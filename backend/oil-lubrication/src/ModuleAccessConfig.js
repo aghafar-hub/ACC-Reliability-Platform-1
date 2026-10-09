@@ -47,6 +47,7 @@ var MA_CONFIG = {
   // (any member), or a list of tabs (View on any one of them is enough).
   // Not listed = "member".
   readRules: {
+    getIdCheck: "admin",
     test: "open",
     getMyAccess: "open",
     getInAppNotifications: "open",
@@ -93,6 +94,7 @@ var MA_CONFIG = {
   // is enough), or a function of the request returning one of those.
   // Not listed = any member, outside Maintenance.
   writeRules: {
+    markIdCheck: "admin",
     markNotificationRead: "open",
     markAllNotificationsRead: "open",
     append: maOilGenericSheetTabs_,

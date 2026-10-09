@@ -82,7 +82,7 @@ export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, 
     });
     machines.push({
       id,
-      name: list[0].reg.description || "",
+      name: list[0].reg.equipmentName || list[0].reg.description || "", // the platform name when listed
       area: list[0].reg.area || "",
       contractor: list[0].reg.contractor || "",
       condition,

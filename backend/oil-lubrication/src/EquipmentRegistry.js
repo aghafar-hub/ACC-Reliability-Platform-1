@@ -60,7 +60,9 @@ function readLpContractorMap_() {
   for (var i = 2; i < vals.length; i++) {
     var lpId = String(vals[i][0] || "").trim();
     if (!lpId) continue;
-    map[lpId] = canonicalContractor_(vals[i][17]);
+    // the platform's contractor for this Equipment ID when it has one
+    var p = pePlatform_(vals[i][1]);
+    map[lpId] = canonicalContractor_((p && p.contractor) || vals[i][17]);
   }
   return map;
 }
@@ -112,7 +114,8 @@ function readEquipmentRegistry() {
       modifiedDate:        row[20] || "",
     });
   }
-  return { equipment: equipment, count: equipment.length };
+  // the platform's name, area and contractor (PlatformEquipment.js)
+  return { equipment: peApplyToRegistry_(equipment), count: equipment.length };
 }
 
 // ─── Learning a lab report's Unit ID ─────────────────────────────────────

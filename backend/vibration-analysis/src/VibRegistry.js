@@ -39,5 +39,6 @@ function readVibRegistry(ss) {
       _rowNum: dataStart + i,
     });
   }
-  return out;
+  // the platform's contractor and area (PlatformEquipment.js)
+  return peApplyToPoints_(out);
 }

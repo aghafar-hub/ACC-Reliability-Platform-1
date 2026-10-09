@@ -36,7 +36,7 @@ function rcKey_(action, params, session) {
     p.push(k + '=' + params[k]);
   });
   var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'UTC', 'yyyy-MM-dd');
-  var key = ['rc', rcVersion_(), today, action, who, p.join('&')].join('|');
+  var key = ['rc', rcVersion_(), peSig_(), today, action, who, p.join('&')].join('|');
   return key.length > 240 ? key.slice(0, 200) + '#' + key.length + key.slice(-30) : key;
 }
 

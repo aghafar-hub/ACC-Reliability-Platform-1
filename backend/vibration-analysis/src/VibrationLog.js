@@ -234,6 +234,7 @@ function vlMasterData_(ss, opts) {
     x.area = x.area || p['Area'] || '';
     x.vibIds++;
   });
+  peApplyToMachines_(eq); // the platform's name, contractor and area (PlatformEquipment.js)
   Object.keys(eq).forEach(function (id) { eq[id].scope = vlScopeOf_(eq[id]); eq[id].area = eq[id].area || vlAreaOf_(eq[id].line); });
   var master = { vib: vib, eq: eq };
   lmApply_(ss, master); // Limits.js: custom limits, interval, Active / Inactive

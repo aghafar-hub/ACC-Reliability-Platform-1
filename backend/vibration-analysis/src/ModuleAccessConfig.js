@@ -39,6 +39,7 @@ var MA_CONFIG = {
   orgToContractor: { "ORG-RHI": "RHI", "ORG-ASEC": "ASEC" },
 
   readRules: {
+    getIdCheck: "admin",
     test: "open",
     getMyAccess: "open",
     getModuleAccessConfig: "admin",
@@ -70,6 +71,7 @@ var MA_CONFIG = {
   },
 
   writeRules: {
+    markIdCheck: "admin",
     append: maVibGenericSheetTabs_,
     updateRow: maVibGenericSheetTabs_,
     deleteRow: maVibGenericSheetTabs_,

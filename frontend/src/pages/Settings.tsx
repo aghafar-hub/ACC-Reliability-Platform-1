@@ -2,6 +2,7 @@ import ArabicWordsPanel from '../i18n/ArabicWordsPanel';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
+import EquipmentIdsPanel from '../components/EquipmentIdsPanel';
 import ModuleAccessPanel from '../components/ModuleAccessPanel';
 import DelegationsPanel from '../components/DelegationsPanel';
 import { useAuth } from '../auth/AuthContext';
@@ -14,7 +15,7 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access';
+type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access' | 'equipment-ids';
 
 // One list of sections, shown as the left navigation (design reference):
 // the platform's own settings first, then each module's.
@@ -27,6 +28,8 @@ const SECTIONS: Section[] = [
   { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
   // Phase 0 — App Owner only (filtered below).
   { id: 'module-access', group: 'Platform', label: 'Module Access', hint: 'Who opens which module and tab', icon: 'shield', tab: 'general', sub: 'module-access' },
+  // App Owner only: the platform's Equipment IDs and what doesn't match them
+  { id: 'equipment-ids', group: 'Platform', label: 'Equipment & IDs', hint: 'Equipment IDs · Lub / Vib IDs · not matching', icon: 'equipment', tab: 'general', sub: 'equipment-ids' },
   { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Connection, registries, alerts', icon: 'droplet', tab: 'oil-analysis' },
   { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Connection and readings', icon: 'graphs', tab: 'vibration-analysis' },
 ];
@@ -50,7 +53,7 @@ export default function Settings() {
   const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
   // ?tab=delegations opens straight on My delegations (My Work's "Nobody responsible" link)
   const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>(
-    searchParams.get('tab') === 'delegations' ? 'delegations' : searchParams.get('tab') === 'language' ? 'language' : 'appearance',
+    searchParams.get('tab') === 'delegations' ? 'delegations' : searchParams.get('tab') === 'language' ? 'language' : searchParams.get('tab') === 'equipment-ids' ? 'equipment-ids' : 'appearance',
   );
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
@@ -65,7 +68,7 @@ export default function Settings() {
   // the App Admin only.
   const sections = SECTIONS.filter((x) => {
     if (x.tab !== 'general') return tabLevel(access[x.tab], 'settings') !== 'Hidden';
-    if (x.sub === 'module-access' || x.sub === 'users') return isAppOwner;
+    if (x.sub === 'module-access' || x.sub === 'users' || x.sub === 'equipment-ids') return isAppOwner;
     if (x.sub === 'delegations') return canDelegate;
     return true;
   });
@@ -158,6 +161,7 @@ export default function Settings() {
           {generalSubTab === 'delegations' && canDelegate && <DelegationsPanel />}
           {generalSubTab === 'users' && isAppOwner && <AccountsPanel />}
           {generalSubTab === 'module-access' && isAppOwner && <ModuleAccessPanel />}
+          {generalSubTab === 'equipment-ids' && isAppOwner && <EquipmentIdsPanel />}
         </div>
       )}
       {/* For a module section, its own Settings page appears in the right

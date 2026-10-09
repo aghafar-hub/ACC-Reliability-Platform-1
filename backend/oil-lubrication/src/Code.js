@@ -329,6 +329,10 @@ function doGet(e) {
       case "getDashboardSettings":
         result = getDashboardSettings_();
         break;
+      case "getIdCheck":
+        // Settings → Equipment & IDs (PlatformEquipment.js); App Owner only (readRules)
+        result = handleGetIdCheck(e.parameter);
+        break;
       case "getModuleResponsibilities":
         result = { responsibilities: getModuleResponsibilities_() };
         break;
@@ -438,6 +442,10 @@ function doPostInner_(e) {
         var appendLpId = (appendLpCol !== undefined && data.row) ? data.row[appendLpCol] : "";
         if (appendLpCol !== undefined && data.row) {
           requireLpContractorMatch_(auth.session, appendLpId);
+        }
+        if (data.sheet === "Equipment Registry") {
+          var eqAddProblem = peEquipmentIdProblem_(data.row && data.row[1]);
+          if (eqAddProblem) return jsonOut({status: "error", message: eqAddProblem});
         }
         // Every lab report has a Sample ID, and one Sample ID is saved once:
         // re-importing the same report must not add its result twice.
@@ -882,6 +890,10 @@ function doPostInner_(e) {
         if (updateLpId !== null) requireLpContractorMatch_(auth.session, updateLpId);
         if (data.sheet === "Equipment Registry" && updateRowIdx !== -1) {
           data.row = lockEquipmentRegistryContractor_(auth.session, updateSheetObj, updateRowIdx, data.row);
+          // Equipment IDs are owned by the platform (PlatformEquipment.js)
+          var eqWas = String(updateSheetObj.getRange(updateRowIdx, 2).getValue() || "").trim();
+          var eqProblem = data.row && peKey_(data.row[1]) !== peKey_(eqWas) ? peEquipmentIdProblem_(data.row[1]) : "";
+          if (eqProblem) return jsonOut({status: "error", message: eqProblem});
         }
         // Patch 10: refuse the overwrite if someone else's write landed on
         // this exact row since the caller last loaded it (data.
@@ -972,6 +984,11 @@ function doPostInner_(e) {
         var notifyResult = updateNotificationSettings_(data);
         logError("doPost:updateNotificationSettings", notifyResult.error || "ok", {actingUser: actingUser});
         return jsonOut(notifyResult.error ? {status: "error", message: notifyResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "markIdCheck") {
+        requireAdmin_(auth.session);
+        return jsonOut(handleMarkIdCheck(data, actingUser));
       }
 
       if (data.action === "updateDashboardSettings") {

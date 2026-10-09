@@ -52,3 +52,35 @@ export function setUserRoles(
 ): Promise<{ userId: string; roles: string[] }> {
   return postAction(PLATFORM_CORE_URL, 'setUserRoles', { sessionToken, userId, roleIds });
 }
+
+// ─── Equipment list (Platform Core AssetMaster.js) ───────────────────────────
+// Equipment IDs are owned by the platform; Lub IDs by Oil, Vib IDs by Vibration.
+export type PlatformEquipment = {
+  id: string;
+  name: string;
+  mainArea: string;
+  plantArea: string;
+  subArea: string;
+  contractor: string;
+  contractorOrg: string;
+  criticality: string;
+  parent: string;
+  status: string;
+};
+export type EquipmentChange = { at: string; by: string; id: string; change: string; before: string; after: string };
+
+export function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number }> {
+  return postAction(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken });
+}
+
+export function saveEquipmentMaster(
+  sessionToken: string,
+  mode: 'add' | 'edit' | 'retire' | 'restore',
+  item: Partial<PlatformEquipment> & { id: string },
+): Promise<{ saved: boolean; item: PlatformEquipment }> {
+  return postAction(PLATFORM_CORE_URL, 'saveEquipmentMaster', { sessionToken, mode, item });
+}
+
+export function listEquipmentLog(sessionToken: string, limit = 200): Promise<{ entries: EquipmentChange[] }> {
+  return postAction(PLATFORM_CORE_URL, 'listEquipmentLog', { sessionToken, limit });
+}

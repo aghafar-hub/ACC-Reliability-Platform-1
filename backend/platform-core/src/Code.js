@@ -49,6 +49,13 @@ function doPost(e) {
       case 'saveTranslation':
         requireAppAdmin_(session.userId);
         return ok_(saveTranslation_(session.email || session.userId, body.key, body.arabic, body.status));
+      // Equipment list (AssetMaster.js): Equipment IDs are owned here
+      case 'listEquipmentMaster':
+        return ok_(listEquipmentMaster_(session));
+      case 'saveEquipmentMaster':
+        return ok_(saveEquipmentMaster_(session, body));
+      case 'listEquipmentLog':
+        return ok_(listEquipmentLog_(session, body.limit));
       // Additional actions (Asset Master, RBAC admin, settings) are wired
       // up as their implementations land — see the open backend tasks.
       default:
