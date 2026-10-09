@@ -14,7 +14,7 @@
 // Inside one request each sheet is read once (VL_READ_MEMO in vlRead_).
 
 var VC_GROUP = ['getVibDashboard', 'getVibEquipmentSummary', 'getVibTracker', 'getVibLog', 'getVibLimits', 'getVibReport', 'getVibEquipmentHistory'];
-var VC_PERSONAL = ['getStartupBundle', 'getVibActions', 'getVibRoutes', 'getVibActionHistory'];
+var VC_PERSONAL = ['getStartupBundle', 'getVibActions', 'getVibRoutes', 'getVibActionHistory', 'getMyWork'];
 var VC_TTL = 6 * 3600;
 var VC_CHUNK = 90000;
 var VC_VERSION_KEY = 'VIB_DATA_VERSION';
@@ -26,7 +26,7 @@ function vcVersion_() {
 
 // Something changed: every cached answer is out of date.
 function vcBump_() {
-  try { PropertiesService.getScriptProperties().setProperty(VC_VERSION_KEY, String(Date.now())); } catch (e) {}
+  try { PropertiesService.getScriptProperties().setProperty(VC_VERSION_KEY, Date.now() + '.' + Math.floor(Math.random() * 1e6)); } catch (e) {}
 }
 
 function vcKey_(action, params, session) {

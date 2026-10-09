@@ -43,6 +43,17 @@ layers, so after the first use pages open at once.
 - **File → Import into the spreadsheet** doesn't fire `onEdit`. After an
   import, press **Sync** once, or wait for the next save.
 
+## 2b. Server cache (Oil backend, `ReadCache.js`)
+
+- The reads My Work and the pages make on their own (My Work, routes,
+  routes overview, templates, suggestions, workload, inventory, movements,
+  forecast, consumption, top-ups, dashboard and its settings) are kept the
+  same way, per person.
+- Thrown away on every POST (all writes), a delegation, a hand edit
+  (`onEdit`) and the daily route generation. An entry lives 30 minutes at
+  most, because other daily jobs write straight to the sheet.
+- Vibration's My Work is kept per person too (`Cache.js`).
+
 ## 3. Lighter requests
 
 - The Vibration startup bundle sends only what pages use: registers, VIB ID

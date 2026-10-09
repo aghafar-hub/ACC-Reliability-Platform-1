@@ -186,12 +186,21 @@ function doGet(e) {
 
     // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
     if (MA_SELF_ACTIONS.indexOf(action) !== -1) {
-      return outputResult_(maHandleSelfAction_(action, e.parameter, auth.session), callback);
+      var selfResult = maHandleSelfAction_(action, e.parameter, auth.session);
+      if (action === "maCreateDelegation" || action === "maEndDelegation") rcBump_(); // ReadCache.js
+      return outputResult_(selfResult, callback);
     }
 
     var accessDenial = maCheckRead_(auth.session, action);
     if (accessDenial) {
       return outputResult_({ error: accessDenial, accessDenied: true }, callback);
+    }
+
+    // ReadCache.js: the same answer again when nothing changed since
+    var rcKey = rcKey_(action, e.parameter, auth.session);
+    if (rcKey && String(e.parameter.fresh || "") !== "1") {
+      var cached = rcGet_(rcKey);
+      if (cached) return outputResult_(cached, callback);
     }
 
     switch (action) {
@@ -332,6 +341,7 @@ function doGet(e) {
       default:
         result = { status:"ok", time: new Date().toISOString() };
     }
+    if (rcKey && result && !result.error && result.status !== "error") rcPut_(rcKey, result);
   } catch (err) {
     result = { error: err.message };
   }
@@ -340,7 +350,17 @@ function doGet(e) {
 }
 
 
+// Every POST is a write (or may be): whatever it changes, the cached reads
+// are out of date afterwards (ReadCache.js).
 function doPost(e) {
+  try {
+    return doPostInner_(e);
+  } finally {
+    rcBump_();
+  }
+}
+
+function doPostInner_(e) {
   var raw = "";
   try {
     if (e && e.postData && e.postData.contents) {

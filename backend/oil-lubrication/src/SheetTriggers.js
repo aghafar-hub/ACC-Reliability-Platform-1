@@ -12,6 +12,8 @@ function onEdit(e) {
   // can never break the pre-existing filter behavior everyone already
   // depends on.
   logDirectEditIfTracked_(e);
+  // a hand edit: the app's cached reads are out of date (ReadCache.js)
+  try { rcBump_(); } catch (err) {}
 
   var sheet = e.source.getActiveSheet();
   var range = e.range;

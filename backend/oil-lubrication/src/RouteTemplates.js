@@ -117,6 +117,14 @@ function deleteRouteTemplate(ss, data) {
 var ROUTE_GENERATION_LEAD_DAYS = 3;
 
 function generateDueRouteInstances() {
+  try {
+    return generateDueRouteInstancesInner_();
+  } finally {
+    rcBump_(); // new routes: the cached reads are out of date (ReadCache.js)
+  }
+}
+
+function generateDueRouteInstancesInner_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var lock = LockService.getScriptLock();
   var gotLock = lock.tryLock(30000);
