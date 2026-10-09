@@ -843,8 +843,8 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
           <p style={{ color: T.textSecondary, margin: 0 }}>Nothing at or below its low-stock level right now.</p>
         </div>
       ) : (
-        <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={s.table} data-testid="inv-low-table">
+        <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+          <table style={s.table} data-testid="inv-low-table" data-phone-cards="">
             <thead>
               <tr>
                 <th style={s.th}>Type / Brand</th>
@@ -1043,8 +1043,8 @@ function StockListTab({ webhookUrl, pushToast, onChanged, products, loading, err
           <p style={{ color: T.textSecondary, margin: 0 }}>No products match.</p>
         </div>
       ) : (
-        <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-          <table style={s.table} data-testid="stock-table">
+        <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+          <table style={s.table} data-testid="stock-table" data-phone-cards="">
             <thead>
               <tr>
                 <th style={s.th}>Type / Brand</th>
@@ -1291,8 +1291,8 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
               <p style={{ color: T.textSecondary, margin: 0 }}>No products have logged consumption in this window.</p>
             </div>
           ) : (
-            <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-              <table style={s.table} data-testid="consumption-table">
+            <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+              <table style={s.table} data-testid="consumption-table" data-phone-cards="">
                 <thead>
                   <tr>
                     <th style={s.th}>Type / Brand</th>
@@ -1428,8 +1428,8 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
                 </p>
                 <ForecastChart T={T} rows={rows} merge={contractorFilter === "All"} />
               </div>
-              <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-                <table style={s.table} data-testid="forecast-table">
+              <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+                <table style={s.table} data-testid="forecast-table" data-phone-cards="">
                   <thead>
                     <tr>
                       <th style={s.th}>Oil</th>
@@ -1714,8 +1714,8 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
         </div>
       ) : (
         <>
-          <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
-            <table style={s.table} data-testid="movements-table">
+          <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden" }}>
+            <table style={s.table} data-testid="movements-table" data-phone-cards="">
               <thead>
                 <tr>
                   <th style={s.th}>Date</th>

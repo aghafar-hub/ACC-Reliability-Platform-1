@@ -5,6 +5,7 @@ import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
 import ModalShell, { FormSection, ReadValue } from "../components/ModalShell";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
+import { PhoneSummary } from "../components/PhoneParts";
 import { StatePill } from "../components/Level";
 import { SCOPES } from "../vibModel";
 
@@ -21,6 +22,7 @@ const FAMS = [
 ];
 
 export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }) {
+  const [chartsOpen, setChartsOpen] = useState(false);
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [contractor, setContractor] = useState("All");
@@ -62,12 +64,20 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
       {!limits && <div style={{ ...s.card, color: T.textSecondary }}>Loading limits…</div>}
       {limits && (
         <>
+          {isMobile && (
+            <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="vlim-summary">
+              <span><b style={{ fontSize: 16 }}>{base.filter(isOwn).length}</b> with own limits</span>
+              <span style={{ color: T.textSecondary }}>{Object.keys(vibLimits).length} VIB ID limits</span>
+            </PhoneSummary>
+          )}
+          {(!isMobile || chartsOpen) && (
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", marginBottom: 14 }}>
             <Tile icon="ti-adjustments" value={base.filter(isOwn).length} label="Machines with own limits" sub="others use the RMS / SPM Register" onClick={() => setOnly("Own limits")} />
             <Tile icon="ti-target" value={Object.keys(vibLimits).length} label="VIB ID limits" sub="override the machine's limits" />
             <Tile icon="ti-wave-square" value={base.filter((e) => e.gs).length} label="Machines with G's limits" sub="G's has no limits by default" />
             <Tile icon="ti-player-pause" value={base.filter((e) => e.status === "Inactive").length} label="Inactive machines" sub="left out of reports and routes" tone={base.some((e) => e.status === "Inactive") ? T.warning : undefined} onClick={() => setOnly("Inactive")} />
           </div>
+          )}
           <TabBar
             value={tab}
             onChange={setTab}
@@ -93,8 +103,8 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
                 </select>
                 <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>Caution / Alert / Danger from · RMS mm/s · SPM dBsv · G&apos;s g</span>
               </div>
-              <div style={{ ...s.card, padding: 0, overflowX: "auto" }}>
-                <table style={s.table} data-testid="vlim-table">
+              <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }}>
+                <table data-phone-cards="" style={s.table} data-testid="vlim-table">
                   <thead>
                     <tr>
                       {["Equipment", "Name", "Scope", "RMS", "SPM", "G's", "VIB ID limits", "Interval", "Status", ""].map((h) => (
@@ -133,8 +143,8 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
             </>
           )}
           {tab === "history" && (
-            <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vlim-history">
-              <table style={s.table}>
+            <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vlim-history">
+              <table data-phone-cards="" style={s.table}>
                 <thead>
                   <tr>
                     {["When", "Equipment", "What", "Limits / setting", "Reason", "By", "Active"].map((h) => (

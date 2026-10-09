@@ -6,6 +6,7 @@ import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
 import ModalShell, { FormSection, ReadValue } from "../components/ModalShell";
 import Tile, { PageHeader } from "../components/Tile";
+import { PhoneSummary } from "../components/PhoneParts";
 import { LevelSymbol, StatePill } from "../components/Level";
 import { levelColor } from "../levels";
 import { addDays, monthEnd, monthLabel, reportId, SCOPES, shortDate } from "../vibModel";
@@ -23,6 +24,7 @@ const CONTRACTOR_ORDER = ["RHI", "ASEC"];
 export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId, scopeEquipment }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
+  const [chartsOpen, setChartsOpen] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
@@ -151,6 +153,14 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
       {!data && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading…</div>}
       {data && (
         <>
+          {isMobile && (
+            <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="vlog-summary">
+              <span style={{ color: late.length ? T.danger : T.textPrimary, fontWeight: 700 }}>{late.length} overdue or missing</span>
+              <span style={{ color: T.textSecondary }}>{received.length} / {dueCells.length} received</span>
+              {waiting.length > 0 && <span style={{ color: T.info, fontWeight: 600 }}>{waiting.length} to review</span>}
+            </PhoneSummary>
+          )}
+          {(!isMobile || chartsOpen) && (
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", marginBottom: 14 }}>
             <Tile
               icon="ti-hourglass"
@@ -186,6 +196,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
               testid="vlog-tile-notimported"
             />
           </div>
+          )}
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 14 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: T.textSecondary }}>
@@ -382,8 +393,8 @@ function ReportCard({ T, s, cell, me, onOpen, onAdd, onSkip }) {
 
 function LogTable({ T, s, rows, onOpen }) {
   return (
-    <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vlog-table">
-      <table style={s.table}>
+    <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vlog-table">
+      <table data-phone-cards="" style={s.table}>
         <thead>
           <tr>
             {["Report", "Month", "Contractor", "Scope", "Report status", "Workflow", "Measured", "Due", "Readings", "Normal", "Caution", "Alert", "Danger", ""].map((h) => (

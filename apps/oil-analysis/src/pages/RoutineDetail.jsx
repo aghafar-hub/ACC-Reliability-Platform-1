@@ -707,8 +707,8 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
         </div>
       )}
 
-      <div style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 20 }}>
-        <table style={s.table}>
+      <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto", overflowY: "hidden", marginBottom: 20 }}>
+        <table style={s.table} data-phone-cards="" data-testid="route-items">
           <thead>
             <tr>
               <th style={s.th}>Point</th>

@@ -524,8 +524,8 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
         </div>
       )}
       {hist && tab === "reports" && (
-        <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vm-reports">
-          <table style={s.table}>
+        <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vm-reports">
+          <table data-phone-cards="" style={s.table}>
             <thead>
               <tr>
                 {["Report", "Month", "Readings", "Machine status", ""].map((h) => (

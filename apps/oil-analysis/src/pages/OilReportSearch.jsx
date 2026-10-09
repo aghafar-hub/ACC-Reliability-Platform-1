@@ -8,6 +8,7 @@ import LabTrendCharts, { Chip, LabCountControls } from "../components/LabTrendCh
 import { toTime } from "../pointHistory";
 import { actionsForSample, cellMark, changeLabel, pickSamples, reportColumns, reviewOf, viscCellTemp, visibleGroups } from "../labReport";
 import { Donut, Ring } from "../components/DashCharts";
+import { ChipRow, PhoneSummary, ShowMore, SummaryBar } from "../components/PhoneParts";
 
 const STATUS_RANK = { Alert: 3, Caution: 2, Warning: 2, Normal: 1 };
 const SEV_KEY = { Alert: "danger", Caution: "warning" };
@@ -527,6 +528,7 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
   const [filter, setFilter] = useState("all");
   const [text, setText] = useState("");
   const [limit, setLimit] = useState(50);
+  const [chartsOpen, setChartsOpen] = useState(false);
   const rows = useMemo(() => {
     const byCode = new Map();
     (samples || []).forEach((sm) => {
@@ -576,7 +578,7 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
       }}
       aria-pressed={filter === key}
       data-testid={`points-filter-${key}`}
-      style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderRadius: 999, borderColor: filter === key ? T[color] || T.accent : T.border, color: filter === key ? T[color] || T.accent : T.textSecondary, fontWeight: filter === key ? 700 : 500 }}
+      style={{ ...s.btn, padding: "6px 12px", fontSize: 12.5, borderRadius: 999, flex: "0 0 auto", whiteSpace: "nowrap", minHeight: isMobile ? 38 : undefined, borderColor: filter === key ? T[color] || T.accent : T.border, color: filter === key ? T[color] || T.accent : T.textSecondary, fontWeight: filter === key ? 700 : 500 }}
     >
       {label} <strong style={{ color: T[color] || T.textPrimary }}>{n}</strong>
     </button>
@@ -584,7 +586,14 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
   const marksText = (r) => r.marks.map((m) => `${m.param} ${m.severity}`).join(", ");
   return (
     <div style={{ ...s.card }} data-testid="points-list">
-      {(() => {
+      {isMobile && (
+        <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="points-summary">
+          <span><b style={{ fontSize: 16 }}>{rows.length}</b> points</span>
+          <SummaryBar parts={[{ value: counts.Normal, color: T.success }, { value: counts.Caution, color: T.warning }, { value: counts.Alert, color: T.danger }]} />
+          <span style={{ color: T.danger, fontWeight: 700, fontSize: 13 }}>◆ {counts.Alert}</span>
+        </PhoneSummary>
+      )}
+      {(!isMobile || chartsOpen) && (() => {
         // D5 — the latest result across the points, as a donut (tap a part to
         // filter), next to how many are sampled on time.
         const withResult = counts.Normal + counts.Caution + counts.Alert;
@@ -635,20 +644,40 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
           </div>
         );
       })()}
+      {isMobile ? (
+        <>
+          <input
+            style={{ ...s.input, width: "100%", boxSizing: "border-box", minHeight: 44, fontSize: 15, marginBottom: 10 }}
+            type="search"
+            placeholder="Filter by point, description, area…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            aria-label="Filter points"
+          />
+          <ChipRow label="Latest result">
+            {chip("all", "All", rows.length, null)}
+            {chip("Alert", "◆ Alert", counts.Alert, "danger")}
+            {chip("Caution", "▲ Caution", counts.Caution, "warning")}
+            {chip("Normal", "● Normal", counts.Normal, "success")}
+            {chip("due", "Sample overdue / missing", counts.due, "warning")}
+          </ChipRow>
+        </>
+      ) : (
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-        {chip("all", "All", rows.length, null)}
-        {chip("Alert", "Alert", counts.Alert, "danger")}
-        {chip("Caution", "Caution", counts.Caution, "warning")}
-        {chip("Normal", "Normal", counts.Normal, "success")}
-        {chip("due", "Sample overdue / missing", counts.due, "warning")}
-        <input
-          style={{ ...s.input, width: isMobile ? "100%" : 240, marginLeft: isMobile ? 0 : "auto", fontSize: 13 }}
-          placeholder="Filter by point, description, area…"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          aria-label="Filter points"
-        />
-      </div>
+          {chip("all", "All", rows.length, null)}
+          {chip("Alert", "Alert", counts.Alert, "danger")}
+          {chip("Caution", "Caution", counts.Caution, "warning")}
+          {chip("Normal", "Normal", counts.Normal, "success")}
+          {chip("due", "Sample overdue / missing", counts.due, "warning")}
+          <input
+            style={{ ...s.input, width: isMobile ? "100%" : 240, marginLeft: isMobile ? 0 : "auto", fontSize: 13 }}
+            placeholder="Filter by point, description, area…"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            aria-label="Filter points"
+          />
+        </div>
+      )}
       {shown.length === 0 ? (
         <p style={{ color: T.textSecondary, margin: 0 }}>No points match.</p>
       ) : isMobile ? (
@@ -710,7 +739,8 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
           </table>
         </div>
       )}
-      {shown.length > limit && (
+      {isMobile && <ShowMore shown={limit} total={shown.length} onMore={() => setLimit((l) => l + 50)} testid="points-more" />}
+      {!isMobile && shown.length > limit && (
         <button type="button" onClick={() => setLimit((l) => l + 50)} style={{ background: "none", border: "none", color: T.accent, cursor: "pointer", padding: "10px 0", fontSize: 13 }}>
           Show {Math.min(50, shown.length - limit)} more of {shown.length - limit}
         </button>

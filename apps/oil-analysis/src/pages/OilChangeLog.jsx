@@ -5,7 +5,8 @@ import EquipmentSearch from "../components/EquipmentSearch";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import GenerateOilChangeActionsModal from "../components/GenerateOilChangeActionsModal";
 import LpHistoryModal from "../components/LpHistoryModal";
-import MobileFilterToggle from "../components/MobileFilterToggle";
+import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
+import { ChipRow, CountChip, FiltersPill, PAGE_SIZE, PhoneSummary, ShowMore, SummaryBar } from "../components/PhoneParts";
 import useIsMobile from "../hooks/useIsMobile";
 import { MonthProgress } from "../components/DashCharts";
 
@@ -174,7 +175,10 @@ function ChipCard({ p, color, onClick }) {
 export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, actions, equipmentRegistry, onSave, onAddAction }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
-  const [filtersOpen, setFiltersOpen] = useState(!isMobile);
+  const [chartsOpen, setChartsOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [phoneBucket, setPhoneBucket] = useState("Overdue");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [equipCode, setEquipCode] = useState("");
   const [areaFilter, setAreaFilter] = useState("All");
   const [contractorFilter, setContractorFilter] = useState("All");
@@ -303,7 +307,14 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
         </button>
       </div>
 
-      {/* ====== GRAPHS ====== */}
+      {/* phone: lists before charts — one summary line opens them */}
+      {isMobile && (
+        <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="oc-summary">
+          <span style={{ color: byBucket.Overdue.length ? T.danger : T.textPrimary, fontWeight: 700 }}>◆ {byBucket.Overdue.length} overdue</span>
+          <SummaryBar parts={BUCKETS.map((b) => ({ value: byBucket[b].length, color: T[BUCKET_COLOR_KEY[b]] }))} />
+        </PhoneSummary>
+      )}
+      {(!isMobile || chartsOpen) && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, marginBottom: 18 }}>
         <MonthProgress T={T} s={s} title="This month" done={monthProgress.done} remaining={monthProgress.remaining} noun="oil changes" testid="oc-month-ring" />
         <div style={{ ...s.card, marginBottom: 0 }}>
@@ -355,17 +366,60 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
         </div>
       </div>
 
+      )}
+
       {/* ====== FILTERS (Area/Contractor now real dropdowns) ====== */}
+      {isMobile ? (
+        <>
+          <ChipRow label="Due">
+            {BUCKETS.map((bk) => (
+              <CountChip key={bk} on={phoneBucket === bk} onClick={() => { setPhoneBucket(bk); setLimit(PAGE_SIZE); }} count={byBucket[bk].length} color={BUCKET_COLOR_KEY[bk]} testid={`oc-tab-${bk}`}>
+                {bk}
+              </CountChip>
+            ))}
+            <FiltersPill count={(equipCode ? 1 : 0) + (areaFilter !== "All" ? 1 : 0) + (contractorFilter !== "All" ? 1 : 0)} onClick={() => setSheetOpen(true)} testid="oc-filters" />
+          </ChipRow>
+          <BottomSheet
+            open={sheetOpen}
+            title="Filters"
+            hint="Apply to the list and the charts"
+            onClose={() => setSheetOpen(false)}
+            testid="oc-filter-sheet"
+            footer={
+              <>
+                <SheetButton onClick={() => { setEquipCode(""); setAreaFilter("All"); setContractorFilter("All"); }}>Reset</SheetButton>
+                <SheetButton primary grow={2} onClick={() => setSheetOpen(false)}>Show {visible.length} points</SheetButton>
+              </>
+            }
+          >
+            <div style={{ paddingTop: 6 }}>
+              <EquipmentSearch options={registry} value={equipCode || "All"} onChange={(v) => setEquipCode(v === "All" ? "" : v)} allowAll width="100%" placeholder="All Assets" />
+            </div>
+            {contractors.length > 1 && (
+              <SheetGroup label="Contractor">
+                {contractors.map((c) => (
+                  <SheetChip key={c} on={contractorFilter === c} onClick={() => setContractorFilter(c)}>{c}</SheetChip>
+                ))}
+              </SheetGroup>
+            )}
+            {areas.length > 1 && (
+              <SheetGroup label="Area">
+                <select style={{ ...s.select, width: "100%", minHeight: 44 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} aria-label="Area">
+                  {areas.map((a) => (
+                    <option key={a}>{a}</option>
+                  ))}
+                </select>
+              </SheetGroup>
+            )}
+            <SheetGroup label="Group the list by">
+              <SheetChip on={groupBy === "equipment"} onClick={() => setGroupBy("equipment")}>Equipment</SheetChip>
+              <SheetChip on={groupBy === "contractor"} onClick={() => setGroupBy("contractor")}>Contractor</SheetChip>
+            </SheetGroup>
+          </BottomSheet>
+        </>
+      ) : (
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
-        {isMobile && (
-          <MobileFilterToggle
-            open={filtersOpen}
-            onToggle={() => setFiltersOpen((o) => !o)}
-            activeCount={(equipCode ? 1 : 0) + (areaFilter !== "All" ? 1 : 0) + (contractorFilter !== "All" ? 1 : 0)}
-          />
-        )}
-        {filtersOpen && (
-          <>
+        <>
             <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
               <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
                 Equipment
@@ -419,8 +473,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
                 <i className="ti ti-x" aria-hidden="true" /> Clear
               </button>
             )}
-          </>
-        )}
+        </>
         <div
           style={{
             display: "inline-flex",
@@ -455,8 +508,36 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
           ))}
         </div>
       </div>
+      )}
+
+      {/* Phone: one bucket at a time (chips above), as a plain list — no
+          board columns with their own scroll boxes. */}
+      {isMobile && (() => {
+        const list = byBucket[phoneBucket];
+        const color = T[BUCKET_COLOR_KEY[phoneBucket]];
+        const shown = list.slice(0, limit);
+        const groups =
+          groupBy === "contractor"
+            ? Object.entries(shown.reduce((acc, p) => { (acc[p.contractor || "Unassigned"] ||= []).push(p); return acc; }, {}))
+            : [[null, shown]];
+        return (
+          <div data-testid="oc-phone-list" style={{ marginBottom: 16 }}>
+            {list.length === 0 && <div style={{ ...s.card, textAlign: "center", color: T.textMuted, fontSize: 13 }}>Nothing {phoneBucket.toLowerCase()}.</div>}
+            {groups.map(([groupName, groupList]) => (
+              <div key={groupName || "all"}>
+                {groupName && <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "8px 2px 6px" }}>{groupName} · {groupList.length}</div>}
+                {groupList.map((p) => (
+                  <ChipCard key={p.oilChange._id} p={p} color={color} onClick={() => setViewingHistory(p.oilChange)} />
+                ))}
+              </div>
+            ))}
+            <ShowMore shown={limit} total={list.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} testid="oc-more" />
+          </div>
+        );
+      })()}
 
       {/* ====== FOUR-COLUMN BOARD ====== */}
+      {!isMobile && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14, marginBottom: 16 }}>
         {BUCKETS.map((bucket) => {
           const colorKey = BUCKET_COLOR_KEY[bucket];
@@ -518,6 +599,8 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
           );
         })}
       </div>
+
+      )}
 
       {visible.length === 0 && (
         <div style={{ ...s.card, textAlign: "center", padding: 30, color: T.textMuted, fontSize: 13 }}>No oil change records match the filter.</div>

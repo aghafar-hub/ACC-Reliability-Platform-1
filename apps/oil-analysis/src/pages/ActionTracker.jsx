@@ -4,7 +4,8 @@ import { useTheme } from "../ThemeContext";
 import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue, actionDaysOverdue, actionDueDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditActionModal from "../components/EditActionModal";
-import MobileFilterToggle from "../components/MobileFilterToggle";
+import BottomSheet, { SheetButton } from "../components/BottomSheet";
+import { ChipRow, CountChip, FiltersPill, PAGE_SIZE, PhoneSummary, ShowMore } from "../components/PhoneParts";
 import useIsMobile from "../hooks/useIsMobile";
 import { Donut, StackedBars } from "../components/DashCharts";
 import { SERIES_DARK, SERIES_LIGHT, isDarkSurface } from "../pointHistory";
@@ -76,7 +77,9 @@ export default function ActionTracker({
   // Collapsed by default on mobile only — equipment search + month/year
   // dropdowns + area chips + contractor chips stacked several rows above
   // the kanban on a phone (the Patch 35 mobile audit's own finding).
-  const [filtersOpen, setFiltersOpen] = useState(!isMobile);
+  const [chartsOpen, setChartsOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [equipCode, setEquipCode] = useState("");
   const [month, setMonth] = useState("All");
   const [year, setYear] = useState("All");
@@ -160,6 +163,14 @@ export default function ActionTracker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, registryByCode, T]);
 
+  const activeFilterCount = (equipCode ? 1 : 0) + (month !== "All" ? 1 : 0) + (year !== "All" ? 1 : 0) + (areaFilter !== "All" ? 1 : 0);
+  const clearFilters = () => {
+    setEquipCode("");
+    setMonth("All");
+    setYear("All");
+    setAreaFilter("All");
+    setContractorFilter("All");
+  };
   const unassignedCount = useMemo(() => visible.filter((a) => a.status !== ACTION_STATUS.CLOSED && !a.assignedTo).length, [visible]);
 
   const ageData = useMemo(() => {
@@ -371,6 +382,15 @@ export default function ActionTracker({
           {openCount} open · {statusCounts[ACTION_STATUS.CLOSURE_REQUESTED] || 0} waiting for closure · {visible.length} in this view
         </p>
       </div>
+      {/* phone: lists before charts — one summary line opens them */}
+      {isMobile && (
+        <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="actions-summary">
+          <span><b style={{ fontSize: 16 }}>{openCount}</b> open</span>
+          <span style={{ color: overdueOpen ? T.danger : T.textSecondary, fontWeight: 600 }}>◆ {overdueOpen} past due</span>
+          <span style={{ color: unassignedCount ? T.warning : T.textSecondary, fontWeight: 600 }}>▲ {unassignedCount} no owner</span>
+        </PhoneSummary>
+      )}
+      {(!isMobile || chartsOpen) && (<>
       <div
         style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.15fr) minmax(0, 1.25fr) 170px", gap: 14 }}
         data-testid="action-top"
@@ -435,7 +455,7 @@ export default function ActionTracker({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.8fr 1.3fr", gap: 14, margin: "14px 0" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.1fr 0.8fr 1.3fr", gap: 14, margin: "14px 0" }}>
         <div style={s.card}>
           <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Open actions by age</p>
           {ageData.every((d) => d.count === 0) ? (
@@ -494,25 +514,62 @@ export default function ActionTracker({
           </ResponsiveContainer>
         </div>
       </div>
+      </>)}
 
-      {/* Single row, unchanged in structure/order from before this patch —
-          isMobile is false on desktop so filtersOpen defaults true there
-          and this renders exactly as it always has. Only on a phone does
-          the toggle appear and the filter controls become collapsible;
-          the two action buttons stay in their original position/order
-          either way, just with the filters between them collapsed away. */}
-      <div style={{ display: "flex", gap: 10, margin: "16px 0", flexWrap: "wrap", alignItems: "center" }}>
-        {isMobile && (
-          <MobileFilterToggle
-            open={filtersOpen}
-            onToggle={() => setFiltersOpen((o) => !o)}
-            activeCount={
-              (equipCode ? 1 : 0) + (month !== "All" ? 1 : 0) + (year !== "All" ? 1 : 0) + (areaFilter !== "All" ? 1 : 0) + (contractorFilter !== "All" ? 1 : 0)
+      {/* Desktop: one row, as before. Phone: the most-used choices as chips
+          and everything else in a Filters sheet. */}
+      {isMobile ? (
+        <>
+          <ChipRow label="Filters">
+            <button type="button" style={{ ...s.btnPrimary, flex: "0 0 auto", whiteSpace: "nowrap", minHeight: 38, borderRadius: 999 }} onClick={() => setEditing({ action: { equipmentCode: "" }, isNew: true })}>
+              <i className="ti ti-plus" aria-hidden="true" /> Add Action
+            </button>
+            <FiltersPill count={activeFilterCount} onClick={() => setSheetOpen(true)} testid="actions-filters" />
+            {contractors.length > 1 &&
+              contractors.map((c) => (
+                <CountChip key={c} on={contractorFilter === c} onClick={() => setContractorFilter(c)}>{c === "All" ? "All contractors" : c}</CountChip>
+              ))}
+          </ChipRow>
+          <BottomSheet
+            open={sheetOpen}
+            title="Filters"
+            hint="Apply to the list and the charts"
+            onClose={() => setSheetOpen(false)}
+            testid="actions-filter-sheet"
+            footer={
+              <>
+                <SheetButton onClick={clearFilters}>Reset</SheetButton>
+                <SheetButton primary grow={2} onClick={() => setSheetOpen(false)}>Show {visible.length} actions</SheetButton>
+              </>
             }
-          />
-        )}
-        {filtersOpen && (
-          <>
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 6 }}>
+              <EquipmentSearch options={registry} value={equipCode || "All"} onChange={(v) => setEquipCode(v === "All" ? "" : v)} allowAll width="100%" placeholder="All Equipment" />
+              <div style={{ display: "flex", gap: 8 }}>
+                <select style={{ ...s.select, flex: 1, minHeight: 44 }} value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">
+                  <option value="All">All Months</option>
+                  {MONTHS.map((m, i) => (
+                    <option key={m} value={i}>{m}</option>
+                  ))}
+                </select>
+                <select style={{ ...s.select, flex: 1, minHeight: 44 }} value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year">
+                  {years.map((y) => (
+                    <option key={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+              {areas.length > 1 && (
+                <select style={{ ...s.select, minHeight: 44 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} aria-label="Area">
+                  {areas.map((a) => (
+                    <option key={a} value={a}>{a === "All" ? "All Areas" : a}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </BottomSheet>
+        </>
+      ) : (
+      <div style={{ display: "flex", gap: 10, margin: "16px 0", flexWrap: "wrap", alignItems: "center" }}>
             <EquipmentSearch
               options={registry}
               value={equipCode || "All"}
@@ -549,28 +606,21 @@ export default function ActionTracker({
             {hasFilters && (
               <button
                 style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }}
-                onClick={() => {
-                  setEquipCode("");
-                  setMonth("All");
-                  setYear("All");
-                  setAreaFilter("All");
-                  setContractorFilter("All");
-                }}
+                onClick={clearFilters}
               >
                 <i className="ti ti-x" aria-hidden="true" /> Clear
               </button>
             )}
-          </>
-        )}
         <button style={{ ...s.btnPrimary, marginLeft: "auto" }} onClick={() => setEditing({ action: { equipmentCode: "" }, isNew: true })}>
           <i className="ti ti-plus" aria-hidden="true" /> Add Action
         </button>
       </div>
+      )}
 
       <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
         {hasFilters
           ? `Showing ${visible.length} of ${actions.length} actions`
-          : `${actions.length} actions · drag a card to change its status`}
+          : `${actions.length} actions · ${isMobile ? "tap a card to open it" : "drag a card to change its status"}`}
       </div>
 
       {/* Desktop: the 4-column drag-and-drop kanban, unchanged. Mobile
@@ -650,23 +700,13 @@ export default function ActionTracker({
       </div>
 
       <div className="dash-table-mobile" style={{ flexDirection: "column" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <ChipRow label="Show actions by stage">
           {COLUMNS.map((status) => (
-            <button
-              key={status}
-              style={{
-                ...s.btn,
-                fontSize: 12,
-                background: mobileStatusTab === status ? T[STATUS_COLOR_KEY[status]] : "transparent",
-                color: mobileStatusTab === status ? "#fff" : T.textSecondary,
-                borderColor: mobileStatusTab === status ? T[STATUS_COLOR_KEY[status]] : T.border,
-              }}
-              onClick={() => setMobileStatusTab(status)}
-            >
-              {status} ({columnItems(status).length})
-            </button>
+            <CountChip key={status} on={mobileStatusTab === status} onClick={() => { setMobileStatusTab(status); setLimit(PAGE_SIZE); }} count={columnItems(status).length} color={STATUS_COLOR_KEY[status]} testid={`actions-tab-${status}`}>
+              {status}
+            </CountChip>
           ))}
-        </div>
+        </ChipRow>
         {columnItems(mobileStatusTab).length === 0 ? (
           <div
             style={{
@@ -681,7 +721,10 @@ export default function ActionTracker({
             No actions here
           </div>
         ) : (
-          columnItems(mobileStatusTab).map((a) => renderActionCard(a, mobileStatusTab))
+          <>
+            {columnItems(mobileStatusTab).slice(0, limit).map((a) => renderActionCard(a, mobileStatusTab))}
+            <ShowMore shown={limit} total={columnItems(mobileStatusTab).length} onMore={() => setLimit((n) => n + PAGE_SIZE)} testid="actions-more" />
+          </>
         )}
       </div>
 

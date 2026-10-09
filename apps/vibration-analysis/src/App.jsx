@@ -32,6 +32,7 @@ import VibTrends from "./pages/VibTrends";
 import VibLimits from "./pages/VibLimits";
 import VibRoutes from "./pages/VibRoutes";
 import { buildEquipment } from "./vibModel";
+import { installPhoneCardTables } from "./phoneCardTables";
 
 
 // Top-level app shell: owns every page's data (loaded once via readAll() and
@@ -49,7 +50,8 @@ import { buildEquipment } from "./vibModel";
 // one instead. Standalone builds never pass navBridge, so none of this
 // changes anything about how this app runs on its own.
 export default function App({ navBridge } = {}) {
-  const { themeName } = useTheme();
+  const { themeName, T } = useTheme();
+  useEffect(() => installPhoneCardTables(), []);
   const [page, setPage] = useState("dashboard");
   useEffect(() => {
     setCurrentPage(page);
@@ -481,6 +483,20 @@ export default function App({ navBridge } = {}) {
             z-index: 40;
           }
           .app-main { margin-left: 0 !important; }
+
+          /* tables marked data-phone-cards: one card per row (labels from
+             the header, see phoneCardTables.js) — same as the Oil app */
+          table[data-phone-cards], table[data-phone-cards] tbody { display: block !important; width: 100% !important; min-width: 0 !important; }
+          table[data-phone-cards] thead { display: none !important; }
+          table[data-phone-cards] tr { display: block !important; background: ${T.cardBg}; border: 1px solid ${T.border}; border-radius: 12px; padding: 10px 12px; margin: 0 0 8px; }
+          table[data-phone-cards] td { display: flex !important; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 4px 10px; border: 0 !important; padding: 3px 0 !important; text-align: right !important; white-space: normal !important; min-height: 0; background: none !important; }
+          table[data-phone-cards] td::before { content: attr(data-label); color: ${T.textSecondary}; font-size: 12px; font-weight: 600; text-align: left; flex: 0 0 auto; max-width: 45%; margin-right: auto; }
+          table[data-phone-cards] td[data-label=""]::before { content: none; }
+          table[data-phone-cards] td:first-child { font-size: 14.5px; font-weight: 700; text-align: left !important; justify-content: flex-start; padding-bottom: 6px !important; }
+          table[data-phone-cards] td:first-child::before { content: none; }
+          table[data-phone-cards] td:empty { display: none !important; }
+          table[data-phone-cards] td input, table[data-phone-cards] td select { max-width: 60%; }
+          .phone-cards-box { background: none !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; overflow: visible !important; max-height: none !important; }
         }
       `}</style>
       {!navBridge && (

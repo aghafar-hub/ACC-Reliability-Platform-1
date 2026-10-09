@@ -113,8 +113,8 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
       </FormSection>
       {m && (
         <FormSection icon="wave-sine" title="Readings" hint="numbers only — leave a VIB ID empty if it wasn't measured">
-          <div style={{ overflowX: "auto" }}>
-            <table style={s.table}>
+          <div className="phone-cards-box" style={{ overflowX: "auto" }}>
+            <table data-phone-cards="" style={s.table}>
               <thead>
                 <tr>
                   {["VIB ID", "Point", "Values", "System", "Report status", "Note"].map((h) => (

@@ -6,6 +6,9 @@ import EquipmentSearch from "../components/EquipmentSearch";
 import SampleHistoryModal from "../components/SampleHistoryModal";
 import { MonthProgress } from "../components/DashCharts";
 import ContractorChips from "../components/ContractorChips";
+import useIsMobile from "../hooks/useIsMobile";
+import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
+import { ChipRow, CountChip, FiltersPill, PAGE_SIZE, PhoneSummary, ShowMore, SummaryBar } from "../components/PhoneParts";
 
 const WEEKS_AHEAD = 8;
 
@@ -169,6 +172,11 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
   const [groupBy, setGroupBy] = useState("equipment");
   const [viewingHistory, setViewingHistory] = useState(null);
   const [dueWindowMonths, setDueWindowMonths] = useState(1);
+  const isMobile = useIsMobile();
+  const [chartsOpen, setChartsOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [phoneBucket, setPhoneBucket] = useState("Overdue");
+  const [limit, setLimit] = useState(PAGE_SIZE);
 
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
 
@@ -338,7 +346,16 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     <div>
       <p style={{ ...s.sectionTitle, margin: "0 0 8px" }}>Oil Sampling Log</p>
 
-      {/* ====== GRAPHS ====== */}
+      {/* phone: lists before charts — one summary line opens them */}
+      {isMobile && (
+        <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="st-summary">
+          <span style={{ color: byBucket.Overdue.length + byBucket.Missing.length ? T.danger : T.textPrimary, fontWeight: 700 }}>
+            {byBucket.Overdue.length} overdue · {byBucket.Missing.length} missing
+          </span>
+          <SummaryBar parts={BUCKETS.map((b) => ({ value: byBucket[b].length, color: T[BUCKET_COLOR_KEY[b]] }))} />
+        </PhoneSummary>
+      )}
+      {(!isMobile || chartsOpen) && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, marginBottom: 18 }}>
         <MonthProgress T={T} s={s} title="This month" done={monthProgress.done} remaining={monthProgress.remaining} noun="samples" testid="st-month-ring" />
         <div style={{ ...s.card, marginBottom: 0 }}>
@@ -391,7 +408,94 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
         </div>
       </div>
 
+      )}
+
       {/* ====== FILTERS (Area/Asset Class/Contractor now real dropdowns) ====== */}
+      {isMobile ? (
+        <>
+          <ChipRow label="Sampling">
+            {BUCKETS.map((bk) => (
+              <CountChip key={bk} on={phoneBucket === bk} onClick={() => { setPhoneBucket(bk); setLimit(PAGE_SIZE); }} count={byBucket[bk].length} color={BUCKET_COLOR_KEY[bk]} testid={`st-tab-${bk}`}>
+                {bk}
+              </CountChip>
+            ))}
+            <FiltersPill count={(equipCode ? 1 : 0) + (areaFilter !== "All" ? 1 : 0) + (classFilter !== "All" ? 1 : 0) + (contractorFilter !== "All" ? 1 : 0)} onClick={() => setSheetOpen(true)} testid="st-filters" />
+          </ChipRow>
+          <BottomSheet
+            open={sheetOpen}
+            title="Filters"
+            hint="Apply to the list and the charts"
+            onClose={() => setSheetOpen(false)}
+            testid="st-filter-sheet"
+            footer={
+              <>
+                <SheetButton onClick={() => { setEquipCode(""); setClassFilter("All"); setAreaFilter("All"); setContractorFilter("All"); }}>Reset</SheetButton>
+                <SheetButton primary grow={2} onClick={() => setSheetOpen(false)}>Show {filtered.length} equipment</SheetButton>
+              </>
+            }
+          >
+            <div style={{ paddingTop: 6 }}>
+              <EquipmentSearch options={registry} value={equipCode || "All"} onChange={(v) => setEquipCode(v === "All" ? "" : v)} allowAll width="100%" placeholder="All Equipment" />
+            </div>
+            {contractors.length > 2 && (
+              <SheetGroup label="Contractor">
+                {contractors.map((c) => (
+                  <SheetChip key={c} on={contractorFilter === c} onClick={() => setContractorFilter(c)}>{c}</SheetChip>
+                ))}
+              </SheetGroup>
+            )}
+            <SheetGroup label="Area">
+              <select style={{ ...s.select, width: "100%", minHeight: 44 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} aria-label="Area">
+                {areas.map((a) => (
+                  <option key={a}>{a}</option>
+                ))}
+              </select>
+            </SheetGroup>
+            <SheetGroup label="Asset class">
+              <select style={{ ...s.select, width: "100%", minHeight: 44 }} value={classFilter} onChange={(e) => setClassFilter(e.target.value)} aria-label="Asset class">
+                {classes.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </SheetGroup>
+            <SheetGroup label="Group the list by">
+              <SheetChip on={groupBy === "equipment"} onClick={() => setGroupBy("equipment")}>Equipment</SheetChip>
+              <SheetChip on={groupBy === "contractor"} onClick={() => setGroupBy("contractor")}>Contractor</SheetChip>
+            </SheetGroup>
+          </BottomSheet>
+          {(() => {
+            const list = byBucket[phoneBucket];
+            const color = T[BUCKET_COLOR_KEY[phoneBucket]];
+            const shown = list.slice(0, limit);
+            const groups =
+              groupBy === "contractor"
+                ? Object.entries(shown.reduce((acc, r) => { (acc[r.eq.contractor || "Unassigned"] ||= []).push(r); return acc; }, {}))
+                : [[null, shown]];
+            return (
+              <div data-testid="st-phone-list" style={{ marginBottom: 16 }}>
+                {phoneBucket === "Due Soon" && (
+                  <select style={{ ...s.select, width: "100%", minHeight: 44, marginBottom: 10 }} value={dueWindowMonths} onChange={(e) => setDueWindowMonths(Number(e.target.value))} aria-label="Due within">
+                    <option value={1}>Within 1 month</option>
+                    <option value={2}>Within 2 months</option>
+                    <option value={3}>Within 3 months</option>
+                  </select>
+                )}
+                {list.length === 0 && <div style={{ ...s.card, textAlign: "center", color: T.textMuted, fontSize: 13 }}>Nothing {phoneBucket.toLowerCase()}.</div>}
+                {groups.map(([groupName, groupList]) => (
+                  <div key={groupName || "all"}>
+                    {groupName && <div style={{ fontSize: 12, fontWeight: 700, color: T.textMuted, textTransform: "uppercase", margin: "8px 2px 6px" }}>{groupName} · {groupList.length}</div>}
+                    {groupList.map((r) => (
+                      <ChipCard key={r.eq.code} r={r} color={color} onClick={() => setViewingHistory(r)} />
+                    ))}
+                  </div>
+                ))}
+                <ShowMore shown={limit} total={list.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} testid="st-more" />
+              </div>
+            );
+          })()}
+        </>
+      ) : (
+        <>
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
@@ -480,7 +584,6 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           ))}
         </div>
       </div>
-
       {/* ====== FOUR-COLUMN BOARD (Due Soon's own window picker sits in its column header) ====== */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 14, marginBottom: 16 }}>
         {BUCKETS.map((bucket) => {
@@ -564,6 +667,9 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
           );
         })}
       </div>
+
+        </>
+      )}
 
       {filtered.length === 0 && (
         <div style={{ ...s.card, textAlign: "center", padding: 30, color: T.textMuted, fontSize: 13 }}>

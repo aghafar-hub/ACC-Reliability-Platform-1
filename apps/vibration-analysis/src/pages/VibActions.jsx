@@ -6,6 +6,7 @@ import ContractorChips from "../components/ContractorChips";
 import ModalShell, { FormSection, ReadValue, StepTrail } from "../components/ModalShell";
 import { Donut, StackedBars } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
+import { ChipRow, CountChip, PAGE_SIZE, PhoneSummary, ShowMore } from "../components/PhoneParts";
 import { LevelPill, StatePill } from "../components/Level";
 import { LEVEL_RANK, LEVELS, levelColor } from "../levels";
 import { SCOPES, monthLabel, shortDate } from "../vibModel";
@@ -22,6 +23,7 @@ const OPEN = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onOpenReport, onOpenMachine, openActionId, setOpenActionId }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
+  const [chartsOpen, setChartsOpen] = useState(false);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
@@ -89,6 +91,14 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
       {!data && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading…</div>}
       {data && (
         <>
+          {isMobile && (
+            <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="va-summary">
+              <span><b style={{ fontSize: 16 }}>{open.length}</b> open</span>
+              <span style={{ color: base.some(pastDue) ? T.danger : T.textSecondary, fontWeight: 600 }}>◆ {base.filter(pastDue).length} past due</span>
+              <span style={{ color: base.some(noOwner) ? T.warning : T.textSecondary, fontWeight: 600 }}>▲ {base.filter(noOwner).length} no owner</span>
+            </PhoneSummary>
+          )}
+          {(!isMobile || chartsOpen) && (
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) minmax(0,1.3fr) minmax(0,0.8fr)", marginBottom: 14 }}>
             <div style={{ ...s.card, marginBottom: 0, display: "flex", gap: 14, alignItems: "center" }} data-testid="va-donut">
               <Donut T={T} size={118} segments={OPEN.map((st) => ({ label: st, value: open.filter((a) => a.Status === st).length, color: stageTone(T, st) }))} center={open.length} sub="open" ariaLabel="Open actions by stage" />
@@ -123,6 +133,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
               {me.canApprove && <Tile icon="ti-checks" value={base.filter((a) => a.Status === "Closure Requested").length} label="Waiting for your closure" tone={base.some((a) => a.Status === "Closure Requested") ? T.info : undefined} onClick={() => setQuick(quick === "toclose" ? "" : "toclose")} testid="va-tile-toclose" />}
             </div>
           </div>
+          )}
           <TabBar
             value={tab}
             onChange={setTab}
@@ -235,6 +246,33 @@ function ActionCard({ T, s, a, today, findings, onOpen }) {
 
 function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
   const recentClosed = rows.filter((a) => a.Status === "Closed" && (!a["Closed at"] || String(a["Closed at"]).slice(0, 10) >= new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10)));
+  const [stage, setStage] = useState("Open");
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const listFor = (st) => (st === "Closed" ? recentClosed : rows.filter((a) => a.Status === st)).sort((a, b) => (LEVEL_RANK[b.Severity] || 0) - (LEVEL_RANK[a.Severity] || 0) || String(a["Due date"] || "9").localeCompare(String(b["Due date"] || "9")));
+  // Phone: one stage at a time (chips above), 50 cards at a time — no
+  // five stacked columns to scroll past.
+  if (isMobile) {
+    const list = listFor(stage);
+    return (
+      <div data-testid="va-board">
+        <ChipRow label="Stage">
+          {STAGES.map((st) => (
+            <CountChip key={st} on={stage === st} onClick={() => { setStage(st); setLimit(PAGE_SIZE); }} count={listFor(st).length} color={stageTone(T, st)} testid={`va-stage-${st.replace(/\s+/g, "")}`}>
+              {st}
+            </CountChip>
+          ))}
+        </ChipRow>
+        {stage === "Closed" && <div style={{ fontSize: 12, color: T.textSecondary, margin: "0 2px 8px" }}>Closed in the last 60 days</div>}
+        <div data-testid={`va-col-${stage.replace(/\s+/g, "")}`}>
+          {list.slice(0, limit).map((a) => (
+            <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />
+          ))}
+          {!list.length && <div style={{ ...s.card, fontSize: 13, color: T.textMuted, textAlign: "center" }}>No actions here</div>}
+          <ShowMore shown={limit} total={list.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} testid="va-more" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(5, minmax(0, 1fr))", alignItems: "start" }} data-testid="va-board">
       {STAGES.map((st) => {
@@ -260,8 +298,8 @@ function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
 
 function ActionTable({ T, s, rows, today, onOpen }) {
   return (
-    <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="va-table">
-      <table style={s.table}>
+    <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="va-table">
+      <table data-phone-cards="" style={s.table}>
         <thead>
           <tr>
             {["Action", "Equipment", "Status", "Severity", "Agreed action", "Owner", "Due", "Findings", "Source"].map((h) => (
@@ -316,8 +354,8 @@ function OldTracker({ T, s, rows }) {
         <input style={{ ...s.input, width: 240 }} placeholder="Find in the old tracker" value={q} onChange={(e) => setQ(e.target.value)} />
         <span style={{ fontSize: 12, color: T.textSecondary }}>Read only — the actions recorded before the redesign (📋 Action Tracker tab).</span>
       </div>
-      <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="va-old">
-        <table style={s.table}>
+      <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="va-old">
+        <table data-phone-cards="" style={s.table}>
           <thead>
             <tr>
               {["No.", "Equipment", "Reading date", "Trigger", "Machine status", "Status", "Contractor action", "ACC action", "Agreed action", "Completed"].map((h) => (

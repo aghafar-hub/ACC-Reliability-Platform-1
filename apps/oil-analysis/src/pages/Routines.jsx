@@ -17,7 +17,8 @@ import { ROUTE_STATUS, isRouteOverdue, isRouteReturned } from "../parsers";
 import RoutineDetail from "./RoutineDetail";
 import NewRoutine from "./NewRoutine";
 import ProgressBar from "../components/ProgressBar";
-import MobileFilterToggle from "../components/MobileFilterToggle";
+import BottomSheet, { SheetButton, SheetGroup } from "../components/BottomSheet";
+import { ChipRow, CountChip, FiltersPill } from "../components/PhoneParts";
 import useIsMobile from "../hooks/useIsMobile";
 import { CalendarHeat, TargetBar } from "../components/DashCharts";
 import { routesOnTime } from "../dashboardLogic";
@@ -215,7 +216,7 @@ export default function Routines({
   // pills + search box were stacking several rows above the actual list on
   // a phone — the Patch 35 mobile audit's own finding); always open on
   // desktop, where there was never a problem to begin with.
-  const [filtersOpen, setFiltersOpen] = useState(!isMobile);
+  const [sheetOpen, setSheetOpen] = useState(false);
   // Patch 20: "overview" (the new unified templates + standalone-routines
   // list) is now the landing view, replacing the old "list" (every
   // instance, flat). "templateDetail" drills into one recurring template's
@@ -977,87 +978,135 @@ export default function Routines({
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
-        {[
-          { key: "All", label: "Total Routines", value: overviewKpis.total, color: "accent" },
-          { key: "On Schedule", label: "On Schedule", value: overviewKpis.onSchedule, color: "success" },
-          { key: "Due Soon", label: "Due Soon (≤7 days)", value: overviewKpis.dueSoon, color: "warning" },
-          { key: "Overdue", label: "Overdue", value: overviewKpis.overdue, color: "danger" },
-        ].map((m) => (
-          <div
-            key={m.key}
-            onClick={() => setDueStatusFilter((cur) => (cur === m.key ? "All" : m.key))}
-            title={`${m.value} ${m.label} — click to filter the list below`}
-            style={{ ...s.metricCard, cursor: "pointer", border: `1px solid ${dueStatusFilter === m.key ? T[m.color] : T.border}`, display: "flex", alignItems: "center", gap: 12 }}
-          >
-            <span
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: T[m.color] + "22",
-                color: T[m.color],
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 16,
-                flexShrink: 0,
-              }}
-            >
-              <i className={`ti ${KPI_ICONS[m.key]}`} aria-hidden="true" />
-            </span>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
-              <div style={{ fontSize: 12, color: T.textSecondary }}>{m.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {isMobile && (
-        <MobileFilterToggle
-          open={filtersOpen}
-          onToggle={() => setFiltersOpen((o) => !o)}
-          activeCount={(areaFilter !== "All" ? 1 : 0) + (dueStatusFilter !== "All" ? 1 : 0) + (overviewSearch.trim() ? 1 : 0)}
-        />
-      )}
-      {filtersOpen && (
-        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-          <select style={{ ...s.select, width: 160 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
-            {areaOptions.map((a) => (
-              <option key={a} value={a}>
-                {a === "All" ? "All Areas" : a}
-              </option>
-            ))}
-          </select>
-          {DUE_STATUS_FILTERS.map((st) => (
-            <button
-              key={st}
-              type="button"
-              aria-pressed={dueStatusFilter === st}
-              style={{
-                ...s.btn,
-                padding: "6px 14px",
-                fontSize: 12.5,
-                borderRadius: 999,
-                background: dueStatusFilter === st ? T.accent : T.cardBg,
-                color: dueStatusFilter === st ? T.accentText : T.textSecondary,
-                borderColor: dueStatusFilter === st ? T.accent : T.border,
-                fontWeight: dueStatusFilter === st ? 700 : 500,
-              }}
-              onClick={() => setDueStatusFilter(st)}
-            >
-              {st}
-            </button>
-          ))}
+      {/* Phone: the four numbers become one row of chips that filter the
+          list; search on top and the area in a Filters sheet. */}
+      {isMobile ? (
+        <>
           <input
-            style={{ ...s.input, flex: 1, minWidth: 180 }}
+            style={{ ...s.input, width: "100%", boxSizing: "border-box", minHeight: 44, fontSize: 15, marginBottom: 10 }}
             type="search"
+            aria-label="Search routes"
             placeholder="Search by route name or id…"
             value={overviewSearch}
             onChange={(e) => setOverviewSearch(e.target.value)}
           />
+          <ChipRow label="Due status">
+            {[
+              { key: "All", label: "All", value: overviewKpis.total, color: "accent" },
+              { key: "Overdue", label: "◆ Overdue", value: overviewKpis.overdue, color: "danger" },
+              { key: "Due Soon", label: "▲ Due soon", value: overviewKpis.dueSoon, color: "warning" },
+              { key: "On Schedule", label: "● On schedule", value: overviewKpis.onSchedule, color: "success" },
+            ].map((m) => (
+              <CountChip key={m.key} on={dueStatusFilter === m.key} onClick={() => setDueStatusFilter(m.key)} count={m.value} color={m.color} testid={`routes-due-${m.key}`}>
+                {m.label}
+              </CountChip>
+            ))}
+            <FiltersPill count={(areaFilter !== "All" ? 1 : 0) + (["All", "Overdue", "Due Soon", "On Schedule"].includes(dueStatusFilter) ? 0 : 1)} onClick={() => setSheetOpen(true)} testid="routes-filters" />
+          </ChipRow>
+          <BottomSheet
+            open={sheetOpen}
+            title="Filters"
+            onClose={() => setSheetOpen(false)}
+            testid="routes-filter-sheet"
+            footer={
+              <>
+                <SheetButton onClick={() => { setAreaFilter("All"); setDueStatusFilter("All"); }}>Reset</SheetButton>
+                <SheetButton primary grow={2} onClick={() => setSheetOpen(false)}>Show {visibleOverviewItems.length} routes</SheetButton>
+              </>
+            }
+          >
+            <SheetGroup label="Area">
+              <select style={{ ...s.select, width: "100%", minHeight: 44 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)} aria-label="Area">
+                {areaOptions.map((a) => (
+                  <option key={a} value={a}>{a === "All" ? "All Areas" : a}</option>
+                ))}
+              </select>
+            </SheetGroup>
+            <SheetGroup label="Status">
+              <select style={{ ...s.select, width: "100%", minHeight: 44 }} value={dueStatusFilter} onChange={(e) => setDueStatusFilter(e.target.value)} aria-label="Status">
+                {DUE_STATUS_FILTERS.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </SheetGroup>
+          </BottomSheet>
+        </>
+      ) : (
+        <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 12, marginBottom: 20 }}>
+          {[
+            { key: "All", label: "Total Routines", value: overviewKpis.total, color: "accent" },
+            { key: "On Schedule", label: "On Schedule", value: overviewKpis.onSchedule, color: "success" },
+            { key: "Due Soon", label: "Due Soon (≤7 days)", value: overviewKpis.dueSoon, color: "warning" },
+            { key: "Overdue", label: "Overdue", value: overviewKpis.overdue, color: "danger" },
+          ].map((m) => (
+            <div
+              key={m.key}
+              onClick={() => setDueStatusFilter((cur) => (cur === m.key ? "All" : m.key))}
+              title={`${m.value} ${m.label} — click to filter the list below`}
+              style={{ ...s.metricCard, cursor: "pointer", border: `1px solid ${dueStatusFilter === m.key ? T[m.color] : T.border}`, display: "flex", alignItems: "center", gap: 12 }}
+            >
+              <span
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: T[m.color] + "22",
+                  color: T[m.color],
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 16,
+                  flexShrink: 0,
+                }}
+              >
+                <i className={`ti ${KPI_ICONS[m.key]}`} aria-hidden="true" />
+              </span>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: T[m.color] }}>{m.value}</div>
+                <div style={{ fontSize: 12, color: T.textSecondary }}>{m.label}</div>
+              </div>
+            </div>
+          ))}
         </div>
+  
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <select style={{ ...s.select, width: 160 }} value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
+              {areaOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a === "All" ? "All Areas" : a}
+                </option>
+              ))}
+            </select>
+            {DUE_STATUS_FILTERS.map((st) => (
+              <button
+                key={st}
+                type="button"
+                aria-pressed={dueStatusFilter === st}
+                style={{
+                  ...s.btn,
+                  padding: "6px 14px",
+                  fontSize: 12.5,
+                  borderRadius: 999,
+                  background: dueStatusFilter === st ? T.accent : T.cardBg,
+                  color: dueStatusFilter === st ? T.accentText : T.textSecondary,
+                  borderColor: dueStatusFilter === st ? T.accent : T.border,
+                  fontWeight: dueStatusFilter === st ? 700 : 500,
+                }}
+                onClick={() => setDueStatusFilter(st)}
+              >
+                {st}
+              </button>
+            ))}
+            <input
+              style={{ ...s.input, flex: 1, minWidth: 180 }}
+              type="search"
+              placeholder="Search by route name or id…"
+              value={overviewSearch}
+              onChange={(e) => setOverviewSearch(e.target.value)}
+            />
+          </div>
+        </>
       )}
 
       <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>

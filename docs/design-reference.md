@@ -49,6 +49,7 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 |---|---|---|
 | Any form popup (create / edit) | `ModalShell` + `FormSection` (+ `StepTrail` for a workflow, `ReadValue` for locked values) | `components/ModalShell.jsx` |
 | Phone filters / short choices | `BottomSheet` + `SheetGroup`, `SheetChip`, `SheetButton` (Reset · Show N …) | `components/BottomSheet.jsx` |
+| Phone list page parts | `PhoneSummary` (+ `SummaryBar`), `ChipRow`, `CountChip`, `FiltersPill`, `ShowMore` (50 at a time) | `components/PhoneParts.jsx` |
 | Contractor switch | `ContractorChips` ("All contractors · RHI · ASEC"); `ContractorTag` for a Location / contractor cell | `components/ContractorChips.jsx` |
 | Number tiles | `InvTile` pattern: icon square, big number, label, sub-line, coloured left border when it needs attention, clickable to the list behind it | `pages/OilInventory.jsx`, `pages/TeamWorkload.jsx` (`Tile`) |
 | One total split into parts | `Donut` with its legend beside it (numbers in text) | `components/DashCharts.jsx` |
@@ -122,7 +123,7 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - Every filter affects every chart on the page.
 - Missing lab values are left out of charts, never drawn as 0.
 
-## 8. Phone (≤860 px; mobile app design, M1–M2)
+## 8. Phone (≤860 px; mobile app design, M1–M3)
 
 - **Header:** module or page name, search, and sync only. The bell lives in
   the bottom bar's Alerts (with an unread badge). Settings, account,
@@ -161,6 +162,19 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - **Form popups** (`ModalShell`): full screen, footer pinned with buttons
   at 44 px; a field that spans two grid columns on desktop spans the one
   column on a phone.
+- **Lists before charts** (M3, every list page in both modules): a
+  `PhoneSummary` line with the 2–3 numbers that matter ("72 open · ◆ 50
+  past due · ▲ 72 no owner") replaces the tiles and charts; tapping it
+  opens them. The list is on the first screen.
+- **Boards** (Actions, Oil Changes, Sampling Log, Vibration Actions): one
+  column at a time, picked from a `ChipRow` of `CountChip`s with the count
+  in the column's colour — no stacked columns with their own scroll boxes.
+- **Long lists** show 50 cards, then "Show 50 more · N left" (`ShowMore`).
+- **Tables that are lists of records** carry `data-phone-cards` (and
+  `phone-cards-box` on their card): on a phone each row is a card, the
+  first cell its title and the rest "Label  value" lines; labels come from
+  the header (`phoneCardTables.js`). Number grids (readings H / V / A…)
+  stay tables that scroll in their card.
 
 ## 9. Checklist for a new or redesigned page
 

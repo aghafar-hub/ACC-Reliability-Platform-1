@@ -25,6 +25,7 @@ import { loadEquipmentRegistry, saveEquipmentRegistry } from "./equipmentRegistr
 import { loadActionRegistry, saveActionRegistry } from "./actionRegistry";
 import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, formatDate } from "./parsers";
 import * as api from "./api";
+import { installPhoneCardTables } from "./phoneCardTables";
 import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
 let toastId = 0;
@@ -101,6 +102,7 @@ export default function App({ navBridge, session } = {}) {
   // builds, since navBridge is never passed there.
   const [themeOverride, setThemeOverride] = useState(null);
 
+  useEffect(() => installPhoneCardTables(), []);
   useEffect(() => {
     if (!navBridge) return;
     navBridge.setTheme = setThemeOverride;
@@ -1246,6 +1248,21 @@ function AppShell({ config, setConfig, navBridge }) {
           .report-layout > div:first-child { border-right: none !important; border-bottom: 1px solid ${T.border}; }
           .dash-table-desktop { display: none !important; }
           .dash-table-mobile { display: flex !important; }
+
+          /* tables marked data-phone-cards: one card per row (labels from
+             the header, see phoneCardTables.js) */
+          table[data-phone-cards], table[data-phone-cards] tbody { display: block !important; width: 100% !important; min-width: 0 !important; }
+          table[data-phone-cards] thead { display: none !important; }
+          table[data-phone-cards] tr { display: block !important; background: ${T.cardBg}; border: 1px solid ${T.border}; border-radius: 12px; padding: 10px 12px; margin: 0 0 8px; }
+          table[data-phone-cards] td { display: flex !important; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 4px 10px; border: 0 !important; padding: 3px 0 !important; text-align: right !important; white-space: normal !important; min-height: 0; background: none !important; }
+          table[data-phone-cards] td::before { content: attr(data-label); color: ${T.textSecondary}; font-size: 12px; font-weight: 600; text-align: left; flex: 0 0 auto; max-width: 45%; margin-right: auto; }
+          table[data-phone-cards] td[data-label=""]::before { content: none; }
+          table[data-phone-cards] td:first-child { font-size: 14.5px; font-weight: 700; text-align: left !important; justify-content: flex-start; padding-bottom: 6px !important; }
+          table[data-phone-cards] td:first-child::before { content: none; }
+          table[data-phone-cards] td:empty { display: none !important; }
+          table[data-phone-cards] td input, table[data-phone-cards] td select { max-width: 60%; }
+          /* the card container around such a table loses its frame */
+          .phone-cards-box { background: none !important; border: 0 !important; padding: 0 !important; box-shadow: none !important; overflow: visible !important; max-height: none !important; }
         }
         @media (max-width: 480px) {
           .app-content { padding: 8px !important; }

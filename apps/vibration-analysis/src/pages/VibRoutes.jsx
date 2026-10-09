@@ -6,6 +6,7 @@ import ContractorChips from "../components/ContractorChips";
 import ModalShell, { FormSection, ReadValue, StepTrail } from "../components/ModalShell";
 import { CalendarHeat } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
+import { PhoneSummary } from "../components/PhoneParts";
 import { StatePill } from "../components/Level";
 import { SCOPES, shortDate } from "../vibModel";
 import { routeTone } from "../tones";
@@ -23,6 +24,7 @@ const typeTone = (T, t) => ({ Emergency: T.danger, "Follow-up": T.alert || T.war
 export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
+  const [chartsOpen, setChartsOpen] = useState(false);
   const [days, setDays] = useState(30);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -109,6 +111,13 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
       {!data && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading…</div>}
       {data && (
         <>
+          {isMobile && (
+            <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="vr-summary">
+              <span style={{ color: active.some((r) => r.overdue) ? T.danger : T.textPrimary, fontWeight: 700 }}>{active.filter((r) => r.overdue).length} overdue</span>
+              <span style={{ color: T.textSecondary }}>{sugg.filter((x) => x.type === "Follow-up").length} follow-ups due</span>
+            </PhoneSummary>
+          )}
+          {(!isMobile || chartsOpen) && (
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0,1fr)) minmax(0,1.6fr)", marginBottom: 14, alignItems: "start" }}>
             <Tile icon="ti-clock-exclamation" value={active.filter((r) => r.overdue).length} label="Overdue routes" sub={active.filter((r) => r.overdue).map((r) => r["Route ID"]).slice(0, 3).join(" · ") || "None"} tone={active.some((r) => r.overdue) ? T.danger : undefined} testid="vr-tile-overdue" />
             <Tile icon="ti-repeat" value={sugg.filter((x) => x.type === "Follow-up").length} label="Follow-up readings due" sub="made from actions (Alert 30 d, Danger 7 d)" tone={sugg.some((x) => x.type === "Follow-up") ? T.alert : undefined} onClick={() => setTab("suggestions")} testid="vr-tile-followup" />
@@ -126,6 +135,7 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
               <CalendarHeat T={T} days={heat} weeks={5} unit="machines" />
             </div>
           </div>
+          )}
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
             <select style={s.select} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
               <option value="All">All scopes</option>
@@ -205,8 +215,8 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
 
 function RouteTable({ T, s, rows, onOpen, empty }) {
   return (
-    <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vr-table">
-      <table style={s.table}>
+    <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vr-table">
+      <table data-phone-cards="" style={s.table}>
         <thead>
           <tr>
             {["Route", "Type", "Name", "Contractor", "Machines", "Points", "Planned", "Technician", "Status", ""].map((h) => (
@@ -273,8 +283,8 @@ function SuggestionTable({ T, s, rows, picked, setPicked, canPlan, canDismiss, o
           )}
         </div>
       )}
-      <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vr-sugg">
-        <table style={s.table}>
+      <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vr-sugg">
+        <table data-phone-cards="" style={s.table}>
           <thead>
             <tr>
               {[canPlan ? "" : null, "Machine", "Scope", "Why", "Due", ""].filter((h) => h !== null).map((h, i) => (
@@ -330,8 +340,8 @@ function SuggestionTable({ T, s, rows, picked, setPicked, canPlan, canDismiss, o
 
 function MachineTable({ T, s, rows, today, onOpen }) {
   return (
-    <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vr-machines">
-      <table style={s.table}>
+    <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vr-machines">
+      <table data-phone-cards="" style={s.table}>
         <thead>
           <tr>
             {["Machine", "Scope", "Interval", "Last measured", "Next due", "On route", "Status"].map((h) => (

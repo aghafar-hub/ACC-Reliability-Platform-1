@@ -394,8 +394,8 @@ function CoverageTable({ T, s, rows }) {
   if (!rows.length) return <div style={{ ...s.card, color: T.textSecondary }}>No coverage recorded for this report yet — it is worked out when the readings are saved.</div>;
   const tone = (o) => ({ Received: T.success, "Report not imported": T.accent, "Not measured": T.warning, Missing: T.danger, "Readings without compliance mark": T.warning }[o] || T.textSecondary);
   return (
-    <div style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vrep-coverage">
-      <table style={s.table}>
+    <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vrep-coverage">
+      <table data-phone-cards="" style={s.table}>
         <thead>
           <tr>
             {["Equipment", "Name", "Line", "Readings", "Old mark", "Outcome"].map((h) => (
