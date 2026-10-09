@@ -1,69 +1,23 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { readAll, saveConfig as saveConfigApi, testConnection } from "../api";
-import BackfillButton from "../components/BackfillButton";
-import ConfigUnlockModal from "../components/ConfigUnlockModal";
+import { getStartupBundle, saveConfig as saveConfigApi, testConnection } from "../api";
 import { APP_VERSION, configStore, DEFAULT_WEBHOOK_URL } from "../config";
 
-// Both tabs are passcode-gated (same ConfigUnlockModal as before — this
-// app has no real session/RBAC system yet, unlike Oil Lubrication, so
-// there is no `isAdmin` to gate on; that's the bigger contractor-
-// separation/RBAC build the user has on hold pending a database update,
-// not a stale-settings cleanup). The password is the only access-control
-// mechanism this app has today, so — per the user's explicit instruction
-// that non-admin users shouldn't see any of these settings — it now
-// covers System too, not just Connection; previously System (Backfill,
-// App Info, setup instructions) was open to everyone.
-const TABS = [
-  { key: "connection", label: "Connection" },
-  { key: "system", label: "System" },
-];
-const GATED_TABS = new Set(["connection", "system"]);
-
-// Settings page: Connection (webhook/sheet URL, test/sync), System
-// (Backfill Last Readings, app info, Apps Script setup instructions).
-// Ported from the original's `Hm`, then cut down twice:
-// 1. The "Appearance" tab (logo + theme picker) only ever fed this app's
-//    own standalone Sidebar/branding — confirmed dead with the user: the
-//    standalone GitHub Pages build (no login, no Platform Core shell,
-//    and a different Apps Script backend than this platform's) is an
-//    old, unused version, so that UI never did anything in production.
-//    Theme now lives in Platform Core's own Settings page.
-// 2. The "Contractors" tab (contractor list) and the "Configuration
-//    Sheet Setup" instructions card are gone too — confirmed with the
-//    user as no longer needed. `config.contractors` itself is untouched
-//    (saveConfiguration still round-trips whatever value is already
-//    stored, it's just no longer editable from this screen) in case
-//    anything else still reads it.
-export default function Settings({
-  webhookUrl,
-  setWebhookUrl,
-  sheetUrl,
-  setSheetUrl,
-  themeName,
-  onSync,
-  config,
-  setConfig,
-  syncState,
-  webhookRef,
-}) {
+// Vibration settings: one card — the backend this app talks to, the sheet
+// behind it, a connection check. Who may open it is set in Module Access
+// (the "Settings" tab level), like every other page; there is no separate
+// password any more. Limits and intervals live on their own page.
+//
+// Removed (no longer used by any page): the passcode, Backfill Last Readings
+// (the 📋 Last RMS / SPM Reading tabs aren't read by the app now), App Info
+// and the old v3 setup instructions (docs/vibration-workflow.md has the
+// current Apps Script steps).
+export default function Settings({ webhookUrl, setWebhookUrl, sheetUrl, setSheetUrl, onSync, config, setConfig, syncState, webhookRef }) {
   const { T, s } = useTheme();
-  const [tab, setTab] = useState("connection");
-  const [unlocked, setUnlocked] = useState(false);
-  const [showUnlock, setShowUnlock] = useState(false);
-  // Which gated tab the unlock-prompting click was for — so unlocking
-  // actually lands on the tab the user clicked, not wherever they
-  // already were. With a single gated tab (the original "Configuration")
-  // this didn't matter; now that Connection and System are both gated
-  // separately, a locked click's target has to be remembered across the
-  // modal.
-  const [pendingTab, setPendingTab] = useState(null);
   const [draft, setDraft] = useState({ ...config });
   const [saveMessage, setSaveMessage] = useState("");
   const [testResults, setTestResults] = useState(null);
   const [testing, setTesting] = useState(false);
-
-  const set = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
 
   const saveConfiguration = async () => {
     const merged = { ...draft };
@@ -74,11 +28,7 @@ export default function Settings({
     const url = merged.webhookUrl || webhookRef?.current;
     if (url) {
       try {
-        await saveConfigApi(url, {
-          webhookUrl: merged.webhookUrl || "",
-          googleSheetUrl: merged.googleSheetUrl || "",
-          contractors: merged.contractors || "",
-        });
+        await saveConfigApi(url, { webhookUrl: merged.webhookUrl || "", googleSheetUrl: merged.googleSheetUrl || "", contractors: merged.contractors || "" });
       } catch {
         // best-effort — a failed save-to-sheet still keeps the local config saved
       }
@@ -91,265 +41,94 @@ export default function Settings({
     const url = draft.webhookUrl || webhookUrl;
     setTesting(true);
     const results = [];
+    const show = () => setTestResults([...results]);
     if (!url) {
       results.push({ ok: false, label: "Webhook URL", detail: "Not configured" });
-      setTestResults([...results]);
+      show();
       setTesting(false);
       return;
     }
-    results.push({ ok: true, label: "Webhook URL", detail: url });
-    setTestResults([...results]);
     try {
       const start = Date.now();
       const result = await testConnection(url);
-      const elapsed = Date.now() - start;
       const ok = result && result.status === "ok";
-      results.push({
-        ok,
-        label: "Connection test",
-        detail: ok ? `OK — ${elapsed}ms — ${result.time}` : `Failed: ${JSON.stringify(result)}`,
-      });
+      results.push({ ok, label: "Apps Script answers", detail: ok ? `OK — ${Date.now() - start} ms` : `Failed: ${JSON.stringify(result)}` });
     } catch (err) {
-      results.push({ ok: false, label: "Connection test", detail: String(err.message || err) });
-      setTestResults([...results]);
+      results.push({ ok: false, label: "Apps Script answers", detail: String(err.message || err) });
+      show();
       setTesting(false);
       return;
     }
-    setTestResults([...results]);
+    show();
     try {
-      const data = await readAll(url);
-      if (data.error) {
-        results.push({ ok: false, label: "readAll", detail: data.error });
-      } else {
-        results.push({ ok: true, label: "readAll — JSON valid", detail: "OK" });
-        results.push({ ok: (data.rms || []).length > 0, label: "📥 RMS DATA", detail: `${(data.rms || []).length} rows` });
-        results.push({ ok: (data.spm || []).length > 0, label: "📥 SPM DATA", detail: `${(data.spm || []).length} rows` });
-        results.push({
-          ok: (data.compliance || []).length > 0,
-          label: "📋 Compliance",
-          detail: `${(data.compliance || []).length} equipment`,
-        });
-        results.push({ ok: Array.isArray(data.actions), label: "📋 Action Tracker", detail: `${(data.actions || []).length} actions` });
-        results.push({
-          ok: !!data.config,
-          label: "Configuration sheet",
-          detail: data.config ? "Present" : "Not found — create it per setup instructions",
-        });
-      }
+      const b = await getStartupBundle(url);
+      results.push({ ok: (b.rmsRegister || []).length > 0, label: "⚙ RMS Register", detail: `${(b.rmsRegister || []).length} machines` });
+      results.push({ ok: (b.spmRegister || []).length > 0, label: "⚙ SPM Register", detail: `${(b.spmRegister || []).length} machines` });
+      results.push({ ok: (b.vibPoints || []).length > 0, label: "VIB ID Registry", detail: `${(b.vibPoints || []).length} points` });
+      results.push({ ok: !!b.config, label: "Configuration tab", detail: b.config ? "Present" : "Not found" });
     } catch (err) {
-      results.push({ ok: false, label: "readAll", detail: String(err.message || err) });
+      results.push({ ok: false, label: "Reading the sheet", detail: String(err.message || err) });
     }
-    setTestResults([...results]);
+    show();
     setTesting(false);
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 860 }}>
-      {showUnlock && (
-        <ConfigUnlockModal
-          onUnlock={() => {
-            setUnlocked(true);
-            setShowUnlock(false);
-            if (pendingTab) setTab(pendingTab);
-          }}
-          onCancel={() => setShowUnlock(false)}
-        />
-      )}
+    <div style={{ padding: 20, maxWidth: 860 }} data-testid="vib-settings">
+      <div style={{ ...s.card, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <i className="ti ti-plug" aria-hidden="true" style={{ fontSize: 18 }} />
+          </span>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Connection</p>
+            <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>Version {APP_VERSION} · {syncState?.message || "—"}</p>
+          </div>
+        </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 0,
-          marginBottom: 20,
-          border: `1px solid ${T.border}`,
-          borderRadius: 10,
-          overflow: "hidden",
-          width: "fit-content",
-        }}
-      >
-        {TABS.map((t) => {
-          const active = tab === t.key;
-          return (
-            <div
-              key={t.key}
-              onClick={() => {
-                if (GATED_TABS.has(t.key) && !unlocked) {
-                  setPendingTab(t.key);
-                  setShowUnlock(true);
-                  return;
-                }
-                setTab(t.key);
-              }}
-              style={{
-                padding: "10px 22px",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                background: active ? T.accent : "transparent",
-                color: active ? T.accentText : T.textSecondary,
-                transition: "all 0.15s",
-                borderRight: t.key !== "system" ? `1px solid ${T.border}` : "none",
-              }}
-            >
-              {GATED_TABS.has(t.key) ? (unlocked ? t.label : `${t.label} 🔒`) : t.label}
-            </div>
-          );
-        })}
-      </div>
-
-      {saveMessage && <div style={{ fontSize: 13, color: T.success, fontWeight: 700, marginBottom: 12 }}>{saveMessage}</div>}
-
-      {tab === "connection" && unlocked && (
-        <div>
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 12 }}>Connection</div>
-
-            {/* Read-only, not an input: the real value is baked into the
-                build (config.js's DEFAULT_WEBHOOK_URL). Letting it be
-                hand-edited used to mean a mistyped URL could silently
-                desync this device from the real backend with no obvious
-                cause; Test Connection is the safe way to check it still
-                answers. */}
-            <div style={{ marginBottom: 10 }}>
-              <label style={s.label}>Webhook URL (Apps Script /exec URL)</label>
-              <p
-                style={{
-                  margin: "4px 0 0",
-                  fontSize: 12,
-                  color: T.textSecondary,
-                  fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-                  wordBreak: "break-all",
-                  background: T.codeBg,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 6,
-                  padding: "6px 10px",
-                }}
-              >
-                {draft.webhookUrl || DEFAULT_WEBHOOK_URL}
-              </p>
-              <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
-                Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
-              </p>
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <label style={s.label}>Google Sheet URL (for &quot;Open Sheet&quot; button)</label>
-              <input
-                style={s.input}
-                value={draft.googleSheetUrl || ""}
-                onChange={(e) => set("googleSheetUrl", e.target.value)}
-                placeholder="https://docs.google.com/spreadsheets/d/…"
-              />
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button style={s.btnPrimary} onClick={runTest} disabled={testing}>
-                {testing ? "Testing…" : "Test Connection"}
-              </button>
-              <button style={s.btnSecondary} onClick={onSync}>
-                Sync Now
-              </button>
-            </div>
-            {testResults && (
-              <div style={{ marginTop: 12 }}>
-                {testResults.map((r, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "flex-start",
-                      padding: "6px 0",
-                      borderBottom: i < testResults.length - 1 ? `1px solid ${T.border2}` : "none",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: "50%",
-                        flexShrink: 0,
-                        marginTop: 1,
-                        background: r.ok ? T.successBg : T.dangerBg,
-                        color: r.ok ? T.success : T.danger,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 12,
-                        fontWeight: 800,
-                      }}
-                    >
-                      {r.ok ? "✓" : "✕"}
-                    </span>
-                    <div>
-                      <div style={{ fontSize: 12.5, fontWeight: 700, color: T.textPrimary }}>{r.label}</div>
-                      <div style={{ fontSize: 12, color: T.textMuted, wordBreak: "break-all" }}>{r.detail}</div>
-                    </div>
-                  </div>
-                ))}
+        {/* Read-only: the real value is baked into the build (config.js). */}
+        <div style={{ marginBottom: 12 }}>
+          <label style={s.label}>Apps Script webhook URL</label>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: T.textSecondary, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", wordBreak: "break-all", background: T.codeBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px" }}>
+            {draft.webhookUrl || DEFAULT_WEBHOOK_URL}
+          </p>
+          <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted }}>Baked into the build — not editable here. Use Test connection to check it answers.</p>
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <label style={s.label}>Google Sheet URL (for the Open sheet button)</label>
+          <input style={s.input} value={draft.googleSheetUrl || ""} onChange={(e) => setDraft((d) => ({ ...d, googleSheetUrl: e.target.value }))} placeholder="https://docs.google.com/spreadsheets/d/…" />
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button style={s.btn} onClick={runTest} disabled={testing} data-testid="vset-test">
+            <i className="ti ti-plug" aria-hidden="true" /> {testing ? "Testing…" : "Test connection"}
+          </button>
+          <button style={s.btn} onClick={onSync}>
+            <i className="ti ti-refresh" aria-hidden="true" /> Sync now
+          </button>
+          {draft.googleSheetUrl && (
+            <a href={draft.googleSheetUrl} target="_blank" rel="noopener noreferrer" style={{ ...s.btn, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <i className="ti ti-external-link" aria-hidden="true" /> Open sheet
+            </a>
+          )}
+          <button style={{ ...s.btnPrimary, marginLeft: "auto" }} onClick={saveConfiguration}>
+            <i className="ti ti-device-floppy" aria-hidden="true" /> Save
+          </button>
+          {saveMessage && <span style={{ fontSize: 12, color: T.success, fontWeight: 700 }}>{saveMessage}</span>}
+        </div>
+        {testResults && (
+          <div style={{ marginTop: 12 }} data-testid="vset-results">
+            {testResults.map((r, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "6px 0", borderBottom: i < testResults.length - 1 ? `1px solid ${T.border2}` : "none" }}>
+                <span style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, marginTop: 1, background: r.ok ? T.successBg : T.dangerBg, color: r.ok ? T.success : T.danger, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800 }}>{r.ok ? "✓" : "✕"}</span>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: T.textPrimary }}>{r.label}</div>
+                  <div style={{ fontSize: 12, color: T.textMuted, wordBreak: "break-all" }}>{r.detail}</div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
-            <span style={{ fontSize: 12, color: T.success, fontWeight: 700, alignSelf: "center" }}>{saveMessage}</span>
-            <button style={s.btnPrimary} onClick={saveConfiguration}>
-              Save Configuration
-            </button>
-          </div>
-        </div>
-      )}
-
-      {tab === "system" && unlocked && (
-        <div>
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 8 }}>Backfill Last Readings</div>
-            <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 14, lineHeight: 1.6 }}>
-              Scans all RMS &amp; SPM DATA history, finds the latest reading per equipment+point, and writes to the Last Reading sheets. Run
-              this after importing historical data or if the Dashboard shows stale readings.
-            </div>
-            <BackfillButton webhookUrl={webhookUrl} />
-          </div>
-
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 4 }}>App Info</div>
-            <div style={{ fontSize: 12.5, color: T.textSecondary, lineHeight: 1.8 }}>
-              <b>Version:</b> {APP_VERSION}
-              <br />
-              <b>Theme:</b> {themeName}
-              <br />
-              <b>Sync Status:</b> {syncState.message}
-            </div>
-          </div>
-
-          <div style={{ ...s.card, marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: T.textHighlight, marginBottom: 8 }}>
-              Apps Script v3 — Setup Instructions
-            </div>
-            <div style={{ fontSize: 12, color: T.textSecondary, lineHeight: 1.7, marginBottom: 10 }}>
-              1. Open your Google Sheet → <b>Extensions → Apps Script</b>
-              <br />
-              2. Replace <code style={{ background: T.codeBg, color: T.codeText, padding: "1px 4px", borderRadius: 3 }}>Code.gs</code> with
-              the <b>AppsScript_v3.gs</b> file provided
-              <br />
-              3. <b>Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone</b>
-              <br />
-              4. Copy the <code>/exec</code> URL → paste in Settings → Connection → Webhook URL
-              <br />
-              5. After ANY future change: <b>Deploy → Manage deployments → edit → New version → Deploy</b>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, marginBottom: 6 }}>New in v3:</div>
-            <div style={{ fontSize: 12, color: T.textSecondary, lineHeight: 1.7 }}>
-              ✓ Action Tracker CRUD (readActions, appendAction, updateAction, deleteAction)
-              <br />
-              ✓ Email via GmailApp (sendActionEmail)
-              <br />
-              ✓ Configuration sheet sync (readConfig, saveConfig)
-              <br />
-              ✓ Compliance auto-update on new reading (updateCompliance)
-              <br />✓ Equipment Register editing (namePlate, eqType, line, points, limits via updateRegisterLimits)
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

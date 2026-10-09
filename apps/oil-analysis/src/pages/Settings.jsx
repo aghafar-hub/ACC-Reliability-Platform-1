@@ -11,7 +11,6 @@ const SETTINGS_SUB_TABS = [
   { id: "registries", label: "Registries", icon: "ti-list-check" },
   { id: "notifications", label: "Notifications", icon: "ti-bell" },
   { id: "dashboard", label: "Dashboard", icon: "ti-target" },
-  { id: "system", label: "System", icon: "ti-adjustments" },
 ];
 
 function Toggle({ T, s, label, desc, checked, onChange }) {
@@ -437,7 +436,6 @@ export default function Settings({
   const [testMsg, setTestMsg] = useState("");
   const [testing, setTesting] = useState(false);
 
-  const [cacheMsg, setCacheMsg] = useState("");
 
   const [newActionText, setNewActionText] = useState("");
   const [actionSyncing, setActionSyncing] = useState(false);
@@ -488,13 +486,6 @@ export default function Settings({
     }
   }
 
-  function clearCache() {
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith("acc_oilapp_cache_"))
-      .forEach((k) => localStorage.removeItem(k));
-    setCacheMsg("✓ Cache cleared — next sync will fetch fresh data");
-    setTimeout(() => setCacheMsg(""), 4000);
-  }
 
   // Non-admin users don't see any of this at all — not read-only, not
   // disabled fields, nothing rendered — same as AccountsPanel's own
@@ -626,6 +617,17 @@ export default function Settings({
             {testMsg && <span style={{ fontSize: 12, color: testMsg.startsWith("✓") ? T.success : T.danger }}>{testMsg}</span>}
           </div>
 
+          <Toggle
+            T={T}
+            s={s}
+            label="Auto-sync on this device"
+            desc="Re-reads the sheet in the background every few minutes. Not needed normally — pages already refresh themselves."
+            checked={!!draft.enableAutoSync}
+            onChange={(v) => set("enableAutoSync", v)}
+          />
+          {draft.enableAutoSync && (
+            <Field T={T} s={s} label="Every (minutes)" type="number" value={draft.autoSyncMinutes || 5} onChange={(v) => set("autoSyncMinutes", Number(v) || 5)} />
+          )}
           <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
             <button style={s.btnPrimary} onClick={save}>
               <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
@@ -637,19 +639,6 @@ export default function Settings({
 
       {subTab === "registries" && (
         <>
-          <div style={{ ...s.card, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-database-import" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Equipment Registry</p>
-                <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
-                  Loaded automatically from the "Equipment Registry" sheet tab every time the app opens — same list on every
-                  device, nothing to sync by hand. Currently {equipmentRegistry?.length || 0} equipment.
-                </p>
-              </div>
-            </div>
-          </div>
-
           <IntervalRegistryEditor
             T={T}
             s={s}
@@ -736,86 +725,6 @@ export default function Settings({
 
       {subTab === "dashboard" && <DashboardTargetCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />}
 
-      {subTab === "system" && (
-        <>
-          <div style={{ ...s.card, marginBottom: 20 }}>
-            <p style={{ margin: "0 0 12px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>App Status</p>
-            {[
-              ["Version", "4.0"],
-              ["Sheet URL", draft.sheetUrl ? "Configured" : "Not configured"],
-              ["Webhook URL", draft.webhookUrl ? "Configured" : "Not configured"],
-              ["Cache", draft.enableCache ? "Enabled" : "Disabled"],
-              ["Auto-Sync", draft.enableAutoSync ? `Every ${draft.autoSyncMinutes || 5} min` : "Disabled"],
-              ["Debug Mode", draft.enableDebugMode ? "On" : "Off"],
-              ["Last sync", syncMsg || "Not synced yet"],
-            ].map(([k, v]) => (
-              <div
-                key={k}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "5px 0",
-                  borderBottom: `1px solid ${T.border}`,
-                  fontSize: 12,
-                }}
-              >
-                <span style={{ color: T.textSecondary }}>{k}</span>
-                <span style={{ color: T.textHighlight, textAlign: "right" }}>{v}</span>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ ...s.card, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-settings" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-              <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Sync &amp; Cache Preferences</p>
-            </div>
-
-            <Toggle
-              T={T}
-              s={s}
-              label="Enable Auto-Sync"
-              desc="Automatically re-sync from Google Sheets in the background at the interval below."
-              checked={draft.enableAutoSync}
-              onChange={(v) => set("enableAutoSync", v)}
-            />
-            <Field
-              T={T}
-              s={s}
-              label="Auto-Sync Interval (minutes)"
-              type="number"
-              value={draft.autoSyncMinutes}
-              onChange={(v) => set("autoSyncMinutes", Number(v) || 5)}
-              desc="How often to automatically re-sync when Auto-Sync is enabled."
-            />
-            <Toggle T={T} s={s} label="Enable Cache" checked={draft.enableCache} onChange={(v) => set("enableCache", v)} />
-            <Field
-              T={T}
-              s={s}
-              label="Cache Duration (minutes)"
-              type="number"
-              value={draft.cacheDurationMinutes}
-              onChange={(v) => set("cacheDurationMinutes", Number(v) || 10)}
-              desc="How long cached data is considered fresh before a background refresh."
-            />
-            <Toggle T={T} s={s} label="Enable Debug Mode" checked={draft.enableDebugMode} onChange={(v) => set("enableDebugMode", v)} />
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-              <button style={{ ...s.btn, fontSize: 12 }} onClick={clearCache}>
-                <i className="ti ti-trash-x" aria-hidden="true" /> Clear Cache
-              </button>
-              {cacheMsg && <span style={{ fontSize: 12, color: T.success, alignSelf: "center" }}>{cacheMsg}</span>}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-              <button style={s.btnPrimary} onClick={save}>
-                <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
-              </button>
-              {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
