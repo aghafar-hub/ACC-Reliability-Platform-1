@@ -169,7 +169,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
               rep["Report ID"],
               rep["First reading"] ? `measured ${shortDate(rep["First reading"])}${rep["Last reading"] && rep["Last reading"] !== rep["First reading"] ? ` – ${shortDate(rep["Last reading"])}` : ""}` : "no readings yet",
               `${groups.length} machines · ${entries.length} readings`,
-              wf !== "Historic" && rep["Due date"] ? `due ${shortDate(rep["Due date"])}${rep["Received date"] ? ` · received ${shortDate(rep["Received date"])}` : ""}` : "",
+              wf !== "Historic" && rep["Received date"] ? `received ${shortDate(rep["Received date"])}` : "",
               rep["Contractor report no"] ? `report no. ${rep["Contractor report no"]}` : "",
             ]
               .filter(Boolean)
@@ -233,10 +233,10 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
                   testid="vrep-tile-notmeasured"
                 />
                 <Tile
-                  icon="ti-calendar-due"
+                  icon="ti-file-check"
                   value={rep["Report status"] || "—"}
-                  label="45-day report rule"
-                  sub={wf === "Historic" ? "Merged from the old records" : rep["Due date"] ? `Due ${shortDate(rep["Due date"])}` : "Due date set by the first reading"}
+                  label="Report"
+                  sub={wf === "Historic" ? "Merged from the old records" : rep["Received date"] ? `Received ${shortDate(rep["Received date"])}` : "Not sent to ACC yet"}
                   tone={reportTone(T, rep["Report status"])}
                 />
               </div>

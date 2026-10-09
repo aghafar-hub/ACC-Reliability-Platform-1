@@ -9,7 +9,7 @@ export const NAV_ITEMS = [
   { key: "equipreg", label: "Equipment Register", icon: "registry" },
   { key: "registry", label: "Equipment Readings", icon: "graphs" },
   { key: "graphs", label: "Graphs Dashboard", icon: "graphs" },
-  { key: "compliance", label: "Compliance Tracker", icon: "compliance" },
+  { key: "compliance", label: "Measurement Tracker", icon: "compliance" },
   { key: "actions", label: "Action Tracker", icon: "action" },
   { key: "limits", label: "Limits Settings", icon: "limits" },
   { key: "settings", label: "Settings", icon: "settings" },

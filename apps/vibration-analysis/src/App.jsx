@@ -23,7 +23,7 @@ import { useTheme } from "./ThemeContext";
 
 import VibDashboard from "./pages/VibDashboard";
 import EquipmentRegister from "./pages/EquipmentRegister";
-import ComplianceTracker from "./pages/ComplianceTracker";
+import MeasurementTracker from "./pages/MeasurementTracker";
 import VibActions from "./pages/VibActions";
 import Settings from "./pages/Settings";
 import VibrationLog from "./pages/VibrationLog";
@@ -74,8 +74,8 @@ export default function App({ navBridge } = {}) {
   const [compliance, setCompliance] = useState([]);
   const [rmsRegister, setRmsRegister] = useState([]);
   const [spmRegister, setSpmRegister] = useState([]);
-  const [lastRms, setLastRms] = useState([]);
-  const [lastSpm, setLastSpm] = useState([]);
+  const [, setLastRms] = useState([]);
+  const [, setLastSpm] = useState([]);
   const [actions, setActions] = useState([]);
   const [vibPoints, setVibPoints] = useState([]);
   // Own limits, intervals and Active / Inactive (backend Limits.js).
@@ -431,7 +431,15 @@ export default function App({ navBridge } = {}) {
       />
     );
   } else if (page === "compliance") {
-    content = <ComplianceTracker compliance={compliance} lastRms={lastRms} lastSpm={lastSpm} registryMap={registryMap} />;
+    content = (
+      <MeasurementTracker
+        webhookUrl={webhookUrl}
+        onOpenEquipment={(id) => {
+          setSelectedEq(id);
+          setPage("equipment");
+        }}
+      />
+    );
   } else if (page === "actions") {
     content = (
       <VibActions

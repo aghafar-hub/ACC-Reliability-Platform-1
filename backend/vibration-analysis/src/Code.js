@@ -182,6 +182,7 @@ function dispatch(action, params, session) {
   if (action==='getMyWork')             return handleGetMyWork(params, session);
   // Dashboard.js
   if (action==='getVibDashboard')       return handleGetVibDashboard(params, session);
+  if (action==='getVibTracker')         return handleGetVibTracker(params, session);
   // VibNotifications.js
   if (action==='getVibNotifications')   return handleGetVibNotifications(params, session);
   if (action==='markVibNotificationsRead') return vlLocked_(function () { return handleMarkVibNotificationsRead(params, session); });

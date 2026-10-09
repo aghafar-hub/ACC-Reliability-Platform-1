@@ -1,6 +1,6 @@
 // ─── Vibration Dashboard (one request, everything the page draws) ─────────
-// Machines by latest final status, reports received per contractor scope
-// per month (last 12 months, 45-day rule), condition by scope, worst
+// Machines by latest final status, machines measured on time per area per
+// month (last 12 months, MeasurementTracker.js), condition by area, worst
 // machines with their recent trend, actions and follow-ups — all filtered
 // to the person's contractor when they are a contractor account.
 
@@ -53,34 +53,22 @@ function handleGetVibDashboard(params, session) {
       lastMonth: last || '', lastDate: lm ? lm.date : '', prevStatus: prev ? x.months[prev].worst : '', worstPoint: lm ? lm.point : null, series: series, family: fam });
   });
 
-  // reports grid: last 12 months × scopes (45-day rule for months with no report row)
-  var reps = {};
-  vlRead_(ss, SHEET_VLOG).rows.forEach(function (r) {
-    if (!r['Report ID'] || !mineC(r['Contractor'])) return;
-    var o = vlReportOut_(r, today);
-    reps[o['Month'] + '|' + o['Contractor'] + '|' + o['Report scope']] = o;
-  });
-  var scopes = vlScopes_(master).filter(function (s) { return mineC(s.contractor); });
-  var months = [];
-  var p = today.slice(0, 7).split('-').map(Number);
-  for (var i = 11; i >= 0; i--) {
-    var d0 = new Date(Date.UTC(p[0], p[1] - 1 - i, 1));
-    months.push(d0.toISOString().slice(0, 7));
-  }
-  var grid = scopes.map(function (s) {
-    return { contractor: s.contractor, scope: s.scope, cells: months.map(function (m) {
-      var r = reps[m + '|' + s.contractor + '|' + s.scope];
-      if (r) return { month: m, status: r['Report status'], workflow: r['Workflow status'], reportId: r['Report ID'] };
-      var due = vlAddDays_(vlMonthEnd_(m), VL_DUE_DAYS);
-      return { month: m, status: today > due ? 'Overdue' : 'Not due yet', workflow: '', reportId: '' };
-    }) };
-  });
+  // machines measured on time, per area per month (MeasurementTracker.js)
+  var months = vtMonths_(vtAddMonths_(today.slice(0, 7), -11), today.slice(0, 7));
   var yearStart = today.slice(0, 4) + '-01';
+  var tracked = vtTracker_(ss, master, me, vtMonths_(yearStart < months[0] ? yearStart : months[0], today.slice(0, 7)), '', today).machines;
+  var grid = vtAreaGrid_(tracked, months);
   var due = 0, onTime = 0;
-  grid.forEach(function (g) { g.cells.forEach(function (c) {
-    if (c.month < yearStart || c.status === 'Not due yet' || c.status === 'Awaiting report' || c.status === 'Skipped' || c.status === 'Report not imported') return;
-    due++; if (c.status === 'Received') onTime++;
+  tracked.forEach(function (m) { Object.keys(m.cells).forEach(function (mo) {
+    if (mo < yearStart) return;
+    var r = m.cells[mo].r;
+    if (r === 'Measured' || r === 'Missed') { due++; if (r === 'Measured') onTime++; }
   }); });
+  var states = {};
+  tracked.forEach(function (m) { states[m.state] = (states[m.state] || 0) + 1; });
+  var areaOf = {};
+  tracked.forEach(function (m) { areaOf[m.equipmentId] = m.area; });
+  machines.forEach(function (m) { m.area = areaOf[m.equipmentId] || ''; });
 
   var actions = vlRead_(ss, SHEET_VACTIONS).rows.map(vaOut_).filter(function (a) { return mineC(a['Contractor']); });
   var open = actions.filter(function (a) { return VA_OPEN.indexOf(String(a['Status'])) !== -1; });
@@ -99,7 +87,7 @@ function handleGetVibDashboard(params, session) {
       noOwner: open.filter(function (a) { return !a['Owner']; }).length,
     },
     followUps: { due: sugg.filter(function (s) { return s.type === 'Follow-up'; }).length, overdue: sugg.filter(function (s) { return s.type === 'Follow-up' && s.overdue; }).length },
-    reportsThisMonth: grid.map(function (g) { var c = g.cells[g.cells.length - 1]; return { contractor: g.contractor, scope: g.scope, status: c.status, workflow: c.workflow }; }),
+    measuring: { overdue: states['Overdue'] || 0, dueNow: states['Due now'] || 0, never: states['Never measured'] || 0, notRunning: states['Not running'] || 0, graceDays: VL_GRACE_DAYS },
     newAlerts: machines.filter(function (m) { return m.lastMonth === thisMonth && ['Alert', 'Danger'].indexOf(m.status) !== -1 && ['Alert', 'Danger'].indexOf(m.prevStatus) === -1; }).length,
     me: { contractor: me.contractor, acc: me.acc, canApprove: me.canApprove },
   };

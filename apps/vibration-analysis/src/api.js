@@ -370,3 +370,8 @@ export function dismissVibSuggestion(webhookUrl, fields) {
 export function getVibDashboard(webhookUrl) {
   return getChecked(webhookUrl, "getVibDashboard");
 }
+// Measurement Tracker (backend MeasurementTracker.js): every machine × month,
+// from the measurement history and the readings. { from, to: "yyyy-MM", equipmentId? }
+export function getVibTracker(webhookUrl, params = {}) {
+  return getChecked(webhookUrl, "getVibTracker", params);
+}

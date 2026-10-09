@@ -11,9 +11,10 @@ import { monthLabel, shortDate } from "../vibModel";
 import { generateVibDashboardPdf } from "../vibPdf";
 
 // Vibration Dashboard: the plant's machine condition at a glance (one
-// request, backend Dashboard.js). Tiles → the list behind them; the report
-// grid opens a report; condition by scope filters the donut and the worst
-// machines; a worst machine opens its Equipment page.
+// request, backend Dashboard.js). Tiles → the list behind them; the
+// "machines measured" grid (per area per month) opens the Measurement
+// Tracker; condition by area filters the donut and the worst machines; a
+// worst machine opens its Equipment page.
 
 const NOT_READ_MONTHS = 3;
 const PERIODS = [
@@ -24,14 +25,14 @@ const PERIODS = [
 const shortMonth = (m) => new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).toLocaleDateString("en-GB", { month: "short" });
 const unitOf = (f) => (f === "RMS" ? "mm/s" : f === "SPM" ? "dBsv" : "g");
 
-export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, onOpenPage }) {
+export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [d, setD] = useState(null);
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
   const [period, setPeriod] = useState(() => (typeof window !== "undefined" && window.matchMedia?.("(max-width: 860px)").matches ? 6 : 12));
-  const [scope, setScope] = useState(null); // "RHI|Line 1"
+  const [scope, setScope] = useState(null); // an area: "Line 1", "CM#1"…
   const [busyPdf, setBusyPdf] = useState(false);
 
   const load = useCallback(async () => {
@@ -59,49 +60,39 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
   const cutoff = d ? d.months[d.months.length - NOT_READ_MONTHS] : "";
   const inC = (c) => contractor === "All" || c === contractor;
   const allMachines = useMemo(() => (d?.machines || []).filter((m) => inC(m.contractor)), [d, contractor]); // eslint-disable-line react-hooks/exhaustive-deps
-  const machines = allMachines.filter((m) => !scope || `${m.contractor}|${m.scope}` === scope);
+  const machines = allMachines.filter((m) => !scope || m.area === scope);
   const notRead = (m) => !m.lastMonth || m.lastMonth < cutoff;
   const condOf = (m) => (notRead(m) ? "Not read" : m.status || "Not read");
-  const grid = (d?.grid || []).filter((g) => inC(g.contractor));
-  const scopes = grid.map((g) => ({ key: `${g.contractor}|${g.scope}`, label: me.contractor ? g.scope : `${g.contractor} · ${g.scope}` }));
+  // machines measured per area per month (backend MeasurementTracker.js); areas also filter the condition cards
+  // (the contractor chips keep the areas where that contractor has machines)
+  const grid = (d?.grid || []).filter((g) => allMachines.some((m) => m.area === g.area));
+  const scopes = grid.map((g) => ({ key: g.area, label: g.area }));
   const notReadColor = T.textMuted || T.textSecondary;
   const segs = [...LEVELS.map((lv) => ({ label: lv, value: machines.filter((m) => condOf(m) === lv).length, color: levelColor(T, lv) })), { label: `Not read ${NOT_READ_MONTHS} m`, value: machines.filter((m) => condOf(m) === "Not read").length, color: notReadColor + "66" }];
   const danger = allMachines.filter((m) => !notRead(m) && m.status === "Danger");
   const alert = allMachines.filter((m) => !notRead(m) && m.status === "Alert");
   const thisMonth = d?.today?.slice(0, 7);
   const newAlert = alert.filter((m) => m.lastMonth === thisMonth && !["Alert", "Danger"].includes(m.prevStatus)).length;
-  // the latest month whose reports are due or in (last month until the 45 days pass)
-  const repMonth = months.length > 1 ? months[months.length - 2] : thisMonth;
-  const repCells = grid.map((g) => ({ g, c: g.cells.find((c) => c.month === repMonth) })).filter((x) => x.c);
-  const repIn = repCells.filter((x) => ["Received", "Received late"].includes(x.c.status) || ["ACC review", "Approved"].includes(x.c.workflow));
   const worst = [...machines]
     .filter((m) => !notRead(m) && (LEVEL_RANK[m.status] || 0) >= 2)
     .sort((a, b) => (LEVEL_RANK[b.status] || 0) - (LEVEL_RANK[a.status] || 0) || (b.worstPoint?.ratio || 0) - (a.worstPoint?.ratio || 0))
     .slice(0, 8);
-  const lastReport = (() => {
-    let best = null;
-    grid.forEach((g) => g.cells.forEach((c) => {
-      if (["Received", "Received late"].includes(c.status) && (!best || c.month > best.month)) best = { ...c, g };
-    }));
-    return best;
-  })();
+  const lastMeasured = allMachines.reduce((best, m) => (m.lastDate && m.lastDate > best ? m.lastDate : best), "");
   const onTimePct = d && d.onTime.due ? Math.round((d.onTime.onTime / d.onTime.due) * 100) : null;
 
+  // share of machines measured that month: ≥ 90 % green, ≥ 70 % amber, below red; none due → light
   const cellStyle = (c) => {
-    const base = { width: "100%", height: 26, borderRadius: 6, boxSizing: "border-box" };
-    if (c.status === "Received") return { ...base, background: T.success };
-    if (c.status === "Received late") return { ...base, background: T.warning };
-    if (c.status === "Missing" || c.status === "Overdue") return { ...base, border: `2px dashed ${T.danger}`, background: T.dangerBg };
-    if (c.status === "Report not imported") return { ...base, background: T.accent };
-    if (c.status === "Awaiting report" || c.workflow === "Draft" || c.workflow === "ACC review" || c.workflow === "Returned") return { ...base, background: T.warning + "55" };
-    return { ...base, background: `${T.textMuted || T.textSecondary}22` };
+    const base = { width: "100%", height: 26, borderRadius: 6, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700 };
+    if (c.pct == null) return { ...base, background: `${T.textMuted || T.textSecondary}22`, color: T.textSecondary };
+    if (c.pct >= 90) return { ...base, background: T.success, color: "#fff" };
+    if (c.pct >= 70) return { ...base, background: T.warning, color: "#fff" };
+    return { ...base, background: T.dangerBg, border: `2px solid ${T.danger}`, color: T.danger };
   };
   const legend = [
-    ["Received", T.success],
-    ["Received late", T.warning],
-    ["Missing / overdue", T.danger, true],
-    ["Not imported", T.accent],
-    ["Due / in review", T.warning + "55"],
+    ["90 % or more measured", T.success],
+    ["70–89 %", T.warning],
+    ["Under 70 %", T.danger, true],
+    ["No machines due", `${T.textMuted || T.textSecondary}22`],
   ];
 
   const pdf = async () => {
@@ -127,7 +118,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
         title="Vibration Dashboard"
         subtitle={
           d
-            ? [`${allMachines.length} machines`, `${allMachines.reduce((n, m) => n + (m.vibIds || 0), 0).toLocaleString("en-GB")} VIB IDs`, lastReport ? `last report ${monthLabel(lastReport.month)} (${lastReport.g.contractor} ${lastReport.g.scope})` : "no reports yet"].join(" · ")
+            ? [`${allMachines.length} machines`, `${allMachines.reduce((n, m) => n + (m.vibIds || 0), 0).toLocaleString("en-GB")} VIB IDs`, lastMeasured ? `last measured ${shortDate(lastMeasured)}` : "nothing measured yet"].join(" · ")
             : "Loading…"
         }
         right={
@@ -161,13 +152,13 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
             <Tile icon="ti-square-filled" value={danger.length} label="Danger machines" sub={danger.slice(0, 3).map((m) => m.equipmentId).join(" · ") || "none"} tone={danger.length ? levelInk(T, "Danger") : undefined} onClick={() => onOpenPage("equipment")} testid="vd-tile-danger" />
             <Tile icon="ti-diamond-filled" value={alert.length} label="Alert machines" sub={`${newAlert} new this month`} tone={alert.length ? levelInk(T, "Alert") : undefined} onClick={() => onOpenPage("equipment")} testid="vd-tile-alert" />
             <Tile
-              icon="ti-file-text"
-              value={`${repIn.length} / ${repCells.length}`}
-              label={`${monthLabel(repMonth).split(" ")[0]} reports in`}
-              sub={repCells.filter((x) => !repIn.includes(x)).map((x) => `${me.contractor ? "" : x.g.contractor + " "}${x.g.scope}`).join(" · ") + (repIn.length < repCells.length ? " not yet" : "") || "all in"}
-              tone={repCells.some((x) => x.c.status === "Overdue") ? T.danger : undefined}
-              onClick={() => onOpenPage("log")}
-              testid="vd-tile-reports"
+              icon="ti-calendar-check"
+              value={d.measuring.overdue}
+              label="Machines overdue for measuring"
+              sub={`${d.measuring.dueNow} due now · interval + ${d.measuring.graceDays} days`}
+              tone={d.measuring.overdue ? T.danger : undefined}
+              onClick={() => onOpenPage("compliance")}
+              testid="vd-tile-measuring"
             />
             <Tile icon="ti-clock" value={d.followUps.due} label="Follow-up readings due" sub={`${d.followUps.overdue} overdue · next 14 days`} tone={d.followUps.overdue ? T.warning : undefined} onClick={() => onOpenPage("routes")} testid="vd-tile-followups" />
             <Tile icon="ti-checklist" value={d.actions.open} label="Open vibration actions" sub={`${d.actions.pastDue} past due · ${d.actions.noOwner} no owner`} tone={d.actions.pastDue ? T.danger : undefined} onClick={() => onOpenPage("actions")} testid="vd-tile-actions" />
@@ -190,8 +181,8 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
               </div>
             </div>
 
-            <div style={card} data-testid="vd-reports">
-              {cardTitle("Reports received", "one square per contractor report per month · tap to open")}
+            <div style={card} data-testid="vd-measured">
+              {cardTitle("Machines measured", "share of machines measured each month, by area · tap for the Measurement Tracker")}
               <div style={{ overflowX: "auto" }}>
                 <div style={{ display: "grid", gridTemplateColumns: `${isMobile ? 96 : 150}px repeat(${months.length}, minmax(${period > 6 ? 26 : 40}px, 1fr))`, gap: 6, alignItems: "center", minWidth: isMobile ? 96 + months.length * 32 : 0 }}>
                   <span />
@@ -201,23 +192,26 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
                     </span>
                   ))}
                   {grid.map((g) => (
-                    <div key={g.contractor + g.scope} style={{ display: "contents" }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{me.contractor ? g.scope : `${g.contractor} · ${g.scope}`}</span>
+                    <div key={g.area} style={{ display: "contents" }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.area}</span>
                       {g.cells
                         .filter((c) => months.includes(c.month))
-                        .map((c) => (
-                          <button
-                            key={c.month}
-                            type="button"
-                            title={`${g.contractor} ${g.scope} · ${monthLabel(c.month)}: ${c.status}${c.workflow && c.workflow !== "Historic" ? ` (${c.workflow})` : ""}`}
-                            aria-label={`${g.contractor} ${g.scope} ${monthLabel(c.month)}: ${c.status}`}
-                            onClick={() => (c.reportId ? onOpenReport(c.reportId) : onOpenPage("log"))}
-                            data-testid={`vd-cell-${g.contractor}-${g.scope}-${c.month}`}
-                            style={{ padding: 0, border: 0, background: "none", cursor: "pointer" }}
-                          >
-                            <span style={{ display: "block", ...cellStyle(c) }} />
-                          </button>
-                        ))}
+                        .map((c) => {
+                          const text = c.pct == null ? "no machines due" : `${c.measured} of ${c.measured + c.missed} machines measured (${c.pct}%)`;
+                          return (
+                            <button
+                              key={c.month}
+                              type="button"
+                              title={`${g.area} · ${monthLabel(c.month)}: ${text}`}
+                              aria-label={`${g.area} ${monthLabel(c.month)}: ${text}`}
+                              onClick={() => onOpenPage("compliance")}
+                              data-testid={`vd-cell-${g.area}-${c.month}`}
+                              style={{ padding: 0, border: 0, background: "none", cursor: "pointer" }}
+                            >
+                              <span style={cellStyle(c)}>{c.pct == null || period > 6 ? "" : c.pct}</span>
+                            </button>
+                          );
+                        })}
                     </div>
                   ))}
                 </div>
@@ -230,7 +224,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
                   </span>
                 ))}
                 <span style={{ marginLeft: "auto" }} data-testid="vd-ontime">
-                  On time in {d.onTime.year}: <b style={{ color: T.textPrimary }}>{d.onTime.onTime} of {d.onTime.due}{onTimePct != null ? ` (${onTimePct}%)` : ""}</b>
+                  Measured in {d.onTime.year}: <b style={{ color: T.textPrimary }}>{d.onTime.onTime} of {d.onTime.due} machine-months{onTimePct != null ? ` (${onTimePct}%)` : ""}</b>
                 </span>
               </div>
             </div>
@@ -238,7 +232,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
 
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) minmax(0,1fr)" }}>
             <div style={card} data-testid="vd-scopes">
-              {cardTitle("Condition by scope", "tap a row to filter")}
+              {cardTitle("Condition by area", "tap a row to filter")}
               <StackedBars
                 T={T}
                 labelWidth={isMobile ? 100 : 150}
@@ -248,7 +242,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
                   setScope(scope === k ? null : k);
                 }}
                 rows={scopes.map((sc) => {
-                  const l = allMachines.filter((m) => `${m.contractor}|${m.scope}` === sc.key);
+                  const l = allMachines.filter((m) => m.area === sc.key);
                   return {
                     label: sc.label,
                     parts: [...LEVELS.map((lv) => ({ label: lv, value: l.filter((m) => condOf(m) === lv).length, color: levelColor(T, lv) })), { label: "Not read", value: l.filter((m) => condOf(m) === "Not read").length, color: notReadColor + "66" }],
@@ -267,7 +261,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
               </div>
               <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
                 {scopes.map((sc) => {
-                  const need = allMachines.filter((m) => `${m.contractor}|${m.scope}` === sc.key && !notRead(m) && (LEVEL_RANK[m.status] || 0) >= 3).length;
+                  const need = allMachines.filter((m) => m.area === sc.key && !notRead(m) && (LEVEL_RANK[m.status] || 0) >= 3).length;
                   return need ? (
                     <span key={sc.key} style={{ fontSize: 12.5, color: T.textSecondary }}>
                       {sc.label}: <b style={{ color: T.alert || T.danger }}>{need} need action</b> (Alert or Danger)
@@ -279,7 +273,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenReport, 
 
             <div style={card} data-testid="vd-worst">
               {cardTitle("Worst machines", "highest reading vs limit, latest report · last 6 months trend")}
-              {worst.length === 0 && <div style={{ color: T.textSecondary, fontSize: 13 }}>No machine at Caution or above{scope ? " in this scope" : ""}.</div>}
+              {worst.length === 0 && <div style={{ color: T.textSecondary, fontSize: 13 }}>No machine at Caution or above{scope ? " in this area" : ""}.</div>}
               {worst.map((m) => (
                 <button
                   key={m.equipmentId}

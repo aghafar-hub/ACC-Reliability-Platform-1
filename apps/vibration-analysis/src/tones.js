@@ -5,11 +5,9 @@ export function reportTone(T, status) {
   return (
     {
       Received: T.success,
-      "Received late": T.warning,
-      "Awaiting report": T.info,
-      "Not due yet": T.textSecondary,
-      Overdue: T.danger,
-      Missing: T.danger,
+      "Not sent yet": T.info,
+      "No report": T.textSecondary,
+      Missing: T.textSecondary,
       "Report not imported": T.accent,
       Skipped: T.textSecondary,
     }[status] || T.textSecondary

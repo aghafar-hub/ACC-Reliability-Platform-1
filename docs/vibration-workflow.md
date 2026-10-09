@@ -44,10 +44,10 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 - Only an ACC engineer, manager or the App Owner can approve, return or reopen.
 - The contractor engineer edits only while the report is Draft or Returned.
 
-**45-day rule**
-- A report is **due 45 days after its first measurement date**. Month end is used until the first reading is entered.
-- Before submission, the report status is **Awaiting report**, then **Overdue**.
-- On submission it becomes **Received**, or **Received late** if submitted after the due date.
+**Report status** (reports are approved, not chased by date)
+- Before submission the report status is **Not sent yet**; on submission it becomes **Received**.
+- A month with no report shows **No report**. There is no report deadline any more: whether each machine
+  was measured on time is tracked per machine (see *Measurement Tracker* below).
 - ACC can mark a month **Skipped**; a reason is required.
 
 **History merge**
@@ -73,7 +73,7 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 
 - **New Reading**: one machine, one measurement date, the numbers of each of its VIB IDs (only the fields that
   VIB ID takes). The reading goes into that month's report for the machine's contractor scope; when there is
-  none a Draft is started (it then shows as *Awaiting report* until the contractor's report arrives). A VIB ID
+  none a Draft is started (it then shows as *Not sent yet* until the contractor sends the report). A VIB ID
   already read on that date needs **Replace**. Not allowed into an Approved / historic / skipped month (ACC
   reopens it first) or, for a contractor, a report that is with ACC. Opened from the Equipment list, the machine
   page or the phone's ＋ — always over the Equipment list.
@@ -181,17 +181,17 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 **My Work** (backend `MyWork.js`)
 - **Technician:** my vibration routes. The checklist opens right in My Work.
 - **Contractor engineer:** routes to confirm, routes with no technician, measurements due in 7 days, reports to send, actions waiting for their recommendation, their actions due.
-- **ACC engineer:** reports to review, actions to agree, closures to approve, overdue reports.
+- **ACC engineer:** reports to review, actions to agree, closures to approve.
 - **Managers:** escalations (10+ days late), view only. Managers don't approve reports or actions.
 
 ## Dashboard, PDFs, offline checklist, search (step 6)
 
 **Dashboard** (backend `Dashboard.js`, one request `getVibDashboard`)
-- **Tiles:** Danger machines, Alert machines (new this month), last month's reports in, follow-up readings due in 14 days, open actions (past due, no owner). Each tile opens the list behind it.
+- **Tiles:** Danger machines, Alert machines (new this month), machines overdue for measuring (and due now), follow-up readings due in 14 days, open actions (past due, no owner). Each tile opens the list behind it.
 - **Machine condition:** each active machine counted once, by the worst final status in its latest report month. A machine with no report reading in the last 3 months counts as "Not read 3 m".
-- **Reports received:** one square per contractor scope per month (3, 6 or 12 months). Received, received late, missing / overdue (45-day rule), not imported, due / in review. A square opens that report.
-- **On time this year:** received on time ÷ reports that were due this year (skipped and not-yet-due months left out).
-- **Condition by scope:** the same counts per scope; tap a row to filter the donut and the worst machines.
+- **Machines measured:** one square per area per month (3, 6 or 12 months): the share of the area's machines measured that month (Measurement Tracker). 90 % or more green, 70–89 % amber, under 70 % red. A square opens the Measurement Tracker.
+- **Measured this year:** machine-months measured ÷ machine-months due this year.
+- **Condition by area:** the same counts per area (Line 1, Line 2, CM#1, CM#2); tap a row to filter the donut and the worst machines.
 - **Worst machines:** Caution or above, worst level first, then highest reading against its Danger limit. Each row shows the point, value and a 6-month trend, and opens the machine.
 - A contractor account sees only its own machines, reports and actions.
 
@@ -235,3 +235,52 @@ Each person gets their own copy with its own read / unread. Tapping one opens th
 | `Vibration Notifications` | one row per notice per person (read / unread) |
 
 Columns are read by header name. Missing columns are added on the first save.
+
+## Measurement Tracker (per machine, not per report)
+
+Agreed with ACC: compliance is tracked **per machine**, especially in the
+history; reports keep their approval but are no longer chased by date.
+Backend `MeasurementTracker.js` (`getVibTracker`), page `MeasurementTracker.jsx`
+(menu: Vibration Analysis → Measurement Tracker).
+
+**The rule**
+- Each machine is due its **interval** (Limits page, default 30 days) after its last measurement.
+- **7 days' grace**: it is **Overdue** only after interval + 7 days; within 7 days either side of the due date it is **Due now**.
+- **Not running**: a machine set Inactive on the Limits page; never counted as missed.
+- **Never measured**: no reading and no old mark; shown by its state, not as a run of misses.
+
+**Months**
+- Up to the last month the old Compliance Tracker was filled in by hand, each machine-month comes from the
+  **Equipment Measurement History** tab (built once from the old tracker and the old readings):
+  - readings exist → Measured, level = worst final status of that month;
+  - old mark YES / Caution / Alarm / Under Observation / Comment → Measured (the mark gives the level when it has one);
+  - NO / Missing / blank → Missed.
+- After that, from the readings alone: a month with a reading is **Measured**; a month without one is
+  **Missed** only when the machine was past interval + 7 days by the end of that month, otherwise **Not due**.
+  The current month shows **Overdue** while it is still open.
+- An old-tracker month with no readings counts as measured on the 15th, for the interval.
+
+**Screens**
+- **Measurement Tracker:** tiles (overdue, due now, months measured, never measured / not running), area chips
+  (Line 1, Line 2, CM#1, CM#2), state chips, search, and a grid of machines × months (12 / 24 months or since
+  Jan 2023). On a phone: one card per machine with its last 6 months. A machine opens its page.
+- **Machine page → Measuring tab:** every month since Jan 2023, one row per year, with where the machine stands.
+- **Route suggestions** and My Work's *Measurements overdue* use the same grace.
+
+**Area** comes from the VIB ID Registry's **Area** column (column I: Line 1, Line 2, CM#1, CM#2), otherwise
+from the register's line. The first 8 registry columns are still read by position, so Area and Note go after them.
+
+## Test database (Vibration)
+
+The test database is built in the scratchpad from the uploaded workbook (real data never goes in the repo).
+Tabs, only the ones the app reads or writes:
+- VIB ID Registry (with Area + Note; added rows are yellow for ACC to keep or delete), Equipment Measurement
+  History, Vibration Log, Vibration Log Entries, Vibration Actions (the old Action Tracker's open actions, one per
+  machine), Vibration Action Findings, Vibration Limits, Vibration Routes, Vibration Route Points, Vibration Route
+  Suggestions, Vibration Notifications, Vibration Audit, ⚙ RMS Register, ⚙ SPM Register, 📋 Last RMS Reading,
+  📋 Last SPM Reading, 📥 RMS DATA, 📥 SPM DATA, VIB_MODULE_PEOPLE, VIB_TAB_ACCESS, MA_DELEGATIONS, Configuration.
+- Removed: the 🔧 chart tabs, EQ_Code, ⚙ Settings, 📋 Compliance Tracker (→ Equipment Measurement History),
+  📋 Action Tracker (→ Vibration Actions), Report Coverage (old months now come from the history tab).
+- Registry rows added (yellow): a VIB ID for every old reading whose point had none; the point list for a machine
+  with no VIB IDs (from the registers, or the standard Motor DE / NDE when there is nothing to go on); a G's point
+  for every RMS position in CM#1 / CM#2 that had none.

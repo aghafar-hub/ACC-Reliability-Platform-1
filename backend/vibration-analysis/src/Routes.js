@@ -4,6 +4,7 @@
 // Suggestions (worked out on every read, nothing to maintain):
 //   - Interval due: an Active machine whose last measurement + its interval
 //     (Limits.js, default 30 days) falls within the window, or never measured.
+//     Overdue only after VL_GRACE_DAYS (7) more days (MeasurementTracker.js).
 //   - Follow-up: an action with "Follow-up reading = Yes" (Open / Waiting
 //     Stoppage) — due the action's last finding date + its follow-up days,
 //     until the machine is measured again after that finding.
@@ -58,20 +59,10 @@ function vrOut_(r, today) {
   return o;
 }
 
-// Last measurement date per machine from the Vibration Log.
-function vrLastMeasured_(ss) {
-  var last = {};
-  vlRead_(ss, SHEET_VENTRIES).rows.forEach(function (r) {
-    var e = String(r['Equipment ID'] || ''), d = vlDate_(r['Measurement date']);
-    if (e && d && (!last[e] || d > last[e])) last[e] = d;
-  });
-  return last;
-}
-
 function vrSuggestions_(ss, master, me, windowDays, routes) {
   var today = vlToday_();
   var until = vlAddDays_(today, windowDays);
-  var last = vrLastMeasured_(ss);
+  var last = vtLastMeasured_(ss); // MeasurementTracker.js: readings + the old tracker months
   var busy = {};
   vlRead_(ss, SHEET_VRPOINTS).rows.forEach(function (p) {
     var r = routes[p['Route ID']];
@@ -105,7 +96,7 @@ function vrSuggestions_(ss, master, me, windowDays, routes) {
     if (dismissed[key] || busy[id] || due > until) return;
     out.push({ key: key, equipmentId: id, name: eq.name, contractor: eq.contractor, scope: eq.scope, type: 'Scheduled',
       reason: last[id] ? 'Every ' + (eq.interval || VL_DEFAULT_INTERVAL) + ' days — last measured ' + last[id] : 'Never measured', sourceAction: '',
-      due: due, priority: 'Normal', overdue: due < today, lastMeasured: last[id] || '' });
+      due: due, priority: 'Normal', overdue: (last[id] ? vlAddDays_(due, VL_GRACE_DAYS) : due) < today, lastMeasured: last[id] || '' });
   });
   out.sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : a.equipmentId < b.equipmentId ? -1 : 1; });
   return { list: out, busy: busy, last: last };

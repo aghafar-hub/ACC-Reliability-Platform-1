@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibEquipmentHistory, getVibEquipmentSummary } from "../api";
+import { getVibEquipmentHistory, getVibEquipmentSummary, getVibTracker } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -14,6 +14,7 @@ import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/B
 import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, monthLabel, shortDate } from "../vibModel";
 import { seriesColors } from "../tones";
 import NewReadingModal from "./VibNewReading";
+import MeasureCell, { MeasureLegend, STATE_TONE } from "../components/MeasureCell";
 
 // Equipment: every machine with its latest vibration condition (list), and
 // one machine's page — point cards, trend with the limit bands, the report
@@ -443,8 +444,10 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
           { id: "trend", label: "Trend" },
           { id: "readings", label: "Readings", count: entries.length },
           { id: "reports", label: "Reports", count: reports.length },
+          { id: "measuring", label: "Measuring" },
         ]}
       />
+      {tab === "measuring" && <MeasuringHistory webhookUrl={webhookUrl} eqId={eqId} version={version} />}
       {!hist && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading readings…</div>}
       {hist && tab === "trend" && (
         <div style={{ ...s.card }} data-testid="vm-trend">
@@ -556,6 +559,61 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
           <StatePill tone={T.warning}>Not measured for {daysBetween(row.lastDate, today)} days</StatePill>
         </div>
       )}
+    </div>
+  );
+}
+
+// Every month since the history starts for one machine (Measurement Tracker,
+// backend MeasurementTracker.js): one row per year, one square per month.
+function MeasuringHistory({ webhookUrl, eqId, version }) {
+  const { T, s } = useTheme();
+  const [d, setD] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    setD(null);
+    getVibTracker(webhookUrl, { from: "2023-01", to: new Date().toISOString().slice(0, 7), equipmentId: eqId })
+      .then((r) => live && setD(r))
+      .catch((e) => live && setError(String(e.message || e)));
+    return () => {
+      live = false;
+    };
+  }, [webhookUrl, eqId, version]);
+  if (error) return <div role="alert" style={{ ...s.card, color: T.danger }}>{error}</div>;
+  if (!d) return <div style={{ ...s.card, color: T.textSecondary }}>Loading the measuring history…</div>;
+  const m = d.machines[0];
+  if (!m) return <div style={{ ...s.card, color: T.textSecondary }}>This machine is not in the Measurement Tracker (no VIB IDs or contractor).</div>;
+  const years = [...new Set(d.months.map((mo) => mo.slice(0, 4)))];
+  const tone = STATE_TONE(T)[m.state];
+  return (
+    <div style={{ ...s.card }} data-testid="vm-measuring">
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <StatePill tone={tone} testid="vm-measure-state">{m.state}</StatePill>
+        <span style={{ fontSize: 13, color: T.textSecondary }}>
+          {[m.lastMeasured ? `last measured ${shortDate(m.lastMeasured)}` : "never measured", m.nextDue ? `next due ${shortDate(m.nextDue)}` : "", `every ${m.interval} days + ${d.graceDays} days' grace`,
+            m.onTimePct != null ? `${m.measured} of ${m.measured + m.missed} months measured (${m.onTimePct}%)` : ""].filter(Boolean).join(" · ")}
+        </span>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "48px repeat(12, 26px)", gap: 6, alignItems: "center" }}>
+          <span />
+          {["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"].map((l, i) => (
+            <span key={i} style={{ fontSize: 11, color: T.textSecondary, textAlign: "center" }}>{l}</span>
+          ))}
+          {years.map((y) => (
+            <div key={y} style={{ display: "contents" }}>
+              <b style={{ fontSize: 13, color: T.textPrimary }}>{y}</b>
+              {Array.from({ length: 12 }, (_, i) => {
+                const mo = `${y}-${String(i + 1).padStart(2, "0")}`;
+                return <MeasureCell key={mo} c={m.cells[mo]} month={mo} size={24} />;
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <MeasureLegend />
+      </div>
     </div>
   );
 }

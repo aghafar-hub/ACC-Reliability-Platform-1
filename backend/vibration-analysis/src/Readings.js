@@ -3,7 +3,7 @@
 // measurement date, enter the numbers, checks run, the reading goes into the
 // Vibration Log. A reading always lives in its month's report for the
 // equipment's contractor scope; when that report doesn't exist yet it is
-// created as a Draft (status "Awaiting report" until the contractor's
+// created as a Draft (status "Not sent yet" until the contractor's
 // report arrives — 45-day rule in VibrationLog.js).
 
 // Existing entry row → the input shape handleSaveVibEntries takes.

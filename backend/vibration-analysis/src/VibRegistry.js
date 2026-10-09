@@ -35,6 +35,7 @@ function readVibRegistry(ss) {
       'Reading Columns':    String(row[5]||'').trim(),
       'Contractor':         String(row[6]||'').trim(),
       'Status':             String(row[7]||'').trim(),
+      'Area':               String(row[8]||'').trim(),
       _rowNum: dataStart + i,
     });
   }

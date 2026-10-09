@@ -7,9 +7,10 @@
 //
 // Workflow (docs/vibration-workflow.md):
 //   Draft → ACC review → Approved, or ACC review → Returned → (fixed) → ACC review.
-//   A report is due 45 days after its first measurement date (month end when
-//   there is none yet). Report status: Awaiting report → Overdue; on submit
-//   Received or Received late. ACC can mark a month Skipped with a reason.
+//   Report status: Not sent yet → Received (on submit). Reports are not
+//   chased by date any more: whether each machine was measured on time is
+//   the Measurement Tracker's job (MeasurementTracker.js). ACC can mark a
+//   month Skipped with a reason.
 //
 // Every sheet here is read by header name (row 1), so extra columns can be
 // added to the tabs without breaking anything; missing columns are added on
@@ -213,13 +214,19 @@ function vlMasterData_(ss, opts) {
     vib[p['VIB ID']] = p;
     var x = e(p['Equipment ID']);
     x.contractor = x.contractor || p['Contractor'];
+    x.area = x.area || p['Area'] || '';
     x.vibIds++;
   });
-  Object.keys(eq).forEach(function (id) { eq[id].scope = vlScopeOf_(eq[id]); });
+  Object.keys(eq).forEach(function (id) { eq[id].scope = vlScopeOf_(eq[id]); eq[id].area = eq[id].area || vlAreaOf_(eq[id].line); });
   var master = { vib: vib, eq: eq };
   lmApply_(ss, master); // Limits.js: custom limits, interval, Active / Inactive
   Object.keys(eq).forEach(function (id) { eq[id].inactive = eq[id].status === 'Inactive'; });
   return master;
+}
+
+// Area (VIB ID Registry column I, else the register's line): Line 1, Line 2, CM#1, CM#2.
+function vlAreaOf_(line) {
+  return { line1: 'Line 1', line2: 'Line 2', cm1: 'CM#1', cm2: 'CM#2' }[String(line || '').replace(/\s+/g, '').toLowerCase()] || '';
 }
 
 // RHI reports per line; ASEC sends one report for the cement mills.
@@ -255,15 +262,13 @@ function vlDueDate_(r) {
 }
 
 // Historic rows keep the status the merge gave them. Others: Skipped stays;
-// submitted/approved → Received / Received late; not yet → Awaiting / Overdue.
+// sent → Received; not yet → Not sent yet. Reports are approved, not
+// chased: on-time tracking is per machine (MeasurementTracker.js).
 function vlReportStatus_(r, today) {
   var wf = String(r['Workflow status'] || '');
   var st = String(r['Report status'] || '');
   if (wf === 'Historic' || st === 'Skipped') return st;
-  var due = vlDate_(r['Due date']) || vlDueDate_(r);
-  var got = vlDate_(r['Received date']);
-  if (got) return due && got > due ? 'Received late' : 'Received';
-  return due && today > due ? 'Overdue' : 'Awaiting report';
+  return vlDate_(r['Received date']) ? 'Received' : 'Not sent yet';
 }
 
 function vlReportOut_(r, today) {
@@ -313,6 +318,17 @@ function handleGetVibReport(params, session) {
   var coverage = vlRead_(ss, SHEET_VCOVER).rows.filter(function (r) { return r['Report ID'] === id; }).map(function (r) {
     var o = {}; VCOVER_HEADERS.forEach(function (h) { o[h] = r[h] === undefined ? '' : r[h]; }); return o;
   });
+  // History months: the machines come from "Equipment Measurement History"
+  // (MeasurementTracker.js), which carries the Report ID.
+  if (!coverage.length) {
+    coverage = vlRead_(ss, SHEET_VHIST).rows.filter(function (r) { return r['Report ID'] === id; }).map(function (r) {
+      var n = vlNum_(r['Readings in app']) || 0;
+      var measured = String(r['Result']) === 'Measured';
+      return { 'Report ID': id, 'Month': vlMonth_(r['Month']), 'Contractor': r['Contractor'], 'Report scope': rep['Report scope'], 'Line': r['Area'],
+        'Equipment ID': r['Equipment ID'], 'Equipment name': r['Equipment name'], 'Compliance mark (old)': r['Old tracker mark'], 'Report status': '',
+        'Readings in app': n, 'Outcome': measured ? (n ? 'Received' : 'Report not imported') : 'Missing' };
+    });
+  }
   var audit = vlRead_(ss, SHEET_VAUDIT).rows.filter(function (r) { return r['Record'] === id; }).map(function (r) {
     return { when: String(r['When']), who: r['Who'], action: r['Action'], details: r['Details'] };
   });

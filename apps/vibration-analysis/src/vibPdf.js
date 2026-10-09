@@ -328,19 +328,20 @@ export async function generateVibDashboardPdf({ d, contractor, machines, grid, m
     ],
     y
   );
-  y = para(doc, `Reports on time in ${d.onTime.year}: ${d.onTime.onTime} of ${d.onTime.due}${d.onTime.due ? ` (${Math.round((d.onTime.onTime / d.onTime.due) * 100)} %)` : ""}. Follow-up readings due in 14 days: ${d.followUps.due} (${d.followUps.overdue} overdue). Actions past due: ${d.actions.pastDue}, with no owner: ${d.actions.noOwner}.`, y);
+  y = para(doc, `Machines measured in ${d.onTime.year}: ${d.onTime.onTime} of ${d.onTime.due} machine-months${d.onTime.due ? ` (${Math.round((d.onTime.onTime / d.onTime.due) * 100)} %)` : ""}. Overdue for measuring now: ${d.measuring.overdue} (${d.measuring.dueNow} due now). Follow-up readings due in 14 days: ${d.followUps.due} (${d.followUps.overdue} overdue). Actions past due: ${d.actions.pastDue}, with no owner: ${d.actions.noOwner}.`, y);
 
-  y = section(doc, "Reports received", y);
+  y = section(doc, "Machines measured (% of the area's machines, per month)", y);
   autoTable(doc, {
     ...tableBase,
     startY: y,
-    head: [["Scope", ...months.map((m) => monthLabel(m).replace(/ 20(\d\d)$/, " $1"))]],
-    body: grid.map((g) => [`${g.contractor} · ${g.scope}`, ...g.cells.filter((c) => months.includes(c.month)).map((c) => c.status)]),
+    head: [["Area", ...months.map((m) => monthLabel(m).replace(/ 20(\d\d)$/, " $1"))]],
+    body: grid.map((g) => [g.area, ...g.cells.filter((c) => months.includes(c.month)).map((c) => (c.pct == null ? "–" : `${c.pct} %`))]),
     styles: { ...tableBase.styles, fontSize: 7, cellPadding: 3 },
     didParseCell: (data) => {
       if (data.section !== "body" || data.column.index === 0) return;
       const v = data.cell.raw;
-      data.cell.styles.textColor = v === "Received" ? C.Normal : v === "Received late" ? C.Caution : ["Missing", "Overdue"].includes(v) ? C.Danger : C.muted;
+      const n = parseInt(v, 10);
+      data.cell.styles.textColor = isNaN(n) ? C.muted : n >= 90 ? C.Normal : n >= 70 ? C.Caution : C.Danger;
     },
   });
   y = doc.lastAutoTable.finalY + 22;

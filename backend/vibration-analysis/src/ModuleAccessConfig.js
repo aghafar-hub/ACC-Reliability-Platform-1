@@ -57,6 +57,7 @@ var MA_CONFIG = {
     getVibActionHistory: ["actions"],
     getVibLimits: ["limits", "equipment", "newreading", "log", "dashboard"],
     getVibEquipmentSummary: ["equipment", "dashboard", "newreading", "trends"],
+    getVibTracker: ["compliance", "equipment", "dashboard", "log"],
   },
 
   sectionTabs: {

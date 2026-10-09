@@ -84,9 +84,9 @@ function handleGetMyWork(params, session) {
       sections.push(vmwSection_('vib-due', 'Measurements due in 7 days', 'Interval due or follow-up readings — put them on a route.', 'info',
         sugg.filter(function (s) { return !s.overdue; }).map(suggItem)));
     } catch (e) {}
-    sections.push(vmwSection_('vib-reports-send', 'Reports to send to ACC', 'Draft or returned reports, and months past the 45-day deadline.', 'action',
+    sections.push(vmwSection_('vib-reports-send', 'Reports to send to ACC', 'Draft or returned reports — send them for approval.', 'action',
       reports.filter(function (r) { return r['Contractor'] === c && (['Draft', 'Returned'].indexOf(r['Workflow status']) !== -1); })
-        .map(function (r) { return reportItem(r, 'Due ' + r['Due date'], r['Workflow status'] === 'Returned' ? 'returned' : r['Report status'] === 'Overdue' ? 'overdue' : ''); })));
+        .map(function (r) { return reportItem(r, r['Month'], r['Workflow status'] === 'Returned' ? 'returned' : ''); })));
     sections.push(vmwSection_('vib-actions-rec', 'Actions waiting for your recommendation', 'Draft actions from report findings.', 'action',
       actions.filter(function (a) { return a['Contractor'] === c && a['Status'] === 'Draft' && !String(a['Contractor recommendation'] || '').trim(); }).map(function (a) { return actionItem(a, 'Created ' + String(a['Created at']).slice(0, 10)); })));
     sections.push(vmwSection_('vib-actions-due', 'Your actions due', 'Open actions due within 7 days or past due.', 'warning',
@@ -100,15 +100,12 @@ function handleGetMyWork(params, session) {
       actions.filter(function (a) { return a['Status'] === 'Draft'; }).map(function (a) { return actionItem(a, a['Contractor'] + (String(a['Contractor recommendation'] || '').trim() ? ' · contractor recommendation in' : ' · waiting for the contractor')); })));
     sections.push(vmwSection_('vib-closures', 'Closures to approve', 'The contractor asks to close — check the evidence.', 'action',
       actions.filter(function (a) { return a['Status'] === 'Closure Requested'; }).map(function (a) { return actionItem(a, 'Requested ' + String(a['Closure requested at']).slice(0, 10) + ' by ' + a['Closure requested by']); })));
-    sections.push(vmwSection_('vib-reports-overdue', 'Overdue reports', 'Past the 45-day deadline with no report sent.', 'warning',
-      reports.filter(function (r) { return r['Report status'] === 'Overdue'; }).map(function (r) { return reportItem(r, 'Was due ' + r['Due date'], 'overdue'); })));
   }
   if (manager) {
     var esc = [];
     actions.filter(function (a) { return own(a['Contractor']) && ['Open', 'Waiting Stoppage'].indexOf(a['Status']) !== -1 && a['Due date'] && a['Due date'] < late; })
       .forEach(function (a) { esc.push(actionItem(a, 'Due ' + a['Due date'] + ' · ' + (a['Owner'] || 'no owner'))); });
     routes.filter(function (r) { return own(r['Contractor']) && r.overdue && r['Planned date'] < late; }).forEach(function (r) { esc.push(routeItem(r)); });
-    reports.filter(function (r) { return own(r['Contractor']) && r['Report status'] === 'Overdue' && r['Due date'] < late; }).forEach(function (r) { esc.push(reportItem(r, 'Was due ' + r['Due date'], 'overdue')); });
     sections.push(vmwSection_('vib-escalations', 'Escalations', VMW_ESCALATE_DAYS + '+ days late — for follow-up with the team.', 'warning', esc));
   }
   out.sections = sections.filter(function (s) { return s.total > 0 || s.id === 'vib-my-routes'; });

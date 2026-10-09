@@ -35,7 +35,7 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'routes', label: 'Routes', icon: 'action' },
   { id: 'newreading', label: 'New reading', icon: 'plus' },
   { id: 'actions', label: 'Vibration Actions', icon: 'action' },
-  { id: 'compliance', label: 'Compliance Tracker', icon: 'compliance' },
+  { id: 'compliance', label: 'Measurement Tracker', icon: 'compliance' },
   { id: 'equipreg', label: 'Equipment Register', icon: 'registry' },
   { id: 'limits', label: 'Limits & intervals', icon: 'limits' },
   // No "Settings" entry here on purpose — it's the exact same embedded
@@ -148,6 +148,7 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
     groups: [
       { label: 'Dashboard', icon: 'ti-layout-dashboard', pages: ['dashboard'] },
       { label: 'Vibration Log', icon: 'ti-timeline', pages: ['log'] },
+      { label: 'Measurement Tracker', icon: 'ti-calendar-check', pages: ['compliance'] },
       {
         label: 'Equipment',
         icon: 'ti-engine',
@@ -162,7 +163,6 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
       { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
     ],
     more: [
-      { id: 'compliance', label: 'Compliance (old)', icon: 'ti-calendar-check' },
       { id: 'limits', label: 'Limits & intervals', icon: 'ti-adjustments' },
     ],
   },

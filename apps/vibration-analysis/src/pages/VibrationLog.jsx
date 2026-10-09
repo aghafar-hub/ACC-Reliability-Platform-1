@@ -9,15 +9,16 @@ import Tile, { PageHeader } from "../components/Tile";
 import { PhoneSummary } from "../components/PhoneParts";
 import { LevelSymbol, StatePill } from "../components/Level";
 import { levelColor } from "../levels";
-import { addDays, monthEnd, monthLabel, reportId, SCOPES, shortDate } from "../vibModel";
+import { monthLabel, reportId, SCOPES, shortDate } from "../vibModel";
 import VibReport from "./VibReport";
 import { reportTone, workflowTone } from "../tones";
 
 // Vibration Log: the timeline of contractor reports (one card per
 // contractor scope per month, newest first). Opens a report on the same
-// tab (VibReport). Workflow and the 45-day rule live in the backend
-// (VibrationLog.js); months with no report row yet are shown here as
-// "Not due yet" / "Overdue" from the same rule (month end + 45 days).
+// tab (VibReport). Reports are sent and approved here; they are not chased
+// by date: whether each machine was measured on time is the Measurement
+// Tracker's job (MeasurementTracker.jsx). A month with no report row shows
+// "No report".
 
 const CONTRACTOR_ORDER = ["RHI", "ASEC"];
 
@@ -79,13 +80,12 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
       const cells = scopes.map((sc) => {
         const r = byKey[`${month}|${sc.contractor}|${sc.scope}`];
         if (r) return { ...sc, month, report: r, status: r["Report status"] };
-        const due = addDays(monthEnd(month), 45);
-        return { ...sc, month, report: null, due, status: today > due ? "Overdue" : "Not due yet" };
+        return { ...sc, month, report: null, status: "No report" };
       });
       out.push({ month, cells });
     }
     return out;
-  }, [yr, thisMonth, reports, scopes, byKey, today]);
+  }, [yr, thisMonth, reports, scopes, byKey]);
 
   const visibleMonths = useMemo(
     () => (statusFilter === "All" ? months : months.map((m) => ({ ...m, cells: m.cells.filter((c) => c.status === statusFilter || c.report?.["Workflow status"] === statusFilter) })).filter((m) => m.cells.length)),
@@ -96,10 +96,8 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
   const yearReports = reports.filter((r) => r.Month.startsWith(yr));
   const waiting = reports.filter((r) => r["Workflow status"] === "ACC review");
   const drafts = reports.filter((r) => ["Draft", "Returned"].includes(r["Workflow status"]));
-  const dueCells = allCells.filter((c) => c.status !== "Not due yet");
-  const received = dueCells.filter((c) => ["Received", "Received late"].includes(c.status));
-  const onTime = dueCells.filter((c) => c.status === "Received");
-  const late = allCells.filter((c) => ["Overdue", "Missing"].includes(c.status));
+  const received = allCells.filter((c) => ["Received", "Received late"].includes(c.status));
+  const approved = yearReports.filter((r) => ["Approved", "Historic"].includes(r["Workflow status"]) && r["Report status"] !== "Missing");
   const notImported = reports.filter((r) => r["Report status"] === "Report not imported");
 
   if (openReportId) {
@@ -116,7 +114,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
     );
   }
 
-  const statusOptions = ["All", "Received", "Received late", "Awaiting report", "Overdue", "Missing", "Report not imported", "Skipped", "Draft", "ACC review", "Returned", "Approved"];
+  const statusOptions = ["All", "Received", "Not sent yet", "No report", "Report not imported", "Skipped", "Draft", "ACC review", "Returned", "Approved"];
   const contractors = me.contractor ? [me.contractor] : CONTRACTOR_ORDER;
 
   return (
@@ -125,7 +123,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
         title="Vibration Log"
         subtitle={
           data
-            ? `${reports.length} reports · ${waiting.length} waiting ACC review · ${drafts.length} draft or returned · ${late.length} overdue or missing in ${yr}`
+            ? `${reports.length} reports · ${waiting.length} waiting ACC review · ${drafts.length} draft or returned`
             : "Loading reports…"
         }
         right={
@@ -155,8 +153,8 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
         <>
           {isMobile && (
             <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="vlog-summary">
-              <span style={{ color: late.length ? T.danger : T.textPrimary, fontWeight: 700 }}>{late.length} overdue or missing</span>
-              <span style={{ color: T.textSecondary }}>{received.length} / {dueCells.length} received</span>
+              <span style={{ color: T.textPrimary, fontWeight: 700 }}>{received.length} received in {yr}</span>
+              <span style={{ color: T.textSecondary }}>{drafts.length} draft or returned</span>
               {waiting.length > 0 && <span style={{ color: T.info, fontWeight: 600 }}>{waiting.length} to review</span>}
             </PhoneSummary>
           )}
@@ -173,19 +171,18 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
             />
             <Tile
               icon="ti-circle-check"
-              value={`${received.length} / ${dueCells.length}`}
+              value={received.length}
               label={`Reports received in ${yr}`}
-              sub={dueCells.length ? `${Math.round((onTime.length / dueCells.length) * 100)}% on time (45 days) · target 95%` : "None due yet"}
+              sub={`${approved.length} approved`}
               testid="vlog-tile-received"
             />
             <Tile
-              icon="ti-alert-triangle"
-              value={late.length}
-              label={`Overdue or missing in ${yr}`}
-              sub={late.slice(0, 3).map((c) => `${c.contractor} ${c.scope} ${c.month.slice(5)}`).join(" · ") || "All in"}
-              tone={late.length ? T.danger : undefined}
-              onClick={late.length ? () => setStatusFilter("Overdue") : undefined}
-              testid="vlog-tile-late"
+              icon="ti-pencil"
+              value={drafts.length}
+              label={me.acc ? "With the contractor" : "Draft or returned"}
+              sub={drafts.slice(0, 2).map((r) => `${r.Contractor} ${r["Report scope"]} · ${monthLabel(r.Month)}`).join(" · ") || "None"}
+              onClick={drafts.length ? () => setStatusFilter("Draft") : undefined}
+              testid="vlog-tile-drafts"
             />
             <Tile
               icon="ti-file-import"
@@ -216,7 +213,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
               </select>
             </label>
             <ContractorChips value={view} onChange={setView} options={["Timeline", "Table"]} allLabel={null} label="View" size="sm" testid="vlog-view" />
-            <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>Due 45 days after measurement · newest first</span>
+            <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>Newest first · on-time measuring is per machine (Measurement Tracker)</span>
           </div>
 
           {view === "Timeline" ? (
@@ -296,14 +293,11 @@ function ReportCard({ T, s, cell, me, onOpen, onAdd, onSkip }) {
   const base = { ...s.card, marginBottom: 0, padding: 14, fontSize: 13 };
 
   if (!r || (r["Workflow status"] === "Historic" && cell.status === "Missing")) {
-    const overdue = cell.status === "Overdue" || cell.status === "Missing";
     return (
-      <div data-testid={testid} style={{ ...base, border: `2px dashed ${overdue ? T.danger : T.border}`, background: overdue ? T.dangerBg : "transparent" }}>
-        <ScopeHead T={T} cell={cell} right={<StatePill tone={tone}>{cell.status}</StatePill>} />
-        <div style={{ color: T.textSecondary, marginTop: 10 }}>
-          {overdue ? (r ? "No report received (history)" : `No report · was due ${shortDate(cell.due)}`) : `Expected by ${shortDate(cell.due)} · ${cell.equipment} machines`}
-        </div>
-        {overdue && (canAddHere || me.canApprove) && (
+      <div data-testid={testid} style={{ ...base, border: `2px dashed ${T.border}`, background: "transparent" }}>
+        <ScopeHead T={T} cell={cell} right={<StatePill tone={tone}>{r ? "No report" : cell.status}</StatePill>} />
+        <div style={{ color: T.textSecondary, marginTop: 10 }}>{r ? "No report received (history)" : `No report yet · ${cell.equipment} machines`}</div>
+        {(canAddHere || me.canApprove) && (
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             {canAddHere && (
               <button type="button" style={{ ...s.btnGhost, padding: "5px 10px" }} onClick={() => onAdd({ month: cell.month, contractor: cell.contractor, scope: cell.scope })}>
@@ -376,7 +370,7 @@ function ReportCard({ T, s, cell, me, onOpen, onAdd, onSkip }) {
         </div>
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: T.textSecondary }}>{r["Due date"] && wf !== "Historic" ? `Due ${shortDate(r["Due date"])}` : ""}</span>
+        <span style={{ fontSize: 12, color: T.textSecondary }}>{r["Received date"] && wf !== "Historic" ? `Received ${shortDate(r["Received date"])}` : ""}</span>
         <button
           type="button"
           onClick={() => onOpen(r["Report ID"])}
@@ -397,7 +391,7 @@ function LogTable({ T, s, rows, onOpen }) {
       <table data-phone-cards="" style={s.table}>
         <thead>
           <tr>
-            {["Report", "Month", "Contractor", "Scope", "Report status", "Workflow", "Measured", "Due", "Readings", "Normal", "Caution", "Alert", "Danger", ""].map((h) => (
+            {["Report", "Month", "Contractor", "Scope", "Report status", "Workflow", "Measured", "Received", "Readings", "Normal", "Caution", "Alert", "Danger", ""].map((h) => (
               <th key={h} style={s.th}>
                 {h}
               </th>
@@ -421,7 +415,7 @@ function LogTable({ T, s, rows, onOpen }) {
                   <StatePill tone={workflowTone(T, r["Workflow status"])}>{r["Workflow status"]}</StatePill>
                 </td>
                 <td style={s.td}>{shortDate(r["First reading"])}</td>
-                <td style={s.td}>{r["Workflow status"] === "Historic" ? "" : shortDate(r["Due date"])}</td>
+                <td style={s.td}>{r["Workflow status"] === "Historic" ? "" : shortDate(r["Received date"])}</td>
                 <td style={s.td}>{r.Entries || 0}</td>
                 {["Normal", "Caution", "Alert", "Danger"].map((l) => (
                   <td key={l} style={{ ...s.td, color: +r[l] ? levelColor(T, l) : T.textMuted, fontWeight: +r[l] ? 700 : 400 }}>

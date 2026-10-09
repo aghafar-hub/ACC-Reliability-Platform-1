@@ -74,7 +74,6 @@ function teamCollect_(from, to) {
     }
     if (['Draft', 'Returned'].indexOf(r['Workflow status']) !== -1) team(c).waiting++;
     if (r['Workflow status'] === 'ACC review') team('ACC').waiting++;
-    if (r['Report status'] === 'Overdue') team(c).overdue++;
   });
 
   vlRead_(ss, SHEET_VACTIONS).rows.forEach(function (raw) {
