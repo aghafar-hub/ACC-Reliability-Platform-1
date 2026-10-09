@@ -1,3 +1,4 @@
+import { LangToggle } from '../i18n/LangToggle';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
@@ -71,9 +72,7 @@ export default function MoreSheet({ open, onClose }: { open: boolean; onClose: (
             <b>{email}</b>
             <span>{roles}</span>
           </span>
-          <button type="button" className="more-lang" title="Arabic is being prepared" disabled>
-            EN / عربي
-          </button>
+          <LangToggle className="more-lang" testid="more-lang" />
         </div>
 
         {modules.map(({ cfg, entries }) => (

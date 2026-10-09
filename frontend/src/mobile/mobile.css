@@ -130,3 +130,43 @@ html {
     font-size: 16px !important;
   }
 }
+
+/* Arabic view (M4, i18n/translator.ts): the page reads right-to-left.
+   Codes (Equipment ID, LP, VIB ID), numbers in monospace and charts stay
+   left-to-right so "321.FN400" never reorders; arrows point the reading way. */
+html.lang-ar {
+  --sans: 'IBM Plex Sans Arabic', 'IBM Plex Sans', 'Segoe UI', Tahoma, sans-serif;
+  --heading: 'IBM Plex Sans Arabic', 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+}
+html.lang-ar body {
+  font-family: var(--sans);
+}
+html[dir='rtl'] .plant-code,
+html[dir='rtl'] [style*='Mono'],
+html[dir='rtl'] [style*='monospace'],
+html[dir='rtl'] code,
+html[dir='rtl'] input[type='date'],
+html[dir='rtl'] input[type='number'] {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+html[dir='rtl'] .recharts-wrapper,
+html[dir='rtl'] .recharts-responsive-container {
+  direction: ltr;
+}
+html[dir='rtl'] .icon-chevronRight,
+html[dir='rtl'] .ti-chevron-right,
+html[dir='rtl'] .ti-chevron-left,
+html[dir='rtl'] .ti-arrow-right,
+html[dir='rtl'] .ti-arrow-left {
+  transform: scaleX(-1);
+  display: inline-block;
+}
+.lang-on {
+  font-weight: 800;
+}
+/* lines still in English (names, reasons, codes lists) keep their own
+   reading order; Arabic lines read right-to-left */
+html[dir='rtl'] body :is(p, span, b, small, em, strong, td, th, li, label, button, a, h1, h2, h3, h4, div) {
+  unicode-bidi: plaintext;
+}

@@ -53,6 +53,7 @@ export function Icon({ name, size = 18, style }: { name: string; size?: number; 
       strokeLinecap="round"
       strokeLinejoin="round"
       style={style}
+      className={`icon icon-${name}`}
       aria-hidden="true"
     >
       <path d={PATHS[name] ?? PATHS.dashboard} />

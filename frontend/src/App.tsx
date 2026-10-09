@@ -1,3 +1,4 @@
+import { TranslationsLoader } from './i18n/LangToggle';
 import PlantOverview from './pages/PlantOverview';
 import { PlantEquipmentList, PlantMachinePage } from './pages/PlantEquipment';
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -212,6 +213,7 @@ function ShellForUser() {
 function AuthenticatedShell() {
   return (
     <ModuleAccessProvider>
+      <TranslationsLoader />
       <ShellForUser />
     </ModuleAccessProvider>
   );

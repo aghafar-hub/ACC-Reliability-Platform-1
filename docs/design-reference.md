@@ -201,6 +201,23 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
   (`frontend/src/plant.ts`). A new module adds a `plantSummary.js` with the
   same shape and one entry in `PLANT_MODULES`.
 
+## 8c. Arabic (right-to-left)
+
+- One translator for the whole page (`frontend/src/i18n/translator.ts`):
+  any text, placeholder, aria-label or title whose English is in the word
+  list (`i18n/terms.ts`, overridden by Platform Core's TRANSLATIONS sheet)
+  shows in Arabic. **Write UI words as whole phrases** (one text node) so
+  they can be translated; put numbers in their own element or use a
+  `{n}` pattern in the word list.
+- New UI words go into `i18n/terms.ts` with a first Arabic suggestion; the
+  App Owner adds them to the sheet from Settings → Language.
+- Mark anything that must never be translated with `data-no-translate`.
+- Codes and numbers stay left-to-right (monospace codes, `.plant-code`,
+  charts); every line keeps its own reading order (`unicode-bidi:
+  plaintext`), so English data inside Arabic pages reads correctly.
+- Use logical CSS (`margin-inline-start`, `inset-inline-end`) for new
+  layout so it mirrors by itself.
+
 ## 9. Checklist for a new or redesigned page
 
 - [ ] Header with live-number subtitle; controls on the right.

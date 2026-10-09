@@ -1,3 +1,4 @@
+import ArabicWordsPanel from '../i18n/ArabicWordsPanel';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
@@ -13,13 +14,14 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'delegations' | 'users' | 'module-access';
+type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access';
 
 // One list of sections, shown as the left navigation (design reference):
 // the platform's own settings first, then each module's.
 type Section = { id: string; group: 'Platform' | 'Modules'; label: string; hint: string; icon: string; tab: SettingsTabId; sub?: GeneralSubTabId };
 const SECTIONS: Section[] = [
   { id: 'appearance', group: 'Platform', label: 'Appearance', hint: 'Colour theme · install the app', icon: 'palette', tab: 'general', sub: 'appearance' },
+  { id: 'language', group: 'Platform', label: 'Language', hint: 'English / عربي · Arabic word list', icon: 'share', tab: 'general', sub: 'language' },
   // Responsible engineers, managers and the App Owner (filtered below).
   { id: 'delegations', group: 'Platform', label: 'My delegations', hint: 'Cover while you are away', icon: 'users', tab: 'general', sub: 'delegations' },
   { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
@@ -47,7 +49,9 @@ export default function Settings() {
   const embeddedNav = useEmbeddedNav();
   const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
   // ?tab=delegations opens straight on My delegations (My Work's "Nobody responsible" link)
-  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>(searchParams.get('tab') === 'delegations' ? 'delegations' : 'appearance');
+  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>(
+    searchParams.get('tab') === 'delegations' ? 'delegations' : searchParams.get('tab') === 'language' ? 'language' : 'appearance',
+  );
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
   const { access } = useModuleAccess();
@@ -150,6 +154,7 @@ export default function Settings() {
               <InstallCard />
             </>
           )}
+          {generalSubTab === 'language' && <ArabicWordsPanel isAppOwner={isAppOwner} />}
           {generalSubTab === 'delegations' && canDelegate && <DelegationsPanel />}
           {generalSubTab === 'users' && isAppOwner && <AccountsPanel />}
           {generalSubTab === 'module-access' && isAppOwner && <ModuleAccessPanel />}

@@ -1,3 +1,4 @@
+import { LangToggle } from '../i18n/LangToggle';
 import { useRef, useState, useEffect } from 'react';
 import { useOnlineStatus } from '../useOnlineStatus';
 import { NavLink, useLocation } from 'react-router-dom';
@@ -122,9 +123,7 @@ export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
           </div>
         )}
 
-        <button type="button" className="shell-topbar-lang" title="Language — Arabic view not built yet">
-          EN <span className="shell-topbar-lang-sep">/</span> عربي
-        </button>
+        <LangToggle className="shell-topbar-lang" testid="lang-toggle" />
 
         <NotificationBell />
 

@@ -1,0 +1,136 @@
+.aw-langs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.aw-lang,
+.aw-chip {
+  border: 1px solid var(--shell-border);
+  background: var(--shell-card-bg);
+  color: var(--shell-text-secondary);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+}
+.aw-chip {
+  padding: 6px 12px;
+  min-height: 36px;
+  font-size: 13px;
+}
+.aw-chip b {
+  margin-inline-start: 4px;
+}
+.aw-lang--on,
+.aw-chip--on {
+  background: var(--shell-accent);
+  border-color: var(--shell-accent);
+  color: var(--shell-accent-text);
+}
+.aw-status,
+.aw-msg {
+  font-size: 13px;
+  color: var(--shell-text-secondary);
+  margin: 6px 0 10px;
+}
+.aw-error {
+  color: var(--shell-danger);
+  font-size: 13px;
+}
+.aw-primary,
+.aw-more,
+.aw-save {
+  border: 1px solid var(--shell-accent);
+  background: var(--shell-accent);
+  color: var(--shell-accent-text);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 40px;
+}
+.aw-more {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  background: var(--shell-card-bg);
+  color: var(--shell-accent);
+  border-color: var(--shell-border);
+}
+.aw-save:disabled,
+.aw-primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.aw-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 10px 0;
+}
+.aw-search,
+.aw-ar,
+.aw-st {
+  border: 1px solid var(--shell-border);
+  background: var(--shell-card-bg);
+  color: var(--shell-text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  min-height: 40px;
+  box-sizing: border-box;
+}
+.aw-search {
+  flex: 1 1 240px;
+}
+.aw-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.aw-list {
+  display: flex;
+  flex-direction: column;
+}
+.aw-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) 120px 76px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--shell-border);
+}
+.aw-en {
+  font-size: 14px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  direction: ltr;
+  text-align: left;
+}
+.aw-area {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--shell-text-secondary);
+  background: color-mix(in srgb, var(--shell-text-secondary) 12%, transparent);
+  border-radius: 6px;
+  padding: 1px 6px;
+  margin-inline-end: 6px;
+}
+.aw-ar {
+  font-family: 'IBM Plex Sans Arabic', var(--sans);
+  width: 100%;
+}
+@media (max-width: 860px) {
+  .aw-row {
+    grid-template-columns: 1fr auto;
+  }
+  .aw-en,
+  .aw-ar {
+    grid-column: 1 / -1;
+  }
+}

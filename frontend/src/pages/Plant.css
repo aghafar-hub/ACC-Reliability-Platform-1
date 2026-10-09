@@ -718,3 +718,6 @@
     font-size: 19px;
   }
 }
+.plant-overall > b {
+  margin-inline-end: 4px;
+}
