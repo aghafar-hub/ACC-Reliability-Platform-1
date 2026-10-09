@@ -89,8 +89,8 @@ The person who made the change is not notified.
   others.
 - **Work by module:** the same sections as before, now with a count per
   module.
-- **My work / My team tabs:** managers, the App Owner and contractor
-  responsible engineers get both.
+- **My work / My team tabs:** managers, the App Owner and responsible
+  engineers (ACC and contractor) get both.
 
 ## My team (managers, `components/TeamTab.tsx`)
 
@@ -108,7 +108,11 @@ platform started isn't there.
     their own contractor's technicians, and only in the modules where they
     are responsible. They get the Technicians list without the Engineers
     tab.
-  - ACC engineers, technicians and visitors get no My team tab.
+  - ACC's responsible engineer for a module (listed in its Module Access,
+    or covering) sees every contractor's technicians in that module: for
+    example, the Oil Lubrication engineer sees the RHI and ASEC technicians'
+    oil routes. Technicians list only, with company chips.
+  - Other ACC people, technicians and visitors get no My team tab.
 - **Controls:** period chips (This month, Last 3 months, This year), sub-tabs
   Engineers | Technicians, and sorting By name or Most overdue. It is
   workload, not a ranking.

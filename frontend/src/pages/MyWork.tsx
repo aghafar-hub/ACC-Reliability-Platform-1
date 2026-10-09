@@ -459,8 +459,10 @@ export default function MyWork({
   const { access } = useModuleAccess();
   // Managers and the App Owner also get My team (what their people did).
   const isManager = !!claims?.roles.some((r) => r === ROLE.ADMIN || r === ROLE.MANAGER || r === ROLE.CONTRACTOR_MANAGER);
-  // A contractor's responsible engineer (listed or covering) sees their technicians.
-  const isTechLead = Object.values(access).some((a) => a?.responsibilities?.includes('Contractor Responsible Engineer'));
+  // A responsible engineer (listed or covering) sees technicians: a
+  // contractor's sees their own; ACC's sees every contractor's in that module.
+  const isTechLead = Object.values(access).some((a) => a?.responsibilities?.some((r) => r === 'Contractor Responsible Engineer' || r === 'ACC Responsible Engineer'));
+  const isAccEngineer = !isManager && Object.values(access).some((a) => a?.responsibilities?.includes('ACC Responsible Engineer'));
   const showTeam = isManager || isTechLead;
   const [view, setView] = useState<'mine' | 'team'>(() => (new URLSearchParams(window.location.search).get('tab') === 'team' ? 'team' : 'mine'));
   const oilAccess = access['oil-analysis'];
@@ -636,7 +638,9 @@ export default function MyWork({
             {view === 'team'
               ? isManager
                 ? 'What your engineers and technicians did, and what they have in hand.'
-                : 'What your technicians did, and what they have in hand.'
+                : isAccEngineer
+                  ? "What the contractors' technicians did, and what they have in hand."
+                  : 'What your technicians did, and what they have in hand.'
               : loaded
                 ? `${toDo} to do · ${overdueCount} overdue${moduleCount > 1 ? ` · across ${moduleCount} modules` : ''}`
                 : "What's waiting for you, across every module."}

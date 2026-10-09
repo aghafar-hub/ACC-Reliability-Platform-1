@@ -12,7 +12,8 @@ import './TeamTab.css';
 // technician did in the period, what they still have in hand, and their
 // dated history — from every module at once. A contractor manager gets
 // their own contractor only; a contractor's responsible engineer gets their
-// own technicians only. The backend decides (ModuleAccess.js maTeamScope_). Shown as workload, sorted by name or by overdue — not as
+// own technicians only; a module's ACC responsible engineer gets every
+// contractor's technicians in that module. The backend decides (ModuleAccess.js maTeamScope_). Shown as workload, sorted by name or by overdue — not as
 // a ranking.
 
 type Period = 'month' | 'quarter' | 'year';
@@ -190,7 +191,7 @@ export default function TeamTab() {
             <div className="tm-tile">
               <span className="tm-tile-label">{kind === 'engineer' ? 'Engineers' : 'Technicians'}</span>
               <span className="tm-tile-value">{rows.length}</span>
-              <span className="tm-tile-sub">{company === 'All' ? (data.scope === 'all' ? 'ACC and contractors' : data.scope) : company}</span>
+              <span className="tm-tile-sub">{company === 'All' ? (data.scope === 'all' ? (data.techOnly ? 'All contractors' : 'ACC and contractors') : data.scope) : company}</span>
             </div>
             <div className="tm-tile">
               <span className="tm-tile-label">Work done</span>

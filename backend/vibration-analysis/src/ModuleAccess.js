@@ -774,7 +774,8 @@ function maHandleSelfAction_(action, data, session) {
 // A contractor manager sees their own contractor's engineers and
 // technicians; an ACC manager and the App Owner see ACC and every
 // contractor; a contractor's responsible engineer sees their own
-// technicians only. Each module supplies its events through
+// technicians only; this module's ACC responsible engineer sees every
+// contractor's technicians in it. Each module supplies its events through
 // teamCollect_(from, to) → { events: [...], open: { email: {open, overdue} },
 // teams: [{ contractor, waiting, overdue }] }, where an event is
 // { who, date: "yyyy-MM-dd", kind, label, title, contractor, side: "ACC" |
@@ -796,6 +797,9 @@ function maTeamScope_(session) {
   // own technicians only.
   var resp = maResponsibility_(session);
   if (resp.responsible && resp.side !== "ACC" && resp.contractor) return { all: false, contractor: resp.contractor, techOnly: true };
+  // ACC's responsible engineer for this module (listed, or covering) sees
+  // every contractor's technicians in it.
+  if (resp.responsible && resp.side === "ACC") return { all: true, contractor: "", techOnly: true };
   return null;
 }
 
