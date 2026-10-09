@@ -141,6 +141,12 @@ html.lang-ar {
 html.lang-ar body {
   font-family: var(--sans);
 }
+/* translated text (marked by the translator) wins over fonts set inline or
+   per module; codes and numbers around it keep their own font */
+html.lang-ar [data-ar],
+body [lang='ar'] {
+  font-family: 'IBM Plex Sans Arabic', 'IBM Plex Sans', sans-serif !important;
+}
 html[dir='rtl'] .plant-code,
 html[dir='rtl'] [style*='Mono'],
 html[dir='rtl'] [style*='monospace'],

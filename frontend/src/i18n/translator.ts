@@ -140,6 +140,9 @@ function doText(node: Text) {
   const next = lead + ar + trail;
   shown.set(node, next);
   node.nodeValue = next;
+  // headings, buttons and module styles that name their own font
+  // (Space Grotesk, Arial…) still show the Arabic in IBM Plex Sans Arabic
+  node.parentElement?.setAttribute('data-ar', '');
 }
 
 function doAttrs(el: Element) {
