@@ -5,6 +5,14 @@
   display: none;
 }
 
+/* Bar height, used by everything that sits above it. The iPhone home
+   indicator area is 34px; the buttons may sit partly over it, so only part
+   of it is added under them. */
+:root {
+  --bottom-nav-pad: max(4px, calc(env(safe-area-inset-bottom, 0px) - 16px));
+  --bottom-nav-h: calc(54px + var(--bottom-nav-pad));
+}
+
 @media (max-width: 860px) {
   .bottom-nav {
     display: grid;
@@ -12,9 +20,8 @@
     position: fixed;
     inset-inline: 0;
     bottom: 0;
-    height: calc(62px + env(safe-area-inset-bottom, 0px));
-    /* iPhone home-indicator safe area */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: var(--bottom-nav-h);
+    padding-bottom: var(--bottom-nav-pad);
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
     background: var(--shell-card-bg, #fff);
@@ -33,7 +40,7 @@
     justify-content: center;
     gap: 3px;
     min-width: 0;
-    height: 62px;
+    height: 54px;
     border: none;
     background: transparent;
     color: var(--shell-text-secondary, #4a5a70);
@@ -73,7 +80,7 @@
   .bottom-nav-plus {
     width: 56px;
     height: 56px;
-    margin-top: -20px;
+    margin-top: -18px;
     border-radius: 16px;
     background: var(--shell-accent, #1e5bb8);
     color: var(--shell-accent-text, #fff);

@@ -409,9 +409,8 @@
 }
 
 /* Mobile proposal M1 — compact phone header: the module or page name,
-   search and sync only. The bell lives in the bottom bar's Alerts (its
-   panel stays mounted here, only the button hides), settings, account and
-   language move to More. */
+   search, sync and the notification bell. Settings, account and language
+   move to More. */
 :root {
   --topbar-h: calc(54px + env(safe-area-inset-top, 0px));
 }
@@ -422,7 +421,6 @@
     gap: 6px;
   }
   .shell-topbar-menu-btn,
-  .shell-topbar .notif-bell-trigger,
   .shell-topbar-icon-btn:not(.gsearch-phone-btn),
   .shell-topbar-user {
     display: none !important;

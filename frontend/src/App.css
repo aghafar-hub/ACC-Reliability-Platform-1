@@ -40,7 +40,7 @@
    .app-content--embedded's own negative-margin/zoom system below. */
 @media (max-width: 860px) {
   .app-shell-right {
-    padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(var(--bottom-nav-h) + 4px);
   }
 }
 

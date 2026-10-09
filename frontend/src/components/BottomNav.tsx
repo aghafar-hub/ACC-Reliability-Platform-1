@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useBackClose } from '../mobile/useBackClose';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -11,14 +11,15 @@ import { OIL, OIL_ROUTE, VIB, VIB_ROUTE, useQuickActions } from '../quickActions
 import './BottomNav.css';
 
 // The phone's bottom bar (design system D2), only visible <=860px
-// (BottomNav.css): Home · Equipment · ＋ · Alerts · More.
+// (BottomNav.css): Home · Equipment · ＋ · My Work · More.
 // - Home depends on the role: ACC staff open the Dashboard, contractor
 //   staff open My Work (technicians-only have their own shell).
 // - ＋ starts the field entries from any screen. Work is recorded through
 //   routes in this app, so it offers Emergency top-up (a pre-filled route),
 //   New route, Add lab report and New vibration reading — whichever this
 //   person may do (Module Access).
-// - Alerts opens the notification panel; More opens the full menu.
+// - My Work sits where Alerts used to be (the bell is in the top bar);
+//   contractor staff already have it as Home. More opens the full menu.
 
 
 export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore: () => void; moreOpen?: boolean }) {
@@ -29,13 +30,6 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
   const { access } = useModuleAccess();
   const [sheetOpen, setSheetOpen] = useState(false);
   useBackClose(sheetOpen, () => setSheetOpen(false));
-  // unread notices, reported by the bell (NotificationBell.tsx)
-  const [unread, setUnread] = useState(0);
-  useEffect(() => {
-    const on = (e: Event) => setUnread(Number((e as CustomEvent<number>).detail) || 0);
-    window.addEventListener('acc:unread', on);
-    return () => window.removeEventListener('acc:unread', on);
-  }, []);
 
   const oil = canOpenModule(access[OIL]);
   const vib = canOpenModule(access[VIB]);
@@ -71,7 +65,9 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
   if (quick.length) {
     slots.push({ key: 'plus', label: 'Add', icon: 'plus', active: sheetOpen, plus: true, onClick: () => { tapHaptic(); setSheetOpen(true); } });
   }
-  slots.push({ key: 'alerts', label: 'Alerts', icon: 'bell', active: false, badge: unread, onClick: () => { tapHaptic(); window.dispatchEvent(new Event('acc:open-notifications')); } });
+  if (!slots.some((s) => s.key === 'home' && s.icon === 'myWork')) {
+    slots.push({ key: 'mywork', label: 'My Work', icon: 'myWork', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
+  }
   slots.push({ key: 'more', label: 'More', icon: 'menu', active: moreOpen || !slots.some((s) => s.active), onClick: () => { tapHaptic(); onOpenMore(); } });
 
   if (moreOpen) slots.forEach((sl) => (sl.active = sl.key === 'more'));

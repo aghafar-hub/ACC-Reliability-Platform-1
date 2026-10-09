@@ -100,7 +100,7 @@
 }
 @media (max-width: 860px) {
   .update-toast {
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(var(--bottom-nav-h) + 14px);
   }
 }
 

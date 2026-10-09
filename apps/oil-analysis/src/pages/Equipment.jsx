@@ -935,7 +935,7 @@ export default function Equipment({
                     data-testid="machine-action-bar"
                     style={
                       isMobile
-                        ? { position: "fixed", left: 0, right: 0, bottom: "calc(62px + env(safe-area-inset-bottom, 0px))", zIndex: 250, display: "flex", gap: 8, padding: "10px 12px", fontFamily: "'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif", background: `linear-gradient(180deg, ${T.appBg}00, ${T.appBg} 35%)` }
+                        ? { position: "fixed", left: 0, right: 0, bottom: "var(--bottom-nav-h, calc(62px + env(safe-area-inset-bottom, 0px)))", zIndex: 250, display: "flex", gap: 8, padding: "10px 12px", fontFamily: "'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif", background: `linear-gradient(180deg, ${T.appBg}00, ${T.appBg} 35%)` }
                         : { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }
                     }
                     className={isMobile ? "machine-actions-phone" : undefined}
