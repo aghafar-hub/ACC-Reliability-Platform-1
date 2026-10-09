@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFreshTick } from "../dataCache";
 import {
   Bar,
   BarChart,
@@ -238,9 +239,10 @@ export default function Routines({
       setSuggestions((prev) => prev || []);
     }
   }, [webhookUrl]);
+  const freshTick = useFreshTick(["getSuggestions", "getRoutinesOverview", "getRoutines", "getDashboardSettings"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     refreshSuggestions();
-  }, [refreshSuggestions]);
+  }, [refreshSuggestions, freshTick]);
   const [selectedRoutineId, setSelectedRoutineId] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null); // the overview item being drilled into
 
@@ -292,7 +294,7 @@ export default function Routines({
 
   useEffect(() => {
     refreshOverview();
-  }, [refreshOverview]);
+  }, [refreshOverview, freshTick]);
 
   // Item counts per route-type tab, for the tab row's own badge counts —
   // always computed off the FULL overviewItems, never the already-filtered
@@ -424,7 +426,7 @@ export default function Routines({
     api.getDashboardSettings(webhookUrl).then((st) => { if (!cancelled) setOnTimeTarget(st.onTimeTarget); });
     api.getRoutines(webhookUrl).then((rows) => { if (!cancelled) setOnTimeByContractor(routesOnTime(rows, 90)); }).catch(() => { if (!cancelled) setOnTimeByContractor(null); });
     return () => { cancelled = true; };
-  }, [webhookUrl]);
+  }, [webhookUrl, freshTick]);
   const [completionTrend, setCompletionTrend] = useState(null);
   const [completionTrendLoading, setCompletionTrendLoading] = useState(true);
 

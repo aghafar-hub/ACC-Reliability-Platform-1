@@ -103,7 +103,11 @@ function dispatchWithAccess_(action, params) {
   var request = { action: action };
   for (var k in params) { if (k !== 'action') request[k] = params[k]; }
   // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
-  if (MA_SELF_ACTIONS.indexOf(action) !== -1) return maHandleSelfAction_(action, params, session);
+  if (MA_SELF_ACTIONS.indexOf(action) !== -1) {
+    var self = maHandleSelfAction_(action, params, session);
+    if (action === 'maCreateDelegation' || action === 'maEndDelegation') vcBump_(); // who approves may change
+    return self;
+  }
   var isAdminAction = MA_ADMIN_ACTIONS.indexOf(action) !== -1;
   var denial = (isAdminAction || VIB_WRITE_ACTIONS.indexOf(action) !== -1)
     ? maCheckWrite_(session, request)
@@ -119,15 +123,24 @@ function dispatchWithAccess_(action, params) {
     try {
       return maHandleAdminPost_(request, session ? session.email : '');
     } finally {
+      vcBump_();
       lock.releaseLock();
     }
   }
 
-  var result = dispatch(action, params, session);
-  if (action === 'readAll' || action === 'getStartupBundle' || action === 'getRmsSpmHistory') {
-    result = maFilterSections_(session, result);
+  if (VIB_WRITE_ACTIONS.indexOf(action) !== -1) {
+    var written = dispatch(action, params, session);
+    vcBump_(); // Cache.js: every cached read is now out of date
+    return written;
   }
-  return result;
+  // reads: from the cache when nothing changed since (Cache.js)
+  return vcRead_(action, params, session, function () {
+    var result = dispatch(action, params, session);
+    if (action === 'readAll' || action === 'getStartupBundle' || action === 'getRmsSpmHistory') {
+      result = maFilterSections_(session, result);
+    }
+    return result;
+  });
 }
 
 function dispatch(action, params, session) {
@@ -215,28 +228,18 @@ function readAll() {
   };
 }
 
-// PERFORMANCE: lightweight first-load bundle — everything readAll() returns
-// EXCEPT 📥 RMS DATA / 📥 SPM DATA, the two heaviest sheets by far (6,500+
-// and 5,700+ rows combined — roughly half of everything readAll() would
-// otherwise transmit). Of this app's 9 pages, only Graphs Dashboard and
-// Equipment Readings actually need that full reading history; Dashboard,
-// New Reading, Equipment Register, Compliance Tracker, Action Tracker, and
-// Limits Settings all work off the smaller sheets below alone. src/App.jsx
-// calls this instead of readAll() on first mount, then lazily fetches
-// getRmsSpmHistory() only the first time the user opens Graphs Dashboard or
-// Equipment Readings — so the common path (anything except those two pages)
-// never pays for reading or transmitting that history at all. The "Sync"
-// button still calls the original readAll() for an explicit full refresh.
+// PERFORMANCE: the first-load bundle (src/App.jsx). Kept small, answered
+// from the read cache (Cache.js) and kept on the device (dataCache.js), so
+// the app opens with it at once.
 function getStartupBundle() {
+  // What the app needs to start: machines, points and limits. (The old
+  // Compliance Tracker, Last RMS / SPM Reading and Action Tracker lists are
+  // no longer used by any page — the Measurement Tracker, Vibration Log
+  // Entries and Vibration Actions replaced them.)
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  try { handleMarkMissingCompliance(); } catch(e) {}
   return {
-    compliance:  readCompliance(ss),
     rmsRegister: readSheet(ss, SHEET_RMS_REG),
     spmRegister: readSheet(ss, SHEET_SPM_REG),
-    lastRms:     readSheet(ss, SHEET_LAST_RMS),
-    lastSpm:     readSheet(ss, SHEET_LAST_SPM),
-    actions:     readActionsRaw(ss),
     config:      readConfigRaw(ss),
     vibPoints:   readVibRegistry(ss),
   };

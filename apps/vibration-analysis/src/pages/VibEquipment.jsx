@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibEquipmentHistory, getVibEquipmentSummary, getVibTracker } from "../api";
+import { getVibEquipmentHistory, getVibEquipmentSummary, getVibTracker, peekCached } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -25,7 +25,7 @@ const UNIT = { RMS: "mm/s", SPM: "dBsv", Gs: "g" };
 const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 
 export default function VibEquipment({ webhookUrl, scopeEquipment, selectedEq, setSelectedEq, onOpenReport, startAdding, onAddClosed }) {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => peekCached("getVibEquipmentSummary"));
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(startAdding ? {} : null);
   // bumped after a save so the open machine page reloads its readings
@@ -312,7 +312,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
 function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOpenReport, today }) {
   const { T, s, themeName } = useTheme();
   const isMobile = useIsMobile();
-  const [hist, setHist] = useState(null);
+  const [hist, setHist] = useState(() => peekCached("getVibEquipmentHistory", { equipmentId: eqId })?.entries || null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("trend");
   const [metric, setMetric] = useState("RMS");
@@ -567,18 +567,18 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
 // backend MeasurementTracker.js): one row per year, one square per month.
 function MeasuringHistory({ webhookUrl, eqId, version }) {
   const { T, s } = useTheme();
-  const [d, setD] = useState(null);
+  const trackerRange = { from: "2023-01", to: new Date().toISOString().slice(0, 7), equipmentId: eqId };
+  const [d, setD] = useState(() => peekCached("getVibTracker", trackerRange));
   const [error, setError] = useState("");
   useEffect(() => {
     let live = true;
-    setD(null);
-    getVibTracker(webhookUrl, { from: "2023-01", to: new Date().toISOString().slice(0, 7), equipmentId: eqId })
+    getVibTracker(webhookUrl, trackerRange)
       .then((r) => live && setD(r))
       .catch((e) => live && setError(String(e.message || e)));
     return () => {
       live = false;
     };
-  }, [webhookUrl, eqId, version]);
+  }, [webhookUrl, eqId, version]); // eslint-disable-line react-hooks/exhaustive-deps -- trackerRange follows eqId
   if (error) return <div role="alert" style={{ ...s.card, color: T.danger }}>{error}</div>;
   if (!d) return <div style={{ ...s.card, color: T.textSecondary }}>Loading the measuring history…</div>;
   const m = d.machines[0];

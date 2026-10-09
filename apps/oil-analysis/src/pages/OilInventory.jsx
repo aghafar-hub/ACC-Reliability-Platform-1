@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useFreshTick } from "../dataCache";
 import {
   Area,
   Bar,
@@ -631,6 +632,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
   const [loadingC, setLoadingC] = useState(true);
   const [loadingF, setLoadingF] = useState(true);
 
+  const freshTick = useFreshTick(["getOilInventory", "getOilInventoryConsumption", "getOilInventoryForecast", "getAllOilInventoryMovements"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     let cancelled = false;
     setLoadingC(true);
@@ -646,7 +648,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
     return () => {
       cancelled = true;
     };
-  }, [webhookUrl]);
+  }, [webhookUrl, freshTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -663,7 +665,7 @@ function OverviewTab({ webhookUrl, products, contractorFilter, period, setPeriod
     return () => {
       cancelled = true;
     };
-  }, [webhookUrl, period]);
+  }, [webhookUrl, period, freshTick]);
 
   const lowStock = lowStockSorted(products);
   const noLevel = products.filter((p) => p.status !== "Discontinued" && p.recorderLevel == null).length;
@@ -1114,6 +1116,7 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const freshTick = useFreshTick(["getOilInventory", "getOilInventoryConsumption", "getOilInventoryForecast", "getAllOilInventoryMovements"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -1132,7 +1135,7 @@ function ConsumptionTab({ webhookUrl, contractorFilter, onOpenProduct }) {
     return () => {
       cancelled = true;
     };
-  }, [webhookUrl, months]);
+  }, [webhookUrl, months, freshTick]);
 
   const byProductAll = useMemo(() => data?.byProduct || [], [data]);
   const monthKeys = useMemo(() => data?.months || [], [data]);
@@ -1335,6 +1338,7 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const freshTick = useFreshTick(["getOilInventory", "getOilInventoryConsumption", "getOilInventoryForecast", "getAllOilInventoryMovements"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -1353,7 +1357,7 @@ function ForecastTab({ webhookUrl, contractorFilter, products, period, setPeriod
     return () => {
       cancelled = true;
     };
-  }, [webhookUrl, period]);
+  }, [webhookUrl, period, freshTick]);
 
   const levelById = useMemo(() => Object.fromEntries((products || []).map((p) => [p.productId, p.recorderLevel])), [products]);
   const rows = (data?.forecast || [])
@@ -1546,6 +1550,7 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
   const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
 
+  const freshTick = useFreshTick(["getOilInventory", "getOilInventoryConsumption", "getOilInventoryForecast", "getAllOilInventoryMovements"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -1564,7 +1569,7 @@ function MovementsTab({ webhookUrl, products, contractorFilter, onOpenProduct })
     return () => {
       cancelled = true;
     };
-  }, [webhookUrl]);
+  }, [webhookUrl, freshTick]);
 
   useEffect(() => setPage(0), [typeFilter, search, from, to, contractorFilter]);
 
@@ -1830,9 +1835,10 @@ export default function OilInventory({ webhookUrl, equipmentRegistry, pushToast 
     }
   }, [webhookUrl]);
 
+  const freshTick = useFreshTick(["getOilInventory", "getOilInventoryConsumption", "getOilInventoryForecast", "getAllOilInventoryMovements"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     refresh();
-  }, [refresh]);
+  }, [refresh, freshTick]);
 
   const activeProducts = visibleProducts.filter((p) => p.status !== "Discontinued");
   const totalStock = activeProducts.reduce((n, p) => n + (Number(p.currentStock) || 0), 0);

@@ -1,3 +1,4 @@
+import { fresh, keyOf, remember, setCacheUser, staleAll } from "./dataCache";
 // Client for the Google Apps Script Web App that backs this app — ported
 // from the original bundle's `Qa`/`dm`/`gt`/`mn` functions. See
 // docs/API_CONTRACT.md for the full action-by-action reference.
@@ -78,6 +79,7 @@ function jsonpRequest(webhookUrl, params) {
 let sessionToken = null;
 export function setSessionToken(token) {
   sessionToken = token || null;
+  setCacheUser(token);
 }
 
 let currentPage = null;
@@ -129,6 +131,7 @@ async function fetchThenJsonp(webhookUrl, action, params) {
 export async function verifiedGet(webhookUrl, action = "readAll", params = {}) {
   if (!webhookUrl) throw new Error("No webhook URL");
   if (WRITE_ACTIONS.has(action)) {
+    staleAll();
     const reason = blockedReason();
     if (reason) throw new Error(reason);
   }
@@ -150,6 +153,7 @@ export async function verifiedGet(webhookUrl, action = "readAll", params = {}) {
 // deliberately ignored). Used for every raw-sheet write.
 function fireAndForget(webhookUrl, params) {
   if (!webhookUrl) return;
+  staleAll();
   const reason = blockedReason();
   if (reason) {
     reportBlocked(reason);
@@ -178,7 +182,7 @@ export function readAll(webhookUrl) {
 // that actually needs reading history (Graphs Dashboard, Equipment
 // Readings) is opened.
 export function getStartupBundle(webhookUrl) {
-  return verifiedGet(webhookUrl, "getStartupBundle");
+  return getChecked(webhookUrl, "getStartupBundle");
 }
 
 // The `{ rms, spm }` getStartupBundle() leaves out — see that function's
@@ -280,6 +284,7 @@ async function postVerified(webhookUrl, action, body) {
   if (!webhookUrl) throw new Error("No webhook URL");
   const reason = blockedReason();
   if (reason) throw new Error(reason);
+  staleAll(); // whatever this changes, the next read goes to the server
   let res;
   try {
     res = await fetch(webhookUrl, {
@@ -304,11 +309,33 @@ async function postVerified(webhookUrl, action, body) {
   return data;
 }
 
-async function getChecked(webhookUrl, action, params) {
-  const data = await verifiedGet(webhookUrl, action, params);
-  if (data && (data.status === "error" || data.error)) throw new Error(data.error || "Load failed");
-  return data;
+// Reads (dataCache.js): an answer under a minute old is reused, the same
+// request already on its way is shared, every answer is kept on the device
+// for the next first paint. After Sync the server is asked to skip its own
+// cache (fresh=1, backend Cache.js) for a few seconds.
+const inflight = new Map();
+let freshUntil = 0;
+export function syncFresh() {
+  freshUntil = Date.now() + 20_000;
+  staleAll();
 }
+async function getChecked(webhookUrl, action, params) {
+  const k = keyOf(action, params);
+  const hit = fresh(k);
+  if (hit) return hit;
+  if (inflight.has(k)) return inflight.get(k);
+  const p = verifiedGet(webhookUrl, action, Date.now() < freshUntil ? { ...(params || {}), fresh: 1 } : params)
+    .then((data) => {
+      if (data && (data.status === "error" || data.error)) throw new Error(data.error || "Load failed");
+      remember(k, data);
+      return data;
+    })
+    .finally(() => inflight.delete(k));
+  inflight.set(k, p);
+  return p;
+}
+// The last answer kept on this device (first paint), or null.
+export { peek as peekCached } from "./dataCache";
 
 export function getVibLog(webhookUrl) {
   return getChecked(webhookUrl, "getVibLog");

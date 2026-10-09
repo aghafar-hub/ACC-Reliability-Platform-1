@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  getStartupBundle,
-  readAll,
-  getVibLimits,
-  setCurrentPage,
-} from "./api";
+import { getStartupBundle, getVibLimits, peekCached, setCurrentPage, syncFresh } from "./api";
 import { configStore, DEFAULT_WEBHOOK_URL, loadThresholdOverrides } from "./config";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
-import { classifyComplianceStatus, vibPointKey } from "./domain";
+import { vibPointKey } from "./domain";
 import { PAGE_TITLES } from "./navigation";
-import {
-  rowToAction,
-  rowToCompliance,
-  rowToLastRMS,
-  rowToLastSPM,
-  rowToRmsRegister,
-  rowToSpmRegister,
-  rowToVibPoint,
-} from "./parsers";
+import { rowToRmsRegister, rowToSpmRegister, rowToVibPoint } from "./parsers";
 import { useTheme } from "./ThemeContext";
 
 import VibDashboard from "./pages/VibDashboard";
@@ -34,7 +21,10 @@ import VibRoutes from "./pages/VibRoutes";
 import { buildEquipment } from "./vibModel";
 import { installPhoneCardTables } from "./phoneCardTables";
 import { buildVibPlant } from "./plantSummary";
-import { getVibActions, getVibEquipmentSummary } from "./api";
+import { getVibActions, getVibDashboard, getVibEquipmentSummary, getVibLog, getVibRoutes, getVibTracker } from "./api";
+
+const NO_COUNTS = { open: 0, alertEquip: 0 };
+const NO_ACTIONS = [];
 
 
 // Top-level app shell: owns every page's data (loaded once via readAll() and
@@ -71,12 +61,8 @@ export default function App({ navBridge } = {}) {
   const [config, setConfig] = useState(() => configStore.load());
   const [logoUrl, setLogoUrl] = useState(() => configStore.loadLogo());
 
-  const [compliance, setCompliance] = useState([]);
   const [rmsRegister, setRmsRegister] = useState([]);
   const [spmRegister, setSpmRegister] = useState([]);
-  const [, setLastRms] = useState([]);
-  const [, setLastSpm] = useState([]);
-  const [actions, setActions] = useState([]);
   const [vibPoints, setVibPoints] = useState([]);
   // Own limits, intervals and Active / Inactive (backend Limits.js).
   const [vibLimits, setVibLimits] = useState(null);
@@ -107,8 +93,7 @@ export default function App({ navBridge } = {}) {
     } catch {
       // localStorage unavailable — fall back to in-memory defaults already set above
     }
-    const timer = setTimeout(() => loadStartupBundle(), 800);
-    return () => clearTimeout(timer);
+    loadStartupBundle();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once on mount, mirroring the original's mount-only effect
   }, []);
 
@@ -158,144 +143,45 @@ export default function App({ navBridge } = {}) {
   });
 
 
-  const syncNow = useCallback(async () => {
-    const url = configRef.current?.webhookUrl || webhookRef.current;
-    if (!url) {
-      setSyncState({ status: "error", message: "No webhook URL — go to Settings → Configuration" });
-      return;
-    }
-    setSyncState({ status: "loading", message: "Syncing…" });
-    try {
-      const data = await readAll(url);
-      if (data.error) throw new Error(data.error);
-      setCompliance((data.compliance || []).map(rowToCompliance));
-      setRmsRegister((data.rmsRegister || []).map(rowToRmsRegister));
-      setSpmRegister((data.spmRegister || []).map(rowToSpmRegister));
-      setLastRms((data.lastRms || []).map(rowToLastRMS));
-      setLastSpm((data.lastSpm || []).map(rowToLastSPM));
-      setActions((data.actions || []).map(rowToAction));
-      // `vibPoints` comes from the "VIB ID Registry" tab, wired into
-      // readAll() via readVibRegistry() (see
-      // backend/vibration-analysis/src/VibRegistry.js) — an older webhook
-      // that predates this still simply won't have the
-      // key, which is fine, everything downstream already treats an empty
-      // list as "no VIB IDs available yet" rather than an error.
-      setVibPoints((data.vibPoints || []).map(rowToVibPoint));
-      if (data.config && typeof data.config === "object") {
-        const merged = { ...configRef.current };
-        if (data.config.webhookUrl) merged.webhookUrl = data.config.webhookUrl;
-        if (data.config.googleSheetUrl) {
-          merged.googleSheetUrl = data.config.googleSheetUrl;
-          setSheetUrl(data.config.googleSheetUrl);
-        }
-        if (data.config.contractors) merged.contractors = data.config.contractors;
-        setConfig(merged);
+  // The startup data: machines, points and limits (registers, VIB ID
+  // Registry, Limits). Shown at once from the device (dataCache.js), then
+  // refreshed from the server.
+  const applyBundle = useCallback((data) => {
+    if (!data) return;
+    setRmsRegister((data.rmsRegister || []).map(rowToRmsRegister));
+    setSpmRegister((data.spmRegister || []).map(rowToSpmRegister));
+    setVibPoints((data.vibPoints || []).map(rowToVibPoint));
+    if (data.config && typeof data.config === "object") {
+      const merged = { ...configRef.current };
+      if (data.config.webhookUrl) merged.webhookUrl = data.config.webhookUrl;
+      if (data.config.googleSheetUrl) {
+        merged.googleSheetUrl = data.config.googleSheetUrl;
+        setSheetUrl(data.config.googleSheetUrl);
       }
-      const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setSyncState({ status: "ok", message: `✓ Synced — ${(data.rms || []).length} RMS · ${(data.spm || []).length} SPM — ${time}` });
-      // readAll() already included rms/spm above, so the lazy history loader
-      // below has nothing left to fetch — mark it done so it doesn't fire a
-      // redundant getRmsSpmHistory() call the next time a history page opens.
-    } catch (err) {
-      setSyncState({
-        status: "error",
-        message: String(err.message || err).includes("timed out")
-          ? "Sync timed out — check your webhook URL in Settings"
-          : String(err.message || err).slice(0, 80),
-      });
+      if (data.config.contractors) merged.contractors = data.config.contractors;
+      setConfig(merged);
     }
   }, []);
+  useEffect(() => {
+    applyBundle(peekCached("getStartupBundle"));
+    const lim = peekCached("getVibLimits");
+    if (lim) setVibLimits(lim);
+  }, [applyBundle]);
 
-  // Lightweight first-load fetch: everything readAll() returns except
-  // rms/spm — see getStartupBundle's own comment in the backend. Used only
-  // on mount; the "Sync" button keeps calling the full readAll() above.
   const loadStartupBundle = useCallback(async () => {
     const url = configRef.current?.webhookUrl || webhookRef.current;
     if (!url) {
       setSyncState({ status: "error", message: "No webhook URL — go to Settings → Configuration" });
       return;
     }
-    setSyncState({ status: "loading", message: "Loading…" });
+    setSyncState((st) => (st.status === "ok" ? st : { status: "loading", message: "Loading…" }));
     try {
-      let data = await getStartupBundle(url);
-      // RELIABILITY: a deployment that hasn't actually picked up the
-      // getStartupBundle/getRmsSpmHistory addition yet (stale Apps Script
-      // container, or a redeploy that hasn't fully propagated) answers with
-      // {error: "Unknown action: ..."} rather than real data. readAll() is
-      // the one action that has existed since before this split and is
-      // guaranteed to work on any deployment version, so fall back to it
-      // wholesale (including rms/spm, exactly like the Sync button) rather
-      // than leaving the user with a permanently empty Dashboard.
-      if (data.error && /unknown action/i.test(data.error)) {
-        const full = await readAll(url);
-        if (full.error) throw new Error(full.error);
-        setCompliance((full.compliance || []).map(rowToCompliance));
-        setRmsRegister((full.rmsRegister || []).map(rowToRmsRegister));
-        setSpmRegister((full.spmRegister || []).map(rowToSpmRegister));
-        setLastRms((full.lastRms || []).map(rowToLastRMS));
-        setLastSpm((full.lastSpm || []).map(rowToLastSPM));
-        setActions((full.actions || []).map(rowToAction));
-        setVibPoints((full.vibPoints || []).map(rowToVibPoint));
-        if (full.config && typeof full.config === "object") {
-          const merged = { ...configRef.current };
-          if (full.config.webhookUrl) merged.webhookUrl = full.config.webhookUrl;
-          if (full.config.googleSheetUrl) {
-            merged.googleSheetUrl = full.config.googleSheetUrl;
-            setSheetUrl(full.config.googleSheetUrl);
-          }
-          if (full.config.contractors) merged.contractors = full.config.contractors;
-          setConfig(merged);
-        }
-        const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        setSyncState({
-          status: "ok",
-          message: `✓ Loaded (fallback — redeploy the backend to speed this up) — ${time}`,
-        });
-        return;
-      }
-      if (data.error) throw new Error(data.error);
-      // RELIABILITY: Apps Script Web Apps can intermittently come back with
-      // a valid-but-empty response on the very first hit after a redeploy or
-      // idle period (a cold-start quirk, not a real "this spreadsheet has no
-      // equipment yet" state) — the identical request has been observed to
-      // succeed with real data moments later with no code change. One
-      // silent retry (inline, so `finally` below still only fires once the
-      // retry itself has settled) covers this so the user never has to
-      // notice and click Sync manually to get a second attempt.
-      const isEmptyBundle = (d) =>
-        (d.compliance || []).length === 0 &&
-        (d.rmsRegister || []).length === 0 &&
-        (d.spmRegister || []).length === 0 &&
-        (d.lastRms || []).length === 0 &&
-        (d.lastSpm || []).length === 0;
-      if (isEmptyBundle(data)) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        data = await getStartupBundle(url);
-        if (data.error) throw new Error(data.error);
-      }
-      setCompliance((data.compliance || []).map(rowToCompliance));
-      setRmsRegister((data.rmsRegister || []).map(rowToRmsRegister));
-      setSpmRegister((data.spmRegister || []).map(rowToSpmRegister));
-      setLastRms((data.lastRms || []).map(rowToLastRMS));
-      setLastSpm((data.lastSpm || []).map(rowToLastSPM));
-      setActions((data.actions || []).map(rowToAction));
-      setVibPoints((data.vibPoints || []).map(rowToVibPoint));
-      if (data.config && typeof data.config === "object") {
-        const merged = { ...configRef.current };
-        if (data.config.webhookUrl) merged.webhookUrl = data.config.webhookUrl;
-        if (data.config.googleSheetUrl) {
-          merged.googleSheetUrl = data.config.googleSheetUrl;
-          setSheetUrl(data.config.googleSheetUrl);
-        }
-        if (data.config.contractors) merged.contractors = data.config.contractors;
-        setConfig(merged);
-      }
+      // both at once: the server answers each from its cache when nothing changed
+      const [data, lim] = await Promise.all([getStartupBundle(url), getVibLimits(url).catch(() => null)]);
+      applyBundle(data);
+      if (lim) setVibLimits(lim);
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setSyncState({ status: "ok", message: `✓ Loaded — ${time}` });
-      // after the bundle, never alongside it (one request at a time)
-      getVibLimits(url)
-        .then(setVibLimits)
-        .catch(() => {});
     } catch (err) {
       setSyncState({
         status: "error",
@@ -304,7 +190,17 @@ export default function App({ navBridge } = {}) {
           : String(err.message || err).slice(0, 80),
       });
     }
-  }, []);
+  }, [applyBundle]);
+
+  // Sync: everything again from the sheets (skipping both caches), and the
+  // open page reloads too.
+  const [syncRound, setSyncRound] = useState(0);
+  const syncNow = useCallback(async () => {
+    syncFresh();
+    setSyncState({ status: "loading", message: "Syncing…" });
+    await loadStartupBundle();
+    setSyncRound((n) => n + 1);
+  }, [loadStartupBundle]);
 
   // Mirrors apps/oil-analysis's own Patch 35 wiring — lets the shell's own
   // TopBar show this module's Sync button instead of this module
@@ -330,6 +226,11 @@ export default function App({ navBridge } = {}) {
   // machine, handed to the shell — see plantSummary.js. Read at start and
   // after each sync, from the same calls the Equipment and Actions pages use.
   useEffect(() => {
+    // at once from the device (dataCache.js) when there is a last answer
+    const summary = peekCached("getVibEquipmentSummary");
+    if (navBridge && summary?.equipment) navBridge.onPlant?.(buildVibPlant({ summary, actions: peekCached("getVibActions") }));
+  }, [navBridge]);
+  useEffect(() => {
     if (!navBridge || !webhookUrl || syncState.status !== "ok") return;
     let cancelled = false;
     Promise.all([getVibEquipmentSummary(webhookUrl), getVibActions(webhookUrl).catch(() => null)])
@@ -341,6 +242,36 @@ export default function App({ navBridge } = {}) {
       cancelled = true;
     };
   }, [navBridge, webhookUrl, syncState.status]);
+
+  // Warm-up: once started, the main pages' data is fetched one after the
+  // other in the background (the server answers from its cache), so every
+  // page opens at once from the device (dataCache.js). The shell starts this
+  // module right after login, so this usually runs before anyone opens it.
+  const warmed = useRef(false);
+  useEffect(() => {
+    if (warmed.current || !webhookUrl || syncState.status !== "ok") return;
+    warmed.current = true;
+    const to = new Date().toISOString().slice(0, 7);
+    const [y, m] = to.split("-").map(Number);
+    const from = new Date(Date.UTC(y, m - 12, 1)).toISOString().slice(0, 7);
+    const jobs = [
+      () => getVibDashboard(webhookUrl),
+      () => getVibTracker(webhookUrl, { from, to }),
+      () => getVibLog(webhookUrl),
+      () => getVibActions(webhookUrl),
+      () => getVibRoutes(webhookUrl, 30),
+    ];
+    let stop = false;
+    (async () => {
+      for (const job of jobs) {
+        if (stop) return;
+        await job().catch(() => {});
+      }
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [webhookUrl, syncState.status]);
 
   const registryMap = useMemo(() => {
     const map = {};
@@ -371,13 +302,8 @@ export default function App({ navBridge } = {}) {
     return d;
   }, []);
 
-  const actionCounts = useMemo(
-    () => ({
-      open: actions.filter((a) => a.actionStatus === "Open").length,
-      alertEquip: compliance.filter((c) => classifyComplianceStatus(c.last) === "Alert").length,
-    }),
-    [actions, compliance]
-  );
+  // the old sidebar's badges (standalone build only); the old Action Tracker and Compliance Tracker are gone
+  const actionCounts = NO_COUNTS;
 
   let content;
   if (page === "log") {
@@ -445,7 +371,7 @@ export default function App({ navBridge } = {}) {
       <VibActions
         webhookUrl={webhookUrl}
         scopeEquipment={scopeEquipment}
-        oldActions={actions}
+        oldActions={NO_ACTIONS}
         openActionId={openActionId}
         setOpenActionId={setOpenActionId}
         onOpenReport={(id) => {
@@ -550,7 +476,10 @@ export default function App({ navBridge } = {}) {
           setMobileOpen={setMobileOpen}
           navBridge={navBridge}
         />
-        {content}
+        {/* a new key after Sync: the open page loads again (fresh) */}
+        <div key={syncRound} style={{ display: "contents" }}>
+          {content}
+        </div>
       </div>
     </div>
   );

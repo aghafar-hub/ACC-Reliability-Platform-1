@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useFreshTick } from "./dataCache";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import { DEFAULT_THEME } from "./theme";
 import Sidebar from "./components/Sidebar";
@@ -1160,12 +1161,13 @@ function AppShell({ config, setConfig, navBridge }) {
   // Every top-up, once: the health rule's leak check needs them for every
   // point (Equipment page + the platform's Plant overview).
   const [allTopUps, setAllTopUps] = useState(null);
+  const topUpsTick = useFreshTick(["getAllTopUps"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     if (!config.webhookUrl) return;
     let cancelled = false;
     api.getAllTopUps(config.webhookUrl).then((t) => { if (!cancelled) setAllTopUps(t); }).catch(() => { if (!cancelled) setAllTopUps([]); });
     return () => { cancelled = true; };
-  }, [config.webhookUrl]);
+  }, [config.webhookUrl, topUpsTick]);
 
   // Plant overview (platform Home + Equipment): this module's summary per
   // machine, handed to the shell — see plantSummary.js.

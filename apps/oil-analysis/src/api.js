@@ -1,3 +1,4 @@
+import { cachedRead, markDirty, setCacheUser } from "./dataCache";
 // Client for the Google Apps Script webhook that backs this app.
 //
 // THE BUG THIS FIXES: the original app wrote every change with
@@ -91,6 +92,7 @@ let currentSessionToken = null;
 
 export function setSessionToken(token) {
   currentSessionToken = token || null;
+  setCacheUser(token);
 }
 
 // A transport-level failure (bad HTTP status, or a non-JSON body — exactly
@@ -207,6 +209,7 @@ export async function getModuleTechnicians(webhookUrl, contractor) {
 
 async function postBlind(webhookUrl, body) {
   guardWrite(body);
+  markDirty(); // dataCache.js: the next read of anything waits for the server
   try {
     const payload = { ...body, secret: API_SECRET };
     if (currentSessionToken) payload.sessionToken = currentSessionToken;
@@ -730,7 +733,7 @@ export async function getTopUpsForLp(webhookUrl, lpId) {
 
 // Every top-up across every LP (Patch 26) — the Dashboard's own
 // dashboard-wide source, as opposed to getTopUpsForLp above (one LP).
-export async function getAllTopUps(webhookUrl) {
+async function getAllTopUpsRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getAllTopUps" });
   return (json.events || []).filter((r) => Array.isArray(r) && r[0]).map(rowToTopUpEvent);
 }
@@ -825,7 +828,7 @@ export async function deleteSample(webhookUrl, sample) {
 // itself, the same way Equipment Registry gets its own separate sync
 // rather than riding along with the main sample/action/oil-change sync.
 
-export async function getRoutines(webhookUrl) {
+async function getRoutinesRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getRoutines" });
   return (json.routines || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutine);
 }
@@ -851,7 +854,7 @@ export async function getRoutine(webhookUrl, routineId) {
 // computed server-side (equipmentCount/nextDueDate/dueStatus/lastCompleted
 // — see RouteTemplates.js's getRoutinesOverview). Returned as plain JSON
 // objects already, not raw sheet rows, so no parsers.js row-mapping here.
-export async function getRoutinesOverview(webhookUrl) {
+async function getRoutinesOverviewRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getRoutinesOverview" });
   return json.items || [];
 }
@@ -860,7 +863,7 @@ export async function getRoutinesOverview(webhookUrl) {
 // RouteTemplates.js's getRoutineCompletionTrend. rateByMonth entries are
 // null (not 0) for a month with no routines due, so the chart can show
 // "no data" instead of a misleading 0% bar.
-export async function getRoutineCompletionTrend(webhookUrl, months = 6) {
+async function getRoutineCompletionTrendRaw(webhookUrl, months = 6) {
   const json = await getJSON(webhookUrl, { action: "getRoutineCompletionTrend", months });
   return {
     months: json.months || [],
@@ -871,14 +874,14 @@ export async function getRoutineCompletionTrend(webhookUrl, months = 6) {
 }
 
 // Phase 3 — saved Suggestions (open ones), see backend Suggestions.js.
-export async function getSuggestions(webhookUrl) {
+async function getSuggestionsRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getSuggestions" });
   return json.suggestions || [];
 }
 
 // Phase 7 — per-contractor workload (routes per technician, actions, lab
 // reports, suggestions, low stock), scoped to the caller's contractor.
-export async function getTeamWorkload(webhookUrl) {
+async function getTeamWorkloadRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getTeamWorkload" });
   return { contractors: json.contractors || [], generatedAt: json.generatedAt || "" };
 }
@@ -1009,7 +1012,7 @@ export async function deleteRoutine(webhookUrl, routineId) {
 // here — it only runs via the Apps Script time trigger or a manual Run
 // from the script editor (see RouteTemplates.js).
 
-export async function getRouteTemplates(webhookUrl) {
+async function getRouteTemplatesRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getRouteTemplates" });
   return (json.templates || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRouteTemplate);
 }
@@ -1028,7 +1031,7 @@ export async function createRouteTemplate(webhookUrl, { templateId, routeName, r
     createdBy: createdBy || "",
   });
 
-  const templates = await getRouteTemplates(webhookUrl);
+  const templates = await getRouteTemplatesRaw(webhookUrl);
   const saved = templates.find((t) => t.templateId === templateId);
   if (!saved) {
     throw new SaveVerificationError(`The recurring route wasn't confirmed saved — please try again.`);
@@ -1039,7 +1042,7 @@ export async function createRouteTemplate(webhookUrl, { templateId, routeName, r
 export async function setRouteTemplateStatus(webhookUrl, templateId, status) {
   await postBlind(webhookUrl, { action: "setRouteTemplateStatus", templateId, status });
 
-  const templates = await getRouteTemplates(webhookUrl);
+  const templates = await getRouteTemplatesRaw(webhookUrl);
   const saved = templates.find((t) => t.templateId === templateId);
   if (!saved || saved.status !== status) {
     throw new SaveVerificationError(`The status change wasn't confirmed saved — please try again.`);
@@ -1050,7 +1053,7 @@ export async function setRouteTemplateStatus(webhookUrl, templateId, status) {
 export async function deleteRouteTemplate(webhookUrl, templateId) {
   await postBlind(webhookUrl, { action: "deleteRouteTemplate", templateId });
 
-  const templates = await getRouteTemplates(webhookUrl);
+  const templates = await getRouteTemplatesRaw(webhookUrl);
   if (templates.some((t) => t.templateId === templateId)) {
     throw new SaveVerificationError(`The delete wasn't confirmed — please try again.`);
   }
@@ -1094,7 +1097,7 @@ export async function getOilPlan(webhookUrl, lpIds, itemType) {
 // removes) "this product is an equivalent for <main oil>".
 export async function setOilEquivalent(webhookUrl, productId, mainType, mainBrand) {
   await postBlind(webhookUrl, { action: "setOilEquivalent", productId, mainType: mainType || "", mainBrand: mainBrand || "" });
-  const products = await getOilInventory(webhookUrl);
+  const products = await getOilInventoryRaw(webhookUrl);
   const saved = products.find((p) => p.productId === productId);
   if (!saved || (saved.equivalentToType || "") !== (mainType || "")) {
     throw new SaveVerificationError("The equivalent oil wasn't confirmed saved — only the contractor's engineer can approve it. Please try again.");
@@ -1140,7 +1143,7 @@ export async function addRoutineComment(webhookUrl, routineId, commentText, comm
 // writes to. Not synced with the main Full Sync — fetched on demand by the
 // Oil Inventory page, same as Equipment Registry and Routines.
 
-export async function getOilInventory(webhookUrl) {
+async function getOilInventoryRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getOilInventory" });
   // stats: last receipt date and recent issues per product (OilInventory.js
   // productMovementStats_) — for "days of stock left".
@@ -1157,7 +1160,7 @@ export async function getOilInventory(webhookUrl) {
 // Phase 5 — low-stock level (contractor's engineer or ACC Engineer).
 export async function setProductLowStockLevel(webhookUrl, productId, level) {
   await postBlind(webhookUrl, { action: "setProductLowStockLevel", productId, level });
-  const products = await getOilInventory(webhookUrl);
+  const products = await getOilInventoryRaw(webhookUrl);
   const saved = products.find((p) => p.productId === productId);
   if (!saved || saved.recorderLevel !== Number(level)) {
     throw new SaveVerificationError("The low-stock level wasn't confirmed — only an ACC Engineer or the contractor's engineer can change it. Please try again.");
@@ -1173,7 +1176,7 @@ export async function getOilInventoryMovements(webhookUrl, productId) {
 // Patch 23: unified ledger across every product, for the Movements tab —
 // distinct from getOilInventoryMovements above (one product's own history,
 // still used by OilProductDetail).
-export async function getAllOilInventoryMovements(webhookUrl) {
+async function getAllOilInventoryMovementsRaw(webhookUrl) {
   const json = await getJSON(webhookUrl, { action: "getAllOilInventoryMovements" });
   return (json.movements || []).filter((r) => Array.isArray(r) && r[0]).map(rowToOilMovement);
 }
@@ -1181,7 +1184,7 @@ export async function getAllOilInventoryMovements(webhookUrl) {
 // Patch 21: actual historical monthly usage — see
 // backend/oil-lubrication/src/OilInventory.js's getOilInventoryConsumption.
 // Already shaped for display, no row-parser needed.
-export async function getOilInventoryConsumption(webhookUrl, months = 6) {
+async function getOilInventoryConsumptionRaw(webhookUrl, months = 6) {
   const json = await getJSON(webhookUrl, { action: "getOilInventoryConsumption", months });
   return { months: json.months || [], byProduct: json.byProduct || [], totalsByMonth: json.totalsByMonth || [] };
 }
@@ -1192,7 +1195,7 @@ export async function getOilInventoryConsumption(webhookUrl, months = 6) {
 // display (not raw sheet rows), so no row-parser needed here.
 // Phase 5: pass { days } for the shortage check's period selector
 // (15 days … 1 year); a plain number is still months.
-export async function getOilInventoryForecast(webhookUrl, months = 3) {
+async function getOilInventoryForecastRaw(webhookUrl, months = 3) {
   const params = typeof months === "object" && months ? { action: "getOilInventoryForecast", days: months.days } : { action: "getOilInventoryForecast", months };
   const json = await getJSON(webhookUrl, params);
   return {
@@ -1230,7 +1233,7 @@ export async function addOilProduct(webhookUrl, product) {
     equivalentToBrand: product.equivalentToBrand || "",
   });
 
-  const products = await getOilInventory(webhookUrl);
+  const products = await getOilInventoryRaw(webhookUrl);
   const saved = products.find((p) => p.productId === product.productId);
   if (!saved) {
     throw new SaveVerificationError(`The product wasn't confirmed saved to the sheet — please try again.`);
@@ -1257,7 +1260,7 @@ export async function updateOilProduct(webhookUrl, product) {
     equivalentToBrand: product.equivalentToBrand || "",
   });
 
-  const products = await getOilInventory(webhookUrl);
+  const products = await getOilInventoryRaw(webhookUrl);
   const saved = products.find((p) => p.productId === product.productId);
   if (!saved || saved.status !== (product.status || "")) {
     throw new SaveVerificationError(`The product wasn't confirmed saved to the sheet — please try again.`);
@@ -1328,7 +1331,7 @@ export async function getNotificationSettings(webhookUrl) {
 // Admin-only to change (backend Dashboard.js); a backend from before D4
 // answers with no value, so the agreed default (90 %) is used.
 export const DEFAULT_ON_TIME_TARGET = 90;
-export async function getDashboardSettings(webhookUrl) {
+async function getDashboardSettingsRaw(webhookUrl) {
   try {
     const json = await getJSON(webhookUrl, { action: "getDashboardSettings" });
     const t = Number(json.onTimeTarget);
@@ -1340,7 +1343,7 @@ export async function getDashboardSettings(webhookUrl) {
 
 export async function updateDashboardSettings(webhookUrl, { onTimeTarget }) {
   await postBlind(webhookUrl, { action: "updateDashboardSettings", onTimeTarget: Number(onTimeTarget) });
-  const verify = await getDashboardSettings(webhookUrl);
+  const verify = await getDashboardSettingsRaw(webhookUrl);
   if (verify.onTimeTarget !== Math.round(Number(onTimeTarget))) {
     throw new SaveVerificationError("The on-time target wasn't confirmed saved — only an Admin can change it. Please try again.");
   }
@@ -1434,3 +1437,19 @@ export async function fillLabInfo(webhookUrl, sampleId, labInfo) {
 export async function learnReportEquipmentId(webhookUrl, lpId, reportEquipmentId) {
   await postBlind(webhookUrl, { action: "learnReportEquipmentId", lpId, reportEquipmentId });
 }
+
+// Pages read these through the device cache (dataCache.js): the last answer
+// at once, the server's in the background. api.js's own checks after a save
+// call the *Raw versions above, which always read the sheet.
+export const getRoutines = cachedRead("getRoutines", getRoutinesRaw);
+export const getRoutinesOverview = cachedRead("getRoutinesOverview", getRoutinesOverviewRaw);
+export const getOilInventory = cachedRead("getOilInventory", getOilInventoryRaw);
+export const getAllTopUps = cachedRead("getAllTopUps", getAllTopUpsRaw);
+export const getDashboardSettings = cachedRead("getDashboardSettings", getDashboardSettingsRaw);
+export const getSuggestions = cachedRead("getSuggestions", getSuggestionsRaw);
+export const getTeamWorkload = cachedRead("getTeamWorkload", getTeamWorkloadRaw);
+export const getRouteTemplates = cachedRead("getRouteTemplates", getRouteTemplatesRaw);
+export const getOilInventoryConsumption = cachedRead("getOilInventoryConsumption", getOilInventoryConsumptionRaw);
+export const getOilInventoryForecast = cachedRead("getOilInventoryForecast", getOilInventoryForecastRaw);
+export const getAllOilInventoryMovements = cachedRead("getAllOilInventoryMovements", getAllOilInventoryMovementsRaw);
+export const getRoutineCompletionTrend = cachedRead("getRoutineCompletionTrend", getRoutineCompletionTrendRaw);

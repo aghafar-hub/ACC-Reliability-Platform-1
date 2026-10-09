@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useFreshTick } from "../dataCache";
 import { createPortal } from "react-dom";
 import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
@@ -287,12 +288,13 @@ export default function Equipment({
   // every point, not just the one open.
   // (loaded once by App and passed down; fetched here only when used alone)
   const [ownTopUps, setOwnTopUps] = useState([]);
+  const freshTick = useFreshTick(["getAllTopUps", "getOilInventory"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     if (!webhookUrl || topUpsProp !== undefined) return;
     let cancelled = false;
     api.getAllTopUps(webhookUrl).then((t) => { if (!cancelled) setOwnTopUps(t); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [webhookUrl, topUpsProp]);
+  }, [webhookUrl, topUpsProp, freshTick]);
   const allTopUps = topUpsProp !== undefined ? topUpsProp || NO_TOP_UPS : ownTopUps;
   const lpIndex = useMemo(() => indexByLp({ samples, actions, oilChanges, topUps: allTopUps }), [samples, actions, oilChanges, allTopUps]);
   // Stock products, for the oil-stock gauge on a point page (D5).
@@ -302,7 +304,7 @@ export default function Equipment({
     let cancelled = false;
     api.getOilInventory(webhookUrl).then((p) => { if (!cancelled) setProducts(p); }).catch(() => { if (!cancelled) setProducts([]); });
     return () => { cancelled = true; };
-  }, [webhookUrl]);
+  }, [webhookUrl, freshTick]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   // { mode: "equipment", id: Equipment_ID } | { mode: "lp", id: LP_ID } | null

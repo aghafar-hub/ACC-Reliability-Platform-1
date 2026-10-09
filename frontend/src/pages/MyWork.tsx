@@ -27,6 +27,22 @@ import { fetchMyWork, myWorkModules, type ModuleWork } from '../myWork';
 import '../components/TeamTab.css';
 import './MyWork.css';
 
+function readDevice<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
+  }
+}
+function writeDevice(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* full or private mode */
+  }
+}
+
 const OPEN_STATUSES: string[] = [ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS];
 const TODAY = () => new Date().toISOString().slice(0, 10);
 
@@ -471,9 +487,12 @@ export default function MyWork({
   // Phase 9: the role-based work from every module that provides it.
   const workModules = useMemo(() => myWorkModules(access), [access]);
   const workModuleKey = workModules.map((m) => m.id).join(',');
-  const [work, setWork] = useState<ModuleWork[] | null>(null);
+  const [work, setWork] = useState<ModuleWork[] | null>(() => readDevice<ModuleWork[]>(`${deviceKey}.work`));
   const oilMaintenance = !!oilAccess?.enforced && oilAccess.status === 'Maintenance';
-  const [routines, setRoutines] = useState<Routine[] | null>(null);
+  // The last answers kept on this device (per person): My Work opens with
+  // them at once and is replaced by the server's (docs/performance.md).
+  const deviceKey = `acc.mywork.v1.${(claims?.email || '').toLowerCase()}`;
+  const [routines, setRoutines] = useState<Routine[] | null>(() => readDevice<Routine[]>(`${deviceKey}.routes`));
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // A vibration route opened from the work queue (checklist in place).
@@ -506,11 +525,13 @@ export default function MyWork({
     if (!sessionToken || !canSeeOilWork) return;
     setError(null);
     try {
-      setRoutines(await getRoutines(sessionToken));
+      const r = await getRoutines(sessionToken);
+      setRoutines(r);
+      writeDevice(`${deviceKey}.routes`, r);
     } catch (err) {
       setError(describeError(err, 'Could not load your work.'));
     }
-  }, [sessionToken, canSeeOilWork]);
+  }, [sessionToken, canSeeOilWork, deviceKey]);
 
   useEffect(() => {
     load();
@@ -521,13 +542,15 @@ export default function MyWork({
     if (!sessionToken || !workModuleKey) return;
     let cancelled = false;
     fetchMyWork(sessionToken, workModules).then((w) => {
-      if (!cancelled) setWork(w);
+      if (cancelled) return;
+      setWork(w);
+      if (w.every((m) => !m.error)) writeDevice(`${deviceKey}.work`, w);
     });
     return () => {
       cancelled = true;
     };
     // workModules changes only when workModuleKey does
-  }, [sessionToken, workModuleKey, workVersion]);
+  }, [sessionToken, workModuleKey, workVersion, deviceKey]);
 
   const mine = useMemo(() => {
     const email = (claims?.email || '').trim().toLowerCase();

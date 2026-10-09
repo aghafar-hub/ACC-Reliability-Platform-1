@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useFreshTick } from "../dataCache";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import { Donut, StackedBars } from "../components/DashCharts";
@@ -331,7 +332,8 @@ export default function TeamWorkload({ webhookUrl }) {
     }
   }, [webhookUrl]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  const freshTick = useFreshTick(["getTeamWorkload"]); // dataCache.js: load again when the server's answer differs
+  useEffect(() => { refresh(); }, [refresh, freshTick]);
 
   if (!webhookUrl) return <p style={{ color: T.textSecondary }}>Add your Apps Script webhook URL in Settings first.</p>;
 

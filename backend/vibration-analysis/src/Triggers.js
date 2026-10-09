@@ -11,6 +11,8 @@
 // hardcoded string, so it can't drift out of sync with the real tab name
 // again.
 function onEdit(e) {
+  // a hand edit anywhere in the spreadsheet: the app's cached reads are out of date (Cache.js)
+  try { vcBump_(); } catch (err) {}
   var sheet = e.source.getActiveSheet();
 
   if (sheet.getName() !== SHEET_ACTIONS) return;

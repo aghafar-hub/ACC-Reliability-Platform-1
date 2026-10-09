@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useFreshTick } from "../dataCache";
 import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
 import { useTheme } from "../ThemeContext";
 import { useSessionContractor } from "../SessionContext";
@@ -301,6 +302,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
   const [target, setTarget] = useState(api.DEFAULT_ON_TIME_TARGET);
   const [loadingExtra, setLoadingExtra] = useState(true);
 
+  const freshTick = useFreshTick(["getAllTopUps", "getRoutines", "getOilInventory", "getDashboardSettings", "getOilInventoryForecast"]); // dataCache.js: load again when the server's answer differs
   useEffect(() => {
     if (!webhookUrl) return;
     let cancelled = false;
@@ -324,7 +326,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
     return () => {
       cancelled = true;
     };
-  }, [webhookUrl]);
+  }, [webhookUrl, freshTick]);
 
   // The stock card looks ahead as far as the period looks back.
   useEffect(() => {

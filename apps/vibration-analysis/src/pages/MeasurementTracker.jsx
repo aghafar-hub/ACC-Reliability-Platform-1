@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibTracker } from "../api";
+import { getVibTracker, peekCached } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -28,13 +28,17 @@ function addMonths(month, n) {
   const d = new Date(Date.UTC(y, m - 1 + n, 1));
   return d.toISOString().slice(0, 7);
 }
+function rangeOf(period) {
+  const to = new Date().toISOString().slice(0, 7);
+  return { from: period === "all" ? "2023-01" : addMonths(to, -(+period - 1)), to };
+}
 const short = (m) => new Date(`${m}-01T00:00:00`).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
 
 export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [period, setPeriod] = useState("12");
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => peekCached("getVibTracker", rangeOf("12")));
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
   const [area, setArea] = useState("All");
@@ -46,9 +50,7 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const to = new Date().toISOString().slice(0, 7);
-      const from = period === "all" ? "2023-01" : addMonths(to, -(+period - 1));
-      setData(await getVibTracker(webhookUrl, { from, to }));
+      setData(await getVibTracker(webhookUrl, rangeOf(period)));
     } catch (e) {
       setError(String(e.message || e));
     }

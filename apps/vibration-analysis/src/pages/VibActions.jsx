@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibActionHistory, getVibActions, saveVibAction, vibActionTransition } from "../api";
+import { getVibActionHistory, getVibActions, peekCached, saveVibAction, vibActionTransition } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -24,7 +24,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [chartsOpen, setChartsOpen] = useState(false);
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => peekCached("getVibActions"));
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
   const [scope, setScope] = useState("All");

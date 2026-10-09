@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { setSessionToken } from "./api";
+import { loadDeviceCache } from "./dataCache";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./ThemeContext";
 
@@ -22,7 +23,10 @@ import { ThemeProvider } from "./ThemeContext";
 export function mountVibrationAnalysis(container, { navBridge, session } = {}) {
   setSessionToken(session?.token);
   const root = ReactDOM.createRoot(container);
-  root.render(
+  // the last answers kept on this device first (dataCache.js), so every page
+  // opens with data at once — a few milliseconds
+  let gone = false;
+  const render = () => root.render(
     <React.StrictMode>
       <ErrorBoundary>
         <ThemeProvider navBridge={navBridge}>
@@ -31,5 +35,11 @@ export function mountVibrationAnalysis(container, { navBridge, session } = {}) {
       </ErrorBoundary>
     </React.StrictMode>,
   );
-  return () => root.unmount();
+  loadDeviceCache().finally(() => {
+    if (!gone) render();
+  });
+  return () => {
+    gone = true;
+    root.unmount();
+  };
 }

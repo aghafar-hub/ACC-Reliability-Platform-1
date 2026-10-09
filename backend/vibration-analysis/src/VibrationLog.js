@@ -105,8 +105,25 @@ function vlLevel_(word) {
   return map[w] || '';
 }
 
-// Reads a header-row-1 tab into objects keyed by header text.
+// A sheet date as 'yyyy-MM-dd'. Sheet dates arrive in the script's time
+// zone, so the local parts are the date shown in the sheet — the same as
+// Utilities.formatDate(v, vlTz_(), 'yyyy-MM-dd'), many times faster.
+function vlYmdFast_(d) {
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+}
+
+// Reads a header-row-1 tab into objects keyed by header text. Inside a read
+// request (Cache.js) each tab is read once and shared — callers don't change
+// the rows they get.
 function vlRead_(ss, name) {
+  if (VL_READ_MEMO && VL_READ_MEMO[name]) return VL_READ_MEMO[name];
+  var out = vlReadSheet_(ss, name);
+  if (VL_READ_MEMO) VL_READ_MEMO[name] = out;
+  return out;
+}
+
+function vlReadSheet_(ss, name) {
   var sh = ss.getSheetByName(name);
   if (!sh) return { sheet: null, headers: [], rows: [] };
   var lastRow = sh.getLastRow();
@@ -120,7 +137,7 @@ function vlRead_(ss, name) {
     for (var j = 0; j < headers.length; j++) {
       if (!headers[j]) continue;
       var v = r[j];
-      if (v instanceof Date) v = Utilities.formatDate(v, vlTz_(), 'yyyy-MM-dd');
+      if (v instanceof Date) v = vlYmdFast_(v);
       if (v !== '' && v !== null && v !== undefined) any = true;
       o[headers[j]] = v === undefined ? '' : v;
     }

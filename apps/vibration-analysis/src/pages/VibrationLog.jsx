@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibActions, getVibLog, getVibReport, saveVibReport, vibReportTransition } from "../api";
+import { getVibActions, getVibLog, getVibReport, peekCached, saveVibReport, vibReportTransition } from "../api";
 import { generateVibReportPdf } from "../vibPdf";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
@@ -26,7 +26,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [chartsOpen, setChartsOpen] = useState(false);
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => peekCached("getVibLog"));
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
   const [year, setYear] = useState("");

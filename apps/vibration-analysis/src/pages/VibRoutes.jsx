@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createVibRoute, dismissVibSuggestion, getVibRoute, getVibRoutes, vibRouteTransition } from "../api";
+import { createVibRoute, dismissVibSuggestion, getVibRoute, getVibRoutes, peekCached, vibRouteTransition } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -26,7 +26,7 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
   const isMobile = useIsMobile();
   const [chartsOpen, setChartsOpen] = useState(false);
   const [days, setDays] = useState(30);
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => peekCached("getVibRoutes", { days: "30" }));
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
   const [tab, setTab] = useState("routes");

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibActions, getVibReport, saveVibEntries, vibReportTransition } from "../api";
+import { getVibActions, getVibReport, peekCached, saveVibEntries, vibReportTransition } from "../api";
 import { generateVibReportPdf } from "../vibPdf";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
@@ -22,7 +22,7 @@ const NUM = { h: "Horizontal (mm/s)", v: "Vertical (mm/s)", a: "Axial (mm/s)", h
 export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(() => peekCached("getVibReport", { reportId }));
   const [error, setError] = useState("");
   const [tab, setTab] = useState("readings");
   const [filter, setFilter] = useState("All");

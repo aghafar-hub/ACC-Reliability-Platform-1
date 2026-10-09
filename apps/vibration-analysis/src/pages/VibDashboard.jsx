@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibDashboard } from "../api";
+import { getVibDashboard, peekCached } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -28,7 +28,8 @@ const unitOf = (f) => (f === "RMS" ? "mm/s" : f === "SPM" ? "dBsv" : "g");
 export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
-  const [d, setD] = useState(null);
+  // the last answer kept on this device first (dataCache.js), then the server's
+  const [d, setD] = useState(() => peekCached("getVibDashboard"));
   const [error, setError] = useState("");
   const [contractor, setContractor] = useState("All");
   const [period, setPeriod] = useState(() => (typeof window !== "undefined" && window.matchMedia?.("(max-width: 860px)").matches ? 6 : 12));
