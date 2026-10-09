@@ -5,6 +5,7 @@ import useIsMobile from "../hooks/useIsMobile";
 import { updateRegisterLimits } from "../api";
 import EquipmentEditModal from "../components/EquipmentEditModal";
 import Icon from "../components/Icon";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { ICONS } from "../components/icons";
 import { vibPointKey } from "../domain";
 import { normalizePoint } from "../parsers";
@@ -31,7 +32,6 @@ export default function EquipmentRegister({
   const [search, setSearch] = useState("");
   const [line, setLine] = useState("");
   const [eqType, setEqType] = useState("");
-  const [equipmentId, setEquipmentId] = useState("");
   const [editing, setEditing] = useState(null);
   const [savedMessage, setSavedMessage] = useState("");
 
@@ -80,8 +80,8 @@ export default function EquipmentRegister({
     () =>
       rows
         .filter((r) => (!line || r.line === line) && (!eqType || r.eqType === eqType))
-        .map((r) => r.eid)
-        .sort(),
+        .map((r) => ({ code: r.eid, description: r.name }))
+        .sort((a, b) => a.code.localeCompare(b.code)),
     [rows, line, eqType]
   );
 
@@ -89,13 +89,12 @@ export default function EquipmentRegister({
     let list = rows;
     if (line) list = list.filter((r) => r.line === line);
     if (eqType) list = list.filter((r) => r.eqType === eqType);
-    if (equipmentId) list = list.filter((r) => r.eid === equipmentId);
     if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter((r) => r.eid.toLowerCase().includes(q) || r.name.toLowerCase().includes(q));
+      const match = idTextMatch(search, rows.map((r) => r.eid));
+      list = list.filter((r) => match(r.eid, r.name));
     }
     return list;
-  }, [rows, line, eqType, equipmentId, search]);
+  }, [rows, line, eqType, search]);
 
   // same as every list table (theme th / td, 15px like Oil's lists)
   const thStyle = { ...s.th };
@@ -189,7 +188,6 @@ export default function EquipmentRegister({
           value={eqType}
           onChange={(e) => {
             setEqType(e.target.value);
-            setEquipmentId("");
           }}
         >
           <option value="">All Eq Types</option>
@@ -199,25 +197,7 @@ export default function EquipmentRegister({
             </option>
           ))}
         </select>
-        <select style={{ ...s.input, width: 160 }} value={equipmentId} onChange={(e) => setEquipmentId(e.target.value)}>
-          <option value="">All Equipment</option>
-          {equipmentOptions.map((id) => (
-            <option key={id} value={id}>
-              {id}
-            </option>
-          ))}
-        </select>
-        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <span style={{ position: "absolute", left: 9, top: 8, color: T.textMuted }}>
-            <Icon d={ICONS.search} size={14} />
-          </span>
-          <input
-            style={{ ...s.input, paddingLeft: 30 }}
-            placeholder="Search equipment…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <EquipmentSearch freeText options={equipmentOptions} value={search} onChange={setSearch} placeholder="Equipment ID or name…" width={280} testid="er-find" />
         {savedMessage && <span style={{ fontSize: 12, color: T.success, fontWeight: 700 }}>{savedMessage}</span>}
         <span style={{ fontSize: 12, color: T.textMuted }}>
           {filtered.length}/{rows.length}

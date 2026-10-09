@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
+import ContractorChips from "../components/ContractorChips";
 import EquipmentSearch from "../components/EquipmentSearch";
 import EditOilChangeModal from "../components/EditOilChangeModal";
 import GenerateOilChangeActionsModal from "../components/GenerateOilChangeActionsModal";
@@ -450,15 +451,7 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
                 <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.6 }}>
                   Contractor
                 </span>
-                <select
-                  style={{ ...s.select, fontSize: 12, minWidth: 140 }}
-                  value={contractorFilter}
-                  onChange={(e) => setContractorFilter(e.target.value)}
-                >
-                  {contractors.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
+                <ContractorChips value={contractorFilter} onChange={setContractorFilter} options={contractors.filter((c) => c !== "All")} size="sm" testid="oc-contractor" />
               </div>
             )}
             {hasFilters && (

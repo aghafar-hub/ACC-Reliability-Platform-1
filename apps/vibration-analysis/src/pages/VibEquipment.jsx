@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { getVibEquipmentHistory, getVibEquipmentSummary, getVibTracker, peekCached } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
@@ -93,7 +94,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   const base = (data?.equipment || []).filter((e) => (contractor === "All" || e.contractor === contractor) && (scope === "All" || e.scope === scope));
   const worse = (e) => e.prevStatus && (LEVEL_RANK[e.status] || 0) > (LEVEL_RANK[e.prevStatus] || 0);
   const rows = base
-    .filter((e) => !q || (e.equipmentId + " " + e.name).toLowerCase().includes(q.toLowerCase()))
+    .filter(((match) => (e) => match(e.equipmentId, e.name))(idTextMatch(q, (data?.equipment || []).map((e) => e.equipmentId))))
     .filter((e) => (show === "All" ? true : show === "Needs attention" ? ["Alert", "Danger"].includes(e.status) : show === "Not measured 90 d" ? isStale(e) : show === "Got worse" ? worse(e) : e.status === show))
     .sort((a, b) => (LEVEL_RANK[b.status] || 0) - (LEVEL_RANK[a.status] || 0) || a.equipmentId.localeCompare(b.equipmentId));
   const count = (l) => base.filter((e) => e.status === l).length;
@@ -182,7 +183,9 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
           )}
           {isMobile ? (
             <>
-              <input style={{ ...s.input, width: "100%", boxSizing: "border-box", minHeight: 44, fontSize: 15, marginBottom: 10 }} type="search" placeholder="Find by ID or name" value={q} onChange={(e) => setQ(e.target.value)} data-testid="veq-find" />
+              <div style={{ marginBottom: 10 }}>
+                <EquipmentSearch freeText options={base.map((e) => ({ code: e.equipmentId, description: e.name }))} value={q} onChange={setQ} placeholder="Equipment ID or name…" width="100%" inputStyle={{ minHeight: 44, fontSize: 15 }} testid="veq-find" />
+              </div>
               <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 6, scrollbarWidth: "none" }} data-testid="veq-show-chips">
                 {["All", "Needs attention", "Got worse", "Not measured 90 d", ...LEVELS].map((o) => {
                   const on = show === o;
@@ -240,7 +243,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
           ) : (
           <>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-            <input style={{ ...s.input, width: 220 }} placeholder="Find by ID or name" value={q} onChange={(e) => setQ(e.target.value)} data-testid="veq-find" />
+            <EquipmentSearch freeText options={base.map((e) => ({ code: e.equipmentId, description: e.name }))} value={q} onChange={setQ} placeholder="Equipment ID or name…" width={240} testid="veq-find" />
             <select style={s.select} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
               <option value="All">All scopes</option>
               {scopes.map((sc) => (

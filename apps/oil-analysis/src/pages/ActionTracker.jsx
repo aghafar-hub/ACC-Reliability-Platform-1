@@ -678,22 +678,25 @@ export default function ActionTracker({
                 <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>{items.length}</span>
               </div>
 
-              {items.length === 0 && (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: T.textMuted,
-                    textAlign: "center",
-                    padding: "16px 6px",
-                    border: `1px dashed ${T.border}`,
-                    borderRadius: 8,
-                  }}
-                >
-                  No actions here
-                </div>
-              )}
+              {/* each column scrolls inside (like the Oil Change Log) */}
+              <div style={{ maxHeight: "min(640px, calc(100vh - 220px))", overflowY: "auto", paddingRight: 4, overscrollBehavior: "contain" }} data-testid={`actions-colbody-${status}`}>
+                {items.length === 0 && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: T.textMuted,
+                      textAlign: "center",
+                      padding: "16px 6px",
+                      border: `1px dashed ${T.border}`,
+                      borderRadius: 8,
+                    }}
+                  >
+                    No actions here
+                  </div>
+                )}
 
-              {items.map((a) => renderActionCard(a, status))}
+                {items.map((a) => renderActionCard(a, status))}
+              </div>
             </div>
           );
         })}

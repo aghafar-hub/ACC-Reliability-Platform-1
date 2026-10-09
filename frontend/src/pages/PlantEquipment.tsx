@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import IdSearch, { idTextMatch } from '../components/IdSearch';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Icon } from '../icons';
 import { conditionRank, poorOnBoth, type MergedMachine } from '../plant';
@@ -37,10 +38,8 @@ export function PlantEquipmentList() {
     'both-poor': poorOnBoth,
     ...Object.fromEntries(modules.map((mod) => [mod.short, (m: MergedMachine) => !!m.parts[mod.moduleId]])),
   };
-  const query = q.trim().toLowerCase().replace(/\s+/g, '');
-  const rows = base
-    .filter(showFilter[show] || (() => true))
-    .filter((m) => !query || m.id.toLowerCase().replace(/\s+/g, '').includes(query) || m.name.toLowerCase().replace(/\s+/g, '').includes(query));
+  const match = idTextMatch(q, base.map((m) => m.id));
+  const rows = base.filter(showFilter[show] || (() => true)).filter((m) => match(m.id, m.name));
   const counts = countConditions(base);
   const chip = (key: string, label: string, n: number) => (
     <button key={key} type="button" className={`plant-chip${show === key ? ' plant-chip--on' : ''}`} aria-pressed={show === key} onClick={() => setShow(show === key ? 'all' : key)} data-testid={`peq-show-${key}`}>
@@ -56,7 +55,7 @@ export function PlantEquipmentList() {
           <p className="plant-sub">Every machine once, by Equipment ID · worst first · {modules.map((m) => m.label).join(' + ')}</p>
         </div>
       </div>
-      <input className="plant-search" type="search" placeholder="Search Equipment ID or name…" aria-label="Search Equipment ID or name" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} data-testid="peq-search" />
+      <IdSearch options={base.map((m) => ({ code: m.id, description: m.name }))} value={q} onChange={(v) => { setQ(v); setLimit(PAGE); }} placeholder="Equipment ID or name…" ariaLabel="Search Equipment ID or name" testid="peq-search" />
       <div className="plant-summary">
         <b>{base.length ? `${Math.round((counts.Good / base.length) * 100)}%` : '—'}</b> Good
         <ConditionBar counts={counts} />
@@ -72,12 +71,13 @@ export function PlantEquipmentList() {
       </div>
       <div className="plant-chiprow">
         {contractors.length > 1 && (
-          <select className="plant-select" value={contractor} onChange={(e) => setContractor(e.target.value)} aria-label="Contractor">
-            <option value="All">All contractors</option>
-            {contractors.map((c) => (
-              <option key={c}>{c}</option>
+          <span role="group" aria-label="Contractor" style={{ display: 'contents' }}>
+            {['All', ...contractors].map((c) => (
+              <button key={c} type="button" className={`plant-chip${contractor === c ? ' plant-chip--on' : ''}`} aria-pressed={contractor === c} onClick={() => setContractor(c)}>
+                {c === 'All' ? 'All contractors' : c}
+              </button>
             ))}
-          </select>
+          </span>
         )}
         {areas.length > 1 && (
           <select className="plant-select" value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area">

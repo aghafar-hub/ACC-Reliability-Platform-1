@@ -3,14 +3,15 @@ import { getVibActionHistory, getVibActions, peekCached, saveVibAction, vibActio
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import ModalShell, { FormSection, ReadValue, StepTrail } from "../components/ModalShell";
-import { Donut, StackedBars } from "../components/DashCharts";
-import Tile, { PageHeader, TabBar } from "../components/Tile";
+import { Donut, MiniBars, PairBars, StackedBars } from "../components/DashCharts";
+import { PageHeader, TabBar } from "../components/Tile";
 import { ChipRow, CountChip, PAGE_SIZE, PhoneSummary, ShowMore } from "../components/PhoneParts";
 import { LevelPill, StatePill } from "../components/Level";
 import { LEVEL_RANK, LEVELS, levelColor } from "../levels";
 import { SCOPES, monthLabel, shortDate } from "../vibModel";
-import { STAGES, stageTone } from "../tones";
+import { STAGES, seriesColors, stageTone } from "../tones";
 
 // Vibration Actions (workflow "Automatic Draft Action & Shared
 // Recommendations" + "Agreed Action Execution & ACC Closure"). One action
@@ -21,7 +22,7 @@ import { STAGES, stageTone } from "../tones";
 const OPEN = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 
 export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onOpenReport, onOpenMachine, openActionId, setOpenActionId }) {
-  const { T, s } = useTheme();
+  const { T, s, themeName } = useTheme();
   const isMobile = useIsMobile();
   const [chartsOpen, setChartsOpen] = useState(false);
   const [data, setData] = useState(() => peekCached("getVibActions"));
@@ -59,26 +60,62 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
   const base = all.filter((a) => (contractor === "All" || a.Contractor === contractor) && (scope === "All" || a["Report scope"] === scope));
   const shown = base
     .filter((a) => (sev === "All" || a.Severity === sev) && (owner === "All" || (owner === "No owner" ? !a.Owner : a.Owner === owner)))
-    .filter((a) => !q || `${a["Action ID"]} ${a["Equipment ID"]} ${a["Equipment name"]} ${a["Agreed action"]} ${a["Contractor recommendation"]}`.toLowerCase().includes(q.toLowerCase()))
+    .filter(((match) => (a) => match(a["Equipment ID"], a["Action ID"], a["Equipment name"], a["Agreed action"], a["Contractor recommendation"]))(idTextMatch(q, all.map((a) => a["Equipment ID"]))))
     .filter((a) => (quick === "pastdue" ? pastDue(a) : quick === "noowner" ? noOwner(a) : quick === "toclose" ? a.Status === "Closure Requested" : true));
   const open = base.filter((a) => OPEN.includes(a.Status));
   const owners = [...new Set(all.map((a) => a.Owner).filter(Boolean))].sort();
   const findingsOf = (id) => (data?.findings || []).filter((f) => f["Action ID"] === id);
   const contractors = me.contractor ? [me.contractor] : ["RHI", "ASEC"];
+  const hasFilters = !!q || scope !== "All" || sev !== "All" || owner !== "All" || contractor !== "All";
+  const clearFilters = () => {
+    setQ("");
+    setScope("All");
+    setSev("All");
+    setOwner("All");
+    setContractor("All");
+    setQuick("");
+  };
+  const machineOptions = useMemo(() => {
+    const m = new Map();
+    all.forEach((a) => a["Equipment ID"] && m.set(a["Equipment ID"], a["Equipment name"] || ""));
+    return [...m].map(([code, description]) => ({ code, description })).sort((x, y) => x.code.localeCompare(y.code));
+  }, [all]);
+  const scopeRows = SCOPES.filter((sc) => open.some((a) => a["Report scope"] === sc)).map((sc) => {
+    const l = open.filter((a) => a["Report scope"] === sc);
+    return { label: sc, parts: ["Caution", "Alert", "Danger"].map((lv) => ({ label: lv, value: l.filter((a) => a.Severity === lv).length, color: levelColor(T, lv) })) };
+  });
+  // open actions by age (days since created): green → blue → amber → red
+  const daysSince = (v) => {
+    const t = Date.parse(String(v || "").slice(0, 10));
+    return isNaN(t) ? null : Math.floor((Date.parse(today) - t) / 864e5);
+  };
+  const AGE = [["0–7 d", 7, T.success], ["8–30 d", 30, T.accent], ["31–60 d", 60, T.warning], ["60+ d", Infinity, T.danger]];
+  const ageData = AGE.map(([label, max, color], i) => ({
+    key: label,
+    label,
+    color,
+    value: open.filter((a) => {
+      const d = daysSince(a["Created at"]);
+      return d != null && d > (i ? AGE[i - 1][1] : -Infinity) && d <= max;
+    }).length,
+  }));
+  const palette = seriesColors(themeName);
+  const contractorData = [
+    { label: "RHI", value: base.filter((a) => a.Contractor === "RHI").length, color: palette[1] },
+    { label: "ASEC", value: base.filter((a) => a.Contractor === "ASEC").length, color: palette[0] },
+  ];
+  const trendData = Array.from({ length: 6 }, (_, k) => {
+    const now = new Date(today);
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return { key, label: d.toLocaleDateString("en-US", { month: "short" }), Opened: base.filter((a) => String(a["Created at"] || "").slice(0, 7) === key).length, Closed: base.filter((a) => String(a["Closed at"] || "").slice(0, 7) === key).length };
+  });
 
   return (
     <div style={{ padding: isMobile ? "14px 12px" : "20px 24px" }} data-testid="vib-actions">
       <PageHeader
         title="Vibration Actions"
-        subtitle={data ? `${open.length} open · ${base.filter(pastDue).length} past due · ${base.filter(noOwner).length} with no owner · ${base.filter((a) => a.Status === "Closure Requested").length} waiting for closure` : "Loading actions…"}
-        right={
-          <>
-            <ContractorChips value={contractor} onChange={setContractor} options={contractors} testid="va-contractor" />
-            <button type="button" style={s.btnPrimary} onClick={() => setAdding(true)} data-testid="va-add">
-              <i className="ti ti-plus" aria-hidden="true" /> Add action
-            </button>
-          </>
-        }
+        subtitle={data ? `${open.length} open · ${base.filter((a) => a.Status === "Closure Requested").length} waiting for closure · ${shown.length} in this view` : "Loading actions…"}
       />
       {error && (
         <div role="alert" style={{ ...s.card, borderColor: T.danger, color: T.danger }}>
@@ -99,40 +136,90 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
             </PhoneSummary>
           )}
           {(!isMobile || chartsOpen) && (
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) minmax(0,1.3fr) minmax(0,0.8fr)", marginBottom: 14 }}>
-            <div style={{ ...s.card, marginBottom: 0, display: "flex", gap: 14, alignItems: "center" }} data-testid="va-donut">
-              <Donut T={T} size={118} segments={OPEN.map((st) => ({ label: st, value: open.filter((a) => a.Status === st).length, color: stageTone(T, st) }))} center={open.length} sub="open" ariaLabel="Open actions by stage" />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13, flex: 1 }}>
-                {OPEN.map((st) => (
-                  <span key={st} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 3, background: stageTone(T, st) }} />
-                    {st}
-                    <b style={{ marginLeft: "auto" }}>{open.filter((a) => a.Status === st).length}</b>
-                  </span>
-                ))}
+            <>
+              {/* same layout as Oil Actions: stages · by scope · counts, then age · contractor · opened vs closed */}
+              <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.15fr) minmax(0,1.25fr) 170px" }}>
+                <div style={{ ...s.card, marginBottom: 0, display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap", padding: "16px 20px" }} data-testid="va-donut">
+                  <Donut T={T} size={120} thickness={18} segments={OPEN.map((st) => ({ label: st, value: open.filter((a) => a.Status === st).length, color: stageTone(T, st) }))} center={open.length} sub="open" ariaLabel="Open actions by stage" />
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Where the open actions are</div>
+                    {OPEN.map((st) => {
+                      const n = open.filter((a) => a.Status === st).length;
+                      return (
+                        <div key={st} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: stageTone(T, st), flexShrink: 0 }} />
+                          <span style={{ fontSize: 13, color: T.textPrimary, width: 140, flexShrink: 0 }}>{st}</span>
+                          <b style={{ fontSize: 13, color: T.textPrimary, minWidth: 22, textAlign: "right" }}>{n}</b>
+                          <span style={{ fontSize: 12, color: T.textSecondary }}>{open.length ? `${Math.round((n / open.length) * 100)}%` : ""}</span>
+                        </div>
+                      );
+                    })}
+                    <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 4 }}>{base.filter((a) => a.Status === "Closed").length} closed in this view</div>
+                  </div>
+                </div>
+                <div style={{ ...s.card, marginBottom: 0, padding: "16px 20px", minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary }}>Open actions by scope</span>
+                    <span style={{ fontSize: 12, color: T.textSecondary }}>severity of the finding · tap a scope to filter</span>
+                  </div>
+                  {scopeRows.length === 0 ? (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No open actions.</p>
+                  ) : (
+                    <div style={{ maxHeight: 172, overflowY: "auto", paddingRight: 2 }}>
+                      <StackedBars T={T} labelWidth={110} activeLabel={scope === "All" ? null : scope} onRow={(r) => setScope(scope === r.label ? "All" : r.label)} rows={scopeRows} />
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr", gap: 14 }}>
+                  {[
+                    { key: "pastdue", label: "Past due", value: base.filter(pastDue).length, sub: "open, due date passed", color: base.some(pastDue) ? T.danger : T.success, testid: "va-tile-pastdue" },
+                    { key: "noowner", label: "No owner", value: base.filter(noOwner).length, sub: "open, nobody assigned", color: base.some(noOwner) ? T.warning : T.success, testid: "va-tile-noowner" },
+                    ...(me.canApprove ? [{ key: "toclose", label: "To approve", value: base.filter((a) => a.Status === "Closure Requested").length, sub: "waiting for your closure", color: base.some((a) => a.Status === "Closure Requested") ? T.info : T.success, testid: "va-tile-toclose" }] : []),
+                  ].map((k) => (
+                    <button
+                      key={k.key}
+                      type="button"
+                      aria-pressed={quick === k.key}
+                      onClick={() => setQuick(quick === k.key ? "" : k.key)}
+                      style={{ ...s.card, marginBottom: 0, padding: "12px 16px", borderLeft: `3px solid ${k.color}`, textAlign: "left", cursor: "pointer", fontFamily: "inherit", outline: quick === k.key ? `2px solid ${T.accent}` : "none" }}
+                      data-testid={k.testid}
+                    >
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary }}>{k.label}</div>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: k.value ? k.color : T.textPrimary, lineHeight: 1.2 }}>{k.value}</div>
+                      <div style={{ fontSize: 12, color: T.textSecondary }}>{k.sub}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div style={{ ...s.card, marginBottom: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 10, color: T.textPrimary }}>
-                Open actions by scope <span style={{ fontWeight: 400, fontSize: 12, color: T.textSecondary }}>severity of the finding · tap to filter</span>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.1fr 0.8fr 1.3fr", gap: 14, margin: "14px 0" }}>
+                <div style={{ ...s.card, marginBottom: 0 }}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Open actions by age</p>
+                  {open.length === 0 ? <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No open actions.</p> : <MiniBars T={T} data={ageData} color={T.accent} height={120} ariaLabel={ageData.map((d) => `${d.label} ${d.value}`).join(", ")} />}
+                </div>
+                <div style={{ ...s.card, marginBottom: 0 }}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Actions by Contractor</p>
+                  {contractorData.every((d) => d.value === 0) ? (
+                    <p style={{ color: T.textSecondary, fontSize: 12.5, margin: 0 }}>No actions in view.</p>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                      <Donut T={T} segments={contractorData} size={112} thickness={16} center={contractorData.reduce((n, d) => n + d.value, 0)} sub="actions" ariaLabel={contractorData.map((d) => `${d.label} ${d.value}`).join(", ")} />
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13.5 }}>
+                        {contractorData.map((d) => (
+                          <span key={d.label} style={{ display: "flex", alignItems: "center", gap: 7, color: T.textPrimary }}>
+                            <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color }} />
+                            <b>{d.label}</b> {d.value} <span style={{ color: T.textSecondary }}>· {Math.round((d.value / (contractorData.reduce((n, x) => n + x.value, 0) || 1)) * 100)}%</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ ...s.card, marginBottom: 0 }}>
+                  <p style={{ fontWeight: 700, margin: "0 0 10px", fontSize: 13 }}>Opened vs Closed (last 6 months)</p>
+                  <PairBars T={T} data={trendData} height={120} series={[{ key: "Opened", label: "Opened", color: T.accent }, { key: "Closed", label: "Closed", color: T.success }]} ariaLabel="Actions opened and closed per month" />
+                </div>
               </div>
-              <StackedBars
-                T={T}
-                labelWidth={120}
-                activeLabel={scope === "All" ? null : scope}
-                onRow={(r) => setScope(scope === r.label ? "All" : r.label)}
-                rows={SCOPES.filter((sc) => all.some((a) => a["Report scope"] === sc && (contractor === "All" || a.Contractor === contractor))).map((sc) => {
-                  const l = all.filter((a) => a["Report scope"] === sc && OPEN.includes(a.Status) && (contractor === "All" || a.Contractor === contractor));
-                  return { label: sc, parts: ["Caution", "Alert", "Danger"].map((lv) => ({ label: lv, value: l.filter((a) => a.Severity === lv).length, color: levelColor(T, lv) })) };
-                })}
-              />
-            </div>
-            <div style={{ display: "grid", gap: 10 }}>
-              <Tile icon="ti-clock-exclamation" value={base.filter(pastDue).length} label="Past due" tone={base.some(pastDue) ? T.danger : undefined} onClick={() => setQuick(quick === "pastdue" ? "" : "pastdue")} testid="va-tile-pastdue" />
-              <Tile icon="ti-user-question" value={base.filter(noOwner).length} label="No owner" tone={base.some(noOwner) ? T.warning : undefined} onClick={() => setQuick(quick === "noowner" ? "" : "noowner")} testid="va-tile-noowner" />
-              {me.canApprove && <Tile icon="ti-checks" value={base.filter((a) => a.Status === "Closure Requested").length} label="Waiting for your closure" tone={base.some((a) => a.Status === "Closure Requested") ? T.info : undefined} onClick={() => setQuick(quick === "toclose" ? "" : "toclose")} testid="va-tile-toclose" />}
-            </div>
-          </div>
+            </>
           )}
           <TabBar
             value={tab}
@@ -145,33 +232,40 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
           />
           {tab === "actions" && (
             <>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-                <input style={{ ...s.input, width: 220 }} placeholder="Find action or machine" value={q} onChange={(e) => setQ(e.target.value)} data-testid="va-find" />
-                <select style={s.select} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "4px 0 12px" }}>
+                <EquipmentSearch freeText options={machineOptions} value={q} onChange={setQ} placeholder="Equipment ID or action…" width={isMobile ? "100%" : 240} testid="va-find" />
+                <select style={{ ...s.select, fontSize: 12 }} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
                   <option value="All">All scopes</option>
                   {SCOPES.map((sc) => (
                     <option key={sc}>{sc}</option>
                   ))}
                 </select>
-                <select style={s.select} value={sev} onChange={(e) => setSev(e.target.value)} aria-label="Severity">
+                <select style={{ ...s.select, fontSize: 12 }} value={sev} onChange={(e) => setSev(e.target.value)} aria-label="Severity">
                   <option value="All">All severities</option>
                   {LEVELS.map((l) => (
                     <option key={l}>{l}</option>
                   ))}
                 </select>
-                <select style={s.select} value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
+                <select style={{ ...s.select, fontSize: 12 }} value={owner} onChange={(e) => setOwner(e.target.value)} aria-label="Owner">
                   <option value="All">All owners</option>
                   <option>No owner</option>
                   {owners.map((o) => (
                     <option key={o}>{o}</option>
                   ))}
                 </select>
+                <ContractorChips value={contractor} onChange={setContractor} options={contractors} size="sm" testid="va-contractor" />
                 <ContractorChips value={view} onChange={setView} options={["Board", "Table"]} allLabel={null} label="View" size="sm" testid="va-view" />
-                {quick && (
-                  <button type="button" style={{ ...s.btnGhost, padding: "4px 10px" }} onClick={() => setQuick("")}>
-                    ✕ {quick === "pastdue" ? "Past due" : quick === "noowner" ? "No owner" : "Waiting for closure"}
+                {(quick || hasFilters) && (
+                  <button type="button" style={{ ...s.btn, fontSize: 12, color: T.danger, borderColor: T.danger }} onClick={clearFilters}>
+                    <i className="ti ti-x" aria-hidden="true" /> Clear{quick ? ` · ${quick === "pastdue" ? "Past due" : quick === "noowner" ? "No owner" : "To approve"}` : ""}
                   </button>
                 )}
+                <button type="button" style={{ ...s.btnPrimary, marginLeft: "auto" }} onClick={() => setAdding(true)} data-testid="va-add">
+                  <i className="ti ti-plus" aria-hidden="true" /> Add action
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
+                {quick || hasFilters ? `Showing ${shown.length} of ${base.length} actions` : `${base.length} actions · tap a card to open it`}
               </div>
               {view === "Board" ? <Board T={T} s={s} rows={shown} today={today} findingsOf={findingsOf} onOpen={setOpenId} isMobile={isMobile} /> : <ActionTable T={T} s={s} rows={shown} today={today} onOpen={setOpenId} />}
             </>
@@ -214,41 +308,79 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
   );
 }
 
+// Same card as Oil Actions: machine ID, name, the agreed action, owner, then
+// due date and action number; the stage's colour on the left edge.
 function ActionCard({ T, s, a, today, findings, onOpen }) {
   const late = ["Open", "Waiting Stoppage"].includes(a.Status) && a["Due date"] && a["Due date"] < today;
+  const tone = stageTone(T, a.Status);
+  const daysLate = late ? Math.round((Date.parse(today) - Date.parse(a["Due date"])) / 864e5) : 0;
+  const created = Date.parse(String(a["Created at"] || "").slice(0, 10));
+  const daysOpen = isNaN(created) ? null : Math.round((Date.parse(today) - created) / 864e5);
+  const text = a["Agreed action"] || a["ACC recommendation"] || a["Contractor recommendation"] || a["Analysis recommendation"];
   return (
     <button
       type="button"
       onClick={() => onOpen(a["Action ID"])}
       data-testid={`va-card-${a["Action ID"]}`}
-      style={{ ...s.card, marginBottom: 10, padding: 12, width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit", borderLeft: late ? `4px solid ${T.danger}` : `1px solid ${T.border}`, boxSizing: "border-box" }}
+      style={{ ...s.card, display: "block", marginBottom: 10, padding: "12px 13px", width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit", borderLeft: `3px solid ${tone}`, boxSizing: "border-box" }}
     >
-      <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: T.textSecondary }}>{a["Action ID"]}</span>
-        <span style={{ marginLeft: "auto" }}>
-          <LevelPill level={a.Severity} />
-        </span>
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <span style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12.5, color: T.accent }}>{a["Equipment ID"]}</span>
+        <LevelPill level={a.Severity} />
       </span>
-      <b style={{ display: "block", marginTop: 6, color: T.textPrimary }}>
-        {a["Equipment ID"]} · {a["Equipment name"]}
-      </b>
-      <span style={{ display: "block", margin: "5px 0", fontSize: 12.5, color: T.textPrimary }}>{a["Agreed action"] || a["ACC recommendation"] || a["Contractor recommendation"] || a["Analysis recommendation"] || <i style={{ color: T.textMuted }}>Recommendations to enter</i>}</span>
-      <span style={{ display: "flex", gap: 8, fontSize: 12, color: T.textSecondary }}>
-        <span>
-          {a.Contractor} · {a.Owner || "no owner"}
-        </span>
-        <span style={{ marginLeft: "auto", color: late ? T.danger : T.textSecondary, fontWeight: late ? 700 : 400 }}>{a["Due date"] ? `${late ? "⚠ " : ""}${shortDate(a["Due date"])}` : "—"}</span>
+      <span style={{ display: "block", fontSize: 12, color: T.textSecondary, marginTop: 2 }}>
+        {a["Equipment name"] || "—"}
+        {a["Report scope"] ? ` · ${a["Report scope"]}` : ""}
       </span>
+      <span style={{ display: "-webkit-box", fontSize: 12, color: T.textPrimary, marginTop: 8, lineHeight: 1.45, WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{text || "—"}</span>
+      {a.Status === "Draft" && !text && (
+        <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: T.warning, marginTop: 6 }}>
+          <i className="ti ti-pencil" aria-hidden="true" style={{ marginRight: 3 }} />
+          Recommendations to enter
+        </span>
+      )}
+      {a.Status === "Closure Requested" && (
+        <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: T.info, marginTop: 6 }}>Waiting for ACC approval</span>
+      )}
+      {a.Status !== "Closed" && (
+        <span style={{ display: "block", marginTop: 6, fontSize: 12 }}>
+          {a.Owner ? (
+            <span style={{ color: T.textSecondary }}>
+              <i className="ti ti-user" aria-hidden="true" style={{ marginRight: 3 }} /> {a.Owner}
+            </span>
+          ) : (
+            <span style={{ fontWeight: 700, color: T.danger }}>
+              <i className="ti ti-alert-triangle" aria-hidden="true" style={{ marginRight: 3 }} /> No owner assigned
+            </span>
+          )}
+        </span>
+      )}
       {findings.length > 1 && <span style={{ display: "block", fontSize: 12, color: T.textSecondary, marginTop: 4 }}>⊕ {findings.length} findings</span>}
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+        {a.Status === "Closed" ? (
+          <span style={{ fontSize: 12, color: T.textMuted }}>Completed {shortDate(String(a["Closed at"] || "").slice(0, 10)) || "—"}</span>
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: (late ? T.danger : T.textMuted) + "22", color: late ? T.danger : T.textSecondary }}>
+            {late ? `⚠ ${daysLate}d overdue` : a["Due date"] ? `Due ${shortDate(a["Due date"])}` : daysOpen == null ? "—" : `${daysOpen}d open`}
+          </span>
+        )}
+        <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textMuted }}>{a["Action ID"]}</span>
+      </span>
     </button>
   );
 }
+
+// Height of a board column before it scrolls inside (like the Oil Change Log).
+const COLUMN_MAX = "min(640px, calc(100vh - 220px))";
 
 function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
   const recentClosed = rows.filter((a) => a.Status === "Closed" && (!a["Closed at"] || String(a["Closed at"]).slice(0, 10) >= new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10)));
   const [stage, setStage] = useState("Open");
   const [limit, setLimit] = useState(PAGE_SIZE);
   const listFor = (st) => (st === "Closed" ? recentClosed : rows.filter((a) => a.Status === st)).sort((a, b) => (LEVEL_RANK[b.Severity] || 0) - (LEVEL_RANK[a.Severity] || 0) || String(a["Due date"] || "9").localeCompare(String(b["Due date"] || "9")));
+  const empty = (
+    <div style={{ fontSize: 12, color: T.textMuted, textAlign: "center", padding: "16px 6px", border: `1px dashed ${T.border}`, borderRadius: 8 }}>No actions here</div>
+  );
   // Phone: one stage at a time (chips above), 50 cards at a time — no
   // five stacked columns to scroll past.
   if (isMobile) {
@@ -267,28 +399,32 @@ function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
           {list.slice(0, limit).map((a) => (
             <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />
           ))}
-          {!list.length && <div style={{ ...s.card, fontSize: 13, color: T.textMuted, textAlign: "center" }}>No actions here</div>}
+          {!list.length && empty}
           <ShowMore shown={limit} total={list.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} testid="va-more" />
         </div>
       </div>
     );
   }
   return (
-    <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(5, minmax(0, 1fr))", alignItems: "start" }} data-testid="va-board">
+    <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(5, minmax(210px, 1fr))", overflowX: "auto", alignItems: "start" }} data-testid="va-board">
       {STAGES.map((st) => {
-        const list = (st === "Closed" ? recentClosed : rows.filter((a) => a.Status === st)).sort((a, b) => (LEVEL_RANK[b.Severity] || 0) - (LEVEL_RANK[a.Severity] || 0) || String(a["Due date"] || "9").localeCompare(String(b["Due date"] || "9")));
+        const list = listFor(st);
         const tone = stageTone(T, st);
         return (
-          <div key={st} style={{ background: tone + "14", borderRadius: 12, padding: 10, minWidth: 0 }} data-testid={`va-col-${st.replace(/\s+/g, "")}`}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, fontWeight: 700, color: tone }}>
-              {st}
-              <span style={{ background: T.cardBg, color: tone, borderRadius: 999, padding: "1px 8px", fontSize: 12 }}>{list.length}</span>
-              {st === "Closed" && <span style={{ fontSize: 12, fontWeight: 400, color: T.textSecondary }}>last 60 days</span>}
+          <div key={st} style={{ minWidth: 0 }} data-testid={`va-col-${st.replace(/\s+/g, "")}`}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 4px 10px", borderBottom: `2px solid ${tone}`, marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: tone, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                {st}
+                {st === "Closed" && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: T.textMuted }}> · last 60 days</span>}
+              </span>
+              <span style={{ fontSize: 12, color: T.textMuted, fontWeight: 600 }}>{list.length}</span>
             </div>
-            {list.map((a) => (
-              <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />
-            ))}
-            {!list.length && <div style={{ fontSize: 12, color: T.textMuted, padding: "6px 2px" }}>None</div>}
+            <div style={{ maxHeight: COLUMN_MAX, overflowY: "auto", paddingRight: 4, overscrollBehavior: "contain" }} data-testid={`va-colbody-${st.replace(/\s+/g, "")}`}>
+              {list.map((a) => (
+                <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />
+              ))}
+              {!list.length && empty}
+            </div>
           </div>
         );
       })}
@@ -347,11 +483,13 @@ function ActionTable({ T, s, rows, today, onOpen }) {
 
 function OldTracker({ T, s, rows }) {
   const [q, setQ] = useState("");
-  const list = rows.filter((a) => !q || `${a.actionNo} ${a.equipmentId} ${a.equipmentName} ${a.agreedAction} ${a.contractorAction}`.toLowerCase().includes(q.toLowerCase()));
+  const qMatch = idTextMatch(q, rows.map((a) => a.equipmentId));
+  const list = rows.filter((a) => qMatch(a.equipmentId, a.actionNo, a.equipmentName, a.agreedAction, a.contractorAction));
+  const oldOptions = [...new Map(rows.filter((a) => a.equipmentId).map((a) => [a.equipmentId, a.equipmentName || ""]))].map(([code, description]) => ({ code, description }));
   return (
     <>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-        <input style={{ ...s.input, width: 240 }} placeholder="Find in the old tracker" value={q} onChange={(e) => setQ(e.target.value)} />
+        <EquipmentSearch freeText options={oldOptions} value={q} onChange={setQ} placeholder="Equipment ID or action…" width={260} testid="va-old-find" />
         <span style={{ fontSize: 12, color: T.textSecondary }}>Read only — the actions recorded before the redesign (📋 Action Tracker tab).</span>
       </div>
       <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="va-old">
@@ -700,14 +838,13 @@ function ActionModal({ webhookUrl, action, findings, owners, priorities, me, onC
 function AddActionModal({ webhookUrl, me, machines, openActions, onClose, onSaved, onOpenExisting }) {
   const { T, s } = useTheme();
   const [eqId, setEqId] = useState("");
-  const [find, setFind] = useState("");
   const [severity, setSeverity] = useState("Caution");
   const [analysis, setAnalysis] = useState("");
   const [rec, setRec] = useState("");
   const [accRec, setAccRec] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const list = useMemo(() => machines.filter((m) => !find || (m.id + " " + m.name).toLowerCase().includes(find.toLowerCase())).sort((a, b) => a.id.localeCompare(b.id)), [machines, find]);
+  const list = useMemo(() => machines.map((m) => ({ code: m.id, description: m.name })).sort((a, b) => a.code.localeCompare(b.code)), [machines]);
   const existing = openActions.find((a) => a["Equipment ID"] === eqId);
   const save = async () => {
     setError("");
@@ -741,15 +878,7 @@ function AddActionModal({ webhookUrl, me, machines, openActions, onClose, onSave
       }
     >
       <FormSection icon="engine" title="Machine">
-        <input style={{ ...s.input, marginBottom: 6 }} placeholder="Find by ID or name" value={find} onChange={(e) => setFind(e.target.value)} />
-        <select style={{ ...s.select, width: "100%" }} value={eqId} onChange={(e) => setEqId(e.target.value)} data-testid="va-add-eq">
-          <option value="">Pick equipment…</option>
-          {list.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.id} · {m.name}
-            </option>
-          ))}
-        </select>
+        <EquipmentSearch options={list} value={eqId} onChange={setEqId} placeholder="Pick or type Equipment ID…" width="100%" testid="va-add-eq" />
         {existing && (
           <div style={{ marginTop: 10, fontSize: 13, color: T.warning }}>
             {eqId} already has an open action ({existing["Action ID"]}, {existing.Status}). One action per machine —{" "}

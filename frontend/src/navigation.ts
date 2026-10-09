@@ -30,7 +30,7 @@ export type NavItem = {
 export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'dashboard', label: 'Vibration Dashboard', icon: 'dashboard' },
   { id: 'log', label: 'Vibration Log', icon: 'compliance' },
-  { id: 'equipment', label: 'Equipment', icon: 'registry' },
+  { id: 'equipment', label: 'Equipment', icon: 'equipment' },
   { id: 'trends', label: 'Trends', icon: 'graphs' },
   { id: 'routes', label: 'Routes', icon: 'action' },
   { id: 'newreading', label: 'New reading', icon: 'plus' },
@@ -75,7 +75,7 @@ export const OIL_SUB_TABS: SubTab[] = [
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Plant overview', to: '/', icon: 'dashboard' },
   { label: 'My Work', to: '/my-work', icon: 'action' },
-  { label: 'Equipment', to: '/equipment', icon: 'registry' },
+  { label: 'Equipment', to: '/equipment', icon: 'equipment' },
   {
     label: 'Vibration Analysis',
     to: '/vibration-analysis',

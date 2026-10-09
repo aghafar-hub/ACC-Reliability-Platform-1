@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { saveVibLimits } from "../api";
 import { useTheme } from "../ThemeContext";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
 import ModalShell, { FormSection, ReadValue } from "../components/ModalShell";
@@ -38,7 +39,7 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
   const isOwn = (e) => e.custom?.RMS || e.custom?.SPM || e.custom?.Gs;
   const base = eqs.filter((e) => (contractor === "All" || e.contractor === contractor) && (scope === "All" || e.scope === scope));
   const rows = base
-    .filter((e) => !q || (e.equipmentId + " " + e.name).toLowerCase().includes(q.toLowerCase()))
+    .filter(((match) => (e) => match(e.equipmentId, e.name))(idTextMatch(q, base.map((e) => e.equipmentId))))
     .filter((e) => (only === "All" ? true : only === "Own limits" ? isOwn(e) || pointCount(e.equipmentId) : only === "Inactive" ? e.status === "Inactive" : only === "Not every 30 days" ? e.interval !== limits?.defaultInterval : true));
   const contractors = [...new Set(eqs.map((e) => e.contractor))].filter(Boolean).sort((a, b) => (a === "RHI" ? -1 : b === "RHI" ? 1 : 0));
 
@@ -89,7 +90,7 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
           {tab === "machines" && (
             <>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
-                <input style={{ ...s.input, width: 220 }} placeholder="Find by ID or name" value={q} onChange={(e) => setQ(e.target.value)} />
+                <EquipmentSearch freeText options={base.map((e) => ({ code: e.equipmentId, description: e.name }))} value={q} onChange={setQ} placeholder="Equipment ID or name…" width={240} testid="vlim-find" />
                 <select style={s.select} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
                   <option value="All">All scopes</option>
                   {SCOPES.map((sc) => (

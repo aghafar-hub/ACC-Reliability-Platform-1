@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { getVibTracker, peekCached } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
@@ -63,14 +64,14 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
   const months = data?.months || [];
   const all = useMemo(() => (data?.machines || []).filter((m) => contractor === "All" || m.contractor === contractor), [data, contractor]);
   const inArea = useMemo(() => all.filter((m) => area === "All" || m.area === area), [all, area]);
-  const needle = q.trim().toLowerCase();
+  const match = idTextMatch(q, all.map((m) => m.equipmentId));
   const rows = useMemo(
     () =>
       inArea
         .filter((m) => state === "All" || m.state === state)
-        .filter((m) => !needle || m.equipmentId.toLowerCase().includes(needle) || String(m.name || "").toLowerCase().includes(needle))
+        .filter((m) => match(m.equipmentId, m.name))
         .sort((a, b) => STATES.indexOf(a.state) - STATES.indexOf(b.state) || AREAS.indexOf(a.area) - AREAS.indexOf(b.area) || a.equipmentId.localeCompare(b.equipmentId)),
-    [inArea, state, needle]
+    [inArea, state, q, all]
   );
   const count = (st) => inArea.filter((m) => m.state === st).length;
   const measured = inArea.reduce((n, m) => n + m.measured, 0);
@@ -143,7 +144,9 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
               </CountChip>
             ))}
           </ChipRow>
-          <input type="search" placeholder="Search Equipment ID or name…" aria-label="Search machines" value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE_SIZE); }} style={{ ...s.input, width: isMobile ? "100%" : 320, marginBottom: 12 }} data-testid="vt-search" />
+          <div style={{ marginBottom: 12 }}>
+            <EquipmentSearch freeText options={inArea.map((m) => ({ code: m.equipmentId, description: m.name }))} value={q} onChange={(v) => { setQ(v); setLimit(PAGE_SIZE); }} placeholder="Equipment ID or name…" ariaLabel="Search machines" width={isMobile ? "100%" : 320} testid="vt-search" />
+          </div>
 
           {isMobile ? (
             <div data-testid="vt-cards">

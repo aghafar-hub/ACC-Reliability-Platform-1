@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { getVibActions, getVibReport, peekCached, saveVibEntries, vibReportTransition } from "../api";
 import { generateVibReportPdf } from "../vibPdf";
 import { useTheme } from "../ThemeContext";
@@ -531,7 +532,8 @@ function ReadingsEditor({ webhookUrl, rep, entries, scopeEquipment, onCancel, on
   const set = (vib, k, v) => setVals((p) => ({ ...p, [vib]: { ...(p[vib] || {}), [k]: v } }));
   const filled = (r) => r && ["h", "v", "a", "hdm", "hdc", "g"].some((k) => r[k] !== "" && r[k] != null);
   const count = Object.values(vals).filter(filled).length;
-  const list = machines.filter((m) => !search || (m.id + " " + m.name).toLowerCase().includes(search.toLowerCase()));
+  const searchMatch = idTextMatch(search, machines.map((m) => m.id));
+  const list = machines.filter((m) => searchMatch(m.id, m.name));
 
   const save = async () => {
     setError("");
@@ -567,7 +569,7 @@ function ReadingsEditor({ webhookUrl, rep, entries, scopeEquipment, onCancel, on
           Date for all
           <input type="date" style={{ ...s.input, width: 150 }} value={defDate} onChange={(e) => setDefDate(e.target.value)} data-testid="vrep-defdate" />
         </label>
-        <input style={{ ...s.input, width: 200 }} placeholder="Find machine" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <EquipmentSearch freeText options={machines.map((m) => ({ code: m.id, description: m.name }))} value={search} onChange={setSearch} placeholder="Equipment ID or name…" width={240} testid="vrep-find" />
       </div>
       <div style={{ ...s.card, padding: 0, overflowX: "auto", marginBottom: 12 }}>
         <table style={s.table}>

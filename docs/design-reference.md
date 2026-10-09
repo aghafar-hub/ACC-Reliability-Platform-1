@@ -50,12 +50,15 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 | Any form popup (create / edit) | `ModalShell` + `FormSection` (+ `StepTrail` for a workflow, `ReadValue` for locked values) | `components/ModalShell.jsx` |
 | Phone filters / short choices | `BottomSheet` + `SheetGroup`, `SheetChip`, `SheetButton` (Reset · Show N …) | `components/BottomSheet.jsx` |
 | Phone list page parts | `PhoneSummary` (+ `SummaryBar`), `ChipRow`, `CountChip`, `FiltersPill`, `ShowMore` (50 at a time) | `components/PhoneParts.jsx` |
-| Contractor switch | `ContractorChips` ("All contractors · RHI · ASEC"); `ContractorTag` for a Location / contractor cell | `components/ContractorChips.jsx` |
+| Contractor switch | `ContractorChips` ("All contractors · RHI · ASEC") on every filter row, and `allLabel={null}` (RHI · ASEC) in forms; `ContractorTag` for a Location / contractor cell. Never a contractor dropdown. | `components/ContractorChips.jsx` |
+| Any ID filter or picker (Equipment ID, Lub ID, Vib ID…) | `EquipmentSearch`: a dropdown you type into, in one box. Pick mode for forms; `freeText` for list filters (typing filters, the dropdown suggests IDs, a picked ID shows that one only — `idTextMatch`). Never a plain `<select>` of IDs or a search box without the dropdown. Shell: `IdSearch`. | `components/EquipmentSearch.jsx`, `frontend/src/components/IdSearch.tsx` |
+| Kanban board (actions) | Oil Actions board: uppercase column title with a 2px stage-colour underline and count, white cards with a 3px stage-colour left edge, dashed "No actions here"; each column scrolls inside (`min(640px, 100vh − 220px)`) | `oil-analysis/src/pages/ActionTracker.jsx`, `vibration-analysis/src/pages/VibActions.jsx` |
 | Number tiles | `InvTile` pattern: icon square, big number, label, sub-line, coloured left border when it needs attention, clickable to the list behind it | `pages/OilInventory.jsx`, `pages/TeamWorkload.jsx` (`Tile`) |
 | One total split into parts | `Donut` with its legend beside it (numbers in text) | `components/DashCharts.jsx` |
 | Parts per row (per area / technician / contractor) | `StackedBars` (tap a row to filter) | same |
 | Progress to a target | `Ring`, `TargetBar` | same |
-| A count per month | `MiniBars` (current month pale) | same |
+| A count per month | `MiniBars` (current month pale; a bar may carry its own `color`) | same |
+| Two counts per month (opened vs closed) | `PairBars` (Vibration) / recharts `BarChart` (Oil) | same |
 | Days of stock left | `Runway` | same |
 | How full one stock is | `Gauge`, or the inline `StockMeter` in tables | same / `OilInventory.jsx` |
 | Work per day ahead | `CalendarHeat` | same |
@@ -223,6 +226,7 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 - [ ] Header with live-number subtitle; controls on the right.
 - [ ] A summary row (tiles / charts) above the list, no empty gaps.
 - [ ] Contractor chips if the page covers both contractors.
+- [ ] Every ID filter is `EquipmentSearch` (type and pick in one box).
 - [ ] Forms in `ModalShell` with `FormSection`s and a sticky footer.
 - [ ] Status and contractor colours as in §5.
 - [ ] Works in all 5 themes and at 390 px wide; no console errors.

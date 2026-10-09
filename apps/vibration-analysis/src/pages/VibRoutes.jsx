@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createVibRoute, dismissVibSuggestion, getVibRoute, getVibRoutes, peekCached, vibRouteTransition } from "../api";
 import { useTheme } from "../ThemeContext";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
 import ModalShell, { FormSection, ReadValue, StepTrail } from "../components/ModalShell";
@@ -400,7 +401,8 @@ function CreateRoute({ webhookUrl, me, preset, machines, suggestions, technician
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dueKeys = new Set(suggestions.map((x) => x.equipmentId));
-  const list = machines.filter((m) => m.contractor === contractor && !m.inactive && !m.onRoute && (scope === "All" || m.scope === scope) && (!dueOnly || dueKeys.has(m.equipmentId)) && (!q || (m.equipmentId + " " + m.name).toLowerCase().includes(q.toLowerCase())));
+  const qMatch = idTextMatch(q, machines.map((m) => m.equipmentId));
+  const list = machines.filter((m) => m.contractor === contractor && !m.inactive && !m.onRoute && (scope === "All" || m.scope === scope) && (!dueOnly || dueKeys.has(m.equipmentId)) && qMatch(m.equipmentId, m.name));
   const sourceAction = (preset.machines || []).map((x) => x.sourceAction).filter(Boolean)[0] || "";
   const toggle = (id) => setPicked(picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]);
   const save = async () => {
@@ -495,7 +497,9 @@ function CreateRoute({ webhookUrl, me, preset, machines, suggestions, technician
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.3fr) minmax(0,1fr)" }}>
         <FormSection icon="list-search" title="Machines" hint={`${list.length} available`} style={{ marginBottom: 0 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-            <input style={{ ...s.input, flex: "1 1 160px", width: "auto" }} placeholder="Find" value={q} onChange={(e) => setQ(e.target.value)} data-testid="vr-find" />
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <EquipmentSearch freeText options={machines.filter((m) => m.contractor === contractor && !m.inactive && !m.onRoute).map((m) => ({ code: m.equipmentId, description: m.name }))} value={q} onChange={setQ} placeholder="Equipment ID or name…" width="100%" testid="vr-find" />
+            </div>
             <select style={s.select} value={scope} onChange={(e) => setScope(e.target.value)} aria-label="Scope">
               <option value="All">All scopes</option>
               {SCOPES.map((x) => (

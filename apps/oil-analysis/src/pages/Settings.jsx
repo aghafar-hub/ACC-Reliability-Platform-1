@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import { saveEquipmentRegistry } from "../equipmentRegistry";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { saveActionRegistry } from "../actionRegistry";
 import { useSession } from "../SessionContext";
 
@@ -69,7 +70,7 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
   const q = query.trim().toLowerCase();
   const filtered = !q
     ? registry
-    : registry.filter((r) => r.code.toLowerCase().includes(q) || (r.description || "").toLowerCase().includes(q));
+    : registry.filter(((match) => (r) => match(r.code, r.description))(idTextMatch(q, registry.map((r) => r.code))));
   const shown = filtered.slice(0, 50);
 
   function startEdit(eq) {
@@ -119,12 +120,9 @@ function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistr
           <i className="ti ti-lock" aria-hidden="true" /> Read-only — only an Admin account can edit sampling intervals.
         </p>
       )}
-      <input
-        style={{ ...s.input, fontSize: 13, marginBottom: 10, maxWidth: 320 }}
-        placeholder="Search equipment code or description…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <div style={{ marginBottom: 10 }}>
+        <EquipmentSearch freeText options={registry} value={query} onChange={setQuery} placeholder="Lub ID or description…" width={320} testid="set-int-find" />
+      </div>
       <div style={{ maxHeight: 340, overflowY: "auto", border: `1px solid ${T.border}`, borderRadius: 8 }}>
         {shown.length === 0 ? (
           <div style={{ padding: 16, textAlign: "center", color: T.textMuted, fontSize: 12 }}>No equipment match.</div>

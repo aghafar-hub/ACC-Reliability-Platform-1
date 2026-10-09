@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { saveVibReadings } from "../api";
 import { useTheme } from "../ThemeContext";
+import EquipmentSearch from "../components/EquipmentSearch";
 import ModalShell, { FormSection, ReadValue } from "../components/ModalShell";
 import { LevelPill } from "../components/Level";
 import { LEVELS } from "../levels";
@@ -19,7 +20,6 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
   const { T, s } = useTheme();
   const list = useMemo(() => machines.filter((m) => m.points.length && (!me?.contractor || m.contractor === me.contractor)).sort((a, b) => a.id.localeCompare(b.id)), [machines, me]);
   const [eqId, setEqId] = useState(presetEquipmentId || "");
-  const [find, setFind] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [vals, setVals] = useState({});
   const [busy, setBusy] = useState(false);
@@ -36,7 +36,7 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
     setVals((p) => ({ ...p, [vib]: { ...(p[vib] || {}), [k]: v } }));
   };
   const filled = Object.entries(vals).filter(([, r]) => ["h", "v", "a", "hdm", "hdc", "g"].some((k) => r[k] !== "" && r[k] != null));
-  const shownMachines = list.filter((x) => !find || (x.id + " " + x.name).toLowerCase().includes(find.toLowerCase())).slice(0, 200);
+  const machineOptions = list.map((x) => ({ code: x.id, description: x.name }));
 
   const save = async (replace = false) => {
     setError("");
@@ -91,15 +91,7 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
           ) : (
             <label>
               <span style={s.label}>Equipment</span>
-              <input style={{ ...s.input, marginBottom: 6 }} placeholder="Find by ID or name" value={find} onChange={(e) => setFind(e.target.value)} data-testid="vnr-find" />
-              <select style={{ ...s.select, width: "100%" }} value={eqId} onChange={(e) => setEqId(e.target.value)} data-testid="vnr-eq">
-                <option value="">Pick equipment…</option>
-                {shownMachines.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.id} · {x.name}
-                  </option>
-                ))}
-              </select>
+              <EquipmentSearch options={machineOptions} value={eqId} onChange={setEqId} placeholder="Pick or type Equipment ID…" width="100%" testid="vnr-eq" />
             </label>
           )}
           <label>

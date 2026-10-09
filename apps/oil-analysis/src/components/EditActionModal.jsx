@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
+import ContractorChips from "./ContractorChips";
 import { useSessionContractor, useIsRouteEngineerFor, useIsAccEngineer } from "../SessionContext";
 import { nextAcNo, formatDate, sameCalendarDay, normActionStatus, ACTION_STATUS, ACTION_DRAFT_DUE_DAYS, isActionOverdue, actionDaysOverdue, actionDueEnd } from "../parsers";
 import { useActionWorkflow } from "../ActionWorkflowContext";
@@ -418,12 +419,7 @@ export default function EditActionModal({
               {scopedContractor ? (
                 <div style={roStyle}>{scopedContractor}</div>
               ) : (
-                <select style={{ ...s.input, fontSize: 13, cursor: "pointer" }} value={form.contractor || ""} onChange={(e) => set("contractor", e.target.value)} aria-label="Contractor">
-                  <option value="">—</option>
-                  {CONTRACTOR_OPTIONS.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
+                <ContractorChips value={form.contractor || ""} onChange={(c) => set("contractor", c === form.contractor ? "" : c)} options={CONTRACTOR_OPTIONS} allLabel={null} testid="action-contractor" />
               )}
             </div>
             <div style={{ gridColumn: "span 2", minWidth: 0 }}>

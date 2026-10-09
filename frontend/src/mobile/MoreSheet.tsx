@@ -95,7 +95,7 @@ export default function MoreSheet({ open, onClose }: { open: boolean; onClose: (
           <p className="more-group-title">Platform</p>
           {navItems.some((n) => n.to === '/my-work') && (
             <button type="button" className="module-sheet-item" onClick={() => goRoute('/my-work')}>
-              <Icon name="myWork" size={20} />
+              <Icon name="action" size={20} />
               <span>My Work</span>
               <Icon name="chevronRight" size={16} style={{ marginInlineStart: 'auto', opacity: 0.4 }} />
             </button>

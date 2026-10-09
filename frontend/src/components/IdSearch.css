@@ -1,0 +1,70 @@
+.id-search {
+  position: relative;
+  margin-bottom: 10px;
+}
+.id-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--shell-border);
+  background: var(--shell-card-bg);
+  color: var(--shell-text);
+  border-radius: 12px;
+  padding: 11px 38px 11px 38px;
+  font: inherit;
+  font-size: 15px;
+}
+.id-search-icon,
+.id-search-chev,
+.id-search-clear {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--shell-text-secondary);
+  display: inline-flex;
+}
+.id-search-icon {
+  inset-inline-start: 12px;
+  pointer-events: none;
+}
+.id-search-chev {
+  inset-inline-end: 12px;
+  pointer-events: none;
+}
+.id-search-clear {
+  inset-inline-end: 8px;
+  border: 0;
+  background: none;
+  padding: 6px;
+  cursor: pointer;
+}
+.id-search-list {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 4px);
+  inset-inline: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--shell-card-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.id-search-opt {
+  padding: 9px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--shell-border) 60%, transparent);
+  color: var(--shell-text-secondary);
+}
+.id-search-opt b {
+  color: var(--shell-accent);
+}
+.id-search-opt:hover,
+.id-search-opt--on {
+  background: color-mix(in srgb, var(--shell-accent) 10%, transparent);
+}
+.id-search-note {
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--shell-text-secondary);
+}

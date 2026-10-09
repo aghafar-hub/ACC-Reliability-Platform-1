@@ -1487,7 +1487,7 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {visitedPages.has("activity") && (
             <div style={{ display: page === "activity" ? undefined : "none" }}>
-              <Activity webhookUrl={config.webhookUrl} />
+              <Activity webhookUrl={config.webhookUrl} registry={equipmentRegistry} />
             </div>
           )}
           {visitedPages.has("tracker") && (

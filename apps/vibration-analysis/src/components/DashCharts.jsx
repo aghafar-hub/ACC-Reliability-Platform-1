@@ -143,7 +143,7 @@ export function MiniBars({ T, data, color, height = 84, ariaLabel }) {
               style={{
                 width: "100%",
                 height: `${Math.max(d.value ? 4 : 0, (d.value / max) * 100)}%`,
-                background: color,
+                background: d.color || color,
                 opacity: d.partial ? 0.4 : hover === i ? 0.85 : 1,
                 borderRadius: "4px 4px 0 0",
               }}
@@ -179,6 +179,46 @@ export function MiniBars({ T, data, color, height = 84, ariaLabel }) {
         >
           {data[hover].label}: {data[hover].value}
           {data[hover].partial ? " so far" : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Two counts per month side by side (e.g. opened vs closed), one shared
+// scale, a legend under the axis; values on hover / tap.
+export function PairBars({ T, data, series, height = 120, ariaLabel }) {
+  const [hover, setHover] = useState(null);
+  const max = Math.max(1, ...data.flatMap((d) => series.map((sr) => d[sr.key] || 0)));
+  return (
+    <div role="img" aria-label={ariaLabel} style={{ position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height, borderBottom: `1px solid ${T.border}` }}>
+        {data.map((d, i) => (
+          <div key={d.key} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onClick={() => setHover(hover === i ? null : i)} style={{ flex: 1, height: "100%", display: "flex", alignItems: "flex-end", gap: 2 }}>
+            {series.map((sr) => (
+              <div key={sr.key} style={{ flex: 1, height: `${Math.max(d[sr.key] ? 4 : 0, ((d[sr.key] || 0) / max) * 100)}%`, background: sr.color, borderRadius: "4px 4px 0 0", opacity: hover === i ? 0.85 : 1 }} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+        {data.map((d) => (
+          <span key={d.key} style={{ flex: 1, textAlign: "center", fontSize: 12, color: T.textSecondary }}>
+            {d.label}
+          </span>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 14, justifyContent: "center", marginTop: 6, fontSize: 12, color: T.textSecondary }}>
+        {series.map((sr) => (
+          <span key={sr.key} style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: sr.color }} />
+            {sr.label}
+          </span>
+        ))}
+      </div>
+      {hover != null && (
+        <div style={{ position: "absolute", bottom: height + 30, left: `${((hover + 0.5) / data.length) * 100}%`, transform: "translateX(-50%)", background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px", fontSize: 12, fontWeight: 700, color: T.textPrimary, whiteSpace: "nowrap", boxShadow: "0 4px 12px rgba(0,0,0,.12)", pointerEvents: "none" }}>
+          {data[hover].label}: {series.map((sr) => `${sr.label} ${data[hover][sr.key] || 0}`).join(" · ")}
         </div>
       )}
     </div>

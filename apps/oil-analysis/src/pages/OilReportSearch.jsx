@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import LabReviewPanel from "../components/LabReviewPanel";
 import { useTheme } from "../ThemeContext";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
 import { formatDate, intervalMonths, sampleTrackerStatus } from "../parsers";
 import LastActionsPanel from "../components/LastActionsPanel";
@@ -560,7 +561,7 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
       if (filter === "due") return r.sampling && r.sampling.label !== "OK";
       return true;
     })
-    .filter((r) => !q || r.code.toLowerCase().includes(q) || (r.reg?.description || "").toLowerCase().includes(q) || (r.reg?.area || "").toLowerCase().includes(q))
+    .filter(((match) => (r) => match(r.code, r.reg?.description, r.reg?.area))(idTextMatch(q, rows.map((r) => r.code))))
     .sort(
       (a, b) =>
         (STATUS_RANK[b.latest?.reportStatus] || 0) - (STATUS_RANK[a.latest?.reportStatus] || 0) ||
@@ -646,14 +647,9 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
       })()}
       {isMobile ? (
         <>
-          <input
-            style={{ ...s.input, width: "100%", boxSizing: "border-box", minHeight: 44, fontSize: 15, marginBottom: 10 }}
-            type="search"
-            placeholder="Filter by point, description, area…"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            aria-label="Filter points"
-          />
+          <div style={{ marginBottom: 10 }}>
+            <EquipmentSearch freeText options={rows.map((r) => ({ code: r.code, description: r.reg?.description || "" }))} value={text} onChange={setText} placeholder="Lub ID, description, area…" ariaLabel="Filter points" width="100%" inputStyle={{ minHeight: 44, fontSize: 15 }} testid="ors-filter" />
+          </div>
           <ChipRow label="Latest result">
             {chip("all", "All", rows.length, null)}
             {chip("Alert", "◆ Alert", counts.Alert, "danger")}
@@ -669,13 +665,9 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
           {chip("Caution", "Caution", counts.Caution, "warning")}
           {chip("Normal", "Normal", counts.Normal, "success")}
           {chip("due", "Sample overdue / missing", counts.due, "warning")}
-          <input
-            style={{ ...s.input, width: isMobile ? "100%" : 240, marginLeft: isMobile ? 0 : "auto", fontSize: 13 }}
-            placeholder="Filter by point, description, area…"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            aria-label="Filter points"
-          />
+          <div style={{ marginLeft: "auto" }}>
+            <EquipmentSearch freeText options={rows.map((r) => ({ code: r.code, description: r.reg?.description || "" }))} value={text} onChange={setText} placeholder="Lub ID, description, area…" ariaLabel="Filter points" width={260} testid="ors-filter" />
+          </div>
         </div>
       )}
       {shown.length === 0 ? (

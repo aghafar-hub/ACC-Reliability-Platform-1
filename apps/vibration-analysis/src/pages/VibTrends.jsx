@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { getVibEquipmentHistory } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
@@ -82,7 +83,9 @@ export default function VibTrends({ webhookUrl, scopeEquipment }) {
             ))}
             {!picked.length && <span style={{ fontSize: 12.5, color: T.textSecondary }}>Pick machines below.</span>}
           </div>
-          <input style={{ ...s.input, marginBottom: 8 }} placeholder="Find machine" value={q} onChange={(e) => setQ(e.target.value)} data-testid="vt-find" />
+          <div style={{ marginBottom: 8 }}>
+            <EquipmentSearch freeText options={machines.filter((m) => !picked.includes(m.id)).map((m) => ({ code: m.id, description: m.name }))} value={q} onChange={(v) => { if (picked.length < MAX && machines.some((m) => m.id === v) && !picked.includes(v)) { setPicked([...picked, v]); setQ(""); } else setQ(v); }} placeholder="Equipment ID or name…" width="100%" testid="vt-find" />
+          </div>
           <div style={{ maxHeight: 380, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
             {options.map((m) => (
               <button

@@ -53,11 +53,11 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
   const slots: { key: string; label: string; icon: string; active: boolean; onClick: () => void; plus?: boolean; badge?: number }[] = [];
 
   if (contractorStaff) {
-    slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: homeActive, onClick: () => { tapHaptic(); navigate('/my-work'); } });
+    slots.push({ key: 'home', label: 'My Work', icon: 'action', active: homeActive, onClick: () => { tapHaptic(); navigate('/my-work'); } });
   } else if (mainModule) {
     slots.push({ key: 'home', label: 'Home', icon: 'dashboard', active: homeActive, onClick: () => { tapHaptic(); navigate('/'); } });
   } else {
-    slots.push({ key: 'home', label: 'My Work', icon: 'myWork', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
+    slots.push({ key: 'home', label: 'My Work', icon: 'action', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
   }
   if (mainModule) {
     slots.push({ key: 'equipment', label: 'Equipment', icon: 'equipment', active: equipmentActive, onClick: () => { tapHaptic(); navigate('/equipment'); } });
@@ -65,8 +65,8 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
   if (quick.length) {
     slots.push({ key: 'plus', label: 'Add', icon: 'plus', active: sheetOpen, plus: true, onClick: () => { tapHaptic(); setSheetOpen(true); } });
   }
-  if (!slots.some((s) => s.key === 'home' && s.icon === 'myWork')) {
-    slots.push({ key: 'mywork', label: 'My Work', icon: 'myWork', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
+  if (!slots.some((s) => s.key === 'home' && s.label === 'My Work')) {
+    slots.push({ key: 'mywork', label: 'My Work', icon: 'action', active: location.pathname === '/my-work', onClick: () => { tapHaptic(); navigate('/my-work'); } });
   }
   slots.push({ key: 'more', label: 'More', icon: 'menu', active: moreOpen || !slots.some((s) => s.active), onClick: () => { tapHaptic(); onOpenMore(); } });
 

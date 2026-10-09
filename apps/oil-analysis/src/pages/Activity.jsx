@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import EquipmentSearch from "../components/EquipmentSearch";
 import * as api from "../api";
 import { MiniBars } from "../components/DashCharts";
 
@@ -16,7 +17,7 @@ import { MiniBars } from "../components/DashCharts";
 // reads as a warning, not just another ordinary change.
 const ACTION_LABEL = { create: "Created", update: "Updated", delete: "Deleted", "direct-edit": "Direct sheet edit" };
 
-export default function Activity({ webhookUrl }) {
+export default function Activity({ webhookUrl, registry = [] }) {
   const { T, s } = useTheme();
   const [recordId, setRecordId] = useState("");
   const [appliedRecordId, setAppliedRecordId] = useState("");
@@ -43,6 +44,14 @@ export default function Activity({ webhookUrl }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Lub IDs, plus every record already listed (routes, products…)
+  const idOptions = useMemo(() => {
+    const seen = new Map();
+    (registry || []).forEach((r) => r.code && seen.set(r.code, r.lubricationPoint || r.description || ""));
+    (result.entries || []).forEach((e) => e.recordId && !seen.has(e.recordId) && seen.set(e.recordId, e.sheet || e.entity || ""));
+    return [...seen].map(([code, description]) => ({ code, description }));
+  }, [registry, result]);
 
   function applyFilter(e) {
     e.preventDefault();
@@ -115,12 +124,22 @@ export default function Activity({ webhookUrl }) {
           <p style={{ fontSize: 12.5, color: T.textSecondary, margin: "2px 0 0" }}>Every create, update and delete made through this app — who, when and what. Newest first.</p>
         </div>
         <form onSubmit={applyFilter} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input
-            style={{ ...s.input, width: 240, flex: 1, minWidth: 0 }}
-            placeholder="Filter by LP_ID, routine, product id…"
+          <EquipmentSearch
+            freeText
+            options={idOptions}
             value={recordId}
-            onChange={(e) => setRecordId(e.target.value)}
-            aria-label="Filter by record"
+            onChange={(v) => {
+              setRecordId(v);
+              // picked from the list: filter straight away
+              if (idOptions.some((o) => o.code === v)) {
+                setPage(1);
+                setAppliedRecordId(v);
+              }
+            }}
+            placeholder="Lub ID, route or product ID…"
+            ariaLabel="Filter by record"
+            width={260}
+            testid="act-filter"
           />
           <button type="submit" style={s.btn}>
             <i className="ti ti-filter" aria-hidden="true" /> Filter

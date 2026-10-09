@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import EquipmentSearch from "./EquipmentSearch";
 import { formatDate } from "../parsers";
 import { HEALTH_COLOR, HEALTH_RANK, healthForLp, worstHealth } from "../equipmentHealth";
 import { Donut, StackedBars } from "./DashCharts";
@@ -120,6 +121,13 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
   const [showAllAreas, setShowAllAreas] = useState(false);
 
   const q = text.trim().toLowerCase();
+  // the dropdown in the filter box: machines, or lubrication points (Lub ID)
+  const idOptions = useMemo(
+    () => (view === "equipment" ? machines.map((m) => ({ code: m.id, description: m.area || "" })) : points.map((p) => ({ code: p.reg.code, description: p.reg.lubricationPoint || p.reg.description || "" }))),
+    [view, machines, points]
+  );
+  // a picked (exact) ID shows that machine / point only
+  const exact = q && (idOptions.some((o) => String(o.code).toLowerCase() === q) || points.some((p) => String(p.reg.code).toLowerCase() === q));
   const healthOk = (h) => healthFilter === "all" || (healthFilter === "attention" ? h !== "Good" : h === healthFilter);
   const rows = (view === "equipment" ? machines : points)
     .filter((r) => {
@@ -128,6 +136,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
       if (contractor !== "All" && reg.contractor !== contractor) return false;
       if (!healthOk(view === "equipment" ? r.health : r.h.health)) return false;
       if (!q) return true;
+      if (exact) return view === "equipment" ? String(r.id).toLowerCase() === q || r.list.some((p) => String(p.reg.code).toLowerCase() === q) : String(r.reg.code).toLowerCase() === q;
       const hay = view === "equipment"
         ? [r.id, r.area, ...r.list.map((p) => `${p.reg.code} ${p.reg.description || ""} ${p.reg.lubricationPoint || ""}`)]
         : [r.reg.code, r.reg.equipmentId, r.reg.description, r.reg.lubricationPoint, r.reg.area];
@@ -235,7 +244,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
   if (phone) {
     return (
       <PhoneList
-        {...{ T, s, view, setView, area, setArea, areas, contractor, setContractor, contractors, scopedContractor, text, setText, rows, limit, setLimit, chip, counts, goodPct, overview, chartsOpen, setChartsOpen, sheetOpen, setSheetOpen, onOpenEquipment, onOpenLp, nextChangeCell, charts }}
+        {...{ T, s, view, setView, area, setArea, areas, contractor, setContractor, contractors, scopedContractor, text, setText, idOptions, rows, limit, setLimit, chip, counts, goodPct, overview, chartsOpen, setChartsOpen, sheetOpen, setSheetOpen, onOpenEquipment, onOpenLp, nextChangeCell, charts }}
       />
     );
   }
@@ -263,14 +272,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
             </button>
           ))}
         </div>
-        <input
-          style={{ ...s.input, width: 220, flex: "1 1 180px", maxWidth: 320 }}
-          type="search"
-          aria-label="Filter the list"
-          placeholder="Filter by code, name or area…"
-          value={text}
-          onChange={(e) => { setText(e.target.value); setLimit(PAGE); }}
-        />
+        <EquipmentSearch freeText options={idOptions} value={text} onChange={(v) => { setText(v); setLimit(PAGE); }} placeholder={view === "equipment" ? "Equipment ID, Lub ID or name…" : "Lub ID, equipment or name…"} ariaLabel="Filter the list" width={300} testid="eq-filter" />
         <select style={{ ...s.select, width: "auto" }} aria-label="Area" value={area} onChange={(e) => { setArea(e.target.value); setLimit(PAGE); }}>
           <option value="All">All areas</option>
           {areas.map((a) => (
@@ -380,7 +382,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
 // (tap to open them), status chips swipe sideways, area and contractor sit
 // in a filter sheet, and each row is a card with the status as a word plus
 // a shape. The same filters and data as the desktop table.
-function PhoneList({ T, s, view, setView, area, setArea, areas, contractor, setContractor, contractors, scopedContractor, text, setText, rows, limit, setLimit, chip, counts, goodPct, overview, chartsOpen, setChartsOpen, sheetOpen, setSheetOpen, onOpenEquipment, onOpenLp, nextChangeCell, charts }) {
+function PhoneList({ T, s, view, setView, area, setArea, areas, contractor, setContractor, contractors, scopedContractor, text, setText, idOptions, rows, limit, setLimit, chip, counts, goodPct, overview, chartsOpen, setChartsOpen, sheetOpen, setSheetOpen, onOpenEquipment, onOpenLp, nextChangeCell, charts }) {
   const total = overview.all || 1;
   const pct = (n) => `${(n / total) * 100}%`;
   const extraFilters = (area !== "All" ? 1 : 0) + (contractor !== "All" ? 1 : 0);
@@ -418,14 +420,9 @@ function PhoneList({ T, s, view, setView, area, setArea, areas, contractor, setC
           </button>
         ))}
       </div>
-      <input
-        style={{ ...s.input, width: "100%", boxSizing: "border-box", minHeight: 44, fontSize: 15, marginBottom: 10 }}
-        type="search"
-        aria-label="Filter the list"
-        placeholder="Filter by code, name or area…"
-        value={text}
-        onChange={(e) => { setText(e.target.value); setLimit(PAGE); }}
-      />
+      <div style={{ marginBottom: 10 }}>
+        <EquipmentSearch freeText options={idOptions} value={text} onChange={(v) => { setText(v); setLimit(PAGE); }} placeholder={view === "equipment" ? "Equipment ID, Lub ID or name…" : "Lub ID, equipment or name…"} ariaLabel="Filter the list" width="100%" inputStyle={{ minHeight: 44, fontSize: 15 }} testid="eq-filter" />
+      </div>
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 8, scrollbarWidth: "none" }}>
         {chip("attention", "Needs attention", counts.Poor + counts.Fair, "warning")}
         {chip("Poor", "Poor", counts.Poor, "danger")}

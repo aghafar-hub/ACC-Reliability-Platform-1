@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import ContractorChips from "../components/ContractorChips";
 import { useSessionEmail, useSessionContractor } from "../SessionContext";
 import TechnicianPicker from "../components/TechnicianPicker";
 import ModalShell, { FormSection } from "../components/ModalShell";
@@ -551,13 +552,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                 </div>
               )
             ) : (
-              <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)} aria-label="Contractor">
-                {CONTRACTOR_OPTIONS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+              <ContractorChips value={contractor} onChange={setContractor} options={CONTRACTOR_OPTIONS} allLabel={null} testid="nr-contractor" />
             )}
           </div>
           {!isRecurring && (

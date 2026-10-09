@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
+import ContractorChips from "../components/ContractorChips";
 import { useSessionEmail, useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import * as api from "../api";
 import { todayISO } from "../parsers";
@@ -125,13 +126,7 @@ function LogMovementForm({ webhookUrl, productId, unit, equipmentRegistry, pushT
         )}
         <div>
           <label style={s.label}>Contractor</label>
-          <select style={s.select} value={contractor} onChange={(e) => setContractor(e.target.value)}>
-            {CONTRACTOR_OPTIONS.map((c) => (
-              <option key={c} value={c}>
-                {c || "—"}
-              </option>
-            ))}
-          </select>
+          <ContractorChips value={contractor} onChange={(c) => setContractor(c === contractor ? "" : c)} options={CONTRACTOR_OPTIONS.filter(Boolean)} allLabel={null} />
         </div>
         <div>
           <label style={s.label}>Done By</label>
