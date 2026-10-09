@@ -471,6 +471,9 @@ export default function MyWork({
   onInitialRoutineConsumed?: () => void;
 }) {
   const { sessionToken, claims } = useAuth();
+  // The last answers kept on this device (per person): My Work opens with
+  // them at once and is replaced by the server's (docs/performance.md).
+  const deviceKey = `acc.mywork.v1.${(claims?.email || '').toLowerCase()}`;
   const navigate = useNavigate();
   const { access } = useModuleAccess();
   // Managers and the App Owner also get My team (what their people did).
@@ -489,9 +492,6 @@ export default function MyWork({
   const workModuleKey = workModules.map((m) => m.id).join(',');
   const [work, setWork] = useState<ModuleWork[] | null>(() => readDevice<ModuleWork[]>(`${deviceKey}.work`));
   const oilMaintenance = !!oilAccess?.enforced && oilAccess.status === 'Maintenance';
-  // The last answers kept on this device (per person): My Work opens with
-  // them at once and is replaced by the server's (docs/performance.md).
-  const deviceKey = `acc.mywork.v1.${(claims?.email || '').toLowerCase()}`;
   const [routines, setRoutines] = useState<Routine[] | null>(() => readDevice<Routine[]>(`${deviceKey}.routes`));
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
