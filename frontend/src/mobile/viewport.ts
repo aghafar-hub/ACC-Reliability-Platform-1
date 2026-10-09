@@ -36,3 +36,16 @@ document.addEventListener('focusout', () => setTimeout(update, 100));
 
 const standalone = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
 root.classList.toggle('standalone', !!standalone);
+
+// No zooming (user request). Safari ignores user-scalable=no, so stop the
+// pinch gesture itself; the double-tap zoom is off via touch-action (CSS).
+const stop = (e: Event) => e.preventDefault();
+document.addEventListener('gesturestart', stop, { passive: false } as AddEventListenerOptions);
+document.addEventListener('gesturechange', stop, { passive: false } as AddEventListenerOptions);
+document.addEventListener(
+  'touchmove',
+  (e) => {
+    if ((e as TouchEvent).touches.length > 1) e.preventDefault();
+  },
+  { passive: false },
+);

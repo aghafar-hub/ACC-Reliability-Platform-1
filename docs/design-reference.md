@@ -147,6 +147,10 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
   reload, and asks the person to finish an open form first
   (`UpdatePrompt.tsx`).
 - No sideways page scroll at 360 px and 390 px; tables scroll in their card.
+- **No zooming, ever:** the viewport doesn't scale, pinch and double-tap
+  are blocked, and every field uses 16 px text on a phone (iPhone zooms
+  into smaller fields when they get focus). Never set a phone field below
+  16 px.
 - Tile and chart grids use `repeat(auto-fit, minmax(min(100%, Npx), 1fr))`.
 - Popups are full-screen sheets that close with Back.
 - **Lists are cards, not tables** (M2): code + status badge with its symbol

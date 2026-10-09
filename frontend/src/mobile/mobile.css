@@ -112,3 +112,21 @@
     display: none !important;
   }
 }
+
+/* No zooming on phones (user request): the page never scales.
+   - iPhone zooms into any field whose text is under 16px when it gets
+     focus, so fields use 16px on phones (beats the apps' inline sizes).
+   - touch-action: manipulation removes double-tap zoom everywhere.
+   Pinch is blocked in viewport.ts (Safari ignores user-scalable=no). */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+@media (max-width: 860px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
