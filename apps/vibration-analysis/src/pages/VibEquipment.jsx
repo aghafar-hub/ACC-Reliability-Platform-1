@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
-import { getVibEquipmentHistory, getVibEquipmentSummary, getVibTracker, peekCached } from "../api";
+import { getVibActions, getVibEquipmentHistory, getVibEquipmentSummary, getVibTracker, peekCached } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -8,6 +8,7 @@ import { Donut, StackedBars } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
 import { LevelPill, LevelSymbol, StatePill } from "../components/Level";
 import VibPointCharts, { PointPicker } from "../components/VibPointCharts";
+import MachineActions, { LastRecommendation } from "../components/MachineActions";
 // shapes so a level never relies on colour alone (design reference §5)
 const LEVEL_SYMBOL = { Normal: "●", Caution: "▲", Alert: "◆", Danger: "■" };
 import { LEVEL_RANK, LEVELS, levelColor, levelInk, worstLevel } from "../levels";
@@ -25,7 +26,7 @@ const STALE_DAYS = 90;
 const UNIT = { RMS: "mm/s", SPM: "dBsv", Gs: "g" };
 const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
 
-export default function VibEquipment({ webhookUrl, scopeEquipment, selectedEq, setSelectedEq, onOpenReport, startAdding, onAddClosed }) {
+export default function VibEquipment({ webhookUrl, scopeEquipment, selectedEq, setSelectedEq, onOpenReport, onOpenAction, startAdding, onAddClosed }) {
   const [data, setData] = useState(() => peekCached("getVibEquipmentSummary"));
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(startAdding ? {} : null);
@@ -65,7 +66,7 @@ export default function VibEquipment({ webhookUrl, scopeEquipment, selectedEq, s
     const row = data?.equipment.find((e) => e.equipmentId === selectedEq);
     return (
       <>
-        <MachinePage webhookUrl={webhookUrl} version={version} eqId={selectedEq} row={row} info={scopeEquipment?.[selectedEq]} onBack={() => setSelectedEq(null)} onAdd={() => setAdding({ equipmentId: selectedEq })} onOpenReport={onOpenReport} today={data?.today} />
+        <MachinePage webhookUrl={webhookUrl} version={version} eqId={selectedEq} row={row} info={scopeEquipment?.[selectedEq]} onBack={() => setSelectedEq(null)} onAdd={() => setAdding({ equipmentId: selectedEq })} onOpenReport={onOpenReport} onOpenAction={onOpenAction} today={data?.today} />
         {modal}
       </>
     );
@@ -312,12 +313,28 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   );
 }
 
-function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOpenReport, today }) {
+function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOpenReport, onOpenAction, today }) {
   const { T, s, themeName } = useTheme();
   const isMobile = useIsMobile();
   const [hist, setHist] = useState(() => peekCached("getVibEquipmentHistory", { equipmentId: eqId })?.entries || null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("trend");
+  // the machine's actions and the last report recommendation (getVibActions)
+  const [acts, setActs] = useState(() => peekCached("getVibActions"));
+  const [actsLoading, setActsLoading] = useState(true);
+  useEffect(() => {
+    let live = true;
+    setActsLoading(true);
+    getVibActions(webhookUrl)
+      .then((d) => live && setActs(d))
+      .catch(() => {})
+      .finally(() => live && setActsLoading(false));
+    return () => {
+      live = false;
+    };
+  }, [webhookUrl, version]);
+  const nActions = (acts?.actions || []).filter((a) => a["Equipment ID"] === eqId).length;
+  const openAction = (id) => onOpenAction && onOpenAction(id);
   // Trend: the VIB IDs to show (null = all), one chart each or combined, period
   const [picked, setPicked] = useState(null);
   const [combine, setCombine] = useState(false);
@@ -438,6 +455,7 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
         })}
         {!positions.length && <div style={{ ...s.card, color: T.textSecondary }}>No VIB IDs registered for this machine.</div>}
       </div>
+      <LastRecommendation data={acts} eqId={eqId} onOpenAction={openAction} loading={actsLoading && !acts} />
       <TabBar
         value={tab}
         onChange={setTab}
@@ -446,9 +464,11 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
           { id: "trend", label: "Trend" },
           { id: "readings", label: "Readings", count: entries.length },
           { id: "reports", label: "Reports", count: reports.length },
+          { id: "actions", label: "Actions", count: nActions },
           { id: "measuring", label: "Measuring" },
         ]}
       />
+      {tab === "actions" && <MachineActions data={acts} eqId={eqId} onOpenAction={openAction} loading={actsLoading && !acts} />}
       {tab === "measuring" && <MeasuringHistory webhookUrl={webhookUrl} eqId={eqId} version={version} />}
       {!hist && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading readings…</div>}
       {hist && tab === "trend" && (

@@ -341,6 +341,10 @@ export default function App({ navBridge } = {}) {
           setOpenReportId(id);
           setPage("log");
         }}
+        onOpenAction={(id) => {
+          setOpenActionId(id);
+          setPage("actions");
+        }}
       />
     );
   } else if (page === "trends") {

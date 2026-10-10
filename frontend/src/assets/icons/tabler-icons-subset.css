@@ -106,6 +106,7 @@
 .ti-menu-2:before { content: "\ec42"; }
 .ti-message:before { content: "\eaef"; }
 .ti-message-2:before { content: "\eaec"; }
+.ti-message-report:before { content: "\ec9b"; }
 .ti-messages:before { content: "\eb6c"; }
 .ti-mood-smile:before { content: "\eaf7"; }
 .ti-notes:before { content: "\eb6e"; }
