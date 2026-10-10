@@ -39,6 +39,10 @@ const PATHS: Record<string, string> = {
   users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10ZM9 12l2 2 4-4',
   chevronRight: 'm9 18 6-6-6-6',
+  mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM22 6l-10 7L2 6',
+  mailOff: 'M2 2l20 20M22 6v12a2 2 0 0 1-.6 1.4M4 4h16a2 2 0 0 1 2 2l-8.3 5.8M2 6v12a2 2 0 0 0 2 2h14M2 6l6 4.2',
+  send: 'M22 2 11 13M22 2l-7 20-4-9-9-4Z',
+  list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
 };
 
 export function Icon({ name, size = 18, style }: { name: string; size?: number; style?: CSSProperties }) {

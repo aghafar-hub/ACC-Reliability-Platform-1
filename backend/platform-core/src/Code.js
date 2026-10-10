@@ -54,6 +54,11 @@ function doPost(e) {
         return ok_(getSettingsAccess_(session));
       case 'saveSettingsAccess':
         return ok_(saveSettingsAccess_(session, body));
+      // Email & notifications (EmailSettings.js): App Owner only, all off by default
+      case 'getEmailSettings':
+        return ok_(getEmailSettings_(session));
+      case 'saveEmailSettings':
+        return ok_(saveEmailSettings_(session, body));
       // Equipment list (AssetMaster.js): Equipment IDs are owned here
       case 'listEquipmentMaster':
         return ok_(listEquipmentMaster_(session));

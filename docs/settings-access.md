@@ -36,3 +36,22 @@ Platform Core sheet, made on the first save:
 The modules read the same tabs through `PLATFORM_CORE_SPREADSHEET_ID`
 (`PlatformEquipment.js`, `psaLevel_`), so Module Access and the ID check
 follow the same rules on the server, not only in the menu.
+
+# Email & notifications
+
+Settings → **Email & notifications** (App Owner only). **Everything is off.**
+
+- **Platform sender** — one address sends for every module (to be created;
+  leave it empty until it exists). *Send test email* is switched on in a
+  later step.
+- **Send emails** — the master switch. It can't be turned on without a
+  sender; removing the sender turns it off. The bell is not affected.
+- **What is sent** — per module (Oil, Vibration, Platform): each event can
+  send an email, go into the daily digest, or both. The digest time is set
+  at the bottom. Who receives comes from Module Access.
+
+Each card saves on its own and shows who changed it last; every change is
+written to `PLATFORM_LOG`. Stored in the Platform Core sheet,
+`EMAIL_SETTINGS` (Key | Value | Updated_By | Updated_At), made on the first
+save. Nothing sends email from these settings yet: senders will call
+`emailAllowed_(module, event)` first.

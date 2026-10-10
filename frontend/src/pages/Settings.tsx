@@ -9,6 +9,7 @@ import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { useSettingsAccess } from '../settingsAccess';
 import SettingsAccessPanel from '../components/SettingsAccessPanel';
+import EmailSettingsPanel from '../components/EmailSettingsPanel';
 import { InstallCard } from '../components/InstallGuide';
 import ThemePicker from '../components/ThemePicker';
 import { useEmbeddedNav } from '../embeddedNav';
@@ -16,7 +17,7 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access' | 'settings-access' | 'equipment-ids';
+type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access' | 'settings-access' | 'equipment-ids' | 'email';
 
 // One list of sections, shown as the left navigation (design reference):
 // the platform's own settings first, then each module's.
@@ -33,6 +34,8 @@ const SECTIONS: Section[] = [
   { id: 'settings-access', group: 'Platform', label: 'Settings access', hint: 'Who sees which settings', icon: 'shield', tab: 'general', sub: 'settings-access' },
   // the platform's Equipment IDs and what doesn't match them
   { id: 'equipment-ids', group: 'Platform', label: 'Equipment & IDs', hint: 'Equipment IDs · Lub / Vib IDs · not matching', icon: 'equipment', tab: 'general', sub: 'equipment-ids' },
+  // App Owner only: platform sender and which events send email (all off for now)
+  { id: 'email', group: 'Platform', label: 'Email & notifications', hint: 'Platform sender · what is sent', icon: 'mail', tab: 'general', sub: 'email' },
   { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Connection, registries, alerts', icon: 'droplet', tab: 'oil-analysis' },
   { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Connection and readings', icon: 'graphs', tab: 'vibration-analysis' },
 ];
@@ -156,6 +159,7 @@ export default function Settings() {
           {current.sub === 'users' && isAppOwner && <AccountsPanel />}
           {current.sub === 'module-access' && <ModuleAccessPanel readOnly={levels['module-access'] !== 'Edit'} />}
           {current.sub === 'settings-access' && isAppOwner && <SettingsAccessPanel />}
+          {current.sub === 'email' && isAppOwner && <EmailSettingsPanel />}
           {current.sub === 'equipment-ids' && <EquipmentIdsPanel readOnly={levels['equipment-ids'] !== 'Edit'} />}
         </div>
       )}

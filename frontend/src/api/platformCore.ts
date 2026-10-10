@@ -105,3 +105,28 @@ export function getSettingsAccess(sessionToken: string): Promise<SettingsAccess>
 export function saveSettingsAccess(sessionToken: string, matrix: SettingsAccess['matrix'], people: SettingsAccess['people']): Promise<{ saved: boolean; access: SettingsAccess }> {
   return postAction(PLATFORM_CORE_URL, 'saveSettingsAccess', { sessionToken, matrix, people });
 }
+
+// ─── Email & notifications (App Owner) ─────────────────────────────────────
+export type EmailEvent = { key: string; label: string; to: string };
+export type EmailModule = { id: string; name: string; events: EmailEvent[] };
+export type EmailToggles = Record<string, Record<string, { email: boolean; digest: boolean }>>;
+export type EmailSettings = {
+  senderEmail: string;
+  senderName: string;
+  enabled: boolean;
+  digestTime: string;
+  events: EmailToggles;
+  modules: EmailModule[];
+  changed: Partial<Record<'senderEmail' | 'senderName' | 'enabled' | 'digestTime' | 'events', { by: string; at: string }>>;
+};
+
+export function getEmailSettings(sessionToken: string): Promise<EmailSettings> {
+  return postAction(PLATFORM_CORE_URL, 'getEmailSettings', { sessionToken });
+}
+
+export function saveEmailSettings(
+  sessionToken: string,
+  body: { part: 'sender'; senderEmail: string; senderName: string } | { part: 'switch'; enabled: boolean } | { part: 'events'; events: EmailToggles; digestTime: string },
+): Promise<EmailSettings> {
+  return postAction(PLATFORM_CORE_URL, 'saveEmailSettings', { sessionToken, ...body });
+}
