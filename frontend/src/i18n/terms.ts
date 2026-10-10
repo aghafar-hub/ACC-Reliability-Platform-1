@@ -30,6 +30,7 @@ export const TERMS: TermRow[] = [
   ['Navigation', 'Vibration Analysis', 'تحليل الاهتزازات'],
   ['Navigation', 'Reliability Measures', 'مؤشرات الاعتمادية'],
   ['Navigation', 'Compressors', 'الضواغط'],
+  ['Navigation', 'Thermography', 'التصوير الحراري'],
   ['Navigation', 'Routes', 'المسارات'],
   ['Navigation', 'Routines', 'المسارات'],
   ['Navigation', 'Lab Reports', 'تقارير المختبر'],

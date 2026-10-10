@@ -149,6 +149,7 @@ function ShellRoot() {
             <Route path="/quick/:key" element={<QuickLink />} />
             <Route path="/equipment" element={<PlantEquipmentList />} />
             <Route path="/equipment/:id" element={<PlantMachinePage />} />
+            <Route path="/thermography" element={<ComingSoon title="Thermography" />} />
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />

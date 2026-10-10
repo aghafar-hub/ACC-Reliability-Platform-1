@@ -8,7 +8,7 @@ import { tapHaptic } from '../haptics';
 import { useVisibleNav } from '../hooks/useVisibleNav';
 import { Icon, TablerIcon } from '../icons';
 import { useModuleAccess } from '../moduleAccess';
-import { MODULE_TABS, NAV_ITEMS } from '../navigation';
+import { COMING_SOON_ROUTES, MODULE_TABS, NAV_ITEMS } from '../navigation';
 import { fetchMyWork, lastWorkCounts, myWorkModules, rememberWorkCounts } from '../myWork';
 import { getRecent, pushRecent, type RecentPage } from './recent';
 import { useBackClose } from './useBackClose';
@@ -88,8 +88,8 @@ export default function MoreSheet({ open, onClose, startModule }: { open: boolea
     [navItems],
   );
   // the platform's own pages (not modules), and modules still to come
-  const platform = navItems.filter((n) => !n.moduleId && !['/reliability-measures', '/compressors'].includes(n.to));
-  const coming = NAV_ITEMS.filter((n) => ['/reliability-measures', '/compressors'].includes(n.to));
+  const platform = navItems.filter((n) => !n.moduleId && !COMING_SOON_ROUTES.includes(n.to));
+  const coming = NAV_ITEMS.filter((n) => COMING_SOON_ROUTES.includes(n.to));
 
   if (!open) return null;
 

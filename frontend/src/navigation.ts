@@ -85,6 +85,8 @@ export const NAV_ITEMS: NavItem[] = [
     moduleId: 'vibration-analysis',
   },
   { label: 'Oil Lubrication', to: '/oil-lubrication', icon: 'droplet', subTabs: OIL_SUB_TABS, moduleId: 'oil-analysis' },
+  // new module, designed later: a placeholder page for now
+  { label: 'Thermography', to: '/thermography', icon: 'thermometer' },
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
   // work waiting and done, every module — managers and ACC engineers (contractor managers: their own)
   { label: 'Team', to: '/team', icon: 'users', roles: ['ROLE-ADMIN', 'ROLE-MGR', 'ROLE-RENG', 'ROLE-CMGR'] },
@@ -92,6 +94,10 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Activity', to: '/activity', icon: 'history', roles: ['ROLE-ADMIN', 'ROLE-MGR'] },
   { label: 'Compressors', to: '/compressors', icon: 'sync' },
 ];
+
+// top-level tabs whose pages are still to be designed (ComingSoon); the phone's
+// More hub shows them as "Coming soon" module tiles
+export const COMING_SOON_ROUTES = ['/thermography', '/reliability-measures', '/compressors'];
 
 // ── Module page tabs (design system D2) ─────────────────────────────────
 // A module's pages show as tabs across the top of the module (ModuleTabs.tsx)
