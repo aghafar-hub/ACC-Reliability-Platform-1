@@ -53,5 +53,12 @@ Settings → **Email & notifications** (App Owner only). **Everything is off.**
 Each card saves on its own and shows who changed it last; every change is
 written to `PLATFORM_LOG`. Stored in the Platform Core sheet,
 `EMAIL_SETTINGS` (Key | Value | Updated_By | Updated_At), made on the first
-save. Nothing sends email from these settings yet: senders will call
-`emailAllowed_(module, event)` first.
+save.
+
+**Every module email goes through this switch.** Oil and Vibration send
+mail only through `msSendMail_` (ModuleSettings.js), which sends nothing
+unless there is a platform sender and *Send emails* is on (read through the
+module's 10-minute platform cache). A module that isn't connected to the
+platform (`PLATFORM_CORE_SPREADSHEET_ID` not set) sends nothing. The
+per-event toggles are not wired to each email yet: once the switch is on,
+all of a module's emails go out — connect the events before turning it on.

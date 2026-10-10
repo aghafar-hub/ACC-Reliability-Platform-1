@@ -132,7 +132,7 @@ function vaApplyFindings_(ss, rep, me) {
       who = who.filter(function (e, i) { return e && who.indexOf(e) === i; });
       vnAdd_(ss, who, 'vib-action-findings', res.created.length + ' new draft action(s), ' + res.added.length + ' finding(s) added to open actions from report ' + id,
         rep['Contractor'], 'actions', res.created.length === 1 ? res.created[0] : '', me);
-      if (who.length) MailApp.sendEmail({ to: who.join(','), subject: 'Vibration findings from ' + id,
+      if (who.length) msSendMail_({ to: who.join(','), subject: 'Vibration findings from ' + id,
         body: res.created.length + ' new draft action(s) and ' + res.added.length + ' finding(s) added to open actions from report ' + id + '.\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions to enter the recommendations.' });
     } catch (e) {}
   }
@@ -310,7 +310,7 @@ function handleVibActionTransition(params, session) {
     try {
       var list = notify.to.filter(function (e, i) { return e && notify.to.indexOf(e) === i && e !== me.email; });
       vnAdd_(ss, list, 'vib-action-' + to, notify.subject + (reason ? ': ' + reason : ''), row['Contractor'], 'actions', row['Action ID'], me);
-      if (list.length) MailApp.sendEmail({ to: list.join(','), subject: notify.subject, body: notify.body + '\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions.' });
+      if (list.length) msSendMail_({ to: list.join(','), subject: notify.subject, body: notify.body + '\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions.' });
     } catch (e) {}
   }
   return { status: 'ok', actionId: row['Action ID'], action: vaOut_(saved) };

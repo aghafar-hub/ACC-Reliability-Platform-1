@@ -203,3 +203,20 @@ function handleSaveModuleSettings(data, session) {
 
   return { status: "error", error: "Unknown settings card: " + card };
 }
+
+// ─── Email gate ──────────────────────────────────────────────────────────────
+// Every email this module sends goes through msSendMail_: nothing is sent
+// unless Settings → Email & notifications (Platform Core EMAIL_SETTINGS) has a
+// platform sender and "Send emails" switched on. Not connected = nothing sent.
+// (Read through the 10-minute platform cache, so switching on/off takes up to
+// 10 minutes to reach this module.)
+function msMailAllowed_() {
+  var e = msEmail_();
+  return !!(e.enabled && e.sender);
+}
+
+function msSendMail_(payload) {
+  if (!msMailAllowed_()) return false;
+  MailApp.sendEmail(payload);
+  return true;
+}

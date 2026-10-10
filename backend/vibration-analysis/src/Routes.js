@@ -163,7 +163,7 @@ function vrNotify_(to, subject, body, me, link) {
   try {
     var list = (to || []).filter(function (e, i) { return e && to.indexOf(e) === i && e !== me.email; });
     if (link) vnAdd_(SpreadsheetApp.getActiveSpreadsheet(), list, 'vib-route', subject, link.contractor, link.tech ? 'mywork-route' : 'routes', link.routeId, me);
-    if (list.length) MailApp.sendEmail({ to: list.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' });
+    if (list.length) msSendMail_({ to: list.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' });
   } catch (e) {}
 }
 

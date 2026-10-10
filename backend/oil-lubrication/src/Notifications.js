@@ -64,12 +64,14 @@ function updateNotificationSettings_(data) {
 // apply the configured from/name, rather than repeating that check at each
 // of the five send sites below.
 function sendNotificationEmail_(options) {
+  // The platform's Settings → Email & notifications is the one switch now
+  // (ModuleSettings.js msSendMail_); this module's old on/off setting is no
+  // longer shown or used. From address/name stay as set here for now.
   var settings = getNotificationSettings_();
-  if (!settings.enabled) return;
   var payload = { to: options.to, subject: options.subject, body: options.body };
   if (settings.fromEmail) payload.from = settings.fromEmail;
   if (settings.fromName) payload.name = settings.fromName;
-  MailApp.sendEmail(payload);
+  msSendMail_(payload);
 }
 
 // Who gets "submitted for review" alerts and the two digests: every ACC

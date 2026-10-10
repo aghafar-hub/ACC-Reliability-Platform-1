@@ -185,7 +185,7 @@ function handleSendActionEmail(params) {
 
     for (var r = 0; r < recipients.length; r++) {
       var email = String(recipients[r]).trim();
-      if (email) GmailApp.sendEmail(email, subject, body);
+      if (email) msSendMail_({ to: email, subject: subject, body: body });
     }
 
     return {status:'ok', action:'sendActionEmail', sent:recipients.length, count:actionsArr.length};

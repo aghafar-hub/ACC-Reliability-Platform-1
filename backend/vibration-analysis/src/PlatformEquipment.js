@@ -351,7 +351,7 @@ function idCheckDaily() {
   var msg = PE_MODULE + ": " + n + " new ID problem" + (n > 1 ? "s" : "") + " — " + run.fresh.slice(0, 3).map(function (p) { return p.id; }).join(", ") + (n > 3 ? "…" : "");
   try { peBell_(ss, email, msg); } catch (e) {}
   try {
-    MailApp.sendEmail({
+    msSendMail_({
       to: email,
       subject: "[ACC Reliability] " + PE_MODULE + ": " + n + " new ID problem" + (n > 1 ? "s" : ""),
       body: run.fresh.map(function (p) { return "• " + p.id + " — " + p.title + (p.detail ? " (" + p.detail + ")" : ""); }).join("\n") +
