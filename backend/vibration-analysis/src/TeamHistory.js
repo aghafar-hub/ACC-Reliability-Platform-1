@@ -26,7 +26,8 @@ function teamCollect_(from, to) {
   var open = {};
   var teams = {};
   var team = function (c) {
-    if (!teams[c]) teams[c] = { contractor: c, waiting: 0, overdue: 0 };
+    // open / overdue: the Team page's "Open work" per contractor (reports, routes, actions)
+    if (!teams[c]) teams[c] = { contractor: c, waiting: 0, overdue: 0, open: 0, openRoutes: 0, openActions: 0, openReports: 0 };
     return teams[c];
   };
   var ev = function (who, when, kind, label, title, contractor, side, link, days, onTime) {
@@ -55,6 +56,10 @@ function teamCollect_(from, to) {
       if (r.overdue) open[tech].overdue++;
     }
     if (r['Status'] === 'Submitted') team(c).waiting++;
+    if (c && ['Confirmed', 'Cancelled'].indexOf(r['Status']) === -1) {
+      team(c).open++; team(c).openRoutes++;
+      if (r.overdue) team(c).overdue++;
+    }
   });
 
   vlRead_(ss, SHEET_VLOG).rows.forEach(function (raw) {
@@ -74,6 +79,10 @@ function teamCollect_(from, to) {
     }
     if (['Draft', 'Returned'].indexOf(r['Workflow status']) !== -1) team(c).waiting++;
     if (r['Workflow status'] === 'ACC review') team('ACC').waiting++;
+    if (c && ['Approved', 'Closed', 'Historic'].indexOf(r['Workflow status']) === -1) {
+      team(c).open++; team(c).openReports++;
+      if (r['Due date'] && r['Due date'] < today && ['Draft', 'Returned'].indexOf(r['Workflow status']) !== -1) team(c).overdue++;
+    }
   });
 
   vlRead_(ss, SHEET_VACTIONS).rows.forEach(function (raw) {
@@ -88,6 +97,7 @@ function teamCollect_(from, to) {
     if (a['Status'] === 'Draft') team(String(a['Contractor recommendation'] || '').trim() ? 'ACC' : c).waiting++;
     if (a['Status'] === 'Closure Requested') team('ACC').waiting++;
     if (['Open', 'Waiting Stoppage'].indexOf(a['Status']) !== -1 && a['Due date'] && a['Due date'] < today) team(c).overdue++;
+    if (c && ['Closed', 'Cancelled'].indexOf(a['Status']) === -1) { team(c).open++; team(c).openActions++; }
   });
 
   return { events: events, open: open, teams: Object.keys(teams).filter(function (k) { return k; }).map(function (k) { return teams[k]; }) };

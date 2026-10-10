@@ -85,8 +85,29 @@ export type TeamEvent = {
   moduleId: string;
   moduleName: string;
 };
-export type TeamPerson = { email: string; name: string; contractor: string; kind: 'engineer' | 'technician'; listed: boolean; open: number; overdue: number };
-export type TeamWaiting = { contractor: string; waiting: number; overdue: number; moduleId: string; moduleName: string };
+export type TeamPerson = {
+  email: string;
+  name: string;
+  contractor: string;
+  kind: 'engineer' | 'technician';
+  listed: boolean;
+  open: number;
+  overdue: number;
+  /** open work per module id (Team page) */
+  openBy?: Record<string, number>;
+};
+export type TeamWaiting = {
+  contractor: string;
+  waiting: number;
+  overdue: number;
+  moduleId: string;
+  moduleName: string;
+  // open work (Team page); missing from a module not updated yet
+  open?: number;
+  openRoutes?: number;
+  openActions?: number;
+  openReports?: number;
+};
 // techOnly: a contractor's responsible engineer — their own technicians only.
 export type TeamHistory = { people: TeamPerson[]; events: TeamEvent[]; teams: TeamWaiting[]; scope: string; failed: string[]; techOnly: boolean };
 
@@ -114,8 +135,9 @@ export async function fetchTeamHistory(sessionToken: string, from: string, to: s
     scope = scope || j.scope;
     (j.people || []).forEach((p: TeamPerson) => {
       const had = people.get(p.email);
-      if (!had) people.set(p.email, { ...p });
+      if (!had) people.set(p.email, { ...p, openBy: { [m.id]: p.open } });
       else {
+        had.openBy = { ...(had.openBy || {}), [m.id]: (had.openBy?.[m.id] || 0) + p.open };
         had.open += p.open;
         had.overdue += p.overdue;
         had.listed = had.listed || p.listed;

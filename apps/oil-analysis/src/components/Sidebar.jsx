@@ -14,7 +14,6 @@ const NAV = [
   { id: "tracker", label: "Sample Tracker", icon: "ti-timeline" },
   { id: "inventory", label: "Oil Inventory", icon: "ti-package" },
   { id: "reports", label: "Oil Reports", icon: "ti-report" },
-  { id: "team", label: "Team Workload", icon: "ti-users-group" },
   { id: "howto", label: "How to Use", icon: "ti-help-circle" },
   { id: "settings", label: "Settings", icon: "ti-settings" },
 ];

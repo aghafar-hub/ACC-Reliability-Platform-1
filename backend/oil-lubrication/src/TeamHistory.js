@@ -28,7 +28,8 @@ function teamCollect_(from, to) {
   var teams = {};
   var team = function (c) {
     c = c || "—";
-    if (!teams[c]) teams[c] = { contractor: c, waiting: 0, overdue: 0 };
+    // open / overdue: the Team page's "Open work" per contractor (routes, actions, lab reports)
+    if (!teams[c]) teams[c] = { contractor: c, waiting: 0, overdue: 0, open: 0, openRoutes: 0, openActions: 0, openReports: 0 };
     return teams[c];
   };
   var ev = function (who, when, kind, label, title, contractor, side, link, days) {
@@ -64,6 +65,10 @@ function teamCollect_(from, to) {
       if (isRouteRowOverdue_(r, today)) open[tech].overdue++;
     }
     if (st === ROUTE_STATUS.WAITING) team(c).waiting++;
+    if (c && st !== ROUTE_STATUS.CONFIRMED && st !== ROUTE_STATUS.CANCELLED) {
+      team(c).open++; team(c).openRoutes++;
+      if (isRouteRowOverdue_(r, today)) team(c).overdue++;
+    }
   });
 
   // Lab reports
@@ -77,7 +82,7 @@ function teamCollect_(from, to) {
     if (r[LAB_COL.UPLOADED_BY] && r[LAB_COL.UPLOADED_DATE]) ev(r[LAB_COL.UPLOADED_BY], r[LAB_COL.UPLOADED_DATE], "lab-uploaded", "Lab report uploaded", title, c, "Contractor", link, null);
     if (r[LAB_COL.VALIDATED_BY] && r[LAB_COL.VALIDATED_DATE]) ev(r[LAB_COL.VALIDATED_BY], r[LAB_COL.VALIDATED_DATE], "lab-validated", "Lab report validated", title, c, "Contractor", link, teamDayDiff_(r[LAB_COL.UPLOADED_DATE], r[LAB_COL.VALIDATED_DATE]));
     if (r[LAB_COL.RETURNED_BY] && r[LAB_COL.RETURNED_DATE]) ev(r[LAB_COL.RETURNED_BY], r[LAB_COL.RETURNED_DATE], "lab-returned", "Lab report returned", title, c, "Contractor", link, teamDayDiff_(r[LAB_COL.UPLOADED_DATE], r[LAB_COL.RETURNED_DATE]));
-    if (String(r[LAB_COL.STATUS] || "").trim() === LAB_STATUS.PENDING) team(c).waiting++;
+    if (String(r[LAB_COL.STATUS] || "").trim() === LAB_STATUS.PENDING) { team(c).waiting++; if (c) { team(c).open++; team(c).openReports++; } }
   });
 
   // Actions
@@ -97,6 +102,7 @@ function teamCollect_(from, to) {
     if (st === ACTION_STATUS.DRAFT) team(c).waiting++;
     if (st === ACTION_STATUS.CLOSURE_REQUESTED) team("ACC").waiting++;
     if (isActionRowOverdue_(r, today)) team(c).overdue++;
+    if (c && st !== ACTION_STATUS.CLOSED) { team(c).open++; team(c).openActions++; }
   });
 
   return { events: events, open: open, teams: Object.keys(teams).filter(function (k) { return k !== "—"; }).map(function (k) { return teams[k]; }) };

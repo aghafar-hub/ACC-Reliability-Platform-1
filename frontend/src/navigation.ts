@@ -66,8 +66,7 @@ export const OIL_SUB_TABS: SubTab[] = [
   { id: 'tracker', label: 'Oil Sampling Log', icon: 'ti-timeline' },
   { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Oil Reports', icon: 'ti-report' },
-  { id: 'team', label: 'Team Workload', icon: 'ti-users-group' },
-  // Activity is a platform page now (/activity), for every module.
+  // Team and Activity are platform pages now (/team, /activity), for every module.
   // No "Settings" entry here on purpose — same reasoning as
   // VIBRATION_SUB_TABS above: it's the identical embedded page the
   // platform-level Settings page's own "Oil Lubrication" tab already
@@ -87,6 +86,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: 'Oil Lubrication', to: '/oil-lubrication', icon: 'droplet', subTabs: OIL_SUB_TABS, moduleId: 'oil-analysis' },
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
+  // work waiting and done, every module — managers and ACC engineers (contractor managers: their own)
+  { label: 'Team', to: '/team', icon: 'users', roles: ['ROLE-ADMIN', 'ROLE-MGR', 'ROLE-RENG', 'ROLE-CMGR'] },
   // every change in every module — App Owner and ACC managers
   { label: 'Activity', to: '/activity', icon: 'history', roles: ['ROLE-ADMIN', 'ROLE-MGR'] },
   { label: 'Compressors', to: '/compressors', icon: 'sync' },
@@ -141,7 +142,6 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
     ],
     more: [
       { id: 'reports', label: 'Reports', icon: 'ti-report' },
-      { id: 'team', label: 'Team Workload', icon: 'ti-users-group' },
     ],
   },
   {

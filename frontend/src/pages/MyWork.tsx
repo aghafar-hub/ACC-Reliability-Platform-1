@@ -15,12 +15,11 @@ import {
   type RoutineItem,
   type OilPlan,
 } from '../api/oilLubrication';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { tapHaptic } from '../haptics';
 import WorkQueue from '../components/WorkQueue';
-import TeamTab from '../components/TeamTab';
 import { TablerIcon } from '../icons';
 import VibRouteDetail from './VibRouteDetail';
 import { fetchMyWork, myWorkModules, type ModuleWork } from '../myWork';
@@ -675,13 +674,14 @@ export default function MyWork({
           <button type="button" role="tab" aria-selected={view === 'mine'} className={view === 'mine' ? 'tm-tab tm-tab--on' : 'tm-tab'} onClick={() => setView('mine')} data-testid="mywork-view-mine">
             My work
           </button>
-          <button type="button" role="tab" aria-selected={view === 'team'} className={view === 'team' ? 'tm-tab tm-tab--on' : 'tm-tab'} onClick={() => setView('team')} data-testid="mywork-view-team">
-            My team
+          {/* the team view is the platform Team page now */}
+          <button type="button" role="tab" aria-selected={false} className="tm-tab" onClick={() => navigate('/team')} data-testid="mywork-view-team">
+            Team →
           </button>
         </div>
       )}
       {showTeam && view === 'team' ? (
-        <TeamTab />
+        <Navigate to="/team" replace />
       ) : (
         <>
       {[...covers.values()].map((c) => (

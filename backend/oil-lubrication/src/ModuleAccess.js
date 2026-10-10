@@ -813,7 +813,8 @@ var MA_TEAM_MAX_DAYS = 400;
 function maTeamScope_(session) {
   if (!session) return null;
   var roles = session.roles || [];
-  if (maIsAdmin_(session) || roles.indexOf("ROLE-MGR") !== -1) return { all: true, contractor: "" };
+  // Team page: App Owner, ACC managers and ACC engineers see everyone
+  if (maIsAdmin_(session) || roles.indexOf("ROLE-MGR") !== -1 || roles.indexOf("ROLE-RENG") !== -1) return { all: true, contractor: "" };
   if (roles.indexOf("ROLE-CMGR") !== -1) {
     var c = maContractorForOrg_(session.orgId);
     return c && c !== "ACC" ? { all: false, contractor: c } : null;
