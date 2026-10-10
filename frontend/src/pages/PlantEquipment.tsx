@@ -3,7 +3,7 @@ import IdSearch, { idTextMatch } from '../components/IdSearch';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Icon } from '../icons';
 import { conditionRank, poorOnBoth, type MergedMachine } from '../plant';
-import { ConditionBar, ConditionPill, countConditions, ModuleTag, usePlantData } from './plantShared';
+import { AreaSelect, areaMatch, ConditionBar, ConditionPill, countConditions, ModuleTag, usePlantData } from './plantShared';
 import './Plant.css';
 
 const PAGE = 50;
@@ -28,8 +28,7 @@ export function PlantEquipmentList() {
   const [limit, setLimit] = useState(PAGE);
 
   const contractors = useMemo(() => [...new Set(machines.map((m) => m.contractor).filter(Boolean))].sort(), [machines]);
-  const areas = useMemo(() => [...new Set(machines.map((m) => m.area).filter(Boolean))].sort(), [machines]);
-  const base = machines.filter((m) => (contractor === 'All' || m.contractor === contractor) && (area === 'All' || m.area === area));
+  const base = machines.filter((m) => (contractor === 'All' || m.contractor === contractor) && areaMatch(m, area));
   const showFilter: Record<string, (m: MergedMachine) => boolean> = {
     all: () => true,
     both: (m) => Object.keys(m.parts).length > 1,
@@ -79,14 +78,7 @@ export function PlantEquipmentList() {
             ))}
           </span>
         )}
-        {areas.length > 1 && (
-          <select className="plant-select" value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area">
-            <option value="All">All areas</option>
-            {areas.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </select>
-        )}
+        <AreaSelect machines={machines} value={area} onChange={setArea} />
       </div>
       <p className="plant-muted plant-count">{rows.length} machines</p>
       {loading && !machines.length && <div className="plant-card plant-empty">Loading the machines…</div>}

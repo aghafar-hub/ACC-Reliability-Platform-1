@@ -4,11 +4,13 @@ import { useAuth } from '../auth/AuthContext';
 import { ORG_ACC } from '../auth/session';
 import { useEmbeddedNav, type NavRecord } from '../embeddedNav';
 import { canOpenModule, useModuleAccess } from '../moduleAccess';
-import { CONDITION_SYMBOL, mergeMachines, PLANT_MODULES, usePlant, WORD_SYMBOL, type Condition } from '../plant';
+import { areaLabel, areaResolver, useAreas } from '../areas';
+import { CONDITION_SYMBOL, mergeMachines, PLANT_MODULES, usePlant, WORD_SYMBOL, type Condition, type MergedMachine } from '../plant';
 
 // Shared by the Plant overview (Home) and the platform Equipment pages.
 export function usePlantData() {
-  const { claims } = useAuth();
+  const { claims, sessionToken } = useAuth();
+  const areaList = useAreas(sessionToken);
   const user = claims?.userId || claims?.email || '';
   const state = usePlant(user);
   const { access } = useModuleAccess();
@@ -17,8 +19,15 @@ export function usePlantData() {
   const modules = PLANT_MODULES.filter((m) => canOpenModule(access[m.moduleId]));
   const allowed = modules.map((m) => m.moduleId);
   const key = allowed.map((id) => state[id]?.updatedAt || '').join('|');
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when a summary changes
-  const machines = useMemo(() => mergeMachines(state, allowed), [key, allowed.join(',')]);
+  // every machine's area as the official name (Settings → Equipment & IDs → Areas)
+  const machines = useMemo(() => {
+    const resolve = areaResolver(areaList?.areas || []);
+    return mergeMachines(state, allowed).map((m) => {
+      const r = resolve(m.area);
+      return { ...m, rawArea: m.area, area: areaLabel(r), line: r.line };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when a summary or the area list changes
+  }, [key, allowed.join(','), areaList]);
   // a module whose data couldn't load (its own sync failed, or nothing came
   // within 20 s) and has no saved copy on this device
   const [waited, setWaited] = useState(false);
@@ -35,6 +44,52 @@ export function usePlantData() {
     navigate(m.route);
   };
   return { state, modules, allowed, machines, loading, failed, openModule, contractorStaff: !!claims && claims.orgId !== ORG_ACC };
+}
+
+// Area filter: "All", a whole line, or one area — grouped by line, in the
+// order of the official list; names nobody has mapped yet at the end.
+export function areaMatch(m: MergedMachine, value: string) {
+  if (value === 'All') return true;
+  if (value.startsWith('line:')) return m.line === value.slice(5);
+  return m.area === value.slice(5);
+}
+
+export function AreaSelect({ machines, value, onChange }: { machines: MergedMachine[]; value: string; onChange: (v: string) => void }) {
+  const { sessionToken } = useAuth();
+  const areaList = useAreas(sessionToken);
+  const used = new Set(machines.map((m) => m.area).filter(Boolean));
+  const usedLines = new Set(machines.map((m) => m.line).filter(Boolean));
+  const official = areaList?.areas || [];
+  const lines = official.filter((x) => x.kind === 'Line' && usedLines.has(x.name));
+  const known = new Set(official.map((x) => x.name));
+  const other = [...used].filter((a) => !known.has(a)).sort();
+  if (used.size < 2) return null;
+  return (
+    <select className="plant-select" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Area" data-testid="plant-area">
+      <option value="All">All areas</option>
+      {lines.map((l) => (
+        <optgroup key={l.name} label={l.name}>
+          <option value={`line:${l.name}`}>All of {l.name}</option>
+          {official
+            .filter((x) => x.kind === 'Area' && x.line === l.name && used.has(x.name))
+            .map((x) => (
+              <option key={x.name} value={`area:${x.name}`}>
+                {x.name}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+      {other.length > 0 && (
+        <optgroup label="Not in the area list yet">
+          {other.map((a) => (
+            <option key={a} value={`area:${a}`}>
+              {a}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </select>
+  );
 }
 
 export function ConditionPill({ condition, big }: { condition: Condition; big?: boolean }) {

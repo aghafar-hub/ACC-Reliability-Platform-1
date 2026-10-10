@@ -6,6 +6,8 @@ import { fetchIdChecks, ID_MODULES, markIdProblem, type IdProblem, type ModuleId
 import { TablerIcon } from '../icons';
 import IdSearch, { idTextMatch } from './IdSearch';
 import ShellModal, { FormSection } from './ShellModal';
+import AreasTab from './AreasTab';
+import { areaResolver, useAreas } from '../areas';
 import './EquipmentIdsPanel.css';
 
 // Settings → Equipment & IDs (App Owner only).
@@ -16,7 +18,7 @@ import './EquipmentIdsPanel.css';
 // ("Not matching"). New problems reach the App Owner every morning (bell +
 // email, the modules' idCheckDaily).
 
-type Tab = 'equipment' | 'lub' | 'vib' | 'problems' | 'log';
+type Tab = 'equipment' | 'areas' | 'lub' | 'vib' | 'problems' | 'log';
 const PAGE = 100;
 const CONTRACTORS = ['RHI', 'ASEC'];
 const CRITICALITY = ['High', 'Medium', 'Low'];
@@ -101,6 +103,7 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
         {(
           [
             ['equipment', 'Equipment'],
+            ['areas', 'Areas'],
             ['lub', 'Lub IDs'],
             ['vib', 'Vib IDs'],
             ['problems', `Not matching${openProblems.length ? ` (${openProblems.length})` : ''}`],
@@ -114,6 +117,7 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
       </div>
 
       {tab === 'equipment' && <EquipmentTab list={list} counts={counts} onAdd={readOnly ? undefined : () => setEditing({ mode: 'add', item: { contractor: 'RHI', criticality: 'Medium' } })} onOpen={readOnly ? undefined : (e) => setEditing({ mode: 'edit', item: e })} />}
+      {tab === 'areas' && <AreasTab list={list} readOnly={readOnly} />}
       {tab === 'lub' && <IdsTab kind="lub" check={oil} />}
       {tab === 'vib' && <IdsTab kind="vib" check={vib} />}
       {tab === 'problems' && (
@@ -425,8 +429,14 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: '
   const [err, setErr] = useState('');
   const set = (k: keyof PlatformEquipment, v: string) => setF((x) => ({ ...x, [k]: v }));
   const retired = /retired/i.test(f.status || '');
-  const mainAreas = [...new Set(list.map((e) => e.mainArea).filter(Boolean))].sort();
-  const plantAreas = [...new Set(list.filter((e) => !f.mainArea || e.mainArea === f.mainArea).map((e) => e.plantArea).filter(Boolean))].sort();
+  // suggestions: the official lines and areas (Areas tab), else the names in use
+  const { sessionToken } = useAuth();
+  const official = useAreas(sessionToken)?.areas || [];
+  const line = areaResolver(official)(f.mainArea || '').line;
+  const mainAreas = official.length ? official.filter((x) => x.kind === 'Line').map((x) => x.name) : [...new Set(list.map((e) => e.mainArea).filter(Boolean))].sort();
+  const plantAreas = official.length
+    ? official.filter((x) => x.kind === 'Area' && (!line || x.line === line)).map((x) => x.name)
+    : [...new Set(list.filter((e) => !f.mainArea || e.mainArea === f.mainArea).map((e) => e.plantArea).filter(Boolean))].sort();
   const run = async (m: 'add' | 'edit' | 'retire' | 'restore') => {
     setErr('');
     if (m === 'retire' && (counts.lub(f.id || '') || counts.vib(f.id || '')) && !window.confirm(`${f.id} still has Lub / Vib IDs. Retire it anyway? They will be listed under Not matching.`)) return;
@@ -485,12 +495,12 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: '
         <div className="eid-form">
           <label>
             <span>Main area</span>
-            <input className="eid-input" list="eid-main-areas" value={f.mainArea || ''} onChange={(e) => set('mainArea', e.target.value)} placeholder="Line1, Line2, CM1, CM2" />
+            <input className="eid-input" list="eid-main-areas" value={f.mainArea || ''} onChange={(e) => set('mainArea', e.target.value)} placeholder="Line 1, Line 2, Cement Mills 1…" />
             <datalist id="eid-main-areas">{mainAreas.map((a) => <option key={a} value={a} />)}</datalist>
           </label>
           <label>
             <span>Plant area</span>
-            <input className="eid-input" list="eid-plant-areas" value={f.plantArea || ''} onChange={(e) => set('plantArea', e.target.value)} placeholder="Kiln1, RawMill1…" />
+            <input className="eid-input" list="eid-plant-areas" value={f.plantArea || ''} onChange={(e) => set('plantArea', e.target.value)} placeholder="Kiln 1, Raw Mill 1…" />
             <datalist id="eid-plant-areas">{plantAreas.map((a) => <option key={a} value={a} />)}</datalist>
           </label>
           <label>

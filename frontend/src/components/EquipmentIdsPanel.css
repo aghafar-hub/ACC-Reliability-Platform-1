@@ -78,3 +78,19 @@
   .eid-problem-actions { justify-content: flex-start; }
   .eid-filters .eid-primary { margin-inline-start: 0; }
 }
+
+/* Areas tab */
+.eid-msg--ok { background: color-mix(in srgb, var(--shell-success, #1f9d55) 10%, var(--shell-card-bg)); border: 1px solid color-mix(in srgb, var(--shell-success, #1f9d55) 45%, transparent); }
+.eid-area-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 12px; }
+.eid-area-line { border: 1px solid var(--shell-border); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.eid-area-row { display: grid; grid-template-columns: minmax(130px, 200px) 1fr auto; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--shell-border) 60%, transparent); font-size: 13.5px; }
+.eid-area-row--line { border-bottom: 2px solid var(--shell-border); padding-bottom: 7px; }
+.eid-area-row--line .eid-area-name { font-weight: 700; }
+.eid-area-name { padding: 5px 8px; border: 1px solid var(--shell-border); border-radius: 6px; background: var(--shell-input-bg, var(--shell-card-bg)); color: var(--shell-text); font: inherit; min-width: 0; }
+.eid-area-aliases { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; font-size: 12px; }
+.eid-area-add { margin-top: 6px; }
+.eid-area-foot { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 10px 0; background: var(--shell-app-bg, var(--shell-bg)); }
+@media (max-width: 560px) {
+  .eid-area-row { grid-template-columns: 1fr auto; }
+  .eid-area-aliases { grid-column: 1 / -1; }
+}

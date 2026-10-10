@@ -99,7 +99,9 @@ export function usePlant(user: string): PlantState {
 export type MergedMachine = {
   id: string;
   name: string;
-  area: string;
+  area: string; // the official area (areas.ts), else its line, else the name as found
+  line?: string;
+  rawArea?: string; // the name the module / platform list uses
   contractor: string;
   condition: Condition;
   parts: Record<string, PlantMachine>;

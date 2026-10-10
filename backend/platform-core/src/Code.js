@@ -73,6 +73,11 @@ function doPost(e) {
         return ok_(listEquipmentMaster_(session));
       case 'saveEquipmentMaster':
         return ok_(saveEquipmentMaster_(session, body));
+      // Areas (Areas.js): the official area names; any user reads, App Owner saves
+      case 'getAreas':
+        return ok_(getAreas_(session));
+      case 'saveAreas':
+        return ok_(saveAreas_(session, body));
       case 'listEquipmentLog':
         return ok_(listEquipmentLog_(session, body.limit));
       // Additional actions (Asset Master, RBAC admin, settings) are wired

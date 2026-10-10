@@ -130,3 +130,17 @@ export function saveEmailSettings(
 ): Promise<EmailSettings> {
   return postAction(PLATFORM_CORE_URL, 'saveEmailSettings', { sessionToken, ...body });
 }
+
+// ─── Areas (Platform Core Areas.js) ──────────────────────────────────────────
+// The official area names: lines, areas inside each line, and the other names
+// (aliases) each one stands for. Until the App Owner saves, the proposal.
+export type AreaEntry = { kind: 'Line' | 'Area'; name: string; line: string; aliases: string[] };
+export type AreaList = { areas: AreaEntry[]; proposed: boolean; changed: { by: string; at: string } | null; canEdit: boolean };
+
+export function getAreas(sessionToken: string): Promise<AreaList> {
+  return postAction(PLATFORM_CORE_URL, 'getAreas', { sessionToken });
+}
+
+export function saveAreas(sessionToken: string, areas: AreaEntry[]): Promise<AreaList> {
+  return postAction(PLATFORM_CORE_URL, 'saveAreas', { sessionToken, areas });
+}

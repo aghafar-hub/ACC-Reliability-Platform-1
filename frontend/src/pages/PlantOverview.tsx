@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "../icons";
 import { poorOnBoth, type MergedMachine } from "../plant";
-import { ConditionBar, countConditions, usePlantData } from "./plantShared";
+import { AreaSelect, areaMatch, ConditionBar, countConditions, usePlantData } from "./plantShared";
 import "./Plant.css";
 
 // Plant overview (Home): both modules on one screen — the condition of
@@ -22,16 +22,12 @@ export default function PlantOverview() {
       [...new Set(machines.map((m) => m.contractor).filter(Boolean))].sort(),
     [machines],
   );
-  const areas = useMemo(
-    () => [...new Set(machines.map((m) => m.area).filter(Boolean))].sort(),
-    [machines],
-  );
   const list = useMemo(
     () =>
       machines.filter(
         (m) =>
           (contractor === "All" || m.contractor === contractor) &&
-          (area === "All" || m.area === area),
+          areaMatch(m, area),
       ),
     [machines, contractor, area],
   );
@@ -219,19 +215,7 @@ export default function PlantOverview() {
                 {c === "All" ? "All contractors" : c}
               </button>
             ))}
-          {areas.length > 1 && (
-            <select
-              className="plant-select"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              aria-label="Area"
-            >
-              <option value="All">All areas</option>
-              {areas.map((a) => (
-                <option key={a}>{a}</option>
-              ))}
-            </select>
-          )}
+          <AreaSelect machines={machines} value={area} onChange={setArea} />
         </div>
       </div>
 
