@@ -9,6 +9,7 @@ import { LevelPill, LevelSymbol } from "../components/Level";
 import { LEVEL_RANK, LEVELS, levelColor, levelInk } from "../levels";
 import { monthLabel, shortDate } from "../vibModel";
 import { generateVibDashboardPdf } from "../vibPdf";
+import { areaText, useAreaNames } from "../officialAreas";
 
 // Vibration Dashboard: the plant's machine condition at a glance (one
 // request, backend Dashboard.js). Tiles → the list behind them; the
@@ -58,6 +59,9 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
   }, [load]);
 
   const me = d?.me || {};
+  // the backend's areas (Line 1, CM#1…) by their official names (Settings → Equipment & IDs → Areas)
+  const resolveArea = useAreaNames();
+  const areaLabel = (a) => areaText(resolveArea(a)) || a;
   const months = (d?.months || []).slice(-period);
   const NOT_READ_MONTHS = Math.min(d?.months?.length || 12, Number(d?.notReadMonths) || NOT_READ_DEFAULT);
   const cutoff = d ? d.months[d.months.length - NOT_READ_MONTHS] : "";
@@ -69,7 +73,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
   // machines measured per area per month (backend MeasurementTracker.js); areas also filter the condition cards
   // (the contractor chips keep the areas where that contractor has machines)
   const grid = (d?.grid || []).filter((g) => allMachines.some((m) => m.area === g.area));
-  const scopes = grid.map((g) => ({ key: g.area, label: g.area }));
+  const scopes = grid.map((g) => ({ key: g.area, label: areaLabel(g.area) }));
   const notReadColor = T.textMuted || T.textSecondary;
   const segs = [...LEVELS.map((lv) => ({ label: lv, value: machines.filter((m) => condOf(m) === lv).length, color: levelColor(T, lv) })), { label: `Not read ${NOT_READ_MONTHS} m`, value: machines.filter((m) => condOf(m) === "Not read").length, color: notReadColor + "66" }];
   const danger = allMachines.filter((m) => !notRead(m) && m.status === "Danger");
@@ -196,7 +200,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
                   ))}
                   {grid.map((g) => (
                     <div key={g.area} style={{ display: "contents" }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.area}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{areaLabel(g.area)}</span>
                       {g.cells
                         .filter((c) => months.includes(c.month))
                         .map((c) => {
@@ -205,8 +209,8 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
                             <button
                               key={c.month}
                               type="button"
-                              title={`${g.area} · ${monthLabel(c.month)}: ${text}`}
-                              aria-label={`${g.area} ${monthLabel(c.month)}: ${text}`}
+                              title={`${areaLabel(g.area)} · ${monthLabel(c.month)}: ${text}`}
+                              aria-label={`${areaLabel(g.area)} ${monthLabel(c.month)}: ${text}`}
                               onClick={() => onOpenPage("compliance")}
                               data-testid={`vd-cell-${g.area}-${c.month}`}
                               style={{ padding: 0, border: 0, background: "none", cursor: "pointer" }}

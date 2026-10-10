@@ -135,7 +135,8 @@ export function saveEmailSettings(
 // The official area names: lines, areas inside each line, and the other names
 // (aliases) each one stands for. Until the App Owner saves, the proposal.
 export type AreaEntry = { kind: 'Line' | 'Area'; name: string; line: string; aliases: string[] };
-export type AreaList = { areas: AreaEntry[]; proposed: boolean; changed: { by: string; at: string } | null; canEdit: boolean };
+// machines: Equipment ID → "Plant_Area|Main_Area" from the platform equipment list
+export type AreaList = { areas: AreaEntry[]; proposed: boolean; changed: { by: string; at: string } | null; canEdit: boolean; machines?: Record<string, string> };
 
 export function getAreas(sessionToken: string): Promise<AreaList> {
   return postAction(PLATFORM_CORE_URL, 'getAreas', { sessionToken });

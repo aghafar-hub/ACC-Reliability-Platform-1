@@ -21,9 +21,11 @@ export function usePlantData() {
   const key = allowed.map((id) => state[id]?.updatedAt || '').join('|');
   // every machine's area as the official name (Settings → Equipment & IDs → Areas)
   const machines = useMemo(() => {
-    const resolve = areaResolver(areaList?.areas || []);
+    const resolve = areaResolver(areaList?.areas || [], areaList?.machines || {});
     return mergeMachines(state, allowed).map((m) => {
-      const r = resolve(m.area);
+      // the other module's name is the line hint (Vibration knows the line)
+      const hint = Object.values(m.parts).map((p) => p.area).find((a) => a && a !== m.area) || '';
+      const r = resolve(m.area, m.id, hint);
       return { ...m, rawArea: m.area, area: areaLabel(r), line: r.line };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when a summary or the area list changes

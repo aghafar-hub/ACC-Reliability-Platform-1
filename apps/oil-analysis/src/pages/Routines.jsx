@@ -24,6 +24,7 @@ import useIsMobile from "../hooks/useIsMobile";
 import { CalendarHeat, TargetBar } from "../components/DashCharts";
 import { routesOnTime } from "../dashboardLogic";
 import ContractorChips from "../components/ContractorChips";
+import { areaText, useAreaNames } from "../officialAreas";
 
 const STATUS_FILTERS = ["All", ROUTE_STATUS.DRAFT, ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.WAITING, ROUTE_STATUS.CONFIRMED];
 const CONTRACTOR_OPTIONS = ["RHI", "ASEC"];
@@ -313,11 +314,13 @@ export default function Routines({
   // options, the table, and all 3 charts below scope to this, not to
   // overviewItems directly, so switching tabs shows that route type's own
   // totals (matching the reference mockup's per-tab KPI behavior).
+  // a route's area as the platform's official name (Settings → Equipment & IDs → Areas)
+  const resolveArea = useAreaNames();
   const routeTypeItems = useMemo(() => {
     let items = routeTypeTab === "All" ? overviewItems : overviewItems.filter((i) => i.routeType === routeTypeTab);
     if (contractorFilter !== "All") items = items.filter((i) => i.contractor === contractorFilter);
-    return items;
-  }, [overviewItems, routeTypeTab, contractorFilter]);
+    return items.map((i) => (i.area ? { ...i, area: areaText(resolveArea(i.area)) || i.area } : i));
+  }, [overviewItems, routeTypeTab, contractorFilter, resolveArea]);
 
   const areaOptions = useMemo(
     () => ["All", ...Array.from(new Set(routeTypeItems.map((i) => i.area).filter(Boolean))).sort()],

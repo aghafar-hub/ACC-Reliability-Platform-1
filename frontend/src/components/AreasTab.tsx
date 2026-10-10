@@ -52,7 +52,8 @@ export default function AreasTab({ list, readOnly }: { list: PlatformEquipment[]
   if (!saved || !draft) return <p className="eid-muted">Loading the area list…</p>;
 
   const lines = draft.filter((x) => x.kind === 'Line');
-  const entryOf = (name: string) => draft.find((x) => areaKey(x.name) === areaKey(name) || x.aliases.some((a) => areaKey(a) === areaKey(name)));
+  const entriesOf = (name: string) => draft.filter((x) => areaKey(x.name) === areaKey(name) || x.aliases.some((a) => areaKey(a) === areaKey(name)));
+  const entryOf = (name: string) => entriesOf(name)[0];
   const todo = uses.filter((u) => !entryOf(u.name));
   const shown = only === 'todo' && todo.length ? todo : uses;
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved.areas);
@@ -67,10 +68,21 @@ export default function AreasTab({ list, readOnly }: { list: PlatformEquipment[]
   };
   // a name in use → shows as `target` (an official name, or "" = as it is)
   const mapName = (name: string, target: string) =>
+    target !== '__split' &&
     update((d) => {
       d.forEach((x) => (x.aliases = x.aliases.filter((a) => areaKey(a) !== areaKey(name))));
       const t = d.find((x) => x.name === target);
       if (t && areaKey(t.name) !== areaKey(name)) t.aliases.push(name);
+    });
+  const addAlias = (entry: string, name: string) =>
+    update((d) => {
+      const t = d.find((x) => x.name === entry);
+      if (t && name && areaKey(name) !== areaKey(t.name) && !t.aliases.some((a) => areaKey(a) === areaKey(name))) t.aliases.push(name);
+    });
+  const removeAlias = (entry: string, name: string) =>
+    update((d) => {
+      const t = d.find((x) => x.name === entry);
+      if (t) t.aliases = t.aliases.filter((a) => a !== name);
     });
   const rename = (old: string, name: string) =>
     update((d) => {
@@ -179,7 +191,9 @@ export default function AreasTab({ list, readOnly }: { list: PlatformEquipment[]
             </thead>
             <tbody>
               {shown.map((u) => {
-                const e = entryOf(u.name);
+                const all = entriesOf(u.name);
+                const e = all[0];
+                const split = all.length > 1;
                 const where = [
                   u.platform ? `Platform list ${u.platform}` : '',
                   ...PLANT_MODULES.filter((m) => u.byModule[m.moduleId]).map((m) => `${m.short} ${u.byModule[m.moduleId]}`),
@@ -189,11 +203,17 @@ export default function AreasTab({ list, readOnly }: { list: PlatformEquipment[]
                     <td className="eid-code">{u.name}</td>
                     <td className="eid-dim">{where.join(' · ')}</td>
                     <td>
+                      {split && (
+                        <div className="eid-area-split" data-testid={`eid-area-split-${u.name}`}>
+                          {all.map((x) => x.name).join(' or ')} — decided by each machine&apos;s line
+                        </div>
+                      )}
                       {canEdit ? (
-                        <select className="eid-select" value={e?.name || ''} onChange={(ev) => mapName(u.name, ev.target.value)} aria-label={`Official name for ${u.name}`}>
+                        <select className="eid-select" value={split ? '__split' : e?.name || ''} onChange={(ev) => mapName(u.name, ev.target.value)} aria-label={`Official name for ${u.name}`}>
+                          {split && <option value="__split">{all.map((x) => x.name).join(' / ')} (by line)</option>}
                           {options}
                         </select>
-                      ) : e ? (
+                      ) : split ? null : e ? (
                         e.kind === 'Line' ? `${e.name} (whole line)` : `${e.name} · ${e.line}`
                       ) : (
                         <span className="eid-dim">as it is</span>
@@ -224,7 +244,7 @@ export default function AreasTab({ list, readOnly }: { list: PlatformEquipment[]
             <div key={l.name} className="eid-area-line" data-testid={`eid-area-line-${l.name}`}>
               <div className="eid-area-row eid-area-row--line">
                 {canEdit ? <NameInput value={l.name} onCommit={(v) => rename(l.name, v)} label="Line name" /> : <b>{l.name}</b>}
-                <Aliases names={l.aliases} />
+                <Aliases names={l.aliases} onRemove={canEdit ? (n) => removeAlias(l.name, n) : undefined} onAdd={canEdit ? (n) => addAlias(l.name, n) : undefined} />
                 {canEdit && (
                   <button type="button" className="eid-link" onClick={() => remove(l.name)} aria-label={`Remove ${l.name} and its areas`}>
                     Remove
@@ -236,7 +256,7 @@ export default function AreasTab({ list, readOnly }: { list: PlatformEquipment[]
                 .map((x) => (
                   <div key={x.name} className="eid-area-row" data-testid={`eid-area-${x.name}`}>
                     {canEdit ? <NameInput value={x.name} onCommit={(v) => rename(x.name, v)} label="Area name" /> : <span>{x.name}</span>}
-                    <Aliases names={x.aliases} />
+                    <Aliases names={x.aliases} onRemove={canEdit ? (n) => removeAlias(x.name, n) : undefined} onAdd={canEdit ? (n) => addAlias(x.name, n) : undefined} />
                     {canEdit && (
                       <button type="button" className="eid-link" onClick={() => remove(x.name)} aria-label={`Remove ${x.name}`}>
                         Remove
@@ -284,15 +304,36 @@ function NameInput({ value, onCommit, label }: { value: string; onCommit: (v: st
   );
 }
 
-function Aliases({ names }: { names: string[] }) {
-  if (!names.length) return <span className="eid-dim eid-area-aliases">no other names</span>;
+function Aliases({ names, onRemove, onAdd }: { names: string[]; onRemove?: (n: string) => void; onAdd?: (n: string) => void }) {
+  const [v, setV] = useState('');
+  const add = () => {
+    if (v.trim() && onAdd) onAdd(v.trim());
+    setV('');
+  };
   return (
     <span className="eid-area-aliases">
+      {!names.length && !onAdd && <span className="eid-dim">no other names</span>}
       {names.map((n) => (
         <span key={n} className="eid-tag">
           {n}
+          {onRemove && (
+            <button type="button" className="eid-tag-x" onClick={() => onRemove(n)} aria-label={`Remove the name ${n}`}>
+              ×
+            </button>
+          )}
         </span>
       ))}
+      {onAdd && (
+        <input
+          className="eid-area-alias-in"
+          value={v}
+          placeholder="+ other name"
+          aria-label="Add another name"
+          onChange={(e) => setV(e.target.value)}
+          onBlur={add}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+      )}
     </span>
   );
 }

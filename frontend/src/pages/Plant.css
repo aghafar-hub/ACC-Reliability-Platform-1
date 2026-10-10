@@ -84,7 +84,8 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  align-items: start;
+  /* the cards of a row share one height: no empty space under the short ones */
+  align-items: stretch;
 }
 .plant-card {
   background: var(--shell-card-bg);
@@ -111,6 +112,7 @@
 .plant-condition {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   text-align: left;
   font: inherit;
@@ -174,7 +176,7 @@
 /* Needs attention: scrolls inside the card on wide screens (the grid row
    stays the height of the other cards); the whole list on narrow ones */
 .plant-att-list {
-  max-height: 292px;
+  max-height: 240px;
   overflow-y: auto;
   overscroll-behavior: contain;
   margin-right: -6px;

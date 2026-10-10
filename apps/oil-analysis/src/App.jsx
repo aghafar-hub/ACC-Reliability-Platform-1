@@ -28,6 +28,7 @@ import { parseTrackerRows, overlaySamplesOnTracker, deriveCurrentOilChanges, for
 import * as api from "./api";
 import { installPhoneCardTables } from "./phoneCardTables";
 import { buildOilPlant } from "./plantSummary";
+import { areaText, useAreaNames } from "./officialAreas";
 import { enqueueOfflineWrite, getOfflineQueue, removeFromOfflineQueue, offlineQueueCount, reinjectPendingRecords } from "./offlineQueue";
 
 let toastId = 0;
@@ -1097,6 +1098,18 @@ function AppShell({ config, setConfig, navBridge }) {
     [equipmentRegistry]
   );
 
+  // The pages see each point's area as the platform's official name
+  // (Settings → Equipment & IDs → Areas); Settings keeps the stored name.
+  const resolveArea = useAreaNames();
+  const registryView = useMemo(
+    () =>
+      equipmentRegistry.map((e) => {
+        const a = areaText(resolveArea(e.area, e.equipmentId));
+        return a && a !== e.area ? { ...e, area: a, storedArea: e.area } : e;
+      }),
+    [equipmentRegistry, resolveArea]
+  );
+
   const alertCount = useMemo(() => samples.filter((sm) => sm.reportStatus === "Alert").length, [samples]);
   const openActionsCount = useMemo(() => actions.filter((a) => a.status === "Draft" || a.status === "Open").length, [actions]);
 
@@ -1350,7 +1363,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 oilChangeEvents={oilChangeEvents}
                 oilChanges={oilChanges}
                 trackerByEquip={trackerByEquip}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 webhookUrl={config.webhookUrl}
                 navigate={navigate}
               />
@@ -1361,7 +1374,7 @@ function AppShell({ config, setConfig, navBridge }) {
               <Equipment
                 allTopUps={allTopUps}
                 samples={samples}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 actions={actions}
                 oilChanges={oilChanges}
                 oilChangeEvents={oilChangeEvents}
@@ -1395,7 +1408,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 oilChanges={oilChanges}
                 oilChangeEvents={oilChangeEvents}
                 actions={actions}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 actionRegistry={actionRegistry}
                 trackerByEquip={trackerByEquip}
                 onAddAction={onAddAction}
@@ -1409,7 +1422,7 @@ function AppShell({ config, setConfig, navBridge }) {
             <div style={{ display: page === "upload" ? undefined : "none" }}>
               <AddSample
                 equipmentOptions={equipmentOptions}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 existingSamples={samples}
                 onAdd={onAddSample}
                 onBulkAdd={onBulkAddSamples}
@@ -1424,7 +1437,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 actions={actions}
                 samples={samples}
                 oilChanges={oilChanges}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 actionRegistry={actionRegistry}
                 onAddAction={onAddAction}
                 onUpdateAction={onUpdateAction}
@@ -1439,7 +1452,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 oilChanges={oilChanges}
                 oilChangeEvents={oilChangeEvents}
                 actions={actions}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 onSave={onSaveOilChange}
                 onAddAction={onAddAction}
               />
@@ -1449,7 +1462,7 @@ function AppShell({ config, setConfig, navBridge }) {
             <div style={{ display: page === "routines" ? undefined : "none" }}>
               <Routines
                 webhookUrl={config.webhookUrl}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 samples={samples}
                 actions={actions}
                 oilChanges={oilChanges}
@@ -1464,7 +1477,7 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {visitedPages.has("inventory") && (
             <div style={{ display: page === "inventory" ? undefined : "none" }}>
-              <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={equipmentRegistry} pushToast={pushToast} />
+              <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={registryView} pushToast={pushToast} />
             </div>
           )}
           {visitedPages.has("team") && (
@@ -1480,19 +1493,19 @@ function AppShell({ config, setConfig, navBridge }) {
                 oilChanges={oilChanges}
                 oilChangeEvents={oilChangeEvents}
                 samples={samples}
-                equipmentRegistry={equipmentRegistry}
+                equipmentRegistry={registryView}
                 trackerByEquip={trackerByEquip}
               />
             </div>
           )}
           {visitedPages.has("activity") && (
             <div style={{ display: page === "activity" ? undefined : "none" }}>
-              <Activity webhookUrl={config.webhookUrl} registry={equipmentRegistry} />
+              <Activity webhookUrl={config.webhookUrl} registry={registryView} />
             </div>
           )}
           {visitedPages.has("tracker") && (
             <div style={{ display: page === "tracker" ? undefined : "none" }}>
-              <SampleTracker trackerByEquip={trackerByEquip} oilChanges={oilChanges} equipmentRegistry={equipmentRegistry} />
+              <SampleTracker trackerByEquip={trackerByEquip} oilChanges={oilChanges} equipmentRegistry={registryView} />
             </div>
           )}
           {visitedPages.has("howto") && (

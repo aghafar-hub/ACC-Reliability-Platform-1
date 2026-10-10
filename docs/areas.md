@@ -13,16 +13,32 @@ Each area belongs to a line:
 
 | Line | Areas (other names they stand for) |
 |---|---|
-| Line 1 | Crusher (RMCrusher) · Raw Mill 1 (RawMill1, RM#1, RM1) · Kiln 1 (Kiln1, Kiln#1) · Coal Mill 1 (CoalMill1, Coal M#1) · Hot Disc (HotDisc) |
-| Line 2 | Raw Mill 2 · Kiln 2 · Coal Mill 2 (same patterns) · AFR (AFShredding) |
-| Cement Mills 1 (CM1, CM#1) | Cement Mill 1 · Cement Mill 2 · Clinker Area 1 · Gypsum Conveying (Gypsum Conv) · Packing 1 (PackingArea1) |
-| Cement Mills 2 (CM2, CM#2) | Cement Mill 3 · Cement Mill 4 · Clinker Area 2 · Gypsum Crusher (GyCrusher) · Packing 2 (PackingArea2) |
+| Line 1 | Crusher (RMCrusher) · Raw Mill 1 (RawMill1, RM#1, RM1, Raw Meal) · Kiln 1 (Kiln1, Kiln#1) · Coal Mill 1 (CoalMill1, Coal M#1, Coal Meal) · Hot Disc (HotDisc, AF#1) |
+| Line 2 | Raw Mill 2 (Raw Meal) · Kiln 2 · Coal Mill 2 (same patterns) · AFR (AFShredding, AF#2) |
+| Cement Mills 1 (CM1, CM#1) | Cement Mill 1 · Cement Mill 2 · Clinker Area 1 · Gypsum Conveying (Gypsum Conv, Gypsum) · Packing 1 (PackingArea1) |
+| Cement Mills 2 (CM2, CM#2, CM L2) | Cement Mill 3 · Cement Mill 4 · Clinker Area 2 · Gypsum Crusher (GyCrusher, Gypsum) · Packing 2 (PackingArea2) |
 | Common | Hydrogen Plant (Hydrogen) |
 
-This is the **proposed** list, shown until the App Owner saves. Some names
-are left for you to place: the Oil names `AF#1`, `AF#2`, `Coal Meal`,
-`Raw Meal`, `Gypsum` and `CM L2`. They show under **Names in use → Not in
-the list**.
+This is the **proposed** list, shown until the App Owner saves.
+
+### One name on two lines
+
+`Raw Meal` is on Line 1 and Line 2, and `Gypsum` is in both cement mill
+areas. An other name may stand for one area per line; each machine is
+then placed by its own line. In order:
+
+1. A machine on the **platform equipment list** takes its place from there
+   (Plant_Area / Main_Area of its Equipment ID), whatever a module calls it.
+2. Otherwise its name is looked up in the list. For a name on two lines,
+   the line the other module gives the same machine decides.
+3. If neither decides, the name shows as it is, under "Names in use".
+
+### Every module
+
+The same names and filters are used everywhere: Plant overview and
+Equipment, Oil Lubrication (all pages and the route lists) and Vibration
+(measurement tracker and dashboard). The modules get the list from the
+platform when they open (`officialAreas.js`).
 
 ## Using the page (App Owner; others can only view)
 

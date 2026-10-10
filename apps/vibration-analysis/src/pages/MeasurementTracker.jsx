@@ -9,6 +9,7 @@ import { StatePill } from "../components/Level";
 import { ChipRow, CountChip, PAGE_SIZE, PhoneSummary, ShowMore } from "../components/PhoneParts";
 import MeasureCell, { MeasureLegend, STATE_TONE } from "../components/MeasureCell";
 import { monthLabel, shortDate } from "../vibModel";
+import { areaText, useAreaNames } from "../officialAreas";
 
 // Measurement Tracker: was every machine measured on time? One row per
 // machine, one square per month (backend MeasurementTracker.js): the old
@@ -16,7 +17,7 @@ import { monthLabel, shortDate } from "../vibModel";
 // readings with each machine's interval + 7 days' grace. Tracked per
 // machine, not per report. Tap a machine to open its page.
 
-const AREAS = ["Line 1", "Line 2", "CM#1", "CM#2"];
+const AREAS = ["Line 1", "Line 2", "CM#1", "CM#2"]; // the backend's areas (lines); shown by their official names
 const STATES = ["Overdue", "Due now", "On time", "Never measured", "Not running"];
 const PERIODS = [
   ["12", "Last 12 months", "last 12 months"],
@@ -62,7 +63,18 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
 
   const me = data?.me || {};
   const months = data?.months || [];
-  const all = useMemo(() => (data?.machines || []).filter((m) => contractor === "All" || m.contractor === contractor), [data, contractor]);
+  // official names (Settings → Equipment & IDs → Areas): the chips are the
+  // lines; each machine shows its own area when the platform list knows it
+  const resolveArea = useAreaNames();
+  const lineName = useCallback((a) => resolveArea(a).line || a, [resolveArea]);
+  const all = useMemo(
+    () =>
+      (data?.machines || [])
+        .filter((m) => contractor === "All" || m.contractor === contractor)
+        .map((m) => ({ ...m, rawArea: m.area, area: lineName(m.area), place: areaText(resolveArea(m.area, m.equipmentId)) || lineName(m.area) })),
+    [data, contractor, resolveArea, lineName]
+  );
+  const AREA_CHIPS = useMemo(() => AREAS.map(lineName), [lineName]);
   const inArea = useMemo(() => all.filter((m) => area === "All" || m.area === area), [all, area]);
   const match = idTextMatch(q, all.map((m) => m.equipmentId));
   const rows = useMemo(
@@ -70,8 +82,8 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
       inArea
         .filter((m) => state === "All" || m.state === state)
         .filter((m) => match(m.equipmentId, m.name))
-        .sort((a, b) => STATES.indexOf(a.state) - STATES.indexOf(b.state) || AREAS.indexOf(a.area) - AREAS.indexOf(b.area) || a.equipmentId.localeCompare(b.equipmentId)),
-    [inArea, state, q, all]
+        .sort((a, b) => STATES.indexOf(a.state) - STATES.indexOf(b.state) || AREA_CHIPS.indexOf(a.area) - AREA_CHIPS.indexOf(b.area) || a.equipmentId.localeCompare(b.equipmentId)),
+    [inArea, state, q, all, AREA_CHIPS]
   );
   const count = (st) => inArea.filter((m) => m.state === st).length;
   const measured = inArea.reduce((n, m) => n + m.measured, 0);
@@ -131,7 +143,7 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
           )}
 
           <ChipRow label="Area">
-            {["All", ...AREAS].map((a) => (
+            {["All", ...AREA_CHIPS].map((a) => (
               <CountChip key={a} on={area === a} onClick={() => { setArea(a); setLimit(PAGE_SIZE); }} count={a === "All" ? all.length : all.filter((m) => m.area === a).length} testid={`vt-area-${a}`}>
                 {a === "All" ? "All areas" : a}
               </CountChip>
@@ -154,7 +166,7 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
                 <button key={m.equipmentId} type="button" onClick={() => onOpenEquipment(m.equipmentId)} data-testid="vt-row" style={{ ...s.card, display: "block", width: "100%", textAlign: "left", font: "inherit", cursor: "pointer", padding: 12, marginBottom: 10 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <b style={{ color: T.textPrimary, fontFamily: "'IBM Plex Mono', monospace" }}>{m.equipmentId}</b>
-                    <span style={{ color: T.textSecondary, fontSize: 12.5 }}>{m.area}</span>
+                    <span style={{ color: T.textSecondary, fontSize: 12.5 }}>{m.place}</span>
                     <span style={{ marginLeft: "auto" }}>
                       <StatePill tone={tone[m.state]}>{m.state}</StatePill>
                     </span>
@@ -198,7 +210,7 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
                         <b style={{ fontFamily: "'IBM Plex Mono', monospace", color: T.textPrimary }}>{m.equipmentId}</b>
                         <span style={{ display: "block", fontSize: 11.5, color: T.textSecondary, maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</span>
                       </td>
-                      <td style={{ ...s.td, whiteSpace: "nowrap" }}>{m.area || "—"}</td>
+                      <td style={{ ...s.td, whiteSpace: "nowrap" }}>{m.place || "—"}</td>
                       <td style={s.td}>
                         <StatePill tone={tone[m.state]}>{m.state}</StatePill>
                       </td>

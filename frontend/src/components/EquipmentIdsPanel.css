@@ -94,3 +94,6 @@
   .eid-area-row { grid-template-columns: 1fr auto; }
   .eid-area-aliases { grid-column: 1 / -1; }
 }
+.eid-area-split { font-size: 12px; color: var(--shell-text-secondary); margin-bottom: 4px; }
+.eid-tag-x { border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; padding: 0 0 0 4px; line-height: 1; }
+.eid-area-alias-in { width: 110px; padding: 2px 6px; font: inherit; font-size: 12px; border: 1px dashed var(--shell-border); border-radius: 999px; background: transparent; color: var(--shell-text); }
