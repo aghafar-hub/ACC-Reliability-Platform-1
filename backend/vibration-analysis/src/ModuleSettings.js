@@ -63,7 +63,7 @@ function msStamps_(cards) {
 
 // The platform's email switch for this module (Platform Core EMAIL_SETTINGS).
 function msEmail_() {
-  var out = { connected: false, enabled: false, sender: false, on: 0 };
+  var out = { connected: false, enabled: false, sender: false, on: 0, events: {}, digestTime: "07:00" };
   var id = "";
   try { id = PropertiesService.getScriptProperties().getProperty("PLATFORM_CORE_SPREADSHEET_ID") || ""; } catch (e) {}
   if (!id) return out;
@@ -76,8 +76,16 @@ function msEmail_() {
       var k = String(r[0] || "").trim(), v = String(r[1] === undefined ? "" : r[1]).trim();
       if (k === "enabled") out.enabled = v.toUpperCase() === "TRUE";
       else if (k === "senderEmail") out.sender = !!v;
-      else if (k.indexOf("event:" + MS_PAGE + ":") === 0 && v) out.on++;
+      else if (k === "digestTime" && v) out.digestTime = v;
+      else if (k.indexOf("event:") === 0) {
+        out.events[k.slice(6)] = v; // "<module>:<event>" → "", "email", "digest", "email,digest"
+      }
     });
+    // events on for this module (one never saved counts as on — EmailEvents.js)
+    out.on = (MS_EMAIL_EVENTS[MS_PAGE] || []).filter(function (ev) {
+      var key = MS_PAGE + ":" + ev;
+      return !Object.prototype.hasOwnProperty.call(out.events, key) || !!out.events[key];
+    }).length;
     peCachePut_("pe|email|" + id, out, PE_TTL);
   } catch (e) {}
   return out;
@@ -213,19 +221,4 @@ function handleSaveModuleSettings(params, session) {
   return { status: "error", error: "Unknown settings card: " + card };
 }
 
-// ─── Email gate ──────────────────────────────────────────────────────────────
-// Every email this module sends goes through msSendMail_: nothing is sent
-// unless Settings → Email & notifications (Platform Core EMAIL_SETTINGS) has a
-// platform sender and "Send emails" switched on. Not connected = nothing sent.
-// (Read through the 10-minute platform cache, so switching on/off takes up to
-// 10 minutes to reach this module.)
-function msMailAllowed_() {
-  var e = msEmail_();
-  return !!(e.enabled && e.sender);
-}
-
-function msSendMail_(payload) {
-  if (!msMailAllowed_()) return false;
-  MailApp.sendEmail(payload);
-  return true;
-}
+// ─── Email gate: EmailEvents.js (msSendMail_ with an event key) ─────────────

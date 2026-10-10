@@ -212,7 +212,7 @@ function onLabReportSaved_(ss, row, actingUser, isNew, reopen) {
         (found.row[5] ? " (result now " + found.row[5] + ")" : "") + ". Please validate it again.";
       recordInAppNotificationForEach_(ss, getNotifyReviewers_(contractor), "lab-report-reopened", reMsg, contractor, "oilreport", String(found.row[0] || ""));
       var ceList = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
-      if (ceList.length) sendNotificationEmail_({ to: ceList.join(","), subject: "Oil Lubrication: lab report changed — validate again — " + sampleLabel_(found.row), body: reMsg });
+      if (ceList.length) sendNotificationEmail_({ to: ceList.join(","), subject: "Oil Lubrication: lab report changed — validate again — " + sampleLabel_(found.row), body: reMsg }, 'labReport');
     } catch (e) {
       logError("onLabReportSaved_:reopen", e, {});
     }
@@ -265,7 +265,7 @@ function returnLabReport(ss, data) {
     if (uploader && people.indexOf(uploader) === -1) people.push(uploader);
     var msg = "Lab report " + sampleLabel_(found.row) + " was returned for correction by " + (data.actingUser || "ACC") + ": " + reason;
     recordInAppNotificationForEach_(ss, people, "lab-report-returned", msg, contractor, "oilreport", String(found.row[0] || ""));
-    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: lab report returned — " + sampleLabel_(found.row), body: msg });
+    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: lab report returned — " + sampleLabel_(found.row), body: msg }, 'labReport');
   } catch (e) {
     logError("returnLabReport:notify", e, {});
   }

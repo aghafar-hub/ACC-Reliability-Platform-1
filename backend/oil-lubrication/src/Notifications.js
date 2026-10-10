@@ -63,7 +63,7 @@ function updateNotificationSettings_(data) {
 // calling it directly — one place to honor the enabled/disabled switch and
 // apply the configured from/name, rather than repeating that check at each
 // of the five send sites below.
-function sendNotificationEmail_(options) {
+function sendNotificationEmail_(options, event) {
   // The platform's Settings → Email & notifications is the one switch now
   // (ModuleSettings.js msSendMail_); this module's old on/off setting is no
   // longer shown or used. From address/name stay as set here for now.
@@ -71,7 +71,7 @@ function sendNotificationEmail_(options) {
   var payload = { to: options.to, subject: options.subject, body: options.body };
   if (settings.fromEmail) payload.from = settings.fromEmail;
   if (settings.fromName) payload.name = settings.fromName;
-  msSendMail_(payload);
+  msSendMail_(payload, event);
 }
 
 // Who gets "submitted for review" alerts and the two digests: every ACC
@@ -121,7 +121,7 @@ function notifyRoutineAssigned_(routineId, routeName, assignedTo, dueDate) {
     "Route: " + label + "\n" +
     (dueDate ? "Due: " + formatDateForEmail_(dueDate) + "\n" : "") +
     "\nOpen My Work in the ACC Reliability Platform to see the checklist.";
-  sendNotificationEmail_({ to: assignedTo, subject: subject, body: body });
+  sendNotificationEmail_({ to: assignedTo, subject: subject, body: body }, 'routeAssigned');
 }
 
 // Phase 6: a submitted route goes to that contractor's engineers (the ones
@@ -142,7 +142,7 @@ function notifyRoutineSubmitted_(routineId, routeName, contractor, submittedBy) 
     "Contractor: " + (contractor || "") + "\n" +
     (submittedBy ? "Submitted by: " + submittedBy + "\n" : "") +
     "\nOpen Routines in the ACC Reliability Platform to review and approve it.";
-  sendNotificationEmail_({ to: reviewers.join(","), subject: subject, body: body });
+  sendNotificationEmail_({ to: reviewers.join(","), subject: subject, body: body }, 'routeApproval');
 }
 
 // Phase 1: the engineer returned submitted work for correction — the
@@ -164,7 +164,7 @@ function notifyRoutineReturned_(routineId, routeName, assignedTo, returnedBy, re
       "Reason: " + reason + "\n" +
       (returnedBy ? "Returned by: " + returnedBy + "\n" : "") +
       "\nOpen My Work in the ACC Reliability Platform, correct it and submit again."
-  });
+  }, 'routeAssigned');
 }
 
 // Phase 1: an ACC Engineer created and assigned a route — it goes straight
@@ -181,7 +181,7 @@ function notifyRoutineCreatedByAcc_(routineId, routeName, contractor, assignedTo
     to: engineers.join(","),
     subject: "Oil Lubrication: ACC created a route for " + contractor + " — " + label,
     body: msg + ".\n\nYou'll approve it once the technician submits it. Open Routines in the ACC Reliability Platform to see it."
-  });
+  }, 'routeAssigned');
 }
 
 function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
@@ -207,7 +207,7 @@ function notifyRoutineApproved_(routineId, routeName, assignedTo, approvedBy) {
     "Route: " + label + "\n" +
     (approvedBy ? "Approved by: " + approvedBy + "\n" : "") +
     "\nNo action needed.";
-  sendNotificationEmail_({ to: assignedTo, subject: subject, body: body });
+  sendNotificationEmail_({ to: assignedTo, subject: subject, body: body }, 'routeApproved');
 }
 
 // ─── Aging Actions digest (Patch 3 — owner field + aging escalation) ────
@@ -290,7 +290,7 @@ function sendAgingActionsDigest() {
       to: reviewers.join(","),
       subject: "Oil Lubrication: " + agingCount + " overdue action(s) — " + contractor,
       body: lines.join("\n"),
-    });
+    }, 'actionOverdue');
   });
 }
 
@@ -360,6 +360,6 @@ function sendLowStockDigest() {
       to: reviewers.join(","),
       subject: "Oil Lubrication: " + items.length + " product(s) low on stock — " + contractor,
       body: lines.join("\n"),
-    });
+    }, 'lowStock');
   });
 }

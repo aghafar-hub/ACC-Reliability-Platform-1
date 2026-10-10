@@ -213,7 +213,7 @@ function checkSampleOverdueAndNotify() {
       to: recipients.join(","),
       subject: "Oil Lubrication: Sample Tracker — " + contractor + " (" + monthKey + ")",
       body: lines.join("\n"),
-    });
+    }, 'sampleOverdue');
 
     markSampleDigestSent_(ss, contractor, monthKey);
   });

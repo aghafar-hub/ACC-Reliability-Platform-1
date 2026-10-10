@@ -159,11 +159,12 @@ function vrCanSee_(who, r) {
 
 // link: { routeId, contractor, tech } — tech: the technician's notice opens the
 // checklist in My Work; the others open the route on the Routes page.
-function vrNotify_(to, subject, body, me, link) {
+// event: the Settings → Email event (routeAssigned, routeApproval, routeCompleted).
+function vrNotify_(to, subject, body, me, link, event) {
   try {
     var list = (to || []).filter(function (e, i) { return e && to.indexOf(e) === i && e !== me.email; });
     if (link) vnAdd_(SpreadsheetApp.getActiveSpreadsheet(), list, 'vib-route', subject, link.contractor, link.tech ? 'mywork-route' : 'routes', link.routeId, me);
-    if (list.length) msSendMail_({ to: list.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' });
+    if (list.length) msSendMail_({ to: list.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' }, event || 'routeAssigned');
   } catch (e) {}
 }
 
@@ -314,12 +315,12 @@ function handleVibRouteTransition(params, session) {
     var open = pts.filter(function (p) { return p['Done'] !== 'Yes' && !String(p['Skip reason'] || '').trim(); });
     if (open.length) return { status: 'error', error: open.length + ' point(s) are not done — tick them or give a skip reason. The route stays open until every point is resolved.' };
     ch['Status'] = 'Submitted'; ch['Submitted by'] = me.email; ch['Submitted at'] = vlNowIso_(); ch['Return reason'] = '';
-    vrNotify_(maResponsibleEmails_(MA_RESP.CONTRACTOR, r['Contractor']), 'Vibration route ' + id + ' submitted', 'Submitted by ' + me.email + ' — review and confirm.', me, { routeId: id, contractor: r['Contractor'] });
+    vrNotify_(maResponsibleEmails_(MA_RESP.CONTRACTOR, r['Contractor']), 'Vibration route ' + id + ' submitted', 'Submitted by ' + me.email + ' — review and confirm.', me, { routeId: id, contractor: r['Contractor'] }, 'routeApproval');
   } else if (to === 'confirm') {
     if (!eng) return { status: 'error', error: 'Only the contractor engineer confirms the route.' };
     if (st !== 'Submitted') return { status: 'error', error: 'Only a submitted route can be confirmed.' };
     ch['Status'] = 'Closed'; ch['Confirmed by'] = me.email; ch['Confirmed at'] = vlNowIso_();
-    vrNotify_(maResponsibleEmails_(MA_RESP.ACC, ''), 'Vibration route ' + id + ' completed', r['Name'] + ' — field work confirmed by ' + me.email + '. The readings follow in the contractor report (Vibration Log).', me, { routeId: id, contractor: r['Contractor'] });
+    vrNotify_(maResponsibleEmails_(MA_RESP.ACC, ''), 'Vibration route ' + id + ' completed', r['Name'] + ' — field work confirmed by ' + me.email + '. The readings follow in the contractor report (Vibration Log).', me, { routeId: id, contractor: r['Contractor'] }, 'routeCompleted');
   } else if (to === 'return') {
     if (!eng) return { status: 'error', error: 'Only the contractor engineer returns the route.' };
     if (st !== 'Submitted') return { status: 'error', error: 'Only a submitted route can be returned.' };

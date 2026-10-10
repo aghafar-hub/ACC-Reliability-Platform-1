@@ -748,6 +748,6 @@ function vlNotify_(ss, to, rep, me, reason) {
     var verb = { submit: 'was sent to ACC for review', approve: 'was approved by ACC', 'return': 'was returned by ACC', reopen: 'was reopened by ACC' }[to];
     vnAdd_(ss, who, 'vib-report-' + to, 'Vibration report ' + title + ' ' + verb + (reason ? ': ' + reason : ''), contractor, 'log', rep['Report ID'], me);
     msSendMail_({ to: who.join(','), subject: 'Vibration report ' + title + ' ' + verb,
-      body: 'The vibration report ' + rep['Report ID'] + ' (' + title + ') ' + verb + (reason ? '.\n\nReason: ' + reason : '.') + '\n\nOpen the ACC Reliability Platform → Vibration Analysis → Vibration Log.' });
+      body: 'The vibration report ' + rep['Report ID'] + ' (' + title + ') ' + verb + (reason ? '.\n\nReason: ' + reason : '.') + '\n\nOpen the ACC Reliability Platform → Vibration Analysis → Vibration Log.' }, to === 'submit' ? 'reportSent' : 'reportDecision');
   } catch (e) {}
 }

@@ -616,7 +616,7 @@ function checkLowStockAfterMovement_(ss, productId, delta) {
   var people = getNotifyReviewers_(contractor);
   var msg = "Low stock: " + productLabel_(p) + " is at " + after + " " + (p[5] || "L") + " — at or below its low-stock level of " + level + ".";
   recordInAppNotificationForEach_(ss, people, "low-stock", msg, contractor, "inventory", productId);
-  if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: low stock — " + productLabel_(p), body: msg });
+  if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: low stock — " + productLabel_(p), body: msg }, 'lowStock');
 }
 
 // Low-stock level: either the contractor's engineer or an ACC Engineer.

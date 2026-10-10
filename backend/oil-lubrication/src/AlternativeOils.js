@@ -250,7 +250,7 @@ function setOilEquivalent(ss, data, actingUser) {
     addAll(maResponsibleEmails_(MA_RESP.CONTRACTOR_MANAGER, contractor));
     addAll(maResponsibleEmails_(MA_RESP.ACC_MANAGER, ""));
     recordInAppNotificationForEach_(ss, people, "oil-equivalent", msg, contractor, "inventory", productId);
-    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: equivalent oil " + (mainType ? "approved" : "removed") + " — " + product, body: msg });
+    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: equivalent oil " + (mainType ? "approved" : "removed") + " — " + product, body: msg }, 'equivalentOil');
   } catch (e) {
     logError("setOilEquivalent:notify", e, { productId: productId });
   }

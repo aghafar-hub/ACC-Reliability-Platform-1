@@ -315,7 +315,7 @@ function requestActionClosure(ss, data) {
     var msg = (data.actingUser || "The contractor") + " asked to close action " + actionKeyLabel_(found.row) + ": " + comment;
     recordInAppNotificationForEach_(ss, accEngineers, "action-closure-requested", msg, contractor, "actions", found.row[ACTION_COL.AC_NO]);
     if (accEngineers.length) {
-      sendNotificationEmail_({ to: accEngineers.join(","), subject: "Oil Lubrication: closure requested — " + actionKeyLabel_(found.row), body: msg + "\n\nOpen Oil Actions in the ACC Reliability Platform to approve or reject it." });
+      sendNotificationEmail_({ to: accEngineers.join(","), subject: "Oil Lubrication: closure requested — " + actionKeyLabel_(found.row), body: msg + "\n\nOpen Oil Actions in the ACC Reliability Platform to approve or reject it." }, 'closureRequested');
     }
   } catch (e) {
     logError("requestActionClosure:notify", e, { acNo: data.acNo });
@@ -353,7 +353,7 @@ function decideActionClosure(ss, data) {
       : "Closure of action " + actionKeyLabel_(found.row) + " was rejected by " + (data.actingUser || "ACC") + ": " + note + ". It's " + backTo + " again.";
     recordInAppNotificationForEach_(ss, engineers, decision === "Approve" ? "action-closure-approved" : "action-closure-rejected", msg, contractor, "actions", found.row[ACTION_COL.AC_NO]);
     if (engineers.length) {
-      sendNotificationEmail_({ to: engineers.join(","), subject: "Oil Lubrication: closure " + (decision === "Approve" ? "approved" : "rejected") + " — " + actionKeyLabel_(found.row), body: msg });
+      sendNotificationEmail_({ to: engineers.join(","), subject: "Oil Lubrication: closure " + (decision === "Approve" ? "approved" : "rejected") + " — " + actionKeyLabel_(found.row), body: msg }, 'closureDecision');
     }
   } catch (e) {
     logError("decideActionClosure:notify", e, { acNo: data.acNo });
@@ -450,7 +450,7 @@ function createDraftAction_(ss, opts) {
     var msg = "Draft action " + acNo + " on " + lpId + " (" + (opts.rule || "rule") + "): " + (opts.analysis || "") + " — please complete it and Submit.";
     recordInAppNotificationForEach_(ss, people, "action-draft", msg, contractor, "actions", acNo);
     if (people.length) {
-      sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: new Draft action " + acNo + " — " + lpId, body: msg + "\n\nOpen Oil Actions in the ACC Reliability Platform to edit it." });
+      sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: new Draft action " + acNo + " — " + lpId, body: msg + "\n\nOpen Oil Actions in the ACC Reliability Platform to edit it." }, 'newAction');
     }
   } catch (e) {
     logError("createDraftAction_:notify", e, { acNo: acNo });

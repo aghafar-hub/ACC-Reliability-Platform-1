@@ -141,7 +141,7 @@ function vaApplyFindings_(ss, rep, me) {
       vnAdd_(ss, who, 'vib-action-findings', res.created.length + ' new draft action(s), ' + res.added.length + ' finding(s) added to open actions from report ' + id,
         rep['Contractor'], 'actions', res.created.length === 1 ? res.created[0] : '', me);
       if (who.length) msSendMail_({ to: who.join(','), subject: 'Vibration findings from ' + id,
-        body: res.created.length + ' new draft action(s) and ' + res.added.length + ' finding(s) added to open actions from report ' + id + '.\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions to enter the recommendations.' });
+        body: res.created.length + ' new draft action(s) and ' + res.added.length + ' finding(s) added to open actions from report ' + id + '.\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions to enter the recommendations.' }, 'newAction');
     } catch (e) {}
   }
   return res;
@@ -281,7 +281,7 @@ function handleVibActionTransition(params, session) {
     if (!vlDate_(row['Due date'])) miss.push('due date');
     if (miss.length) return { status: 'error', error: 'Before opening, fill in: ' + miss.join(', ') + '.' };
     ch['Status'] = 'Open';
-    notify = { to: [row['Owner']], subject: 'Vibration action ' + row['Action ID'] + ' assigned to you', body: 'Agreed action for ' + row['Equipment ID'] + ': ' + row['Agreed action'] + '\nDue: ' + vlDate_(row['Due date']) };
+    notify = { event: 'actionAssigned', to: [row['Owner']], subject: 'Vibration action ' + row['Action ID'] + ' assigned to you', body: 'Agreed action for ' + row['Equipment ID'] + ': ' + row['Agreed action'] + '\nDue: ' + vlDate_(row['Due date']) };
   } else if (to === 'waiting') {
     if (st !== 'Open') return { status: 'error', error: 'Only an Open action can wait for a stoppage.' };
     ch['Status'] = 'Waiting Stoppage';
@@ -291,19 +291,19 @@ function handleVibActionTransition(params, session) {
     if (!ev && !reason) return { status: 'error', error: 'Add the evidence or a comment on what was done.' };
     ch['Status'] = 'Closure Requested'; ch['Closure evidence'] = ev; ch['Closure comment'] = reason;
     ch['Closure requested by'] = me.email; ch['Closure requested at'] = vlNowIso_(); ch['Return reason'] = '';
-    notify = { to: maResponsibleEmails_(MA_RESP.ACC, ''), subject: 'Closure requested: vibration action ' + row['Action ID'], body: row['Equipment ID'] + ' — ' + (reason || '') + (ev ? '\nEvidence: ' + ev : '') };
+    notify = { event: 'closureRequested', to: maResponsibleEmails_(MA_RESP.ACC, ''), subject: 'Closure requested: vibration action ' + row['Action ID'], body: row['Equipment ID'] + ' — ' + (reason || '') + (ev ? '\nEvidence: ' + ev : '') };
   } else if (to === 'close') {
     if (!me.canApprove) return { status: 'error', error: 'Only an ACC engineer closes an action.' };
     if (st !== 'Closure Requested') return { status: 'error', error: 'Only an action waiting for closure can be closed.' };
     ch['Status'] = 'Closed'; ch['Closed by'] = me.email; ch['Closed at'] = vlNowIso_();
     if (reason) ch['Closure comment'] = String(row['Closure comment'] || '') + (row['Closure comment'] ? '\n' : '') + 'ACC: ' + reason;
-    notify = { to: [row['Owner']].concat(maResponsibleEmails_(MA_RESP.CONTRACTOR, row['Contractor'])), subject: 'Vibration action ' + row['Action ID'] + ' closed', body: row['Equipment ID'] + ' — closed by ACC.' + (reason ? '\n' + reason : '') };
+    notify = { event: 'closureDecision', to: [row['Owner']].concat(maResponsibleEmails_(MA_RESP.CONTRACTOR, row['Contractor'])), subject: 'Vibration action ' + row['Action ID'] + ' closed', body: row['Equipment ID'] + ' — closed by ACC.' + (reason ? '\n' + reason : '') };
   } else if (to === 'return') {
     if (!me.canApprove) return { status: 'error', error: 'Only an ACC engineer returns an action.' };
     if (st !== 'Closure Requested') return { status: 'error', error: 'Only an action waiting for closure can be returned.' };
     if (!reason) return { status: 'error', error: 'Say what is still needed.' };
     ch['Status'] = 'Open'; ch['Return reason'] = reason;
-    notify = { to: [row['Owner']].concat(maResponsibleEmails_(MA_RESP.CONTRACTOR, row['Contractor'])), subject: 'Vibration action ' + row['Action ID'] + ' returned', body: row['Equipment ID'] + ' — ' + reason };
+    notify = { event: 'closureDecision', to: [row['Owner']].concat(maResponsibleEmails_(MA_RESP.CONTRACTOR, row['Contractor'])), subject: 'Vibration action ' + row['Action ID'] + ' returned', body: row['Equipment ID'] + ' — ' + reason };
   } else if (to === 'cancel') {
     if (!me.canApprove) return { status: 'error', error: 'Only an ACC engineer cancels an action.' };
     if (st !== 'Draft') return { status: 'error', error: 'Only a Draft action can be cancelled.' };
@@ -318,7 +318,7 @@ function handleVibActionTransition(params, session) {
     try {
       var list = notify.to.filter(function (e, i) { return e && notify.to.indexOf(e) === i && e !== me.email; });
       vnAdd_(ss, list, 'vib-action-' + to, notify.subject + (reason ? ': ' + reason : ''), row['Contractor'], 'actions', row['Action ID'], me);
-      if (list.length) msSendMail_({ to: list.join(','), subject: notify.subject, body: notify.body + '\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions.' });
+      if (list.length) msSendMail_({ to: list.join(','), subject: notify.subject, body: notify.body + '\n\nOpen the ACC Reliability Platform → Vibration Analysis → Actions.' }, notify.event);
     } catch (e) {}
   }
   return { status: 'ok', actionId: row['Action ID'], action: vaOut_(saved) };

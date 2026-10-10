@@ -163,7 +163,7 @@ function syncSuggestionsForAction_(ss, acNo, lpId, actingUser) {
       var msg = "The agreed action of " + acNo + " (" + lpId + ") changed to \"" + (agreed || "nothing") +
         "\" after route " + changedRoutes.join(", ") + " was made. The route was left unchanged — please check it.";
       recordInAppNotificationForEach_(ss, engineers, "agreed-action-changed", msg, contractor, "routines", changedRoutes[0]);
-      if (engineers.length) sendNotificationEmail_({ to: engineers.join(","), subject: "Oil Lubrication: agreed action changed after route — " + acNo, body: msg });
+      if (engineers.length) sendNotificationEmail_({ to: engineers.join(","), subject: "Oil Lubrication: agreed action changed after route — " + acNo, body: msg }, 'actionChanged');
     } catch (e) {
       logError("syncSuggestionsForAction_:notify", e, { acNo: acNo });
     }

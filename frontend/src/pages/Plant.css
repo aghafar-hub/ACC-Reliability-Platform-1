@@ -171,6 +171,19 @@
   color: var(--plant-poor);
   font-weight: 700;
 }
+/* Needs attention: scrolls inside the card on wide screens (the grid row
+   stays the height of the other cards); the whole list on narrow ones */
+.plant-att-list {
+  max-height: 292px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-right: -6px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+.plant-att-list > .plant-att:last-child {
+  margin-bottom: 0;
+}
 .plant-att {
   display: flex;
   align-items: center;
@@ -685,6 +698,12 @@
   }
 }
 @media (max-width: 860px) {
+  .plant-att-list {
+    max-height: none;
+    overflow: visible;
+    margin-right: 0;
+    padding-right: 0;
+  }
   .plant-grid {
     grid-template-columns: 1fr;
   }

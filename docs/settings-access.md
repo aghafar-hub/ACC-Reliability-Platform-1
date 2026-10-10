@@ -55,10 +55,27 @@ written to `PLATFORM_LOG`. Stored in the Platform Core sheet,
 `EMAIL_SETTINGS` (Key | Value | Updated_By | Updated_At), made on the first
 save.
 
-**Every module email goes through this switch.** Oil and Vibration send
-mail only through `msSendMail_` (ModuleSettings.js), which sends nothing
-unless there is a platform sender and *Send emails* is on (read through the
-module's 10-minute platform cache). A module that isn't connected to the
-platform (`PLATFORM_CORE_SPREADSHEET_ID` not set) sends nothing. The
-per-event toggles are not wired to each email yet: once the switch is on,
-all of a module's emails go out — connect the events before turning it on.
+**Every module email goes through this switch, event by event.**
+
+- Oil and Vibration send mail only through `msSendMail_(payload, event)`
+  (`EmailEvents.js`, the same file in both modules).
+- Nothing is sent unless there is a platform sender and *Send emails* is
+  on. The settings are read through the module's 10-minute platform cache.
+- A module that isn't connected to the platform
+  (`PLATFORM_CORE_SPREADSHEET_ID` not set) sends nothing.
+- Each email carries an event key, for example `routeAssigned`,
+  `reportSent` or `platform:delegation`:
+  - **Email** on: it is sent at once.
+  - **Daily digest** on: it is added to the module's "Email Digest Queue"
+    tab.
+  - Both off: it is not sent. The bell still shows it.
+- An event never saved in Settings counts as **Email**, as before the
+  per-event switches.
+- The event list in Settings (`EmailSettings.js` `EM_MODULES`) is exactly
+  the emails the modules send. Keep it in step with `MS_EMAIL_EVENTS` in
+  `EmailEvents.js`.
+
+**Daily digest.** Run `installEmailDigest` once in each module's Apps Script
+editor. It adds an hourly trigger. At the digest time set in Settings (once
+a day), `sendEmailDigest` sends each person one email listing everything
+queued for them, then empties the queue.

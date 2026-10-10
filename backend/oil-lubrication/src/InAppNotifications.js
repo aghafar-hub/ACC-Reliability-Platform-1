@@ -129,5 +129,5 @@ function markAllInAppNotificationsRead_(userEmail) {
 function maNotify_(emails, subject, body, contractor) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   recordInAppNotificationForEach_(ss, emails, "delegation", subject, contractor, "mywork", "");
-  try { sendNotificationEmail_({ to: emails.join(","), subject: subject, body: body + "\n\nOpen the ACC Reliability Platform → My Work." }); } catch (e) {}
+  try { sendNotificationEmail_({ to: emails.join(","), subject: subject, body: body + "\n\nOpen the ACC Reliability Platform → My Work." }, 'platform:delegation'); } catch (e) {}
 }

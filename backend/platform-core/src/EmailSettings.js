@@ -10,32 +10,49 @@
  *   senderEmail, senderName, enabled (TRUE/FALSE), digestTime (HH:MM),
  *   event:<module>:<event> = '', 'email', 'digest' or 'email,digest'
  *
- * Modules ask emailAllowed_(module, event) before sending (later step);
- * until then nothing here sends anything.
+ * The modules read this sheet (msEmail_, 10-minute cache) and check the
+ * event before every email (EmailEvents.js msSendMail_); "digest" emails
+ * are queued and sent once a day (sendEmailDigest). An event never saved
+ * counts as "email".
  */
 
 var EM_SHEET = 'EMAIL_SETTINGS';
+// Every email the modules send, by event (the keys the modules pass to
+// msSendMail_ — backend/*/src/EmailEvents.js). Keep the two in step.
 var EM_MODULES = [
   { id: 'oil-analysis', name: 'Oil', events: [
-    { key: 'routeAssigned', label: 'Route assigned / returned', to: 'to the technician and contractor engineer' },
-    { key: 'routeApproval', label: 'Route waiting for approval', to: 'to the ACC responsible engineer' },
-    { key: 'labAlert', label: 'Lab report in Alert', to: 'to ACC + contractor responsible engineers' },
-    { key: 'actionOverdue', label: 'Action overdue', to: 'to the owner and their manager' },
-    { key: 'closureRequested', label: 'Closure requested', to: 'to the ACC responsible engineer' },
+    { key: 'routeAssigned', label: 'Route assigned, returned or made by ACC', to: 'to the technician / contractor engineer' },
+    { key: 'routeApproval', label: 'Route sent for approval', to: 'to the contractor and ACC engineers' },
+    { key: 'routeApproved', label: 'Route approved', to: 'to the technician' },
+    { key: 'routeOverdue', label: 'Route overdue', to: 'to the contractor engineer' },
+    { key: 'dueSoon', label: 'Points due soon (daily)', to: 'to the contractor engineer' },
+    { key: 'sampleOverdue', label: 'Oil samples overdue (monthly)', to: 'to ACC + contractor engineers' },
+    { key: 'labReport', label: 'Lab report returned or changed', to: 'to the contractor engineer' },
+    { key: 'newAction', label: 'New Draft action (lab report or rule)', to: 'to ACC + contractor engineers' },
+    { key: 'actionChanged', label: 'Agreed action changed after a route', to: 'to the engineers' },
+    { key: 'closureRequested', label: 'Closure requested', to: 'to the ACC engineers' },
+    { key: 'closureDecision', label: 'Closure approved / rejected', to: 'to the contractor engineers' },
+    { key: 'actionOverdue', label: 'Actions overdue (weekly)', to: 'to ACC + contractor engineers' },
+    { key: 'escalation', label: 'Escalation of long-overdue items', to: 'to the managers' },
     { key: 'lowStock', label: 'Oil low in stock', to: 'to the contractor engineer' },
+    { key: 'stockShortage', label: 'Not enough stock for planned work', to: 'to the contractor engineer' },
+    { key: 'equivalentOil', label: 'Equivalent oil approved / removed', to: 'to the engineers' },
   ] },
   { id: 'vibration-analysis', name: 'Vibration', events: [
-    { key: 'routeAssigned', label: 'Route assigned / returned', to: 'to the technician and contractor engineer' },
-    { key: 'routeApproval', label: 'Route waiting for approval', to: 'to the ACC responsible engineer' },
-    { key: 'readingAlert', label: 'Reading above the alarm limit', to: 'to ACC + contractor responsible engineers' },
-    { key: 'reportDue', label: 'Report not written in 45 days', to: 'to the contractor responsible engineer' },
-    { key: 'actionOverdue', label: 'Action overdue', to: 'to the owner and their manager' },
-    { key: 'closureRequested', label: 'Closure requested', to: 'to the ACC responsible engineer' },
+    { key: 'routeAssigned', label: 'Route assigned, returned, cancelled or emergency', to: 'to the technician / contractor engineer' },
+    { key: 'routeApproval', label: 'Route submitted for confirmation', to: 'to the contractor engineer' },
+    { key: 'routeCompleted', label: 'Route completed', to: 'to the ACC engineers' },
+    { key: 'reportSent', label: 'Report sent to ACC', to: 'to ACC + contractor engineers' },
+    { key: 'reportDecision', label: 'Report approved, returned or reopened', to: 'to the contractor engineer' },
+    { key: 'newAction', label: 'New draft actions from a report', to: 'to ACC + contractor engineers' },
+    { key: 'actionAssigned', label: 'Action assigned to an owner', to: 'to the owner' },
+    { key: 'closureRequested', label: 'Closure requested', to: 'to the ACC engineers' },
+    { key: 'closureDecision', label: 'Action closed / returned', to: 'to the owner and contractor engineer' },
+    { key: 'actionList', label: 'Action list sent by hand (old tracker)', to: 'to the people picked' },
   ] },
   { id: 'platform', name: 'Platform', events: [
     { key: 'delegation', label: 'Delegation started / ended', to: 'to both people' },
-    { key: 'idCheck', label: 'Equipment IDs not matching', to: 'to the App Owner' },
-    { key: 'newAccount', label: 'New account / password reset', to: 'to that person' },
+    { key: 'idCheck', label: 'Equipment IDs not matching (daily)', to: 'to the App Owner' },
   ] },
 ];
 var EM_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,7 +61,7 @@ function emRead_() {
   var out = { senderEmail: '', senderName: 'ACC Reliability Platform', enabled: false, digestTime: '07:00', events: {}, changed: {} };
   EM_MODULES.forEach(function (m) {
     out.events[m.id] = {};
-    m.events.forEach(function (e) { out.events[m.id][e.key] = { email: false, digest: false }; });
+    m.events.forEach(function (e) { out.events[m.id][e.key] = { email: true, digest: false }; }); // never saved = email (as the modules)
   });
   try {
     var sh = SpreadsheetApp.openById(getSpreadsheetId_()).getSheetByName(EM_SHEET);

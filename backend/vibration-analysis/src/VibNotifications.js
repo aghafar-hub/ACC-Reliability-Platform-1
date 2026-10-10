@@ -68,5 +68,5 @@ function handleMarkVibNotificationsRead(params, session) {
 // bell + email. Opens My Work.
 function maNotify_(emails, subject, body, contractor) {
   vnAdd_(SpreadsheetApp.getActiveSpreadsheet(), emails, 'delegation', subject, contractor, 'mywork', '', null);
-  try { msSendMail_({ to: emails.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' }); } catch (e) {}
+  try { msSendMail_({ to: emails.join(','), subject: subject, body: body + '\n\nOpen the ACC Reliability Platform → My Work.' }, 'platform:delegation'); } catch (e) {}
 }

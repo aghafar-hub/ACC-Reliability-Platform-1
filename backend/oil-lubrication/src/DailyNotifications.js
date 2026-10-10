@@ -136,7 +136,7 @@ function runDailyOilNotifications() {
       var people = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
       var msg = lines.length + " lubrication point(s) due within " + DUE_SOON_NOTIFY_DAYS + " days: " + lines.join("; ");
       recordInAppNotificationForEach_(ss, people, "lp-due-soon", msg, contractor, "routines", "");
-      if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: " + lines.length + " point(s) due soon — " + contractor, body: lines.join("\n") + "\n\nCreate the routes in Routines (the suggestions list shows them)." });
+      if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: " + lines.length + " point(s) due soon — " + contractor, body: lines.join("\n") + "\n\nCreate the routes in Routines (the suggestions list shows them)." }, 'dueSoon');
       summary.dueSoon += lines.length;
     });
 
@@ -158,7 +158,7 @@ function runDailyOilNotifications() {
       if (tech && people.indexOf(tech) === -1) people.push(tech);
       var msg = "Route " + (r[12] || id) + " is overdue (due " + formatDateForEmail_(due) + ", status " + st + ").";
       recordInAppNotificationForEach_(ss, people, "route-overdue", msg, contractor, "routines", id);
-      if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: route overdue — " + (r[12] || id), body: msg });
+      if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: route overdue — " + (r[12] || id), body: msg }, 'routeOverdue');
       summary.routesOverdue++;
     });
 
@@ -178,7 +178,7 @@ function runDailyOilNotifications() {
       var people = getNotifyReviewers_(contractor);
       var msg = "Stock shortage for the next " + SHORTAGE_NOTIFY_DAYS + " days (" + contractor + "): " + lines.join("; ") + ". Obtain stock, reschedule, or use an approved equivalent oil.";
       recordInAppNotificationForEach_(ss, people, "stock-shortage", msg, contractor, "inventory", "");
-      if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: stock shortage — " + contractor, body: lines.join("\n") + "\n\nObtain stock, reschedule the work, or use an approved equivalent oil." });
+      if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: stock shortage — " + contractor, body: lines.join("\n") + "\n\nObtain stock, reschedule the work, or use an approved equivalent oil." }, 'stockShortage');
       summary.shortages += lines.length;
     });
 

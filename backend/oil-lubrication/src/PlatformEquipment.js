@@ -333,7 +333,7 @@ function idCheckDaily() {
       subject: "[ACC Reliability] " + PE_MODULE + ": " + n + " new ID problem" + (n > 1 ? "s" : ""),
       body: run.fresh.map(function (p) { return "• " + p.id + " — " + p.title + (p.detail ? " (" + p.detail + ")" : ""); }).join("\n") +
         "\n\nOpen the ACC Reliability Platform → Settings → Equipment & IDs.",
-    });
+    }, 'platform:idCheck');
   } catch (e) {}
   return { status: "ok", fresh: n };
 }

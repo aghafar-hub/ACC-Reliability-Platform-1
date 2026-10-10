@@ -66,7 +66,7 @@ function escalateLongOverdue_(ss, today, sent, newKeys) {
     }
     var msg = lines.length + " item(s) still overdue " + ESCALATE_AFTER_DAYS + "+ days" + (contractor ? " for " + contractor : "") + ": " + lines.join("; ");
     recordInAppNotificationForEach_(ss, people, "overdue-escalation", msg, contractor, "team", "");
-    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: escalation — " + lines.length + " item(s) overdue " + ESCALATE_AFTER_DAYS + "+ days" + (contractor ? " (" + contractor + ")" : ""), body: lines.join("\n") });
+    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: escalation — " + lines.length + " item(s) overdue " + ESCALATE_AFTER_DAYS + "+ days" + (contractor ? " (" + contractor + ")" : ""), body: lines.join("\n") }, 'escalation');
     total += lines.length;
   });
   return total;
