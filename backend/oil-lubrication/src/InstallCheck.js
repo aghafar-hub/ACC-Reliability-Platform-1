@@ -2,62 +2,71 @@
 //
 // Install check: run checkInstall() from the Apps Script editor (pick it in
 // the function list, then Run). The log lists every file of this project
-// that is missing or out of date (some of its functions are not found), so
-// a file pasted into the wrong place or only half pasted shows at once.
+// that is missing or out of date: a function not found, or found with other
+// code (an old copy, or a second copy in another file that wins). A file
+// pasted into the wrong place or only half pasted shows at once.
 // After pasting fixes, publish a new version of the deployment.
 
 var INSTALL_CHECK_FILES = {
-  "ActionRegistry":["readActionRegistry"],
-  "ActionWorkflow":["normActionStatus_","ensureActionWorkflowHeaders_","actionForSample_","sampleActionTakenMsg_","asDate_","actionDueEnd_","isActionRowOverdue_","isActionEngineer_","columnLetter_","actionKeyLabel_","actionContractor_","guardActionTrackerSave_","writeActionDueFields_","rescheduleAction","findActionRow_","getActionContractor_","setActionCells_","requestActionClosure","decideActionClosure","closeAction","nextActionAcNo_","latestOilChangeDate_","createDraftAction_","lastAgreedActionForLp_","openActionsForLp_","applyLabResultRule_","applyLeakageRule_","migrateActionStatusesPhase2","migrateActionStatusesPhase2DryRun"],
-  "ActivityFeed":["afAllowed_","afFrom_","afIso_","afEquipment_","handleGetActivityFeed"],
-  "AlternativeOils":["ensureServerHeaders_","normOil_","sameOil_","oilLabel_","approvedOilsFor_","currentOilByLp_","labelMatchesOption_","oilPlanFor_","oilPlanContext_","oilPlanForLp_","getOilPlan","checkOilUsed_","routineItemOil_","productById_","setOilEquivalent"],
-  "AuditLog":["recordAudit_","getAuditTrail"],
-  "Auth":["checkSecret_","getSessionSecret_","base64UrlDecode_","signPayload_","requireSession_","checkAuth_"],
-  "Code":["doGet","doPost","doPostInner_"],
-  "DailyNotifications":["notifySentKeys_","markNotified_","isoDay_","weekKey_","lpsOnOpenRoutes_","lpsDueSoon_","runDailyOilNotifications","installDailyOilNotificationsTrigger"],
-  "Dashboard":["readAll","getStartupBundle","getDashboard","getEquipmentData","searchEquipment","getChanges","filterChangedSince","getDashboardSettings_","updateDashboardSettings_"],
-  "EmailEvents":["msMailAllowed_","msEventMode_","msSendMail_","msQueueDigest_","sendEmailDigest","installEmailDigest"],
-  "EquipmentRegistry":["invalidateLpContractorMap_","getLpContractorMap_","readLpContractorMap_","readEquipmentRegistry","squashReportId_","learnReportEquipmentId_"],
-  "InAppNotifications":["recordInAppNotification_","recordInAppNotificationForEach_","getInAppNotifications_","markInAppNotificationRead_","markAllInAppNotificationsRead_","maNotify_"],
-  "LabReports":["ensureLabHeaders_","ensureLabInfoHeaders_","labInfoText_","writeLabReportInfo_","findSampleRowById_","fillLabReportInfo_","findSampleRow_","labStatusOf_","sampleLabel_","getSampleContractor_","normLabCell_","guardLabReportEdit_","onLabReportSaved_","validateLabReport","returnLabReport","normSampleId_","sampleIdExists_"],
-  "Managers":["routeOverdueFrom_","isRouteRowOverdue_","escalateLongOverdue_","getTeamWorkload"],
-  "ModuleAccess":["maCacheKey_","maNormEmail_","maIsEnforced_","maIsVisitorOnly_","maIsAdmin_","maContractorForOrg_","maGetStatus_","maSetStatus_","maReadRows_","maEnsureSheet_","maEnsureSetup_","maLoadConfig_","maInvalidate_","maResolve_","maAnyTabAtLeast_","maBaseDenial_","maCheckRead_","maCheckWrite_","maFilterSections_","getMyAccess_","getModuleAccessConfig_","maValidPerson_","maAddPeople_","maRemovePerson_","maNormTabChange_","maSetTabLevels_","maSetTabLevel_","maResponsibleEmails_","maTechnicians_","maDescribeChange_","maHandleAdminPost_","maToday_","maYmd_","maDelegations_","maDelegationState_","maSideFor_","maResponsibility_","maResponsibleNow_","maCoveredNow_","maNobodyResponsibleFor_","maPeopleWith_","maDelegationNotify_","maGetMyDelegations_","maCreateDelegation_","maEndDelegation_","maHandleSelfAction_","maTeamScope_","maCoveringOn_","maTeamHistory_"],
-  "ModuleAccessConfig":["maOilGenericSheetTabs_","maImportLegacyPeople_"],
-  "ModuleResponsibilities":["getModuleResponsibilities_","getModuleResponsibleEmail_","setModuleResponsibility_"],
-  "ModuleSettings":["msCanEdit_","msStamp_","msStamps_","msEmail_","msStatus_","msTargets_","handleGetModuleSettings","msIntervalProblem_","handleSaveModuleSettings"],
-  "MyWork":["myWorkRoles_","fmtDay_","section_","getMyWork"],
-  "Notifications":["getNotificationSettings_","updateNotificationSettings_","sendNotificationEmail_","getNotifyReviewers_","looksLikeEmail_","formatDateForEmail_","notifyRoutineAssigned_","notifyRoutineSubmitted_","notifyRoutineReturned_","notifyRoutineCreatedByAcc_","notifyRoutineApproved_","sendAgingActionsDigest","sendLowStockDigest"],
-  "OilChanges":["logOilChangeEvent","oilBrandTypeFor_","findRegistryEntryForOilChange_","intervalMonthsForOilChange_","addMonths_","getOilChangesForLp"],
-  "OilInventory":["getOilInventory","productMovementStats_","getProductContractor_","getOilInventoryForecast","monthKey_","getOilInventoryConsumption","getOilInventoryMovements","getAllOilInventoryMovements","addOilProduct","copyStockFormulas_","updateOilProduct","findInventoryProductRow_","findMatchingProduct_","tryAutoDeductInventory_","productStocksFromLog_","productStockFromLog_","findProductRow_","productLabel_","checkLowStockAfterMovement_","setProductLowStockLevel","logOilMovement"],
-  "PlatformEquipment":["peKey_","peCacheGet_","peCachePut_","peMaster_","peSig_","pePlatform_","peEquipmentIdProblem_","peApplyToRegistry_","peLpIds_","peCollect_","peBell_","peOwnerEmail_","peCheckSheet_","peRun_","handleGetIdCheck","peForget_","handleMarkIdCheck","idCheckDaily","installIdCheck","psaRank_","psaClamp_","psaRead_","psaLevel_"],
-  "Rbac":["hasPermission_","requirePermission_","requireAdmin_","isRouteEngineerFor_","requireRouteEngineer_","isAccEngineer_","requireAccEngineer_","getContractorScope_","filterRowsByLpContractor_","filterTrackerRowsByLpContractor_","requireContractorMatch_","requireLpContractorMatch_","resolveLpContractor_","genericWriteLpId_","resolveRowLpId_","lockEquipmentRegistryContractor_"],
-  "ReadCache":["rcVersion_","rcBump_","rcKey_","rcGet_","rcPut_"],
-  "RouteTemplates":["readRouteTemplates","createRouteTemplate","getTemplateContractor_","setRouteTemplateStatus","deleteRouteTemplate","generateDueRouteInstances","generateDueRouteInstancesInner_","computeDueLpIds_","intervalMonthsForRoute_","countMatchingEquipment_","classifyDueStatus_","getRoutinesOverview","getRoutineCompletionTrend","advanceByFrequency_"],
-  "Routines":["normRouteStatus_","normRoutineRow_","ensureRoutinePhase1Headers_","isRouteReturnedRow_","routineStatusAt_","sameDay_","migrateRouteStatusesPhase1","migrateRouteStatusesPhase1DryRun","getRoutines","getRoutine","getRoutineContractor_","getRoutineIdForItem_","getRoutineItems","createRoutine","assignRoutineTechnician","updateRoutine","rescheduleRoutine","setRoutineStatus","deleteRoutine","submitRoutineItem","submitRoutine","approveRoutine","returnRoutine","addRoutineComment","getRoutesForLp"],
-  "SampleOverdue":["intervalMonthsForSampling_","sampleAgeMonths_","sampleStatusLabel_","sampleDueDate_","sampleDigestAlreadySentThisMonth_","markSampleDigestSent_","checkSampleOverdueAndNotify"],
-  "SampleTracker":["findOrCreateMonthColumn_","updateSampleTrackerMonthly"],
-  "SheetTriggers":["onEdit","logDirectEditIfTracked_","protectDataSheetsFromDirectEdits"],
-  "Suggestions":["suggestionSheet_","suggestionWorkTypes_","readSuggestionRows_","suggestionToObject_","getSuggestions","setSuggestionCells_","syncSuggestionsForAction_","convertSuggestions_","reopenSuggestionsForRoutine_"],
-  "TeamHistory":["teamDayDiff_","teamCollect_"],
-  "TopUps":["logOilTopUp_","getTopUpsForLp","getAllTopUps"],
-  "Utils":["outputResult_","jsonOut","logError","dataStartRowFor","readSheet","canonicalContractor_","invalidateDashboardCache","invalidateRoutinesOverviewCache","compareDates","toComparableDate","getPaginated","findRowIndex","updateRow","deleteRow","appendRow","stampLastModified","hasConflict_","normalizeMonthHeader"]
+  "ActionRegistry":{"readActionRegistry":"1ao4m7"},
+  "ActionWorkflow":{"normActionStatus_":"109qqcq","ensureActionWorkflowHeaders_":"15cyy00","actionForSample_":"t9u615","sampleActionTakenMsg_":"pt6v6g","asDate_":"17zp9ak","actionDueEnd_":"36d3y9","isActionRowOverdue_":"1pkqchn","isActionEngineer_":"ih1nfy","columnLetter_":"1skyc5l","actionKeyLabel_":"gl8fmp","actionContractor_":"1jte5ly","guardActionTrackerSave_":"zel5ut","writeActionDueFields_":"5zxgp8","rescheduleAction":"nxeqlf","findActionRow_":"1fk7vjh","getActionContractor_":"jxevtc","setActionCells_":"1lmmuio","requestActionClosure":"1vp0qma","decideActionClosure":"du95tf","closeAction":"1rv40zi","nextActionAcNo_":"1h18wp0","latestOilChangeDate_":"136xhqn","createDraftAction_":"1iz6728","lastAgreedActionForLp_":"33nql2","openActionsForLp_":"1o1g67r","applyLabResultRule_":"144jbgh","applyLeakageRule_":"1chag5w","migrateActionStatusesPhase2":"d6ybwm","migrateActionStatusesPhase2DryRun":"1o4o9vk"},
+  "ActivityFeed":{"afAllowed_":"1l4jjh9","afFrom_":"s0zgf","afIso_":"1lde3c8","afEquipment_":"mhuosy","handleGetActivityFeed":"1yrk866"},
+  "AlternativeOils":{"ensureServerHeaders_":"1ye6oio","normOil_":"1q9pscs","sameOil_":"lb6zi7","oilLabel_":"10gf9i","approvedOilsFor_":"1gvb6n","currentOilByLp_":"1icmjv5","labelMatchesOption_":"16za3ta","oilPlanFor_":"1mvzvs2","oilPlanContext_":"faop9y","oilPlanForLp_":"9dg57e","getOilPlan":"os9u8u","checkOilUsed_":"gwbvi3","routineItemOil_":"1ik9dwo","productById_":"iqapmz","setOilEquivalent":"ltkr12"},
+  "AuditLog":{"recordAudit_":"l9k5nj","getAuditTrail":"allpb1"},
+  "Auth":{"checkSecret_":"wg08ky","getSessionSecret_":"dv51fe","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","requireSession_":"xifh5e","checkAuth_":"a8otsf"},
+  "Code":{"doGet":"ihdg6d","doPost":"186d7xl","doPostInner_":"1gk08qh"},
+  "DailyNotifications":{"notifySentKeys_":"19f96kg","markNotified_":"his2kj","isoDay_":"1c1o63p","weekKey_":"gwimfg","lpsOnOpenRoutes_":"mel74h","lpsDueSoon_":"13zcttf","runDailyOilNotifications":"1jnyl3i","installDailyOilNotificationsTrigger":"k95iey"},
+  "Dashboard":{"readAll":"1kxv73h","getStartupBundle":"19m7gl9","getDashboard":"8u036g","getEquipmentData":"14ndn37","searchEquipment":"4rdi1e","getChanges":"1qegkyq","filterChangedSince":"dvcrhy","getDashboardSettings_":"1q5hcs4","updateDashboardSettings_":"5wwzw0"},
+  "EmailEvents":{"msMailAllowed_":"1esubwk","msEventMode_":"1j2gmqw","msSendMail_":"4a8yul","msQueueDigest_":"1ysp0xs","sendEmailDigest":"105abcf","installEmailDigest":"i8qram"},
+  "EquipmentRegistry":{"invalidateLpContractorMap_":"1ak0fe1","getLpContractorMap_":"5p83xp","readLpContractorMap_":"18k1s25","readEquipmentRegistry":"1b2o7d3","squashReportId_":"1bs4zn6","learnReportEquipmentId_":"6ntge9"},
+  "InAppNotifications":{"recordInAppNotification_":"s4mhyn","recordInAppNotificationForEach_":"1hzvqr0","getInAppNotifications_":"nzsmd0","markInAppNotificationRead_":"3i7mmf","markAllInAppNotificationsRead_":"1t8zagz","maNotify_":"pwcuhi"},
+  "LabReports":{"ensureLabHeaders_":"m5ca7h","ensureLabInfoHeaders_":"p5tgxd","labInfoText_":"102x3ea","writeLabReportInfo_":"o3inf6","findSampleRowById_":"xpdeak","fillLabReportInfo_":"ht2ink","findSampleRow_":"1u6j3yh","labStatusOf_":"th75gp","sampleLabel_":"4r3b4r","getSampleContractor_":"t6zuuo","normLabCell_":"6bqh9","guardLabReportEdit_":"1ja3zuf","onLabReportSaved_":"1vu9n9u","validateLabReport":"smlji4","returnLabReport":"12g9k8h","normSampleId_":"ygi6so","sampleIdExists_":"1bzle0i"},
+  "Managers":{"routeOverdueFrom_":"9nenor","isRouteRowOverdue_":"sxmujb","escalateLongOverdue_":"1j0540x","getTeamWorkload":"q3m610"},
+  "ModuleAccess":{"maCacheKey_":"6lsy3o","maNormEmail_":"1abza4q","maIsEnforced_":"z1w1c4","maIsVisitorOnly_":"zuy3mv","maIsAdmin_":"nosb4k","maContractorForOrg_":"1ljic9z","maGetStatus_":"1a2sedc","maSetStatus_":"112m63p","maReadRows_":"1ydxkzx","maEnsureSheet_":"9sdhwl","maEnsureSetup_":"1dwf5up","maLoadConfig_":"15dvvfo","maInvalidate_":"ktsijm","maResolve_":"chnwd0","maAnyTabAtLeast_":"9r1ezh","maBaseDenial_":"1ixr5sk","maCheckRead_":"x566l4","maCheckWrite_":"1ueqssu","maFilterSections_":"1ke8740","getMyAccess_":"1bbf9jq","getModuleAccessConfig_":"13brgcr","maValidPerson_":"93wo0m","maAddPeople_":"1erjumu","maRemovePerson_":"ckh1gm","maNormTabChange_":"q5fk9o","maSetTabLevels_":"yqwfzq","maSetTabLevel_":"1m21xl1","maResponsibleEmails_":"vx5e3v","maTechnicians_":"biqjgu","maDescribeChange_":"3kqyt2","maHandleAdminPost_":"11bgodz","maToday_":"11dlwb2","maYmd_":"3wlcae","maDelegations_":"1b8jlkg","maDelegationState_":"k4lkiu","maSideFor_":"18vxjdh","maResponsibility_":"edtujj","maResponsibleNow_":"m3oenq","maCoveredNow_":"11obka1","maNobodyResponsibleFor_":"16b3ept","maPeopleWith_":"xhod26","maDelegationNotify_":"yfp2o3","maGetMyDelegations_":"8raen8","maCreateDelegation_":"susgz2","maEndDelegation_":"17a45bt","maHandleSelfAction_":"drckp7","maTeamScope_":"1lmlwp9","maCoveringOn_":"1cuy5vo","maTeamHistory_":"1yycktx"},
+  "ModuleAccessConfig":{"maOilGenericSheetTabs_":"2micrh","maImportLegacyPeople_":"6qwy1"},
+  "ModuleResponsibilities":{"getModuleResponsibilities_":"1nk9bov","getModuleResponsibleEmail_":"5bale3","setModuleResponsibility_":"11g2oql"},
+  "ModuleSettings":{"msCanEdit_":"2ltzn7","msStamp_":"14r1vi0","msStamps_":"4i654f","msEmail_":"vpo482","msStatus_":"1auxp04","msTargets_":"sqb66q","handleGetModuleSettings":"14ip74q","msIntervalProblem_":"1riew3o","handleSaveModuleSettings":"1dvbxxs"},
+  "MyWork":{"myWorkRoles_":"uhwuct","fmtDay_":"oa2c5s","section_":"3b78oz","getMyWork":"1dvfd3h"},
+  "Notifications":{"getNotificationSettings_":"yhwo8d","updateNotificationSettings_":"176hj29","sendNotificationEmail_":"19q1cav","getNotifyReviewers_":"1gw4c8t","looksLikeEmail_":"izwpft","formatDateForEmail_":"hf69c0","notifyRoutineAssigned_":"yk56lb","notifyRoutineSubmitted_":"tcqfcx","notifyRoutineReturned_":"5gisv2","notifyRoutineCreatedByAcc_":"j9b4l8","notifyRoutineApproved_":"14dh6qs","sendAgingActionsDigest":"1rlzbey","sendLowStockDigest":"118b4qa"},
+  "OilChanges":{"logOilChangeEvent":"1j12rty","oilBrandTypeFor_":"16ro2nb","findRegistryEntryForOilChange_":"1oc8ef1","intervalMonthsForOilChange_":"1ckyukf","addMonths_":"tgwcug","getOilChangesForLp":"1gnuck4"},
+  "OilInventory":{"getOilInventory":"kh73qe","productMovementStats_":"vh1oq0","getProductContractor_":"1r6u6kt","getOilInventoryForecast":"sn2j75","monthKey_":"1o59ab","getOilInventoryConsumption":"13vhytq","getOilInventoryMovements":"qcu82a","getAllOilInventoryMovements":"hs2urm","addOilProduct":"8u96wb","copyStockFormulas_":"1dmlcis","updateOilProduct":"1qflvgg","findInventoryProductRow_":"il4rhg","findMatchingProduct_":"h0l1ab","tryAutoDeductInventory_":"1rktdlc","productStocksFromLog_":"14k2vjw","productStockFromLog_":"h134n","findProductRow_":"2b778q","productLabel_":"x5u9u2","checkLowStockAfterMovement_":"1xwnjor","setProductLowStockLevel":"fcu6x1","logOilMovement":"dd53ox"},
+  "PlatformEquipment":{"peKey_":"18264wm","peCacheGet_":"1us1t93","peCachePut_":"51r00g","peMaster_":"12p6m7g","peSig_":"o7fyjw","pePlatform_":"1iga1la","peEquipmentIdProblem_":"1o4k6dh","peApplyToRegistry_":"ntilxh","peLpIds_":"acglgu","peCollect_":"1dofnyx","peBell_":"1tct72m","peOwnerEmail_":"gzi0dd","peCheckSheet_":"1446wk6","peRun_":"xdwtvj","handleGetIdCheck":"95dqls","peForget_":"11ppfg1","handleMarkIdCheck":"1y6tj3n","idCheckDaily":"480ep4","installIdCheck":"x0bnf9","psaRank_":"byf8ux","psaClamp_":"1qa2zcq","psaRead_":"15yb1pm","psaLevel_":"7509ua"},
+  "Rbac":{"hasPermission_":"1fcqqiv","requirePermission_":"ueo4fg","requireAdmin_":"15hd513","isRouteEngineerFor_":"1wshe0j","requireRouteEngineer_":"2d2ddm","isAccEngineer_":"1ayf62f","requireAccEngineer_":"g4nxx9","getContractorScope_":"po9hqs","filterRowsByLpContractor_":"noaz3d","filterTrackerRowsByLpContractor_":"guac85","requireContractorMatch_":"jvsef2","requireLpContractorMatch_":"x7b5ak","resolveLpContractor_":"1ybjoxd","genericWriteLpId_":"163tizb","resolveRowLpId_":"1o25qt6","lockEquipmentRegistryContractor_":"26f11j"},
+  "ReadCache":{"rcVersion_":"152kau3","rcBump_":"16z5ezk","rcKey_":"odtzju","rcGet_":"5hczju","rcPut_":"1t43cm4"},
+  "RouteTemplates":{"readRouteTemplates":"zvgjpg","createRouteTemplate":"4vygxo","getTemplateContractor_":"xzarsw","setRouteTemplateStatus":"nsy5k8","deleteRouteTemplate":"1t00vto","generateDueRouteInstances":"1eqz82g","generateDueRouteInstancesInner_":"1f4415d","computeDueLpIds_":"6zvjk7","intervalMonthsForRoute_":"1mvh303","countMatchingEquipment_":"1225qix","classifyDueStatus_":"132ap9o","getRoutinesOverview":"1l62iwr","getRoutineCompletionTrend":"18u87pd","advanceByFrequency_":"1vjwuuh"},
+  "Routines":{"normRouteStatus_":"cb09gq","normRoutineRow_":"qm6gb9","ensureRoutinePhase1Headers_":"149pk3t","isRouteReturnedRow_":"1l50a8p","routineStatusAt_":"vxkbsu","sameDay_":"15w7i5l","migrateRouteStatusesPhase1":"rweg8k","migrateRouteStatusesPhase1DryRun":"1i5pvgg","getRoutines":"cxi4eh","getRoutine":"1476217","getRoutineContractor_":"1wvvtcx","getRoutineIdForItem_":"1u32w7o","getRoutineItems":"1vy8klq","createRoutine":"tm2syc","assignRoutineTechnician":"19a1js8","updateRoutine":"177ytq2","rescheduleRoutine":"1v6n3vj","setRoutineStatus":"l8wq5n","deleteRoutine":"1d4o4oh","submitRoutineItem":"1hazyex","submitRoutine":"40680n","approveRoutine":"1k6urqy","returnRoutine":"kfs3sw","addRoutineComment":"vsvir0","getRoutesForLp":"4nmxgl"},
+  "SampleOverdue":{"intervalMonthsForSampling_":"1tk95j5","sampleAgeMonths_":"15c0mds","sampleStatusLabel_":"12rbjf1","sampleDueDate_":"b3xjxe","sampleDigestAlreadySentThisMonth_":"pyxu3p","markSampleDigestSent_":"1dlvr8d","checkSampleOverdueAndNotify":"1qzqdrj"},
+  "SampleTracker":{"findOrCreateMonthColumn_":"s9qxv5","updateSampleTrackerMonthly":"i0j2j1"},
+  "SheetTriggers":{"onEdit":"1k8i2xv","logDirectEditIfTracked_":"p7uyc9","protectDataSheetsFromDirectEdits":"1dnl3eh"},
+  "Suggestions":{"suggestionSheet_":"l8cb24","suggestionWorkTypes_":"whwlkn","readSuggestionRows_":"z839fe","suggestionToObject_":"1aaed14","getSuggestions":"13d2aax","setSuggestionCells_":"1r3sjd1","syncSuggestionsForAction_":"1dtxcsi","convertSuggestions_":"1fbbmxe","reopenSuggestionsForRoutine_":"g8b907"},
+  "TeamHistory":{"teamDayDiff_":"6gfbf1","teamCollect_":"3a885k"},
+  "TopUps":{"logOilTopUp_":"p5i3uu","getTopUpsForLp":"1dccky4","getAllTopUps":"ohl4pm"},
+  "Utils":{"outputResult_":"1x4cpd6","jsonOut":"z1oc5r","logError":"1i6xqhb","dataStartRowFor":"gzfm90","readSheet":"1eda1p3","canonicalContractor_":"1bh8a4m","invalidateDashboardCache":"1ll4t2t","invalidateRoutinesOverviewCache":"1l0qj1b","compareDates":"1i1pd4s","toComparableDate":"fbtwm","getPaginated":"14ukbjy","findRowIndex":"len83t","updateRow":"hil1ra","deleteRow":"4ktn69","appendRow":"b0q9in","stampLastModified":"1xjfj6y","hasConflict_":"poiw6f","normalizeMonthHeader":"1b0cwqk"}
 };
 
 function checkInstall() {
   var g = (function () { return this; })() || globalThis;
+  var fp = function (src) {
+    var t = String(src).replace(/\s+/g, ''), h = 5381;
+    for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  };
   var missing = [], old = [], ok = 0;
   Object.keys(INSTALL_CHECK_FILES).forEach(function (file) {
-    var names = INSTALL_CHECK_FILES[file];
+    var want = INSTALL_CHECK_FILES[file], names = Object.keys(want);
     var gone = names.filter(function (n) { return typeof g[n] !== 'function'; });
+    var differ = names.filter(function (n) { return typeof g[n] === 'function' && fp(g[n].toString()) !== want[n]; });
     if (gone.length === names.length) missing.push(file);
-    else if (gone.length) old.push(file + ' (not found: ' + gone.slice(0, 5).join(', ') + (gone.length > 5 ? ' …' : '') + ')');
+    else if (gone.length || differ.length) old.push(file + ' (' + (gone.length ? 'not found: ' + gone.slice(0, 4).join(', ') + (gone.length > 4 ? ' …' : '') : '') +
+      (gone.length && differ.length ? '; ' : '') + (differ.length ? 'other code: ' + differ.slice(0, 4).join(', ') + (differ.length > 4 ? ' …' : '') : '') + ')');
     else ok++;
   });
   var lines = ['oil-lubrication: ' + ok + ' of ' + Object.keys(INSTALL_CHECK_FILES).length + ' files OK.'];
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
-  if (old.length) lines.push('OUT OF DATE — paste these files again: ' + old.join('; '));
+  if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
   var text = lines.join('\n');
   Logger.log(text);
   return text;
 }
+

@@ -2,58 +2,67 @@
 //
 // Install check: run checkInstall() from the Apps Script editor (pick it in
 // the function list, then Run). The log lists every file of this project
-// that is missing or out of date (some of its functions are not found), so
-// a file pasted into the wrong place or only half pasted shows at once.
+// that is missing or out of date: a function not found, or found with other
+// code (an old copy, or a second copy in another file that wins). A file
+// pasted into the wrong place or only half pasted shows at once.
 // After pasting fixes, publish a new version of the deployment.
 
 var INSTALL_CHECK_FILES = {
-  "ActionTracker":["handleReadActions","readActionsRaw","handleReadLastActionNo","handleAppendAction","handleUpdateAction","handleDeleteAction","handleSendActionEmail","generateActionNo","buildActionRow"],
-  "ActivityFeed":["afAllowed_","afFrom_","afIso_","afEquipment_","handleGetActivityFeed"],
-  "Auth":["getSessionSecret_","base64UrlDecode_","signPayload_","requireSession_","getSessionOrNull_"],
-  "BackfillLastReadings":["handleBackfillLastReadings"],
-  "Cache":["vcVersion_","vcBump_","vcKey_","vcGet_","vcPut_","vcRead_"],
-  "Code":["doGet","doPost","dispatchWithAccess_","dispatch","jsonOut","readAll","getStartupBundle","getRmsSpmHistory"],
-  "Compliance":["readCompliance","parseLabelToYearMonth","handleUpdateCompliance","handleMarkMissingCompliance"],
-  "Config":["dataStartRowFor","headerRowFor","worstStatus"],
-  "Dashboard":["handleGetVibDashboard"],
-  "EmailEvents":["msMailAllowed_","msEventMode_","msSendMail_","msQueueDigest_","sendEmailDigest","installEmailDigest"],
-  "EquipmentRegister":["handleUpdateRegisterLimits"],
-  "Limits":["lmActive_","lmApply_","lmFor_","handleGetVibLimits","handleSaveVibLimits","handleSetVibPointStatus"],
-  "MeasurementTracker":["vtMonthEnd_","vtAddMonths_","vtWorse_","vtCollect_","vtLastMeasured_","vtDueState_","handleGetVibTracker","vtMonths_","vtTracker_","vtAreaGrid_"],
-  "ModuleAccess":["maCacheKey_","maNormEmail_","maIsEnforced_","maIsVisitorOnly_","maIsAdmin_","maContractorForOrg_","maGetStatus_","maSetStatus_","maReadRows_","maEnsureSheet_","maEnsureSetup_","maLoadConfig_","maInvalidate_","maResolve_","maAnyTabAtLeast_","maBaseDenial_","maCheckRead_","maCheckWrite_","maFilterSections_","getMyAccess_","getModuleAccessConfig_","maValidPerson_","maAddPeople_","maRemovePerson_","maNormTabChange_","maSetTabLevels_","maSetTabLevel_","maResponsibleEmails_","maTechnicians_","maDescribeChange_","maHandleAdminPost_","maToday_","maYmd_","maDelegations_","maDelegationState_","maSideFor_","maResponsibility_","maResponsibleNow_","maCoveredNow_","maNobodyResponsibleFor_","maPeopleWith_","maDelegationNotify_","maGetMyDelegations_","maCreateDelegation_","maEndDelegation_","maHandleSelfAction_","maTeamScope_","maCoveringOn_","maTeamHistory_"],
-  "ModuleAccessConfig":["maVibGenericSheetTabs_"],
-  "ModuleSettings":["vsApplySettings_","vsTargets_","vsPhrases_","msCanEdit_","msStamp_","msStamps_","msEmail_","msStatus_","vsLimitsSummary_","handleGetModuleSettings","handleSaveModuleSettings"],
-  "MyWork":["vmwSection_","handleGetMyWork"],
-  "PlatformEquipment":["peKey_","peCacheGet_","peCachePut_","peMaster_","peSig_","pePlatform_","peEquipmentIdProblem_","peApplyToPoints_","peApplyToMachines_","peCollect_","peBell_","peOwnerEmail_","peCheckSheet_","peRun_","handleGetIdCheck","peForget_","handleMarkIdCheck","idCheckDaily","installIdCheck","psaRank_","psaClamp_","psaRead_","psaLevel_"],
-  "Readings":["rdInput_","handleSaveVibReadings","handleGetVibEquipmentSummary"],
-  "RmsData":["handleUpsertLastRMS","handleDeleteLastRMS"],
-  "Routes":["vrRoles_","vrOut_","vrSuggestions_","handleGetVibRoutes","handleGetVibRoute","vrCanSee_","vrNotify_","handleCreateVibRoute","vrFind_","vrWrite_","handleSaveVibRouteProgress","handleVibRouteTransition","handleDismissVibSuggestion"],
-  "Settings":["handleReadConfig","readConfigRaw","handleSaveConfig"],
-  "SpmData":["handleUpsertLastSPM","handleDeleteLastSPM"],
-  "TeamHistory":["vteamDays_","teamCollect_"],
-  "Triggers":["onEdit"],
-  "Utils":["readSheet","handleAppend","handleUpdateRow","handleDeleteRow","findRowIndex","getAllRowsForEquip","updateMachineStatusCol","recalcMachineStatus"],
-  "VibActions":["vaOut_","vaWrite_","vaNextId_","vaPointsText_","vaApplyFindings_","handleGetVibActions","handleGetVibActionHistory","vaFind_","handleSaveVibAction","handleVibActionTransition"],
-  "VibNotifications":["vnAdd_","handleGetVibNotifications","handleMarkVibNotificationsRead","maNotify_"],
-  "VibRegistry":["readVibRegistry"],
-  "VibrationLog":["vlLocked_","vlTz_","vlDate_","vlMonth_","vlToday_","vlNowIso_","vlAddDays_","vlMonthEnd_","vlNum_","vlBand_","vlLevel_","vlYmdFast_","vlRead_","vlReadSheet_","vlEnsure_","vlRowFrom_","vlAudit_","vlActor_","vlMasterData_","vlAreaOf_","vlScopeOf_","vlScopes_","vlDueDate_","vlReportStatus_","vlReportOut_","handleGetVibLog","vlEntryOut_","handleGetVibReport","handleGetVibEquipmentHistory","handleGetVibEntriesFor","vlFindReport_","vlWriteReport_","handleSaveVibReport","handleSaveVibEntries","vlSaveRecommendations_","vlRecommendations_","vlCounts_","vlWriteCoverage_","handleVibReportTransition","vlNotify_"]
+  "ActionTracker":{"handleReadActions":"1bflvsu","readActionsRaw":"fw7u1q","handleReadLastActionNo":"35ypas","handleAppendAction":"9baijw","handleUpdateAction":"1ab5svx","handleDeleteAction":"1dvaxlk","handleSendActionEmail":"1hknath","generateActionNo":"3f659g","buildActionRow":"r2vsl5"},
+  "ActivityFeed":{"afAllowed_":"1l4jjh9","afFrom_":"s0zgf","afIso_":"1lde3c8","afEquipment_":"mhuosy","handleGetActivityFeed":"eo7r7i"},
+  "Auth":{"getSessionSecret_":"dv51fe","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","requireSession_":"xifh5e","getSessionOrNull_":"126wvym"},
+  "BackfillLastReadings":{"handleBackfillLastReadings":"1prs4hx"},
+  "Cache":{"vcVersion_":"djx6jf","vcBump_":"1pv3ctc","vcKey_":"12pwdxh","vcGet_":"1j9t0sd","vcPut_":"15u21bn","vcRead_":"bkcg02"},
+  "Code":{"doGet":"ppntla","doPost":"njvvsa","dispatchWithAccess_":"1fkxm96","dispatch":"1uqzo4n","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
+  "Compliance":{"readCompliance":"16ondc1","parseLabelToYearMonth":"1tddnt5","handleUpdateCompliance":"1v8uziw","handleMarkMissingCompliance":"14me95i"},
+  "Config":{"dataStartRowFor":"wb5qrr","headerRowFor":"1z00e4k","worstStatus":"1lkh80x"},
+  "Dashboard":{"handleGetVibDashboard":"1t0phdg"},
+  "EmailEvents":{"msMailAllowed_":"1esubwk","msEventMode_":"1j2gmqw","msSendMail_":"4a8yul","msQueueDigest_":"1ysp0xs","sendEmailDigest":"105abcf","installEmailDigest":"i8qram"},
+  "EquipmentRegister":{"handleUpdateRegisterLimits":"aidv6"},
+  "Limits":{"lmActive_":"40f0fg","lmApply_":"1ikkato","lmFor_":"15w8r2v","handleGetVibLimits":"mndpt3","handleSaveVibLimits":"lz1m9s","handleSetVibPointStatus":"2ck62o"},
+  "MeasurementTracker":{"vtMonthEnd_":"111tpcd","vtAddMonths_":"1jdfedg","vtWorse_":"19b9t5w","vtCollect_":"11wbxvq","vtLastMeasured_":"18hcedu","vtDueState_":"ztipss","handleGetVibTracker":"13aev9","vtMonths_":"1bvej35","vtTracker_":"11iq5lh","vtAreaGrid_":"2v1oqd"},
+  "ModuleAccess":{"maCacheKey_":"6lsy3o","maNormEmail_":"1abza4q","maIsEnforced_":"z1w1c4","maIsVisitorOnly_":"zuy3mv","maIsAdmin_":"nosb4k","maContractorForOrg_":"1ljic9z","maGetStatus_":"1a2sedc","maSetStatus_":"112m63p","maReadRows_":"1ydxkzx","maEnsureSheet_":"9sdhwl","maEnsureSetup_":"1dwf5up","maLoadConfig_":"15dvvfo","maInvalidate_":"ktsijm","maResolve_":"chnwd0","maAnyTabAtLeast_":"9r1ezh","maBaseDenial_":"1ixr5sk","maCheckRead_":"x566l4","maCheckWrite_":"1ueqssu","maFilterSections_":"1ke8740","getMyAccess_":"1bbf9jq","getModuleAccessConfig_":"13brgcr","maValidPerson_":"93wo0m","maAddPeople_":"1erjumu","maRemovePerson_":"ckh1gm","maNormTabChange_":"q5fk9o","maSetTabLevels_":"yqwfzq","maSetTabLevel_":"1m21xl1","maResponsibleEmails_":"vx5e3v","maTechnicians_":"biqjgu","maDescribeChange_":"3kqyt2","maHandleAdminPost_":"11bgodz","maToday_":"11dlwb2","maYmd_":"3wlcae","maDelegations_":"1b8jlkg","maDelegationState_":"k4lkiu","maSideFor_":"18vxjdh","maResponsibility_":"edtujj","maResponsibleNow_":"m3oenq","maCoveredNow_":"11obka1","maNobodyResponsibleFor_":"16b3ept","maPeopleWith_":"xhod26","maDelegationNotify_":"yfp2o3","maGetMyDelegations_":"8raen8","maCreateDelegation_":"susgz2","maEndDelegation_":"17a45bt","maHandleSelfAction_":"drckp7","maTeamScope_":"1lmlwp9","maCoveringOn_":"1cuy5vo","maTeamHistory_":"1yycktx"},
+  "ModuleAccessConfig":{"maVibGenericSheetTabs_":"yaprad"},
+  "ModuleSettings":{"vsApplySettings_":"1g4r8xz","vsTargets_":"1fqxz7z","vsPhrases_":"17e0o0h","msCanEdit_":"2ltzn7","msStamp_":"14r1vi0","msStamps_":"4i654f","msEmail_":"vpo482","msStatus_":"1auxp04","vsLimitsSummary_":"mn1281","handleGetModuleSettings":"179tpup","handleSaveModuleSettings":"r2ydkk"},
+  "MyWork":{"vmwSection_":"twwkw","handleGetMyWork":"1rgek4l"},
+  "PlatformEquipment":{"peKey_":"18264wm","peCacheGet_":"1us1t93","peCachePut_":"51r00g","peMaster_":"12p6m7g","peSig_":"o7fyjw","pePlatform_":"1iga1la","peEquipmentIdProblem_":"1o4k6dh","peApplyToPoints_":"y4x1ej","peApplyToMachines_":"12vkavm","peCollect_":"11emcar","peBell_":"379qlc","peOwnerEmail_":"gzi0dd","peCheckSheet_":"1446wk6","peRun_":"xdwtvj","handleGetIdCheck":"95dqls","peForget_":"11ppfg1","handleMarkIdCheck":"1y6tj3n","idCheckDaily":"480ep4","installIdCheck":"x0bnf9","psaRank_":"byf8ux","psaClamp_":"1qa2zcq","psaRead_":"15yb1pm","psaLevel_":"7509ua"},
+  "Readings":{"rdInput_":"z9wlyu","handleSaveVibReadings":"1uk6hpt","handleGetVibEquipmentSummary":"1dny9wa"},
+  "RmsData":{"handleUpsertLastRMS":"1r432qz","handleDeleteLastRMS":"ywkj37"},
+  "Routes":{"vrRoles_":"1uyhodn","vrOut_":"1idu5zn","vrSuggestions_":"1i7ieie","handleGetVibRoutes":"1jy58x2","handleGetVibRoute":"1elwdeq","vrCanSee_":"1kebxyr","vrNotify_":"1yf12e","handleCreateVibRoute":"mhn8de","vrFind_":"1nejaor","vrWrite_":"vtqk7i","handleSaveVibRouteProgress":"92m2ma","handleVibRouteTransition":"1tjvuu2","handleDismissVibSuggestion":"1jtt4vx"},
+  "Settings":{"handleReadConfig":"1cjdyft","readConfigRaw":"zkb0ny","handleSaveConfig":"1mrqdj5"},
+  "SpmData":{"handleUpsertLastSPM":"pvulta","handleDeleteLastSPM":"1tcspz7"},
+  "TeamHistory":{"vteamDays_":"1fqn579","teamCollect_":"1gw9pey"},
+  "Triggers":{"onEdit":"vdpe09"},
+  "Utils":{"readSheet":"18ilvyo","handleAppend":"dvk8h4","handleUpdateRow":"1ar8pln","handleDeleteRow":"ulj4n3","findRowIndex":"1vthplw","getAllRowsForEquip":"2f3egu","updateMachineStatusCol":"ezz5yk","recalcMachineStatus":"1o0vxit"},
+  "VibActions":{"vaOut_":"1pnoiib","vaWrite_":"ylm08s","vaNextId_":"1sh20us","vaPointsText_":"1kmvbr2","vaApplyFindings_":"u72icm","handleGetVibActions":"glysa8","handleGetVibActionHistory":"1lu0pej","vaFind_":"7617fs","handleSaveVibAction":"3qn2er","handleVibActionTransition":"2evx19"},
+  "VibNotifications":{"vnAdd_":"1nl1y99","handleGetVibNotifications":"1sux2i4","handleMarkVibNotificationsRead":"1sapnob","maNotify_":"lala2n"},
+  "VibRegistry":{"readVibRegistry":"1d99ajh"},
+  "VibrationLog":{"vlLocked_":"b5ys0d","vlTz_":"34a0kb","vlDate_":"28ilj8","vlMonth_":"jrjxf1","vlToday_":"1fbn5da","vlNowIso_":"1ldpv4a","vlAddDays_":"1qn8ell","vlMonthEnd_":"r0qzvj","vlNum_":"17csnvl","vlBand_":"1as1utb","vlLevel_":"bjqkj0","vlYmdFast_":"1q5ixek","vlRead_":"pgel3a","vlReadSheet_":"1kyort5","vlEnsure_":"7p5btf","vlRowFrom_":"195pn8s","vlAudit_":"17ly45p","vlActor_":"18gfx4h","vlMasterData_":"m98b9f","vlAreaOf_":"dfo94t","vlScopeOf_":"52bf92","vlScopes_":"9y1sd0","vlDueDate_":"1ayowuk","vlReportStatus_":"g3ygc7","vlReportOut_":"vmz4mi","handleGetVibLog":"1802t6y","vlEntryOut_":"wj1wob","handleGetVibReport":"1qlgn4","handleGetVibEquipmentHistory":"1dw7p4e","handleGetVibEntriesFor":"18h6zu","vlFindReport_":"16x01of","vlWriteReport_":"1qdocy4","handleSaveVibReport":"nm70ss","handleSaveVibEntries":"127i2pf","vlSaveRecommendations_":"1t71s74","vlRecommendations_":"1nwm8sg","vlCounts_":"vmiscp","vlWriteCoverage_":"1bl7um","handleVibReportTransition":"xgaynn","vlNotify_":"1p8fz7x"}
 };
 
 function checkInstall() {
   var g = (function () { return this; })() || globalThis;
+  var fp = function (src) {
+    var t = String(src).replace(/\s+/g, ''), h = 5381;
+    for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  };
   var missing = [], old = [], ok = 0;
   Object.keys(INSTALL_CHECK_FILES).forEach(function (file) {
-    var names = INSTALL_CHECK_FILES[file];
+    var want = INSTALL_CHECK_FILES[file], names = Object.keys(want);
     var gone = names.filter(function (n) { return typeof g[n] !== 'function'; });
+    var differ = names.filter(function (n) { return typeof g[n] === 'function' && fp(g[n].toString()) !== want[n]; });
     if (gone.length === names.length) missing.push(file);
-    else if (gone.length) old.push(file + ' (not found: ' + gone.slice(0, 5).join(', ') + (gone.length > 5 ? ' …' : '') + ')');
+    else if (gone.length || differ.length) old.push(file + ' (' + (gone.length ? 'not found: ' + gone.slice(0, 4).join(', ') + (gone.length > 4 ? ' …' : '') : '') +
+      (gone.length && differ.length ? '; ' : '') + (differ.length ? 'other code: ' + differ.slice(0, 4).join(', ') + (differ.length > 4 ? ' …' : '') : '') + ')');
     else ok++;
   });
   var lines = ['vibration-analysis: ' + ok + ' of ' + Object.keys(INSTALL_CHECK_FILES).length + ' files OK.'];
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
-  if (old.length) lines.push('OUT OF DATE — paste these files again: ' + old.join('; '));
+  if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
   var text = lines.join('\n');
   Logger.log(text);
   return text;
 }
+

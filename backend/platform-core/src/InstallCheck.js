@@ -2,43 +2,52 @@
 //
 // Install check: run checkInstall() from the Apps Script editor (pick it in
 // the function list, then Run). The log lists every file of this project
-// that is missing or out of date (some of its functions are not found), so
-// a file pasted into the wrong place or only half pasted shows at once.
+// that is missing or out of date: a function not found, or found with other
+// code (an old copy, or a second copy in another file that wins). A file
+// pasted into the wrong place or only half pasted shows at once.
 // After pasting fixes, publish a new version of the deployment.
 
 var INSTALL_CHECK_FILES = {
-  "Activity":["activityAllowed_","actIso_","actEquipmentDiff_","listPlatformActivity_","actUserEmail_"],
-  "AdminSettings":["getSetting_","setSetting_","runScheduledBackup_","assertMinimumAdminsAfterDeactivation_","getPlatformHealth_","exportAllData_"],
-  "Areas":["arKey_","arRead_","arClean_","getAreas_","arMachines_","maybeAppAdmin_","saveAreas_","arDiff_"],
-  "AssetMaster":["amKey_","amRead_","amOrgs_","amOut_","listEquipmentMaster_","saveEquipmentMaster_","amLog_","listEquipmentLog_"],
-  "Auth":["hashPassword_","generateSalt_","generateTempPassword_","createUser_","login_","changePassword_","adminResetPassword_"],
-  "Code":["doPost","doGet"],
-  "Config":["getSpreadsheetId_"],
-  "EmailSettings":["emRead_","getEmailSettings_","saveEmailSettings_","emWrite_","emailAllowed_"],
-  "Rbac":["hasPermission_","requirePermission_","getContractorScope_","requireAppAdmin_","seedRolePermissions_","runSeedRolePermissions","updateRolesPhase7","addContractorManagerRole"],
-  "SampleTestUsers":["createSampleTestUsers_","resetSampleTestUserPasswords_"],
-  "Session":["getSessionSecret_","base64UrlEncode_","base64UrlDecode_","signPayload_","issueSessionToken_","requireSession_"],
-  "SettingsAccess":["saRank_","saClamp_","saSheet_","saRead_","saLevels_","requireSettingsEdit_","saCheck_","getSettingsAccess_","saveSettingsAccess_","saWrite_","platformLog_"],
-  "Translations":["translationsSheet_","getTranslations_","addTranslationTerms_","saveTranslation_"],
-  "Users":["listOrgUsers_","listRoles_","setUserRoles_"],
-  "Utils":["jsonResponse_","ok_","safeHandle_","withLock_","withIdempotency_","getSheet_","readSheetAsObjects_","findRowByColumn_","appendRow_","deleteRowsByColumn_"]
+  "Activity":{"activityAllowed_":"asrpgn","actIso_":"1y00ss9","actEquipmentDiff_":"m784cs","listPlatformActivity_":"wndapp","actUserEmail_":"nqz66p"},
+  "AdminSettings":{"getSetting_":"1ktol17","setSetting_":"11irz0l","runScheduledBackup_":"bth9sd","assertMinimumAdminsAfterDeactivation_":"3cpve5","getPlatformHealth_":"13ot872","exportAllData_":"1mfeas8"},
+  "Areas":{"arKey_":"pqdqqv","arRead_":"chprba","arClean_":"3xn59q","getAreas_":"hm2kch","arMachines_":"2j1yqg","maybeAppAdmin_":"1bxlg1m","saveAreas_":"1f488fz","arDiff_":"163wqf7"},
+  "AssetMaster":{"amKey_":"10lx1wv","amRead_":"23hih1","amOrgs_":"7yb3hc","amOut_":"znx6ta","listEquipmentMaster_":"l1s7u1","saveEquipmentMaster_":"1tgxcj5","amLog_":"hzjr8e","listEquipmentLog_":"1fmjez5"},
+  "Auth":{"hashPassword_":"wir64t","generateSalt_":"kbl19u","generateTempPassword_":"16ag8g","createUser_":"ssk2dw","login_":"1jhzt1g","changePassword_":"nnpmey","adminResetPassword_":"1rdcuzx"},
+  "Code":{"doPost":"1jh5hpn","doGet":"3a0mlt"},
+  "Config":{"getSpreadsheetId_":"182aohm"},
+  "EmailSettings":{"emRead_":"19e0wxs","getEmailSettings_":"jybs4u","saveEmailSettings_":"5s5e0c","emWrite_":"1m4jlvb","emailAllowed_":"1qtf346"},
+  "Rbac":{"hasPermission_":"1mnoeg3","requirePermission_":"khphl8","getContractorScope_":"oxfbok","requireAppAdmin_":"642o5n","seedRolePermissions_":"aemt8","runSeedRolePermissions":"11w7214","updateRolesPhase7":"m5uum","addContractorManagerRole":"tppggn"},
+  "SampleTestUsers":{"createSampleTestUsers_":"xnbpk2","resetSampleTestUserPasswords_":"1vxa9ip"},
+  "Session":{"getSessionSecret_":"dv51fe","base64UrlEncode_":"i267m8","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","issueSessionToken_":"1q63m54","requireSession_":"xifh5e"},
+  "SettingsAccess":{"saRank_":"2pymrt","saClamp_":"110o91p","saSheet_":"9hnswj","saRead_":"o3scce","saLevels_":"1wqd4ug","requireSettingsEdit_":"tikzxt","saCheck_":"1lb7pvd","getSettingsAccess_":"10jd0im","saveSettingsAccess_":"bv6xgx","saWrite_":"1pjj2pv","platformLog_":"1hqeitn"},
+  "Translations":{"translationsSheet_":"22rre1","getTranslations_":"1qb4z6x","addTranslationTerms_":"4xlfqq","saveTranslation_":"1d5zl9b"},
+  "Users":{"listOrgUsers_":"13fy3gu","listRoles_":"1bzjvex","setUserRoles_":"5j4sc0"},
+  "Utils":{"jsonResponse_":"1exhh7h","ok_":"1ad88x3","safeHandle_":"1em776o","withLock_":"gssndl","withIdempotency_":"19nvc10","getSheet_":"1ys5ey3","readSheetAsObjects_":"a9iuei","findRowByColumn_":"fuavec","appendRow_":"1wntmlo","deleteRowsByColumn_":"1nk8u42"}
 };
 
 function checkInstall() {
   var g = (function () { return this; })() || globalThis;
+  var fp = function (src) {
+    var t = String(src).replace(/\s+/g, ''), h = 5381;
+    for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  };
   var missing = [], old = [], ok = 0;
   Object.keys(INSTALL_CHECK_FILES).forEach(function (file) {
-    var names = INSTALL_CHECK_FILES[file];
+    var want = INSTALL_CHECK_FILES[file], names = Object.keys(want);
     var gone = names.filter(function (n) { return typeof g[n] !== 'function'; });
+    var differ = names.filter(function (n) { return typeof g[n] === 'function' && fp(g[n].toString()) !== want[n]; });
     if (gone.length === names.length) missing.push(file);
-    else if (gone.length) old.push(file + ' (not found: ' + gone.slice(0, 5).join(', ') + (gone.length > 5 ? ' …' : '') + ')');
+    else if (gone.length || differ.length) old.push(file + ' (' + (gone.length ? 'not found: ' + gone.slice(0, 4).join(', ') + (gone.length > 4 ? ' …' : '') : '') +
+      (gone.length && differ.length ? '; ' : '') + (differ.length ? 'other code: ' + differ.slice(0, 4).join(', ') + (differ.length > 4 ? ' …' : '') : '') + ')');
     else ok++;
   });
   var lines = ['platform-core: ' + ok + ' of ' + Object.keys(INSTALL_CHECK_FILES).length + ' files OK.'];
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
-  if (old.length) lines.push('OUT OF DATE — paste these files again: ' + old.join('; '));
+  if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
   var text = lines.join('\n');
   Logger.log(text);
   return text;
 }
+
