@@ -4,7 +4,7 @@
 
 var MA_ALL_VIB_TABS = [
   "dashboard", "log", "equipment", "trends", "routes", "newreading", "actions", "mywork",
-  "compliance", "equipreg", "limits", "settings",
+  "compliance", "equipreg", "limits", "reports", "settings",
 ];
 
 var MA_CONFIG = {
@@ -47,20 +47,20 @@ var MA_CONFIG = {
     getModuleAccessConfig: "settings:module-access",
     readActions: ["actions", "dashboard"],
     readLastActionNo: ["actions"],
-    getVibLog: ["log", "dashboard"],
+    getVibLog: ["log", "dashboard", "reports"],
     getVibReport: ["log", "dashboard", "equipment"],
     getVibEquipmentHistory: ["equipment", "log", "dashboard", "trends"],
-    getVibActions: ["actions", "dashboard", "equipment"],
-    getVibRoutes: ["routes", "mywork", "dashboard"],
+    getVibActions: ["actions", "dashboard", "equipment", "reports"],
+    getVibRoutes: ["routes", "mywork", "dashboard", "reports"],
     getVibRoute: ["routes", "mywork"],
     getMyWork: ["mywork"],
-    getVibDashboard: ["dashboard"],
+    getVibDashboard: ["dashboard", "reports"],
     // a person reads only their own notices (session email) — technicians too
     getVibNotifications: "open",
     getVibActionHistory: ["actions"],
     getVibLimits: ["limits", "equipment", "newreading", "log", "dashboard"],
     getVibEquipmentSummary: ["equipment", "dashboard", "newreading", "trends"],
-    getVibTracker: ["compliance", "equipment", "dashboard", "log"],
+    getVibTracker: ["compliance", "equipment", "dashboard", "log", "reports"],
   },
 
   sectionTabs: {

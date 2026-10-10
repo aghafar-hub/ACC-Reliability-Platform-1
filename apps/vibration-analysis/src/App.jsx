@@ -18,6 +18,7 @@ import VibEquipment from "./pages/VibEquipment";
 import VibTrends from "./pages/VibTrends";
 import VibLimits from "./pages/VibLimits";
 import VibRoutes from "./pages/VibRoutes";
+import VibReports from "./pages/VibReports";
 import { buildEquipment } from "./vibModel";
 import { installPhoneCardTables } from "./phoneCardTables";
 import { buildVibPlant } from "./plantSummary";
@@ -386,6 +387,8 @@ export default function App({ navBridge } = {}) {
     );
   } else if (page === "routes") {
     content = <VibRoutes webhookUrl={webhookUrl} openRouteId={openRouteId} setOpenRouteId={setOpenRouteId} />;
+  } else if (page === "reports") {
+    content = <VibReports webhookUrl={webhookUrl} />;
   } else if (page === "limits") {
     content = <VibLimits webhookUrl={webhookUrl} limits={vibLimits} reload={reloadLimits} scopeEquipment={scopeEquipment} />;
   } else if (page === "settings") {

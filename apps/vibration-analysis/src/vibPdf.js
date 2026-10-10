@@ -361,3 +361,6 @@ export async function generateVibDashboardPdf({ d, contractor, machines, grid, m
   footer(doc);
   doc.save(`Vibration-Dashboard-${d.today}.pdf`);
 }
+
+// shared with vibReports.js (Reports page: ready-made reports and New Report)
+export { C as PDF_COLORS, newDoc, footer, section, bigHeader, para, stats, room, tableBase, levelCells };

@@ -11,6 +11,7 @@ export const NAV_ITEMS = [
   { key: "graphs", label: "Graphs Dashboard", icon: "graphs" },
   { key: "compliance", label: "Measurement Tracker", icon: "compliance" },
   { key: "actions", label: "Action Tracker", icon: "action" },
+  { key: "reports", label: "Reports", icon: "graphs" },
   { key: "limits", label: "Limits Settings", icon: "limits" },
   { key: "settings", label: "Settings", icon: "settings" },
 ];

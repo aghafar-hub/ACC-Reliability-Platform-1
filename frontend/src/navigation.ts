@@ -39,6 +39,7 @@ export const VIBRATION_SUB_TABS: SubTab[] = [
   { id: 'actions', label: 'Vibration Actions', icon: 'action' },
   { id: 'compliance', label: 'Measurement Tracker', icon: 'compliance' },
   { id: 'equipreg', label: 'Equipment Register', icon: 'registry' },
+  { id: 'reports', label: 'Vibration Reports', icon: 'graphs' },
   { id: 'limits', label: 'Limits & intervals', icon: 'limits' },
   // No "Settings" entry here on purpose — it's the exact same embedded
   // page as the platform-level Settings page's own "Vibration Analysis"
@@ -172,6 +173,7 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
       { label: 'Actions', icon: 'ti-checklist', pages: ['actions'] },
     ],
     more: [
+      { id: 'reports', label: 'Reports', icon: 'ti-report' },
       { id: 'limits', label: 'Limits & intervals', icon: 'ti-adjustments' },
     ],
   },
