@@ -40,6 +40,7 @@ var MA_CONFIG = {
 
   readRules: {
     getIdCheck: "settings:equipment-ids",
+    getActivityFeed: "open", // App Owner + ACC managers, checked in ActivityFeed.js
     getModuleSettings: "settings:vibration-analysis",
     test: "open",
     getMyAccess: "open",

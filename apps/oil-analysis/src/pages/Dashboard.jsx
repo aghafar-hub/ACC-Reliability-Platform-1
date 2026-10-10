@@ -582,7 +582,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
         </span>
       </button>
 
-      <button type="button" className="odb-card odb-kpi" onClick={() => go("activity")} data-testid="kpi-topups">
+      <button type="button" className="odb-card odb-kpi" onClick={() => go("oilchange")} data-testid="kpi-topups">
         <span className="odb-kpi-label">Emergency top-ups</span>
         <span className="odb-kpi-value">{m.tu.total}</span>
         <span className="odb-kpi-sub">

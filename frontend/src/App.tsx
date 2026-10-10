@@ -32,6 +32,7 @@ import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
 import RoutineDetailPage from './pages/oil-analysis/RoutineDetailPage';
 import RoutinesListPage from './pages/oil-analysis/RoutinesListPage';
 import Settings from './pages/Settings';
+import Activity from './pages/Activity';
 import TechnicianShell from './pages/TechnicianShell';
 import { ShellThemeProvider, useShellTheme } from './shellTheme';
 import './App.css';
@@ -140,6 +141,7 @@ function ShellRoot() {
             <Route path="/reliability-measures" element={<ComingSoon title="Reliability Measures" />} />
             <Route path="/compressors" element={<ComingSoon title="Compressors" />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/activity" element={<Activity />} />
             {/* The Oil Lubrication module's old address — kept so bookmarks and old links still work. */}
             <Route path="/oil-analysis" element={<OldOilAddress />} />
             {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}

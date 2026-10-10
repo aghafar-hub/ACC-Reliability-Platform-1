@@ -500,6 +500,27 @@ function maTechnicians_(contractor) {
 
 // Dispatch for the admin-only POST actions, so each backend's doPost needs a
 // single call. Returns null for an action that isn't a module-access one.
+// One readable line for the Activity page: what a Module Access change or a
+// delegation did (written to the module's audit tab by Code.js).
+function maDescribeChange_(data) {
+  var tab = function (c) {
+    var n = maNormTabChange_(c || {});
+    return (n.kind === "User" ? n.key : n.key.replace(/^ROLE-/, "")) + " · " + n.tabId + " → " + n.level;
+  };
+  switch (data.action) {
+    case "maSetStatus": return "Status → " + data.status + (data.version ? " · version " + data.version : "");
+    case "maAddPeople": return "Added " + (data.people || []).map(function (p) {
+      return maNormEmail_(p.email) + " (" + p.responsibility + (p.contractor && p.contractor !== "ACC" ? ", " + p.contractor : "") + ")";
+    }).join(", ");
+    case "maRemovePerson": return "Removed " + maNormEmail_(data.email) + " (" + data.responsibility + ")";
+    case "maSetTabLevel": return "Tab access: " + tab(data);
+    case "maSetTabLevels": return "Tab access: " + (data.changes || []).map(tab).join("; ");
+    case "maCreateDelegation": return "Delegation: " + (data.from || "me") + " → " + data.to + " · " + data.startDate + " – " + data.endDate + (data.reason ? " · " + data.reason : "");
+    case "maEndDelegation": return "Delegation ended";
+    default: return data.action;
+  }
+}
+
 function maHandleAdminPost_(data, actingUser) {
   switch (data.action) {
     case "maSetStatus": return maSetStatus_(data, actingUser);

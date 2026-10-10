@@ -187,7 +187,10 @@ function doGet(e) {
     // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
     if (MA_SELF_ACTIONS.indexOf(action) !== -1) {
       var selfResult = maHandleSelfAction_(action, e.parameter, auth.session);
-      if (action === "maCreateDelegation" || action === "maEndDelegation") rcBump_(); // ReadCache.js
+      if (action === "maCreateDelegation" || action === "maEndDelegation") {
+        rcBump_(); // ReadCache.js
+        if (selfResult && !selfResult.error) recordAudit_(SpreadsheetApp.getActiveSpreadsheet(), "Delegation", e.parameter.delegationId || (e.parameter.to || ""), "update", auth.session ? auth.session.email : "", "", maDescribeChange_(e.parameter));
+      }
       return outputResult_(selfResult, callback);
     }
 
@@ -329,6 +332,10 @@ function doGet(e) {
       case "getDashboardSettings":
         result = getDashboardSettings_();
         break;
+      case "getActivityFeed":
+        // the platform Activity page (ActivityFeed.js)
+        result = handleGetActivityFeed(auth.session, e.parameter);
+        break;
       case "getModuleSettings":
         // Settings → Oil Lubrication (ModuleSettings.js); who may open it: Settings access
         result = handleGetModuleSettings(auth.session);
@@ -432,7 +439,7 @@ function doPostInner_(e) {
         requireAdmin_(auth.session);
         var maResult = maHandleAdminPost_(data, actingUser);
         logError("doPost:" + data.action, maResult.error || "ok", {actingUser: actingUser});
-        if (!maResult.error) recordAudit_(ss, MA_CONFIG.peopleSheet, MA_CONFIG.moduleId, "update", actingUser, "", "Module access: " + data.action);
+        if (!maResult.error) recordAudit_(ss, "Module Access", MA_CONFIG.moduleName, "update", actingUser, "", maDescribeChange_(data));
         return jsonOut(maResult.error ? {status: "error", message: maResult.error} : maResult);
       }
 

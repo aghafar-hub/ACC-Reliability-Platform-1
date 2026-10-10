@@ -23,6 +23,8 @@ export type NavItem = {
   subTabs?: SubTab[];
   /** Set only when subTabs exist — the id EmbeddedOilAnalysis.tsx/EmbeddedVibrationAnalysis.tsx register with embeddedNav.tsx, for native sub-tab clicks. */
   moduleId?: string;
+  /** Shown only to these roles (useVisibleNav). */
+  roles?: string[];
 };
 
 // Ids match apps/vibration-analysis/src/App.jsx's own `page` states exactly
@@ -65,7 +67,7 @@ export const OIL_SUB_TABS: SubTab[] = [
   { id: 'inventory', label: 'Oil Inventory', icon: 'ti-package' },
   { id: 'reports', label: 'Oil Reports', icon: 'ti-report' },
   { id: 'team', label: 'Team Workload', icon: 'ti-users-group' },
-  { id: 'activity', label: 'Activity', icon: 'ti-history' },
+  // Activity is a platform page now (/activity), for every module.
   // No "Settings" entry here on purpose — same reasoning as
   // VIBRATION_SUB_TABS above: it's the identical embedded page the
   // platform-level Settings page's own "Oil Lubrication" tab already
@@ -85,6 +87,8 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: 'Oil Lubrication', to: '/oil-lubrication', icon: 'droplet', subTabs: OIL_SUB_TABS, moduleId: 'oil-analysis' },
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
+  // every change in every module — App Owner and ACC managers
+  { label: 'Activity', to: '/activity', icon: 'history', roles: ['ROLE-ADMIN', 'ROLE-MGR'] },
   { label: 'Compressors', to: '/compressors', icon: 'sync' },
 ];
 
@@ -138,7 +142,6 @@ export const MODULE_TABS: ModuleTabsConfig[] = [
     more: [
       { id: 'reports', label: 'Reports', icon: 'ti-report' },
       { id: 'team', label: 'Team Workload', icon: 'ti-users-group' },
-      { id: 'activity', label: 'Activity', icon: 'ti-history' },
     ],
   },
   {

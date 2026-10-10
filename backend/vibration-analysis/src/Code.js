@@ -106,7 +106,10 @@ function dispatchWithAccess_(action, params) {
   // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
   if (MA_SELF_ACTIONS.indexOf(action) !== -1) {
     var self = maHandleSelfAction_(action, params, session);
-    if (action === 'maCreateDelegation' || action === 'maEndDelegation') vcBump_(); // who approves may change
+    if (action === 'maCreateDelegation' || action === 'maEndDelegation') {
+      vcBump_(); // who approves may change
+      if (self && !self.error) vlAudit_(SpreadsheetApp.getActiveSpreadsheet(), session ? session.email : '', 'Delegation', params.delegationId || params.to || '', maDescribeChange_(params));
+    }
     return self;
   }
   var isAdminAction = MA_ADMIN_ACTIONS.indexOf(action) !== -1;
@@ -122,7 +125,9 @@ function dispatchWithAccess_(action, params) {
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) return { status: 'error', error: 'Server is busy — please try again.' };
     try {
-      return maHandleAdminPost_(request, session ? session.email : '');
+      var maResult = maHandleAdminPost_(request, session ? session.email : '');
+      if (maResult && !maResult.error) vlAudit_(SpreadsheetApp.getActiveSpreadsheet(), session ? session.email : '', 'Module Access', MA_CONFIG.moduleName, maDescribeChange_(request));
+      return maResult;
     } finally {
       vcBump_();
       lock.releaseLock();
@@ -136,6 +141,7 @@ function dispatchWithAccess_(action, params) {
   }
   // per person (canEdit) and small: never from the cache
   if (action === 'getModuleSettings') return handleGetModuleSettings(session);
+  if (action === 'getActivityFeed') return handleGetActivityFeed(session, params);
   // reads: from the cache when nothing changed since (Cache.js)
   return vcRead_(action, params, session, function () {
     var result = dispatch(action, params, session);

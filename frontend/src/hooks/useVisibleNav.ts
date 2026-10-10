@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { NAV_ITEMS, type NavItem } from '../navigation';
 import { canOpenModule, tabLevel, useModuleAccess } from '../moduleAccess';
+import { useAuth } from '../auth/AuthContext';
 
 /**
  * NAV_ITEMS minus what Module Access hides for this person: a module they
@@ -9,9 +10,12 @@ import { canOpenModule, tabLevel, useModuleAccess } from '../moduleAccess';
  */
 export function useVisibleNav(): NavItem[] {
   const { access } = useModuleAccess();
+  const { claims } = useAuth();
+  const roles = claims?.roles;
   return useMemo(
     () =>
       NAV_ITEMS.flatMap((item) => {
+        if (item.roles && !item.roles.some((r) => (roles || []).includes(r))) return [];
         if (!item.moduleId) return [item];
         const a = access[item.moduleId];
         if (!canOpenModule(a)) return [];
@@ -19,7 +23,7 @@ export function useVisibleNav(): NavItem[] {
         if (item.subTabs?.length && subTabs.length === 0) return [];
         return [{ ...item, subTabs }];
       }),
-    [access],
+    [access, roles],
   );
 }
 

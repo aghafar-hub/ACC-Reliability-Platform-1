@@ -48,6 +48,7 @@ var MA_CONFIG = {
   // Not listed = "member".
   readRules: {
     getIdCheck: "settings:equipment-ids",
+    getActivityFeed: "open", // App Owner + ACC managers, checked in ActivityFeed.js
     getModuleSettings: "settings:oil-analysis",
     test: "open",
     getMyAccess: "open",

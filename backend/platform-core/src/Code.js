@@ -28,14 +28,20 @@ function doPost(e) {
       case 'createUser':
         return ok_(withIdempotency_(body.operationId, action, function () {
           requireAppAdmin_(session.userId);
-          return createUser_(body.email, body.orgId, body.roleIds);
+          var created = createUser_(body.email, body.orgId, body.roleIds);
+          platformLog_(session.email || session.userId, 'Users', String(body.email || ''), 'Added', [body.orgId].concat(body.roleIds || []).join(' · '));
+          return created;
         }));
       case 'adminResetPassword':
         requireAppAdmin_(session.userId);
-        return ok_(adminResetPassword_(body.userId));
+        var reset = adminResetPassword_(body.userId);
+        platformLog_(session.email || session.userId, 'Users', actUserEmail_(body.userId), 'Password reset', '');
+        return ok_(reset);
       case 'setUserRoles':
         requireAppAdmin_(session.userId);
-        return ok_(setUserRoles_(body.userId, body.roleIds));
+        var roles = setUserRoles_(body.userId, body.roleIds);
+        platformLog_(session.email || session.userId, 'Users', actUserEmail_(body.userId), 'Roles changed', (body.roleIds || []).join(', '));
+        return ok_(roles);
       case 'listOrgUsers':
         return ok_(listOrgUsers_(session));
       case 'listRoles':
@@ -55,6 +61,9 @@ function doPost(e) {
       case 'saveSettingsAccess':
         return ok_(saveSettingsAccess_(session, body));
       // Email & notifications (EmailSettings.js): App Owner only, all off by default
+      // Activity page (Activity.js): App Owner + ACC managers
+      case 'listPlatformActivity':
+        return ok_(listPlatformActivity_(session, body));
       case 'getEmailSettings':
         return ok_(getEmailSettings_(session));
       case 'saveEmailSettings':
