@@ -280,6 +280,19 @@ export function updateRegisterLimits(webhookUrl, fields) {
 // long for a URL, so they are POSTed as text/plain (no CORS preflight —
 // Apps Script doesn't answer OPTIONS) and the JSON reply is read back.
 
+// Apps Script answers with its own HTML page when the script itself fails
+// (a file missing or half pasted): show the error line from that page.
+function serverErrorText(text) {
+  const plain = String(text || "")
+    .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  const m = plain.match(/(\w*Error|Exception)[^.]{0,200}/);
+  return m ? `: ${m[0]}` : plain ? `: ${plain.slice(0, 200)}` : ".";
+}
+
 async function postVerified(webhookUrl, action, body, { anyPage = false } = {}) {
   if (!webhookUrl) throw new Error("No webhook URL");
   const reason = anyPage ? "" : blockedReason();
@@ -296,10 +309,11 @@ async function postVerified(webhookUrl, action, body, { anyPage = false } = {}) 
     throw new Error(`Couldn't reach the server: ${err.message}`);
   }
   let data;
+  const text = await res.text().catch(() => "");
   try {
-    data = await res.json();
+    data = JSON.parse(text);
   } catch {
-    throw new Error("The server returned an unexpected response.");
+    throw new Error(`The server returned an unexpected response${serverErrorText(text)}`);
   }
   if (data && data.status === "error") {
     const e = new Error(data.error || "Save failed");
