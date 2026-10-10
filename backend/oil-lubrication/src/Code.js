@@ -329,6 +329,10 @@ function doGet(e) {
       case "getDashboardSettings":
         result = getDashboardSettings_();
         break;
+      case "getModuleSettings":
+        // Settings → Oil Lubrication (ModuleSettings.js); who may open it: Settings access
+        result = handleGetModuleSettings(auth.session);
+        break;
       case "getIdCheck":
         // Settings → Equipment & IDs (PlatformEquipment.js); App Owner only (readRules)
         result = handleGetIdCheck(e.parameter);
@@ -984,6 +988,12 @@ function doPostInner_(e) {
         var notifyResult = updateNotificationSettings_(data);
         logError("doPost:updateNotificationSettings", notifyResult.error || "ok", {actingUser: actingUser});
         return jsonOut(notifyResult.error ? {status: "error", message: notifyResult.error} : {status: "ok"});
+      }
+
+      if (data.action === "saveModuleSettings") {
+        // ModuleSettings.js — Edit level from Settings access (checked again inside)
+        var msResult = handleSaveModuleSettings(data, auth.session);
+        return jsonOut(msResult.status === "error" ? {status: "error", message: msResult.error, accessDenied: !!msResult.accessDenied} : msResult);
       }
 
       if (data.action === "markIdCheck") {

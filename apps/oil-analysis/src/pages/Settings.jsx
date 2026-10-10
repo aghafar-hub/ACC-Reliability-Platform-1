@@ -1,730 +1,445 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import { saveEquipmentRegistry } from "../equipmentRegistry";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { saveActionRegistry } from "../actionRegistry";
 import { useSession } from "../SessionContext";
+import { offlineQueueCount } from "../offlineQueue";
 
-const SETTINGS_SUB_TABS = [
-  { id: "connection", label: "Connection", icon: "ti-plug" },
-  { id: "registries", label: "Registries", icon: "ti-list-check" },
-  { id: "notifications", label: "Notifications", icon: "ti-bell" },
-  { id: "dashboard", label: "Dashboard", icon: "ti-target" },
-];
+// Settings → Oil Lubrication (redesigned, step 3): five cards that each save
+// on their own — Status, Intervals, Lists, Targets, Notifications — and a
+// "This device" row. Who may open it and who may change it is set in
+// Settings → Settings access (backend ModuleSettings.js checks it again);
+// everyone else sees the same page read-only. Every change goes to the
+// Audit Log (→ Activity) and shows "Last changed by" on its card.
 
-function Toggle({ T, s, label, desc, checked, onChange }) {
+const SHOWN = 60;
+
+function fmtWhen(iso, withTime) {
+  const d = new Date(iso);
+  if (!iso || isNaN(d.getTime())) return "";
+  const today = new Date();
+  const same = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  if (same) return withTime ? `Today ${time}` : "Today";
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + (withTime ? ` ${time}` : "");
+}
+
+function Card({ T, icon, title, hint, right, children, testid, badge }) {
   return (
-    <div style={{ marginBottom: 18, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-      <div>
-        <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>{label}</label>
-        {desc && <p style={{ margin: "4px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6, maxWidth: 420 }}>{desc}</p>}
-      </div>
-      <label style={{ position: "relative", display: "inline-block", width: 44, height: 24, flexShrink: 0, cursor: "pointer" }}>
-        <input
-          type="checkbox"
-          checked={!!checked}
-          onChange={(e) => onChange(e.target.checked)}
-          style={{ opacity: 0, width: 0, height: 0 }}
-        />
-        <span
-          style={{
-            position: "absolute",
-            inset: 0,
-            borderRadius: 24,
-            background: checked ? T.accent : T.border,
-            transition: "background 0.15s",
-          }}
-        >
-          <span
-            style={{
-              position: "absolute",
-              top: 3,
-              left: checked ? 23 : 3,
-              width: 18,
-              height: 18,
-              borderRadius: "50%",
-              background: "#fff",
-              transition: "left 0.15s",
-            }}
-          />
+    <section data-testid={testid} style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 18px", minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        <span style={{ width: 34, height: 34, borderRadius: 9, background: T.accent + "1A", color: T.accent, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 18 }} aria-hidden="true" />
         </span>
-      </label>
-    </div>
+        <b style={{ fontSize: 15, color: T.textPrimary }}>{title}</b>
+        {hint && <span style={{ fontSize: 13, color: T.textSecondary }}>{hint}</span>}
+        {badge}
+        {right && <span style={{ marginInlineStart: "auto", display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{right}</span>}
+      </div>
+      {children}
+    </section>
   );
 }
 
-// Inline-editable list of every equipment's sampling interval, saved
-// straight to the "Equipment Registry" sheet (column F) via a full-row
-// updateRow — the same generic write every other sheet in this app uses.
-// A search box keeps this usable against the live ~150-row registry.
-function IntervalRegistryEditor({ T, s, webhookUrl, equipmentRegistry, onRegistryChange, isAdmin }) {
-  const [query, setQuery] = useState("");
-  const [editingCode, setEditingCode] = useState(null);
-  const [draftInterval, setDraftInterval] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const registry = equipmentRegistry || [];
-  const q = query.trim().toLowerCase();
-  const filtered = !q
-    ? registry
-    : registry.filter(((match) => (r) => match(r.code, r.description))(idTextMatch(q, registry.map((r) => r.code))));
-  const shown = filtered.slice(0, 50);
-
-  function startEdit(eq) {
-    setEditingCode(eq.code);
-    setDraftInterval(eq.interval || "");
-    setMsg("");
-  }
-  function cancelEdit() {
-    setEditingCode(null);
-    setDraftInterval("");
-  }
-  async function saveEdit(eq) {
-    if (!webhookUrl) {
-      setMsg("❌ Configure Webhook URL first");
-      return;
-    }
-    setSaving(true);
-    setMsg("");
-    try {
-      const updated = await api.updateEquipmentRegistryEntry(webhookUrl, { ...eq, interval: draftInterval.trim() });
-      const next = registry.map((r) => (r.code === eq.code ? { ...r, ...updated } : r));
-      saveEquipmentRegistry(next);
-      onRegistryChange?.(next);
-      setEditingCode(null);
-      setMsg(`✓ ${eq.code} interval updated`);
-    } catch (err) {
-      setMsg(`❌ ${err.message}`);
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMsg(""), 6000);
-    }
-  }
-
+function CardFoot({ T, s, changed, msg, onSave, canSave, busy, testid, children }) {
   return (
-    <div style={{ ...s.card, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-clock-hour-4" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-        <div>
-          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Sampling Intervals</p>
-          <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
-            Edit how often each piece of equipment should be sampled — saved straight to the "Equipment Registry" sheet.
-          </p>
-        </div>
-      </div>
-      {!isAdmin && (
-        <p style={{ fontSize: 12, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
-          <i className="ti ti-lock" aria-hidden="true" /> Read-only — only an Admin account can edit sampling intervals.
-        </p>
-      )}
-      <div style={{ marginBottom: 10 }}>
-        <EquipmentSearch freeText options={registry} value={query} onChange={setQuery} placeholder="Lub ID or description…" width={320} testid="set-int-find" />
-      </div>
-      <div style={{ maxHeight: 340, overflowY: "auto", border: `1px solid ${T.border}`, borderRadius: 8 }}>
-        {shown.length === 0 ? (
-          <div style={{ padding: 16, textAlign: "center", color: T.textMuted, fontSize: 12 }}>No equipment match.</div>
-        ) : (
-          shown.map((eq) => (
-            <div
-              key={eq.code}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 12px",
-                borderBottom: `1px solid ${T.border2}`,
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, fontSize: 12, color: T.accent }}>{eq.code}</div>
-                <div style={{ fontSize: 12, color: T.textSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {eq.description}
-                </div>
-              </div>
-              {editingCode === eq.code ? (
-                <>
-                  <input
-                    style={{ ...s.input, fontSize: 12, width: 140 }}
-                    value={draftInterval}
-                    onChange={(e) => setDraftInterval(e.target.value)}
-                    placeholder="e.g. 6 Months"
-                    autoFocus
-                    onKeyDown={(e) => e.key === "Enter" && saveEdit(eq)}
-                    disabled={saving}
-                  />
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 12 }} onClick={() => saveEdit(eq)} disabled={saving}>
-                    <i className={`ti ${saving ? "ti-loader" : "ti-check"}`} aria-hidden="true" />
-                  </button>
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 12 }} onClick={cancelEdit} disabled={saving}>
-                    <i className="ti ti-x" aria-hidden="true" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span style={{ fontSize: 12, color: T.textHighlight, width: 100, textAlign: "right" }}>{eq.interval || "—"}</span>
-                  <button style={{ ...s.btn, padding: "4px 8px", fontSize: 12 }} onClick={() => startEdit(eq)} disabled={!isAdmin}>
-                    <i className="ti ti-pencil" aria-hidden="true" />
-                  </button>
-                </>
-              )}
-            </div>
-          ))
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: `1px solid ${T.border2 || T.border}` }}>
+      <span style={{ fontSize: 12.5, color: T.textMuted }}>
+        {changed && changed.by ? `Last changed by ${changed.by} · ${fmtWhen(changed.at)}` : "Not changed yet"}
+      </span>
+      {children}
+      <span style={{ marginInlineStart: "auto", display: "inline-flex", gap: 10, alignItems: "center" }}>
+        {msg && <span style={{ fontSize: 12.5, fontWeight: 600, color: msg.ok ? T.success : T.danger }}>{msg.text}</span>}
+        {onSave && (
+          <button type="button" style={{ ...s.btnPrimary, opacity: canSave && !busy ? 1 : 0.5 }} disabled={!canSave || busy} onClick={onSave} data-testid={testid}>
+            {busy ? "Saving…" : "Save"}
+          </button>
         )}
-      </div>
-      {filtered.length > 50 && (
-        <p style={{ fontSize: 12, color: T.textMuted, marginTop: 6 }}>Showing 50 of {filtered.length} — narrow your search to see more.</p>
-      )}
-      {msg && <p style={{ marginTop: 8, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
+      </span>
     </div>
   );
 }
 
-function Field({ T, s, label, value, placeholder, onChange, desc, type = "text" }) {
+function Tile({ T, label, value, tone, sub }) {
+  const color = tone === "good" ? T.success : tone === "bad" ? T.danger : tone === "warn" ? T.warning : T.textPrimary;
   return (
-    <div style={{ marginBottom: 18 }}>
-      <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight }}>{label}</label>
-      <input
-        style={{ ...s.input, fontSize: 13 }}
-        type={type}
-        value={value || ""}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {desc && <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>{desc}</p>}
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 14px", minWidth: 0 }}>
+      <div style={{ fontSize: 12.5, color: T.textSecondary }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color, marginTop: 3, lineHeight: 1.3 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
 
-// Patch 14 (plant-readiness pass) — admin on/off switch for every email
-// Notifications.js sends (Routine assigned/submitted/approved, the aging
-// actions and low-stock digests), plus which address/name they appear to
-// come FROM. Platform-wide, not per-device: unlike everything else on this
-// page, loading/saving this goes through the backend (Script Properties,
-// see Notifications.js), not localStorage — one setting for the whole
-// deployment, the same for whoever opens Settings next.
-//
-// isAdmin is read from the Platform Core session (ROLE-ADMIN) — the real
-// gate is server-side (requireAdmin_ in Rbac.js rejects a non-admin's
-// save regardless), this just disables the inputs so a non-admin sees why
-// before trying, rather than after a failed save.
-function NotificationSettingsCard({ T, s, webhookUrl, isAdmin }) {
-  const [settings, setSettings] = useState(null); // null while loading
-  const [draft, setDraft] = useState({ enabled: true, fromEmail: "", fromName: "" });
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!webhookUrl) return;
-    api.getNotificationSettings(webhookUrl).then((loaded) => {
-      if (cancelled) return;
-      setSettings(loaded);
-      setDraft(loaded);
-    }).catch((err) => {
-      if (!cancelled) setMsg(`❌ Couldn't load notification settings: ${err.message}`);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [webhookUrl]);
-
-  async function handleSave() {
-    setSaving(true);
-    setMsg("");
-    try {
-      const saved = await api.updateNotificationSettings(webhookUrl, draft);
-      setSettings(saved);
-      setDraft(saved);
-      setMsg("✓ Notification settings saved");
-    } catch (err) {
-      setMsg(`❌ ${err.message}`);
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMsg(""), 6000);
-    }
-  }
-
+// Action phrases as chips: × removes, "+ Add phrase" adds (Edit only).
+function PhraseChips({ T, s, list, onChange, canEdit, testid }) {
+  const [adding, setAdding] = useState(null);
+  const add = () => {
+    const v = String(adding || "").trim();
+    if (v && !list.some((x) => x.toLowerCase() === v.toLowerCase())) onChange([...list, v]);
+    setAdding(null);
+  };
   return (
-    <div style={{ ...s.card, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-mail" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-        <div>
-          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Email Notifications</p>
-          <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
-            Routine assigned/submitted/approved emails, plus the daily aging-actions and low-stock digests. Admin-only — applies to
-            everyone, not just this device.
-          </p>
-        </div>
-      </div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }} data-testid={testid}>
+      {list.length === 0 && <span style={{ fontSize: 13, color: T.textMuted }}>No phrases yet.</span>}
+      {list.map((p) => (
+        <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${T.border}`, borderRadius: 999, padding: "5px 12px", fontSize: 13.5, color: T.textPrimary }}>
+          {p}
+          {canEdit && (
+            <button type="button" aria-label={`Remove ${p}`} onClick={() => onChange(list.filter((x) => x !== p))} style={{ border: 0, background: "none", color: T.textMuted, cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}>
+              ×
+            </button>
+          )}
+        </span>
+      ))}
+      {canEdit &&
+        (adding === null ? (
+          <button type="button" onClick={() => setAdding("")} style={{ border: `1px dashed ${T.accent}`, borderRadius: 999, padding: "5px 12px", fontSize: 13.5, color: T.accent, background: "none", cursor: "pointer", fontFamily: "inherit" }} data-testid={`${testid}-add`}>
+            + Add phrase
+          </button>
+        ) : (
+          <span style={{ display: "inline-flex", gap: 6 }}>
+            <input autoFocus value={adding} onChange={(e) => setAdding(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); if (e.key === "Escape") setAdding(null); }} placeholder="New phrase" style={{ ...s.input, width: 180, padding: "5px 10px", fontSize: 13.5 }} data-testid={`${testid}-input`} />
+            <button type="button" style={{ ...s.btn, padding: "5px 10px" }} onClick={add} data-testid={`${testid}-ok`}>Add</button>
+          </span>
+        ))}
+    </div>
+  );
+}
 
-      {!webhookUrl ? (
-        <p style={{ fontSize: 12, color: T.textMuted }}>Configure the Webhook URL above first.</p>
-      ) : settings === null ? (
-        <p style={{ fontSize: 12, color: T.textMuted }}>Loading…</p>
-      ) : (
+function TargetInputs({ T, s, items, values, onChange, canEdit }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+      {items.map((it) => (
+        <label key={it.key} style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 14px", display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5, color: T.textSecondary }}>
+          {it.label}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: T.textPrimary, fontWeight: 700 }}>
+            <input type="number" min="50" max="100" value={values[it.key] ?? ""} disabled={!canEdit} onChange={(e) => onChange({ ...values, [it.key]: e.target.value })} style={{ ...s.input, width: 76, fontSize: 14, fontWeight: 600 }} data-testid={`target-${it.key}`} />%
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// Which Oil events send an email is set once for every module on the platform page.
+function NotificationsCard({ T, s, email, moduleName, isOwner }) {
+  const e = email || {};
+  const text = !e.connected ? "Platform not connected" : !e.sender ? "All off · no platform sender yet" : !e.enabled ? `Off · ${e.on} event${e.on === 1 ? "" : "s"} chosen` : `On · ${e.on} event${e.on === 1 ? "" : "s"}`;
+  const on = e.enabled && e.sender;
+  return (
+    <Card T={T} icon="ti-mail" title="Notifications" hint={`Which ${moduleName} events send an email — set in one place for all modules`} testid="ms-notifications"
+      right={
         <>
-          {!isAdmin && (
-            <p style={{ fontSize: 12, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
-              <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can change these — shown here read-only.
-            </p>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 8, padding: "5px 10px", fontSize: 13, fontWeight: 700, background: (on ? T.success : T.accent) + "14", color: on ? T.success : T.accent }} data-testid="ms-email-status">
+            <i className={`ti ${on ? "ti-mail-check" : "ti-mail-off"}`} aria-hidden="true" /> {text}
+          </span>
+          {isOwner ? (
+            <button type="button" style={s.btn} onClick={() => window.dispatchEvent(new CustomEvent("acc-shell-navigate", { detail: { path: "/settings?tab=email" } }))} data-testid="ms-open-email">
+              Open Email & notifications →
+            </button>
+          ) : (
+            <span style={{ fontSize: 12.5, color: T.textMuted }}>Set by the App Owner</span>
           )}
-          <Toggle
-            T={T}
-            s={s}
-            label="Enable email notifications"
-            desc="Turn every email this app sends on or off, platform-wide. Off means nobody gets any of them, not just you."
-            checked={draft.enabled}
-            onChange={(v) => isAdmin && setDraft((d) => ({ ...d, enabled: v }))}
-          />
-          <fieldset disabled={!isAdmin} style={{ border: "none", padding: 0, margin: 0, opacity: isAdmin ? 1 : 0.6 }}>
-            <Field
-              T={T}
-              s={s}
-              label="Notifications From (email)"
-              value={draft.fromEmail}
-              placeholder="reliability@arabiancement.com"
-              onChange={(v) => setDraft((d) => ({ ...d, fromEmail: v }))}
-              desc="So these emails come from the Reliability Platform, not a personal inbox. IMPORTANT: this address must first be added and verified as a 'Send As' alias in the Gmail account that owns this Apps Script deployment (Gmail → Settings → Accounts and Import → Send mail as) — otherwise Google silently keeps sending from that account's own address no matter what's typed here."
-            />
-            <Field
-              T={T}
-              s={s}
-              label="Display Name"
-              value={draft.fromName}
-              placeholder="Arabian Cement Reliability Platform"
-              onChange={(v) => setDraft((d) => ({ ...d, fromName: v }))}
-              desc="The friendly name shown in the From line — this part works immediately, no alias needed."
-            />
-          </fieldset>
-          {isAdmin && (
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button style={s.btnPrimary} onClick={handleSave} disabled={saving}>
-                <i className={`ti ${saving ? "ti-loader" : "ti-device-floppy"}`} aria-hidden="true" /> {saving ? "Saving…" : "Save"}
-              </button>
-            </div>
-          )}
-          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
         </>
-      )}
-    </div>
+      }
+    />
   );
 }
 
-// D4 — the on-time target the Oil Dashboard measures routes and sampling
-// against. One value for both contractors (agreed), shared by everyone, so
-// Admin-only; the server re-checks (requireAdmin_).
-function DashboardTargetCard({ T, s, webhookUrl, isAdmin }) {
-  const [target, setTarget] = useState(null);
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!webhookUrl) return;
-    api.getDashboardSettings(webhookUrl).then((loaded) => {
-      if (cancelled) return;
-      setTarget(loaded.onTimeTarget);
-      setDraft(String(loaded.onTimeTarget));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [webhookUrl]);
-
-  async function handleSave() {
-    const v = Number(draft);
-    if (!(v >= 50 && v <= 100)) {
-      setMsg("❌ Enter a number from 50 to 100.");
-      return;
-    }
-    setSaving(true);
-    setMsg("");
-    try {
-      const saved = await api.updateDashboardSettings(webhookUrl, { onTimeTarget: v });
-      setTarget(saved.onTimeTarget);
-      setDraft(String(saved.onTimeTarget));
-      setMsg("✓ Target saved — the dashboard uses it for everyone");
-    } catch (err) {
-      setMsg(`❌ ${err.message}`);
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMsg(""), 6000);
-    }
-  }
-
+function ThisDevice({ T, s, children, onClear, testid }) {
+  const [cleared, setCleared] = useState("");
   return (
-    <div style={{ ...s.card, marginBottom: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-        <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-target" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-        <div>
-          <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>On-time target</p>
-          <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
-            The share of routes done by their due date, and of points sampled on time, that the Oil Dashboard counts as good. The same
-            target for both contractors. Admin-only — applies to everyone.
-          </p>
-        </div>
-      </div>
-      {!webhookUrl ? (
-        <p style={{ fontSize: 12, color: T.textMuted }}>Configure the Webhook URL first.</p>
-      ) : target === null ? (
-        <p style={{ fontSize: 12, color: T.textMuted }}>Loading…</p>
-      ) : (
-        <>
-          {!isAdmin && (
-            <p style={{ fontSize: 12, color: T.warning, margin: "0 0 14px", lineHeight: 1.6 }}>
-              <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can change this — shown here read-only.
-            </p>
-          )}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textPrimary }}>
-              Target
-              <input
-                style={{ ...s.input, width: 90, fontSize: 13 }}
-                type="number"
-                min="50"
-                max="100"
-                aria-label="On-time target (%)"
-                value={draft}
-                disabled={!isAdmin}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              %
-            </label>
-            {isAdmin && (
-              <button style={s.btnPrimary} onClick={handleSave} disabled={saving || Number(draft) === target}>
-                <i className={`ti ${saving ? "ti-loader" : "ti-device-floppy"}`} aria-hidden="true" /> {saving ? "Saving…" : "Save"}
-              </button>
-            )}
-          </div>
-          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith("✓") ? T.success : T.danger }}>{msg}</p>}
-        </>
-      )}
+    <section data-testid={testid} style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: "12px 18px", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+      <i className="ti ti-device-desktop" style={{ fontSize: 18, color: T.textSecondary }} aria-hidden="true" />
+      <b style={{ fontSize: 14.5, color: T.textPrimary }}>This device</b>
+      {children}
+      <button type="button" style={s.btn} onClick={() => setCleared(onClear())} data-testid="ms-clear">
+        Clear saved data
+      </button>
+      {cleared && <span style={{ fontSize: 12.5, color: T.success, fontWeight: 600 }}>{cleared}</span>}
+      <span style={{ marginInlineStart: "auto", fontSize: 12.5, color: T.textMuted }}>Only affects this phone / PC</span>
+    </section>
+  );
+}
+
+function StatusTiles({ T, settings, version }) {
+  const m = settings?.module || {};
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+      <Tile T={T} label="Backend" value={settings ? "✓ Connected" : "…"} tone={settings ? "good" : undefined} />
+      <Tile T={T} label="Platform equipment list" value={m.connected ? `✓ ${Number(m.platformCount || 0).toLocaleString()} machines` : "Not connected"} tone={m.connected ? "good" : "warn"} sub={m.connected ? "" : "PLATFORM_CORE_SPREADSHEET_ID not set"} />
+      <Tile T={T} label="Last ID check" value={m.checkedAt ? <>{fmtWhen(m.checkedAt, true)} · <span style={{ color: m.open ? T.danger : T.success }}>{m.open ? `${m.open} not matching` : "all match"}</span></> : "Not run yet"} />
+      <Tile T={T} label="Version" value={version} />
     </div>
   );
 }
 
-// Ported from the original app's Settings (`Kh`), then cut down: the
-// password-protected "Configuration" gate (shared password, independent of
-// role) and the "Appearance" tab/theme picker were both leftovers from
-// before this app had real login/RBAC or a platform shell — theme now
-// lives in the platform Settings page (frontend/src/pages/Settings.tsx),
-// and real ROLE-ADMIN gating (the same `isAdmin` every other card on this
-// page already uses) replaces the password for the handful of actions here
-// that actually write shared data (sampling intervals, Action Registry).
-// Everything else on this page is a per-device preference (cache/sync/
-// debug), harmless for anyone logged in to change, so it's left open.
-export default function Settings({
-  config,
-  onSave,
-  onSync,
-  syncState,
-  syncMsg,
-  equipmentRegistry,
-  onRegistryChange,
-  onActionRegistryChange,
-  actionRegistry,
-}) {
+function buildVersion() {
+  const v = typeof window !== "undefined" && window.__accBuildId ? String(window.__accBuildId) : "dev";
+  return v.replace(/^test-/, "test ").slice(0, 24);
+}
+
+export default function Settings({ config, onSave, onSync, syncState, equipmentRegistry, onRegistryChange, onActionRegistryChange }) {
   const { T, s } = useTheme();
   const session = useSession();
-  const isAdmin = (session?.claims?.roles || []).includes("ROLE-ADMIN");
-  const [subTab, setSubTab] = useState("connection");
-  const [draft, setDraft] = useState(() => ({ ...config }));
-  const [saved, setSaved] = useState(false);
+  const isOwner = (session?.claims?.roles || []).includes("ROLE-ADMIN");
+  const url = config.webhookUrl;
+  const [settings, setSettings] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  const [busy, setBusy] = useState("");
+  const [msgs, setMsgs] = useState({});
+  const [details, setDetails] = useState(false);
   const [testMsg, setTestMsg] = useState("");
-  const [testing, setTesting] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState(config.sheetUrl || "");
+  // card drafts
+  const [query, setQuery] = useState("");
+  const [edits, setEdits] = useState({}); // lpId → { interval?, oilChangeInterval? }
+  const [bulk, setBulk] = useState(null);
+  const [phrases, setPhrases] = useState([]);
+  const [targets, setTargets] = useState({});
 
+  const take = (st) => {
+    setSettings(st);
+    setPhrases(st.phrases || []);
+    setTargets({ ...(st.targets || {}) });
+  };
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    api.getModuleSettings(url).then((st) => !cancelled && take(st), (e) => !cancelled && setLoadError(e.message));
+    return () => { cancelled = true; };
+  }, [url]);
 
-  const [newActionText, setNewActionText] = useState("");
-  const [actionSyncing, setActionSyncing] = useState(false);
-  const [actionMsg, setActionMsg] = useState("");
+  const canEdit = !!settings?.canEdit;
+  const note = (card, ok, text) => {
+    setMsgs((m) => ({ ...m, [card]: { ok, text } }));
+    if (ok) setTimeout(() => setMsgs((m) => (m[card]?.text === text ? { ...m, [card]: null } : m)), 5000);
+  };
 
-  function set(field, value) {
-    setDraft((d) => ({ ...d, [field]: value }));
+  async function save(card, body, after) {
+    setBusy(card);
+    setMsgs((m) => ({ ...m, [card]: null }));
+    try {
+      const r = await api.saveModuleSettings(url, { card, ...body });
+      if (r.settings) take(r.settings);
+      after?.(r);
+      note(card, true, "Saved");
+    } catch (e) {
+      note(card, false, e.message);
+    } finally {
+      setBusy("");
+    }
   }
-  function save() {
-    onSave(draft);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+
+  // ── Intervals ──
+  const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return registry;
+    const match = idTextMatch(q, registry.map((r) => r.code));
+    return registry.filter((r) => match(r.code, r.description));
+  }, [registry, query]);
+  const shown = filtered.slice(0, SHOWN);
+  const val = (eq, k) => (edits[eq.code] && k in edits[eq.code] ? edits[eq.code][k] : eq[k] || "");
+  const setVal = (eq, k, v) => setEdits((all) => ({ ...all, [eq.code]: { ...(all[eq.code] || {}), [k]: v } }));
+  const changes = Object.entries(edits)
+    .map(([lpId, c]) => {
+      const eq = registry.find((r) => r.code === lpId) || {};
+      const x = { lpId };
+      if ("interval" in c && c.interval.trim() !== (eq.interval || "")) x.interval = c.interval.trim();
+      if ("oilChangeInterval" in c && c.oilChangeInterval.trim() !== (eq.oilChangeInterval || "")) x.oilChangeInterval = c.oilChangeInterval.trim();
+      return x;
+    })
+    .filter((x) => Object.keys(x).length > 1);
+  function applyBulk() {
+    if (!bulk) return;
+    setEdits((all) => {
+      const out = { ...all };
+      filtered.forEach((eq) => {
+        const next = { ...(out[eq.code] || {}) };
+        if (bulk.interval.trim()) next.interval = bulk.interval.trim();
+        if (bulk.oilChangeInterval.trim()) next.oilChangeInterval = bulk.oilChangeInterval.trim();
+        out[eq.code] = next;
+      });
+      return out;
+    });
+    setBulk(null);
   }
+  const saveIntervals = () =>
+    save("intervals", { changes }, () => {
+      const next = registry.map((r) => {
+        const c = changes.find((x) => x.lpId === r.code);
+        return c ? { ...r, ...("interval" in c ? { interval: c.interval } : {}), ...("oilChangeInterval" in c ? { oilChangeInterval: c.oilChangeInterval } : {}), modifiedDate: new Date().toISOString() } : r;
+      });
+      saveEquipmentRegistry(next);
+      onRegistryChange?.(next);
+      setEdits({});
+    });
+
+  const phrasesDirty = JSON.stringify(phrases) !== JSON.stringify(settings?.phrases || []);
+  const targetsDirty = settings && ["routes", "samples", "actions"].some((k) => Number(targets[k]) !== settings.targets[k]);
 
   async function testConnection() {
-    if (!draft.webhookUrl) {
-      setTestMsg("❌ No webhook URL set");
-      return;
-    }
-    setTesting(true);
     setTestMsg("Testing…");
     try {
-      const res = await api.readAll(draft.webhookUrl);
-      setTestMsg(`✓ Connected — Apps Script responded OK (${res.samples.length} samples)`);
-    } catch (err) {
-      setTestMsg(`❌ ${err.message}`);
+      const t0 = Date.now();
+      await api.getModuleSettings(url).then(take);
+      setTestMsg(`✓ Answers in ${Date.now() - t0} ms`);
+    } catch (e) {
+      setTestMsg(`✕ ${e.message}`);
     }
-    setTesting(false);
     setTimeout(() => setTestMsg(""), 8000);
   }
 
-  async function addNewAction() {
-    const label = newActionText.trim();
-    if (!label || !draft.webhookUrl) return;
-    setActionSyncing(true);
-    setActionMsg("");
+  function clearSaved() {
+    const pending = offlineQueueCount();
+    const keep = new Set(["acc_oilapp_config", "acc_oilapp_offline_queue"]);
+    let n = 0;
     try {
-      const list = await api.addActionRegistryEntry(draft.webhookUrl, label);
-      saveActionRegistry(list);
-      onActionRegistryChange?.(list);
-      setNewActionText("");
-      setActionMsg(`✓ "${label}" added`);
-    } catch (err) {
-      setActionMsg(`❌ ${err.message}`);
-    } finally {
-      setActionSyncing(false);
-      setTimeout(() => setActionMsg(""), 6000);
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith("acc_oilapp_") || k.startsWith("oilapp_")) && !keep.has(k)) {
+          localStorage.removeItem(k);
+          n++;
+        }
+      }
+    } catch {
+      return "This browser blocks saved data";
     }
+    return `Cleared ${n} saved item${n === 1 ? "" : "s"}${pending ? ` — ${pending} unsent change${pending === 1 ? "" : "s"} kept` : ""}. Reload to read everything fresh.`;
   }
 
-
-  // Non-admin users don't see any of this at all — not read-only, not
-  // disabled fields, nothing rendered — same as AccountsPanel's own
-  // `if (!claims?.roles.includes(ROLE.ADMIN)) return null` on the General
-  // settings tab. Theme/appearance has no module-level equivalent here
-  // (it lives on the General tab, visible to everyone there), so there's
-  // nothing for a non-admin to see on this tab at all.
-  if (!isAdmin) {
+  if (!url) return <div style={{ ...s.card }}>The backend address is missing from this build.</div>;
+  if (loadError)
     return (
-      <div>
-        <div style={{ ...s.card, textAlign: "center", padding: 40 }}>
-          <i className="ti ti-lock" style={{ fontSize: 32, color: T.textMuted, display: "block", marginBottom: 12 }} aria-hidden="true" />
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.textPrimary }}>Admin access required</p>
-          <p style={{ margin: "6px 0 0", fontSize: 12, color: T.textSecondary }}>
-            Only an App Admin account can view Oil Lubrication's settings.
-          </p>
-        </div>
+      <div style={{ ...s.card, color: T.danger }} data-testid="oil-settings">
+        {/accessDenied|permission/i.test(loadError) ? "You don't have access to Oil Lubrication's settings." : `Couldn't load the settings: ${loadError}`}
       </div>
     );
-  }
+
+  const th = { textAlign: "start", fontSize: 11.5, fontWeight: 700, color: T.textSecondary, textTransform: "uppercase", letterSpacing: 0.3, padding: "8px 10px", whiteSpace: "nowrap", position: "sticky", top: 0, background: T.cardBg, zIndex: 1 };
+  const td = { padding: "7px 10px", borderTop: `1px solid ${T.border2 || T.border}`, fontSize: 13.5, color: T.textPrimary, verticalAlign: "middle" };
+  const cell = { ...s.input, width: 110, padding: "6px 9px", fontSize: 13.5 };
 
   return (
-    <div data-testid="oil-settings">
-      {/* The shell's Settings page already titles this section; just the
-          section's own tabs here (underlined, with icons — design reference). */}
-      <div role="group" aria-label="Oil settings" style={{ display: "flex", gap: 4, borderBottom: `1px solid ${T.border}`, marginBottom: 18, overflowX: "auto" }}>
-        {SETTINGS_SUB_TABS.map((t) => {
-          const on = subTab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setSubTab(t.id)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 7,
-                padding: "10px 14px",
-                cursor: "pointer",
-                background: "none",
-                border: 0,
-                borderBottom: `3px solid ${on ? T.accent : "transparent"}`,
-                marginBottom: -1,
-                color: on ? T.accent : T.textSecondary,
-                fontSize: 13.5,
-                fontWeight: on ? 700 : 600,
-                fontFamily: "inherit",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <i className={`ti ${t.icon}`} aria-hidden="true" style={{ fontSize: 16 }} />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {subTab === "connection" && (
-        <div style={{ ...s.card, marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-plug" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-            <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Connection</p>
-          </div>
-
-          <Field
-            T={T}
-            s={s}
-            label="Google Sheet URL"
-            value={draft.sheetUrl}
-            placeholder="https://docs.google.com/spreadsheets/d/XXXXXXX/edit"
-            onChange={(v) => set("sheetUrl", v)}
-            desc="Paste your sheet URL here. Used for the 'Open Sheet' button."
-          />
-
-          {/* Read-only, not an input: the real value is baked into the
-              build (see config.js's DEFAULT_WEBHOOK_URL — "Bake correct
-              webhook URL into the build"). Letting it be hand-edited per
-              device used to mean a mistyped URL could silently desync
-              just that one device from the real backend with no obvious
-              cause; Test Connection is the safe way to check it still
-              answers. */}
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ ...s.label, fontSize: 12, fontWeight: 600, color: T.textHighlight, display: "block" }}>
-              Apps Script Webhook URL
-            </label>
-            <p
-              style={{
-                margin: "4px 0 0",
-                fontSize: 12,
-                color: T.textSecondary,
-                fontFamily: "'IBM Plex Mono', ui-monospace, monospace",
-                wordBreak: "break-all",
-                background: T.cardSubBg,
-                border: `1px solid ${T.border}`,
-                borderRadius: 6,
-                padding: "6px 10px",
-              }}
-            >
-              {draft.webhookUrl || "Not configured"}
-            </p>
-            <p style={{ margin: "5px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
-              Baked into the build — not editable here. Use Test Connection to confirm it's reachable.
-            </p>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 18 }}>
-            <button style={{ ...s.btn, fontSize: 12 }} onClick={testConnection} disabled={testing}>
-              <i className="ti ti-plug" aria-hidden="true" /> Test Connection
-            </button>
-            <button style={{ ...s.btn, fontSize: 12 }} onClick={onSync} disabled={syncState === "loading"}>
-              <i
-                className={`ti ${syncState === "loading" ? "ti-loader" : "ti-refresh"}`}
-                style={{ animation: syncState === "loading" ? "spin 1s linear infinite" : "none" }}
-                aria-hidden="true"
-              />{" "}
-              {syncState === "loading" ? "Syncing…" : "Sync Now"}
-            </button>
-            {draft.sheetUrl && (
-              <a
-                href={draft.sheetUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ ...s.btn, textDecoration: "none", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
-              >
-                <i className="ti ti-external-link" aria-hidden="true" /> Open Sheet
-              </a>
-            )}
-            {testMsg && <span style={{ fontSize: 12, color: testMsg.startsWith("✓") ? T.success : T.danger }}>{testMsg}</span>}
-          </div>
-
-          <Toggle
-            T={T}
-            s={s}
-            label="Auto-sync on this device"
-            desc="Re-reads the sheet in the background every few minutes. Not needed normally — pages already refresh themselves."
-            checked={!!draft.enableAutoSync}
-            onChange={(v) => set("enableAutoSync", v)}
-          />
-          {draft.enableAutoSync && (
-            <Field T={T} s={s} label="Every (minutes)" type="number" value={draft.autoSyncMinutes || 5} onChange={(v) => set("autoSyncMinutes", Number(v) || 5)} />
-          )}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-            <button style={s.btnPrimary} onClick={save}>
-              <i className="ti ti-device-floppy" aria-hidden="true" /> Save Settings
-            </button>
-            {saved && <span style={{ fontSize: 12, color: T.success }}>✓ Saved</span>}
-          </div>
+    <div data-testid="oil-settings" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {settings && !canEdit && (
+        <div data-testid="ms-readonly" style={{ border: `1px solid ${T.warning}55`, background: T.warning + "12", borderRadius: 10, padding: "10px 14px", fontSize: 13.5, color: T.textPrimary }}>
+          <i className="ti ti-eye" aria-hidden="true" /> View only — your Settings access lets you see these settings but not change them.
         </div>
       )}
 
-      {subTab === "registries" && (
-        <>
-          <IntervalRegistryEditor
-            T={T}
-            s={s}
-            webhookUrl={draft.webhookUrl}
-            equipmentRegistry={equipmentRegistry}
-            onRegistryChange={onRegistryChange}
-            isAdmin={isAdmin}
-          />
-
-          <div style={{ ...s.card, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ width: 36, height: 36, borderRadius: 10, background: T.accent + "1A", color: T.accent, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><i className="ti ti-list-check" style={{ fontSize: 18 }} aria-hidden="true" /></span>
-              <div>
-                <p style={{ margin: 0, fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Action Registry</p>
-                <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
-                  The pick list Contractor Action / ACC Action draw from in Action Tracker — loaded automatically every time the
-                  app opens. Add new entries here; they're saved to the "OL_ACTION_PHRASES" sheet tab.
-                </p>
-              </div>
+      <Card T={T} icon="ti-plug" title="Status" testid="ms-status"
+        right={
+          <>
+            {testMsg && <span style={{ fontSize: 12.5, fontWeight: 600, color: testMsg.startsWith("✓") ? T.success : testMsg.startsWith("✕") ? T.danger : T.textMuted }}>{testMsg}</span>}
+            <button type="button" style={s.btn} onClick={testConnection} data-testid="ms-test"><i className="ti ti-plug" aria-hidden="true" /> Test connection</button>
+            <button type="button" style={s.btn} onClick={() => setDetails((d) => !d)} aria-expanded={details} data-testid="ms-details">Details {details ? "▴" : "▾"}</button>
+          </>
+        }
+      >
+        <StatusTiles T={T} settings={settings} version={buildVersion()} />
+        {details && (
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary }}>Apps Script address (built in)</div>
+              <div style={{ fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 12, wordBreak: "break-all", color: T.textSecondary, background: T.cardSubBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 10px", marginTop: 4 }}>{url}</div>
             </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-              {(actionRegistry || []).length === 0 && <span style={{ fontSize: 12, color: T.textMuted }}>No actions yet.</span>}
-              {(actionRegistry || []).map((a) => (
-                <span
-                  key={a}
-                  style={{
-                    background: T.navActive,
-                    color: T.accent,
-                    borderRadius: 4,
-                    padding: "3px 8px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                  }}
-                >
-                  {a}
-                </span>
-              ))}
-            </div>
-
-            {!isAdmin && (
-              <p style={{ fontSize: 12, color: T.warning, margin: "0 0 10px", lineHeight: 1.6 }}>
-                <i className="ti ti-lock" aria-hidden="true" /> Only an Admin account can add new actions.
-              </p>
-            )}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input
-                style={{ ...s.input, fontSize: 13, width: 220 }}
-                value={newActionText}
-                placeholder="New action, e.g. Change Belt"
-                onChange={(e) => setNewActionText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addNewAction()}
-                disabled={!isAdmin}
-              />
-              <button
-                style={{ ...s.btn, fontSize: 12 }}
-                onClick={addNewAction}
-                disabled={!isAdmin || actionSyncing || !draft.webhookUrl || !newActionText.trim()}
-              >
-                <i
-                  className={`ti ${actionSyncing ? "ti-loader" : "ti-plus"}`}
-                  style={{ animation: actionSyncing ? "spin 1s linear infinite" : "none" }}
-                  aria-hidden="true"
-                />{" "}
-                Add
-              </button>
-              {actionMsg && <span style={{ fontSize: 12, color: actionMsg.startsWith("✓") ? T.success : T.danger }}>{actionMsg}</span>}
-            </div>
+            <label style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary, display: "grid", gap: 4 }}>
+              Google Sheet (for the Open sheet button — this device)
+              <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input style={{ ...s.input, flex: "1 1 260px" }} value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} onBlur={() => sheetUrl !== (config.sheetUrl || "") && onSave({ ...config, sheetUrl })} placeholder="https://docs.google.com/spreadsheets/d/…" />
+                {sheetUrl && <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{ ...s.btn, textDecoration: "none" }}><i className="ti ti-external-link" aria-hidden="true" /> Open sheet</a>}
+                <button type="button" style={s.btn} onClick={onSync} disabled={syncState === "loading"}><i className="ti ti-refresh" aria-hidden="true" /> {syncState === "loading" ? "Syncing…" : "Sync now"}</button>
+              </span>
+            </label>
           </div>
-        </>
-      )}
+        )}
+      </Card>
 
-      {subTab === "notifications" && (
-        <>
-          <NotificationSettingsCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />
-          <div style={{ ...s.card, marginBottom: 20 }}>
-            <p style={{ margin: "0 0 6px", fontWeight: 700, color: T.textPrimary, fontSize: 14 }}>Who gets alerts</p>
-            <p style={{ margin: 0, fontSize: 12, color: T.textSecondary }}>
-              Alerts go to the responsible engineers listed in Settings → General → Module Access (App Owner only).
-            </p>
+      <Card T={T} icon="ti-calendar-repeat" title="Intervals" hint="Sampling and oil change interval for each Lub ID" testid="ms-intervals"
+        right={
+          <>
+            <EquipmentSearch freeText options={registry} value={query} onChange={setQuery} placeholder="Lub ID or description…" width={260} testid="ms-int-find" />
+            {canEdit && <button type="button" style={s.btn} onClick={() => setBulk(bulk ? null : { interval: "", oilChangeInterval: "" })} data-testid="ms-bulk">Set for all shown…</button>}
+          </>
+        }
+      >
+        {bulk && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10, padding: "8px 10px", background: T.cardSubBg, borderRadius: 8, fontSize: 13 }}>
+            For the {filtered.length} Lub ID{filtered.length === 1 ? "" : "s"} shown: sampling every
+            <input style={cell} value={bulk.interval} onChange={(e) => setBulk({ ...bulk, interval: e.target.value })} placeholder="e.g. 6" data-testid="ms-bulk-int" />
+            oil change every
+            <input style={cell} value={bulk.oilChangeInterval} onChange={(e) => setBulk({ ...bulk, oilChangeInterval: e.target.value })} placeholder="e.g. 2 Y" />
+            <button type="button" style={s.btnPrimary} onClick={applyBulk} data-testid="ms-bulk-ok">Apply</button>
+            <span style={{ color: T.textMuted }}>then Save changes</span>
           </div>
-        </>
-      )}
+        )}
+        <div style={{ maxHeight: 380, overflow: "auto", border: `1px solid ${T.border}`, borderRadius: 8 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={th}>Lub ID</th>
+                <th style={th}>Equipment</th>
+                <th style={th}>Sampling every</th>
+                <th style={th}>Oil change every</th>
+                <th style={th}>Changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 && (
+                <tr><td colSpan={5} style={{ ...td, textAlign: "center", color: T.textMuted }}>No Lub ID matches.</td></tr>
+              )}
+              {shown.map((eq) => {
+                const dirty = changes.some((c) => c.lpId === eq.code);
+                return (
+                  <tr key={eq.code} data-testid={`ms-int-${eq.code}`} style={{ background: dirty ? T.accent + "0D" : undefined }}>
+                    <td style={{ ...td, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, whiteSpace: "nowrap" }}>{eq.code}</td>
+                    <td style={{ ...td, color: T.textSecondary, minWidth: 160 }}>{[eq.equipmentName || eq.description, eq.area].filter(Boolean).join(" · ")}</td>
+                    <td style={td}>{canEdit ? <input style={cell} value={val(eq, "interval")} onChange={(e) => setVal(eq, "interval", e.target.value)} aria-label={`${eq.code} sampling interval`} /> : val(eq, "interval") || "—"}</td>
+                    <td style={td}>{canEdit ? <input style={cell} value={val(eq, "oilChangeInterval")} onChange={(e) => setVal(eq, "oilChangeInterval", e.target.value)} aria-label={`${eq.code} oil change interval`} /> : val(eq, "oilChangeInterval") || "—"}</td>
+                    <td style={{ ...td, color: T.textMuted, whiteSpace: "nowrap" }}>{eq.modifiedDate ? fmtWhen(eq.modifiedDate) : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <CardFoot T={T} s={s} changed={settings?.changed?.intervals} msg={msgs.intervals} onSave={canEdit ? saveIntervals : null} canSave={changes.length > 0} busy={busy === "intervals"} testid="ms-save-intervals">
+          <span style={{ fontSize: 12.5, color: T.textMuted }}>
+            {registry.length} Lub IDs · showing {shown.length}
+            {filtered.length > SHOWN ? ` of ${filtered.length} — search to narrow` : ""} · sampling in months (6, 0.5), 2 Y, Monthly, If needed · oil change 2 Y, As needed
+            {changes.length ? ` · ${changes.length} not saved yet` : ""}
+          </span>
+        </CardFoot>
+      </Card>
 
-      {subTab === "dashboard" && <DashboardTargetCard T={T} s={s} webhookUrl={draft.webhookUrl} isAdmin={isAdmin} />}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
+        <Card T={T} icon="ti-list-details" title="Lists" hint="Action phrases to pick from" testid="ms-lists">
+          <PhraseChips T={T} s={s} list={phrases} onChange={setPhrases} canEdit={canEdit} testid="ms-phrases" />
+          <CardFoot T={T} s={s} changed={settings?.changed?.lists} msg={msgs.lists} onSave={canEdit ? () => save("lists", { phrases }, (r) => { const l = r.settings?.phrases || phrases; saveActionRegistry(l); onActionRegistryChange?.(l); }) : null} canSave={phrasesDirty} busy={busy === "lists"} testid="ms-save-lists" />
+        </Card>
+        <Card T={T} icon="ti-target" title="Targets" hint="Shown on the Oil dashboard" testid="ms-targets">
+          <TargetInputs T={T} s={s} canEdit={canEdit} values={targets} onChange={setTargets}
+            items={[{ key: "routes", label: "Routes on time" }, { key: "samples", label: "Samples on time" }, { key: "actions", label: "Actions closed in time" }]} />
+          <CardFoot T={T} s={s} changed={settings?.changed?.targets} msg={msgs.targets} onSave={canEdit ? () => save("targets", { routes: Number(targets.routes), samples: Number(targets.samples), actions: Number(targets.actions) }) : null} canSave={!!targetsDirty} busy={busy === "targets"} testid="ms-save-targets" />
+        </Card>
+      </div>
 
+      <NotificationsCard T={T} s={s} email={settings?.email} moduleName="Oil" isOwner={isOwner} />
+
+      <ThisDevice T={T} s={s} onClear={clearSaved} testid="ms-device">
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13.5, color: T.textSecondary }}>
+          Auto-sync
+          <button type="button" role="switch" aria-checked={!!config.enableAutoSync} onClick={() => onSave({ ...config, enableAutoSync: !config.enableAutoSync })} data-testid="ms-autosync"
+            style={{ position: "relative", width: 42, height: 24, borderRadius: 12, border: 0, cursor: "pointer", background: config.enableAutoSync ? T.accent : T.border }}>
+            <span style={{ position: "absolute", top: 3, insetInlineStart: config.enableAutoSync ? 21 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "inset-inline-start .15s" }} />
+          </button>
+        </span>
+      </ThisDevice>
     </div>
   );
 }

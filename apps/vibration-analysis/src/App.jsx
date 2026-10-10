@@ -42,7 +42,7 @@ const NO_ACTIONS = [];
 // one instead. Standalone builds never pass navBridge, so none of this
 // changes anything about how this app runs on its own.
 export default function App({ navBridge } = {}) {
-  const { themeName, T } = useTheme();
+  const { T } = useTheme();
   useEffect(() => installPhoneCardTables(), []);
   const [page, setPage] = useState("dashboard");
   useEffect(() => {
@@ -392,15 +392,12 @@ export default function App({ navBridge } = {}) {
     content = (
       <Settings
         webhookUrl={webhookUrl}
-        setWebhookUrl={setWebhookUrl}
-        sheetUrl={sheetUrl}
-        setSheetUrl={setSheetUrl}
-        themeName={themeName}
         onSync={syncNow}
-        config={config}
-        setConfig={setConfig}
-        syncState={syncState}
-        webhookRef={webhookRef}
+        onOpenLimits={() => {
+          // from the shell's Settings page: open the module on Limits & intervals
+          setPage("limits");
+          window.dispatchEvent(new CustomEvent("acc-shell-navigate", { detail: { path: "/vibration-analysis" } }));
+        }}
       />
     );
   }

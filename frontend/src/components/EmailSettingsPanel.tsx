@@ -99,7 +99,8 @@ export default function EmailSettingsPanel() {
         <div className="em-banner" data-testid="em-off-banner">
           <Icon name="mailOff" size={20} />
           <span>
-            <b>No emails are sent.</b> Everything below is off until the platform sender address is added and you switch emails on. The bell in the app still works.
+            <b>Nothing is sent from these settings yet.</b> Everything below is off until the platform sender address is added and you switch emails on. The bell in the app still works.
+            {' '}Until each module is connected here, Vibration still sends its own route, action and report emails.
           </span>
         </div>
       )}

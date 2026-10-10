@@ -279,7 +279,11 @@ var DASH_ON_TIME_TARGET_DEFAULT = 90;
 function getDashboardSettings_() {
   var raw = PropertiesService.getScriptProperties().getProperty(DASH_ON_TIME_TARGET_PROP);
   var v = Number(raw);
-  return { onTimeTarget: raw !== null && v >= 50 && v <= 100 ? v : DASH_ON_TIME_TARGET_DEFAULT };
+  var routes = raw !== null && v >= 50 && v <= 100 ? v : DASH_ON_TIME_TARGET_DEFAULT;
+  var props = PropertiesService.getScriptProperties();
+  var n = function (prop, d) { var r = props.getProperty(prop); var x = Number(r); return r !== null && x >= 50 && x <= 100 ? x : d; };
+  // routes: onTimeTarget (unchanged name); samples / actions from Settings → Oil Lubrication → Targets
+  return { onTimeTarget: routes, samplesTarget: n("DASH_SAMPLES_TARGET", routes), actionsTarget: n("DASH_ACTIONS_TARGET", 80) };
 }
 
 function updateDashboardSettings_(data) {

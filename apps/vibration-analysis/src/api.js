@@ -280,9 +280,9 @@ export function updateRegisterLimits(webhookUrl, fields) {
 // long for a URL, so they are POSTed as text/plain (no CORS preflight —
 // Apps Script doesn't answer OPTIONS) and the JSON reply is read back.
 
-async function postVerified(webhookUrl, action, body) {
+async function postVerified(webhookUrl, action, body, { anyPage = false } = {}) {
   if (!webhookUrl) throw new Error("No webhook URL");
-  const reason = blockedReason();
+  const reason = anyPage ? "" : blockedReason();
   if (reason) throw new Error(reason);
   staleAll(); // whatever this changes, the next read goes to the server
   let res;
@@ -401,4 +401,17 @@ export function getVibDashboard(webhookUrl) {
 // from the measurement history and the readings. { from, to: "yyyy-MM", equipmentId? }
 export function getVibTracker(webhookUrl, params = {}) {
   return getChecked(webhookUrl, "getVibTracker", params);
+}
+
+// ── Settings → Vibration Analysis (backend ModuleSettings.js) ─────────────
+// Who may change it is Settings → Settings access, not this page's Module
+// Access level, so the page check is skipped here — the server decides.
+export function getModuleSettings(webhookUrl) {
+  return verifiedGet(webhookUrl, "getModuleSettings", { fresh: 1 }).then((data) => {
+    if (data && (data.status === "error" || data.error)) throw new Error(data.error || "Load failed");
+    return data;
+  });
+}
+export function saveModuleSettings(webhookUrl, body) {
+  return postVerified(webhookUrl, "saveModuleSettings", body, { anyPage: true });
 }

@@ -280,6 +280,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
           findings={findingsOf(openId)}
           owners={data?.owners || []}
           priorities={data?.priorities || []}
+          phrases={data?.phrases || []}
           me={me}
           onClose={() => setOpenId(null)}
           onChanged={load}
@@ -537,7 +538,7 @@ function OldTracker({ T, s, rows }) {
   );
 }
 
-function ActionModal({ webhookUrl, action, findings, owners, priorities, me, onClose, onChanged, onOpenReport, onOpenMachine }) {
+function ActionModal({ webhookUrl, action, findings, owners, priorities, phrases = [], me, onClose, onChanged, onOpenReport, onOpenMachine }) {
   const { T, s } = useTheme();
   const a = action || {};
   const st = a.Status;
@@ -611,6 +612,17 @@ function ActionModal({ webhookUrl, action, findings, owners, priorities, me, onC
         {label} {hint && <span style={{ fontWeight: 400, color: T.textMuted }}>· {hint}</span>}
       </span>
       {editable ? <textarea style={{ ...s.input, minHeight: 58 }} value={f[k]} onChange={(e) => set(k, e.target.value)} data-testid={testid} /> : <ReadValue label="">{f[k] || <span style={{ color: T.textMuted }}>—</span>}</ReadValue>}
+      {/* Settings → Vibration Analysis → Lists: tap a phrase to add it */}
+      {editable && phrases.length > 0 && (
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+          {phrases.map((p) => (
+            <button key={p} type="button" onClick={() => set(k, f[k] ? `${f[k].replace(/\s+$/, "")}${/[.;]$/.test(f[k].trim()) ? " " : "; "}${p}` : p)}
+              style={{ border: `1px solid ${T.border}`, background: "none", borderRadius: 999, padding: "3px 10px", fontSize: 12, color: T.textSecondary, cursor: "pointer", fontFamily: "inherit" }}>
+              + {p}
+            </button>
+          ))}
+        </span>
+      )}
     </label>
   );
   const footer = (

@@ -99,6 +99,7 @@ function doPost(e) {
 // well as doPost, so reads and writes are told apart by action name
 // (VIB_WRITE_ACTIONS in ModuleAccessConfig.js), not by HTTP method.
 function dispatchWithAccess_(action, params) {
+  vsApplySettings_(); // ModuleSettings.js: interval / grace / report-due defaults
   var session = getSessionOrNull_(params.sessionToken);
   var request = { action: action };
   for (var k in params) { if (k !== 'action') request[k] = params[k]; }
@@ -133,6 +134,8 @@ function dispatchWithAccess_(action, params) {
     vcBump_(); // Cache.js: every cached read is now out of date
     return written;
   }
+  // per person (canEdit) and small: never from the cache
+  if (action === 'getModuleSettings') return handleGetModuleSettings(session);
   // reads: from the cache when nothing changed since (Cache.js)
   return vcRead_(action, params, session, function () {
     var result = dispatch(action, params, session);
@@ -181,6 +184,7 @@ function dispatch(action, params, session) {
   if (action==='getVibLimits')          return handleGetVibLimits(params, session);
   // Settings → Equipment & IDs (PlatformEquipment.js), App Owner only
   if (action==='getIdCheck')            return handleGetIdCheck(params);
+  if (action==='saveModuleSettings')    return vlLocked_(function () { return handleSaveModuleSettings(params, session); });
   if (action==='markIdCheck')           return handleMarkIdCheck(params, session && session.email);
   if (action==='saveVibLimits')         return vlLocked_(function () { return handleSaveVibLimits(params, session); });
   // VibActions.js

@@ -40,6 +40,7 @@ var MA_CONFIG = {
 
   readRules: {
     getIdCheck: "settings:equipment-ids",
+    getModuleSettings: "settings:vibration-analysis",
     test: "open",
     getMyAccess: "open",
     getModuleAccessConfig: "settings:module-access",
@@ -72,6 +73,7 @@ var MA_CONFIG = {
 
   writeRules: {
     markIdCheck: "admin",
+    saveModuleSettings: "settings:vibration-analysis",
     append: maVibGenericSheetTabs_,
     updateRow: maVibGenericSheetTabs_,
     deleteRow: maVibGenericSheetTabs_,

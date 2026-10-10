@@ -169,6 +169,7 @@ const ModuleAccessContext = createContext<ModuleAccessContextValue>({ access: {}
 declare global {
   interface Window {
     __accModuleAccess?: { get: (moduleId: string) => ModuleAccess | undefined };
+    __accBuildId?: string;
   }
 }
 

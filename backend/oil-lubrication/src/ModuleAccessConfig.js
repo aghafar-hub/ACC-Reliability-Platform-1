@@ -48,6 +48,7 @@ var MA_CONFIG = {
   // Not listed = "member".
   readRules: {
     getIdCheck: "settings:equipment-ids",
+    getModuleSettings: "settings:oil-analysis",
     test: "open",
     getMyAccess: "open",
     getInAppNotifications: "open",
@@ -95,6 +96,7 @@ var MA_CONFIG = {
   // Not listed = any member, outside Maintenance.
   writeRules: {
     markIdCheck: "admin",
+    saveModuleSettings: "settings:oil-analysis",
     markNotificationRead: "open",
     markAllNotificationsRead: "open",
     append: maOilGenericSheetTabs_,

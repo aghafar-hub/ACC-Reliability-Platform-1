@@ -300,6 +300,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
   const [products, setProducts] = useState([]);
   const [forecast, setForecast] = useState(null);
   const [target, setTarget] = useState(api.DEFAULT_ON_TIME_TARGET);
+  const [sampleTarget, setSampleTarget] = useState(api.DEFAULT_ON_TIME_TARGET);
   const [loadingExtra, setLoadingExtra] = useState(true);
 
   const freshTick = useFreshTick(["getAllTopUps", "getRoutines", "getOilInventory", "getDashboardSettings", "getOilInventoryForecast"]); // dataCache.js: load again when the server's answer differs
@@ -319,6 +320,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
         setRoutes(ro);
         setProducts(prod);
         setTarget(settings.onTimeTarget);
+        setSampleTarget(settings.samplesTarget ?? settings.onTimeTarget);
       })
       .finally(() => {
         if (!cancelled) setLoadingExtra(false);
@@ -562,7 +564,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
       <button type="button" className="odb-card odb-kpi" onClick={() => go("tracker")} data-testid="kpi-sampling">
         <span className="odb-kpi-label">Sampling on time</span>
         <div style={{ display: "flex", alignItems: "center", gap: phone ? 8 : 12 }}>
-          <Ring T={T} pct={s.pct} target={target} size={phone ? 68 : 88} color={s.pct != null && s.pct >= target ? T.success : T.accent} label={`${s.pct ?? "—"} % of points sampled on time, target ${target} %`} />
+          <Ring T={T} pct={s.pct} target={sampleTarget} size={phone ? 68 : 88} color={s.pct != null && s.pct >= sampleTarget ? T.success : T.accent} label={`${s.pct ?? "—"} % of points sampled on time, target ${sampleTarget} %`} />
           <span className="odb-kpi-sub" style={{ lineHeight: 1.5, minWidth: 0 }}>
             <b style={{ color: T.textPrimary, fontSize: 18 }}>{m.smp.total}</b> taken
             {m.smp.change ? (
@@ -572,7 +574,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
               </>
             ) : null}
             <br />
-            target {target} %
+            target {sampleTarget} %
           </span>
         </div>
         <span className="odb-kpi-sub">

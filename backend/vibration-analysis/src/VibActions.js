@@ -155,6 +155,7 @@ function handleGetVibActions(params, session) {
       .map(function (p) { return { email: p.email, name: p.displayName || p.email, contractor: p.contractor }; });
   } catch (e) {}
   return { status: 'ok', today: vlToday_(), actions: actions, findings: findings, owners: owners, priorities: VA_PRIORITIES,
+           phrases: vsPhrases_(ss), // Settings → Vibration Analysis → Lists
            me: { email: me.email, contractor: me.contractor, acc: me.acc, canApprove: me.canApprove } };
 }
 

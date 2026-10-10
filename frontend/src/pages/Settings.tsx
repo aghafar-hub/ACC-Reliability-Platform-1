@@ -8,6 +8,7 @@ import DelegationsPanel from '../components/DelegationsPanel';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { useSettingsAccess } from '../settingsAccess';
+import { canOpenModule, useModuleAccess } from '../moduleAccess';
 import SettingsAccessPanel from '../components/SettingsAccessPanel';
 import EmailSettingsPanel from '../components/EmailSettingsPanel';
 import { InstallCard } from '../components/InstallGuide';
@@ -36,8 +37,8 @@ const SECTIONS: Section[] = [
   { id: 'equipment-ids', group: 'Platform', label: 'Equipment & IDs', hint: 'Equipment IDs · Lub / Vib IDs · not matching', icon: 'equipment', tab: 'general', sub: 'equipment-ids' },
   // App Owner only: platform sender and which events send email (all off for now)
   { id: 'email', group: 'Platform', label: 'Email & notifications', hint: 'Platform sender · what is sent', icon: 'mail', tab: 'general', sub: 'email' },
-  { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Connection, registries, alerts', icon: 'droplet', tab: 'oil-analysis' },
-  { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Connection and readings', icon: 'graphs', tab: 'vibration-analysis' },
+  { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Intervals, lists, targets', icon: 'droplet', tab: 'oil-analysis' },
+  { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Intervals, lists, targets', icon: 'graphs', tab: 'vibration-analysis' },
 ];
 
 // Platform-level Settings (Patch 29) — one page with tabs for each module
@@ -62,13 +63,23 @@ export default function Settings() {
     const t = searchParams.get('tab');
     return (SECTIONS.find((x) => x.sub && x.sub === t)?.sub as GeneralSubTabId) || 'appearance';
   });
+  // a later ?tab= (e.g. a module's "Open Email & notifications") switches section too
+  const tabParam = searchParams.get('tab');
+  useEffect(() => {
+    const sub = SECTIONS.find((x) => x.sub && x.sub === tabParam)?.sub as GeneralSubTabId | undefined;
+    if (sub) setGeneralSubTab(sub);
+  }, [tabParam]);
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
   // Settings → Settings access decides who sees which page (Hidden / View /
   // Edit); Appearance is open to everyone (settingsAccess.tsx).
   const { levels } = useSettingsAccess();
   const level = (x: Section) => levels[x.sub || x.tab] || 'Hidden';
-  const sections = SECTIONS.filter((x) => x.sub === 'appearance' || level(x) !== 'Hidden');
+  // a module's settings also need the module itself (Module Access)
+  const moduleAccess = useModuleAccess();
+  const sections = SECTIONS.filter(
+    (x) => x.sub === 'appearance' || (level(x) !== 'Hidden' && (x.tab === 'general' || canOpenModule(moduleAccess.access?.[x.tab]))),
+  );
   const current = sections.find((x) => (activeTab === 'general' ? x.sub === generalSubTab : x.tab === activeTab)) || sections[0];
 
   // Opened straight on a module's section (a link, or a reload on it): send

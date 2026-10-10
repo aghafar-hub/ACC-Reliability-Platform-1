@@ -290,6 +290,8 @@ function maCheckWrite_(session, data) {
   var rule = MA_ADMIN_ACTIONS.indexOf(action) !== -1 ? "admin" : MA_CONFIG.writeRules[action];
   if (typeof rule === "function") rule = rule(data);
   if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the App Owner can change this.";
+  // Settings → Settings access decides who may change a settings page
+  if (typeof rule === "string" && rule.indexOf("settings:") === 0) return maIsAdmin_(session) || psaLevel_(session, rule.slice(9)) === "Edit" ? "" : "You can view these settings but not change them.";
   if (rule === "open" || !maIsEnforced_() || maIsAdmin_(session)) return "";
   var access = maResolve_(session);
   var base = maBaseDenial_(access, session);

@@ -80,6 +80,7 @@ function handleGetVibDashboard(params, session) {
   return {
     status: 'ok', today: today, months: months, machines: machines, grid: grid,
     onTime: { due: due, onTime: onTime, year: today.slice(0, 4) },
+    targets: vsTargets_(), // Settings → Vibration Analysis → Targets
     actions: {
       open: open.length,
       byStage: VA_OPEN.map(function (s) { return { stage: s, count: open.filter(function (a) { return a['Status'] === s; }).length }; }),

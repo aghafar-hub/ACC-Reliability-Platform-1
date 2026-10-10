@@ -1334,10 +1334,12 @@ export const DEFAULT_ON_TIME_TARGET = 90;
 async function getDashboardSettingsRaw(webhookUrl) {
   try {
     const json = await getJSON(webhookUrl, { action: "getDashboardSettings" });
-    const t = Number(json.onTimeTarget);
-    return { onTimeTarget: t >= 50 && t <= 100 ? t : DEFAULT_ON_TIME_TARGET };
+    const ok = (v, d) => (Number(v) >= 50 && Number(v) <= 100 ? Number(v) : d);
+    const t = ok(json.onTimeTarget, DEFAULT_ON_TIME_TARGET);
+    // routes: onTimeTarget; samples / actions: Settings → Oil Lubrication → Targets
+    return { onTimeTarget: t, samplesTarget: ok(json.samplesTarget, t), actionsTarget: ok(json.actionsTarget, 80) };
   } catch {
-    return { onTimeTarget: DEFAULT_ON_TIME_TARGET };
+    return { onTimeTarget: DEFAULT_ON_TIME_TARGET, samplesTarget: DEFAULT_ON_TIME_TARGET, actionsTarget: 80 };
   }
 }
 
@@ -1453,3 +1455,33 @@ export const getOilInventoryConsumption = cachedRead("getOilInventoryConsumption
 export const getOilInventoryForecast = cachedRead("getOilInventoryForecast", getOilInventoryForecastRaw);
 export const getAllOilInventoryMovements = cachedRead("getAllOilInventoryMovements", getAllOilInventoryMovementsRaw);
 export const getRoutineCompletionTrend = cachedRead("getRoutineCompletionTrend", getRoutineCompletionTrendRaw);
+
+// ─── Settings → Oil Lubrication (backend ModuleSettings.js) ────────────────
+// One read fills the page; each card saves on its own. Unlike the blind
+// saves above, this POST reads the server's answer back (text/plain → no
+// CORS preflight), so a refusal or a bad value shows its real message. Who
+// may change it is Settings → Settings access (the server decides).
+export async function getModuleSettings(webhookUrl) {
+  return getJSON(webhookUrl, { action: "getModuleSettings", fresh: "1" });
+}
+
+export async function saveModuleSettings(webhookUrl, body) {
+  if (isSavingPaused()) throw new AccessBlockedError("Oil Lubrication is being updated — changes can't be saved right now.");
+  markDirty();
+  const payload = { action: "saveModuleSettings", ...body, secret: API_SECRET };
+  if (currentSessionToken) payload.sessionToken = currentSessionToken;
+  let res;
+  try {
+    res = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+  } catch (err) {
+    throw new NetworkError(`Network error while saving: ${err.message}`);
+  }
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error("The server's answer couldn't be read — reload to check what was saved.");
+  }
+  if (!json || json.status === "error" || json.error) throw new Error((json && (json.message || json.error)) || "Not saved — please try again.");
+  return json;
+}

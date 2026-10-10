@@ -226,6 +226,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
                 ))}
                 <span style={{ marginLeft: "auto" }} data-testid="vd-ontime">
                   Measured in {d.onTime.year}: <b style={{ color: T.textPrimary }}>{d.onTime.onTime} of {d.onTime.due} machine-months{onTimePct != null ? ` (${onTimePct}%)` : ""}</b>
+                  {d.targets && <> · target <b style={{ color: onTimePct != null && onTimePct < d.targets.measured ? T.warning : T.success }}>{d.targets.measured}%</b></>}
                 </span>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { TranslationsLoader } from './i18n/LangToggle';
 import PlantOverview from './pages/PlantOverview';
 import { PlantEquipmentList, PlantMachinePage } from './pages/PlantEquipment';
 import { useEffect, useState, type CSSProperties } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from './components/BottomNav';
 import MoreSheet from './mobile/MoreSheet';
 import ScrollKeeper from './mobile/ScrollKeeper';
@@ -211,10 +211,29 @@ function ShellForUser() {
   return techOnly && !hasMoreThanMyWork ? <TechnicianShell /> : <AppShell />;
 }
 
+// The embedded modules can't use the shell's router: they ask for a shell
+// page with window.dispatchEvent(new CustomEvent('acc-shell-navigate',
+// { detail: { path } })) — e.g. a module's settings → Email & notifications.
+// The build id is published for their Settings → Status "Version" tile.
+function ShellNavigateListener() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    window.__accBuildId = import.meta.env.VITE_BUILD_SHA || 'dev';
+    const go = (e: Event) => {
+      const path = (e as CustomEvent<{ path?: string }>).detail?.path;
+      if (typeof path === 'string' && path.startsWith('/')) navigate(path);
+    };
+    window.addEventListener('acc-shell-navigate', go);
+    return () => window.removeEventListener('acc-shell-navigate', go);
+  }, [navigate]);
+  return null;
+}
+
 function AuthenticatedShell() {
   return (
     <ModuleAccessProvider>
       <SettingsAccessProvider>
+        <ShellNavigateListener />
         <TranslationsLoader />
         <ShellForUser />
       </SettingsAccessProvider>
