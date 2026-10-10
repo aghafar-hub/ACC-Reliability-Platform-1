@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import { getVibEquipmentHistory } from "../api";
 import { useTheme } from "../ThemeContext";
@@ -6,11 +6,14 @@ import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
 import { PageHeader } from "../components/Tile";
 import TrendChart from "../components/TrendChart";
+import VibPointCharts, { PointPicker } from "../components/VibPointCharts";
+import { addDays, limitsFor, orderedPoints } from "../vibModel";
 import { seriesColors } from "../tones";
 
-// Trends: compare machines over time (workflow "Vibration Trend"). One line
-// per machine — the highest value of its points on each date for the chosen
-// measure. Histories load one machine at a time (the Apps Script web app
+// Trends: compare machines over time (workflow "Vibration Trend"). Two or
+// more machines: one line per machine — the highest value of its points on
+// each date for the chosen measure. One machine: its own charts, one per VIB
+// ID (H / V / A, HDm / HDc, G's), the same as the machine page's Trend tab. Histories load one machine at a time (the Apps Script web app
 // doesn't serve parallel requests reliably).
 
 const MAX = 6;
@@ -27,6 +30,21 @@ export default function VibTrends({ webhookUrl, scopeEquipment }) {
   const [hist, setHist] = useState({});
   const [loading, setLoading] = useState(false);
   const colors = seriesColors(themeName);
+  // one machine picked: per-VIB-ID charts (VIB ID chips, combine, period)
+  const one = picked.length === 1 ? scopeEquipment[picked[0]] : null;
+  const onePoints = useMemo(() => orderedPoints(one), [one]);
+  const [vibPick, setVibPick] = useState(null);
+  const [combine, setCombine] = useState(false);
+  const [range, setRange] = useState("all");
+  useEffect(() => setVibPick(null), [picked[0]]); // eslint-disable-line react-hooks/exhaustive-deps
+  const limitsOf = useCallback((p) => { const l = limitsFor(p, one); return Array.isArray(l) && l.length === 3 ? l.map(Number) : null; }, [one]);
+  const shown = vibPick ? onePoints.filter((p) => vibPick.includes(p.vibId)) : onePoints;
+  const from = range === "all" ? "" : addDays(new Date().toISOString().slice(0, 10), -Math.round(30.44 * Number(range)));
+  const togglePoint = (id) => {
+    const cur = vibPick || onePoints.map((p) => p.vibId);
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+    setVibPick(next.length === onePoints.length ? null : next);
+  };
 
   useEffect(() => {
     const missing = picked.filter((id) => !hist[id]);
@@ -67,7 +85,7 @@ export default function VibTrends({ webhookUrl, scopeEquipment }) {
 
   return (
     <div style={{ padding: isMobile ? "14px 12px" : "20px 24px" }} data-testid="vib-trends">
-      <PageHeader title="Vibration Trends" subtitle={`Compare up to ${MAX} machines · ${picked.length} picked · highest point value per date`} right={<ContractorChips value={metric} onChange={setMetric} options={["RMS", "SPM", "Gs"]} allLabel={null} label="Measure" testid="vt-metric" />} />
+      <PageHeader title="Vibration Trends" subtitle={one ? "One machine: a chart per VIB ID with every reading · pick more machines to compare them" : `Compare up to ${MAX} machines · ${picked.length} picked · highest point value per date`} right={!one && <ContractorChips value={metric} onChange={setMetric} options={["RMS", "SPM", "Gs"]} allLabel={null} label="Measure" testid="vt-metric" />} />
       <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "300px minmax(0,1fr)" }}>
         <div style={{ ...s.card, marginBottom: 0 }}>
           <div style={{ fontWeight: 700, marginBottom: 8, color: T.textPrimary }}>Machines</div>
@@ -101,13 +119,39 @@ export default function VibTrends({ webhookUrl, scopeEquipment }) {
             ))}
           </div>
         </div>
+        {one ? (
+          <div style={{ ...s.card, marginBottom: 0, minWidth: 0 }} data-testid="vt-one">
+            <div style={{ fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>
+              {picked[0]} · {one.name} <span style={{ fontWeight: 400, fontSize: 12.5, color: T.textSecondary }}>— pick a second machine to compare</span>
+            </div>
+            <PointPicker T={T} s={s} points={onePoints} picked={vibPick} onToggle={togglePoint} onAll={() => setVibPick(null)} onOnly={(id) => setVibPick([id])} />
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "10px 0 12px" }}>
+              <div role="group" aria-label="Period" style={{ display: "flex", gap: 6 }} data-testid="vt-range">
+                {[["6", "6 m"], ["12", "12 m"], ["24", "24 m"], ["all", "All"]].map(([k, l]) => (
+                  <button key={k} type="button" aria-pressed={range === k} onClick={() => setRange(k)} style={{ ...s.btn, padding: "4px 12px", fontSize: 12.5, borderRadius: 999, background: range === k ? T.accent : T.cardBg, color: range === k ? "#fff" : T.textPrimary, borderColor: range === k ? T.accent : T.border }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {shown.length > 1 && (
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textPrimary, cursor: "pointer" }} data-testid="vt-combine">
+                  <input type="checkbox" checked={combine} onChange={(e) => setCombine(e.target.checked)} />
+                  Combine in one chart
+                </label>
+              )}
+              <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>{loading ? "Loading…" : combine && shown.length > 1 ? "Colour = point · line style = direction" : "One chart per VIB ID · every reading"}</span>
+            </div>
+            <VibPointCharts T={T} points={shown} entries={hist[picked[0]] || []} colors={colors} limitsOf={limitsOf} combine={combine && shown.length > 1} from={from} testid="vt-chart" />
+          </div>
+        ) : (
         <div style={{ ...s.card, marginBottom: 0 }} data-testid="vt-chart-card">
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
             <b style={{ color: T.textPrimary }}>{metric === "RMS" ? "RMS velocity (highest of H / V / A)" : metric === "SPM" ? "SPM HDm" : "G's (PeakVue)"}</b>
             <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>{loading ? "Loading…" : limits ? `Limits ${limits.join(" / ")} ${UNIT[metric]}` : picked.length > 1 && metric !== "Gs" ? "Machines have different limits — bands hidden" : ""}</span>
           </div>
-          {picked.length ? <TrendChart T={T} series={series} limits={limits} unit={UNIT[metric]} height={320} testid="vt-chart" /> : <div style={{ color: T.textSecondary, padding: 30, textAlign: "center" }}>Pick one or more machines to compare.</div>}
+          {picked.length ? <TrendChart T={T} series={series} limits={limits} unit={UNIT[metric]} height={320} testid="vt-chart" /> : <div style={{ color: T.textSecondary, padding: 30, textAlign: "center" }}>Pick a machine to see its charts per VIB ID, or two or more to compare.</div>}
         </div>
+        )}
       </div>
     </div>
   );

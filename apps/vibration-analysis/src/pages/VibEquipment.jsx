@@ -7,12 +7,12 @@ import ContractorChips from "../components/ContractorChips";
 import { Donut, StackedBars } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
 import { LevelPill, LevelSymbol, StatePill } from "../components/Level";
-import VibPointCharts from "../components/VibPointCharts";
+import VibPointCharts, { PointPicker } from "../components/VibPointCharts";
 // shapes so a level never relies on colour alone (design reference §5)
 const LEVEL_SYMBOL = { Normal: "●", Caution: "▲", Alert: "◆", Danger: "■" };
 import { LEVEL_RANK, LEVELS, levelColor, levelInk, worstLevel } from "../levels";
 import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
-import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, addDays, familyOrder, monthLabel, pointLabel, shortDate } from "../vibModel";
+import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, addDays, limitsFor, monthLabel, orderedPoints, shortDate } from "../vibModel";
 import { seriesColors } from "../tones";
 import NewReadingModal from "./VibNewReading";
 import MeasureCell, { MeasureLegend, STATE_TONE } from "../components/MeasureCell";
@@ -312,32 +312,6 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   );
 }
 
-// The machine's VIB IDs as chips: All, or any mix; "only" (double-click /
-// the small arrow) shows that one point alone.
-function PointPicker({ T, s, points, picked, onToggle, onAll, onOnly }) {
-  if (points.length < 2) return null;
-  const on = (id) => !picked || picked.includes(id);
-  return (
-    <div role="group" aria-label="VIB IDs" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-testid="vm-pick">
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary, marginRight: 2 }}>VIB IDs</span>
-      <button type="button" aria-pressed={!picked} onClick={onAll} style={{ ...s.btn, padding: "4px 12px", fontSize: 12.5, borderRadius: 999, background: !picked ? T.accent : T.cardBg, color: !picked ? "#fff" : T.textPrimary, borderColor: !picked ? T.accent : T.border }} data-testid="vm-point-all">
-        All ({points.length})
-      </button>
-      {points.map((p) => (
-        <span key={p.vibId} style={{ display: "inline-flex", alignItems: "stretch", borderRadius: 999, border: `1px solid ${on(p.vibId) && picked ? T.accent : T.border}`, background: on(p.vibId) && picked ? T.accent + "18" : T.cardBg, overflow: "hidden" }}>
-          <button type="button" aria-pressed={!!picked && picked.includes(p.vibId)} title={p.vibId} onClick={() => (picked ? onToggle(p.vibId) : onOnly(p.vibId))} style={{ border: "none", background: "none", padding: "4px 6px 4px 11px", fontSize: 12.5, color: T.textPrimary, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", gap: 6, alignItems: "center" }} data-testid={`vm-point-${p.vibId}`}>
-            <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${picked && on(p.vibId) ? T.accent : T.textMuted}`, background: picked && on(p.vibId) ? T.accent : "transparent" }} />
-            {pointLabel(p)}
-          </button>
-          <button type="button" aria-label={`Only ${p.vibId}`} title="Show only this point" onClick={() => onOnly(p.vibId)} style={{ border: "none", borderLeft: `1px solid ${T.border}`, background: "none", padding: "0 8px", fontSize: 11, color: T.textSecondary, cursor: "pointer" }} data-testid={`vm-only-${p.vibId}`}>
-            only
-          </button>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOpenReport, today }) {
   const { T, s, themeName } = useTheme();
   const isMobile = useIsMobile();
@@ -378,19 +352,9 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
   }, [entries, info]);
 
   // The machine's VIB IDs: RMS first, then SPM, then G's; _order fixes each one's colour when combined.
-  const vibPoints = useMemo(
-    () => [...(info?.points || [])].sort((a, b) => familyOrder(a.family) - familyOrder(b.family) || a.positionCode.localeCompare(b.positionCode) || a.vibId.localeCompare(b.vibId)).map((p, i) => ({ ...p, _order: i })),
-    [info]
-  );
+  const vibPoints = useMemo(() => orderedPoints(info), [info]);
   const shown = picked ? vibPoints.filter((p) => picked.includes(p.vibId)) : vibPoints;
-  const limitsOf = useCallback(
-    (p) => {
-      const own = info?.vibLimits?.[p.vibId];
-      if (Array.isArray(own) && own.length === 3 && own.every((n) => n !== "" && n != null)) return own.map(Number);
-      return p.family === "RMS" ? info?.rms || RMS_DEFAULT : p.family === "SPM" ? info?.spm || SPM_DEFAULT : null;
-    },
-    [info]
-  );
+  const limitsOf = useCallback((p) => { const l = limitsFor(p, info); return Array.isArray(l) && l.length === 3 ? l.map(Number) : null; }, [info]);
   const from = range === "all" ? "" : addDays(today || new Date().toISOString().slice(0, 10), -Math.round(30.44 * Number(range)));
   const togglePoint = (id) => {
     const cur = picked || vibPoints.map((p) => p.vibId);

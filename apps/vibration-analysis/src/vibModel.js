@@ -121,3 +121,10 @@ export function reportId(month, contractor, scope) {
 
 // A VIB ID as people say it: "Motor DE · RMS" (machine page trend chips and charts)
 export const pointLabel = (p) => `${String(p.description || p.positionCode).split(";")[0].replace(/\s*\(.*\)$/, "")} · ${p.family === "Gs" ? "G's" : p.family}`;
+
+// A machine's VIB IDs in a fixed order (RMS, SPM, G's; then position); _order fixes each one's colour.
+export function orderedPoints(info) {
+  return [...(info?.points || [])]
+    .sort((a, b) => familyOrder(a.family) - familyOrder(b.family) || a.positionCode.localeCompare(b.positionCode) || a.vibId.localeCompare(b.vibId))
+    .map((p, i) => ({ ...p, _order: i }));
+}

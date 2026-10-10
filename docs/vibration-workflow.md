@@ -85,7 +85,7 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
   (else the machine's). VIB ID chips (All, any mix, or "only" one point); "Combine in one chart" puts the picked points
   of one family in one chart (colour = point, line style = direction; RMS and SPM never share an axis); period
   6 m / 12 m / 24 m / All. The Readings tab lists only the picked VIB IDs. Report timeline under the charts.
-- **Trends**: up to 6 machines on one chart (highest point value per date); limit bands only when all picked
+- **Trends**: one machine picked → its charts per VIB ID (same as the machine page: H / V / A, HDm / HDc, G's; chips, combine, period); two to 6 machines → one chart, one line per machine (highest point value per date); limit bands only when all picked
   machines share the same limits.
 - The old pages *Equipment Reading*, *Graphs* and the old *New reading* were replaced (they read the old RMS /
   SPM DATA tabs, which the Vibration Log now holds).

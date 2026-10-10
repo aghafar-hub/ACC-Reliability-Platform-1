@@ -96,3 +96,29 @@ export default function VibPointCharts({ T, points, entries, colors, limitsOf, c
     </div>
   );
 }
+
+// The machine's VIB IDs as chips: All, or any mix; "only" (double-click /
+// the small arrow) shows that one point alone.
+export function PointPicker({ T, s, points, picked, onToggle, onAll, onOnly }) {
+  if (points.length < 2) return null;
+  const on = (id) => !picked || picked.includes(id);
+  return (
+    <div role="group" aria-label="VIB IDs" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-testid="vm-pick">
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary, marginRight: 2 }}>VIB IDs</span>
+      <button type="button" aria-pressed={!picked} onClick={onAll} style={{ ...s.btn, padding: "4px 12px", fontSize: 12.5, borderRadius: 999, background: !picked ? T.accent : T.cardBg, color: !picked ? "#fff" : T.textPrimary, borderColor: !picked ? T.accent : T.border }} data-testid="vm-point-all">
+        All ({points.length})
+      </button>
+      {points.map((p) => (
+        <span key={p.vibId} style={{ display: "inline-flex", alignItems: "stretch", borderRadius: 999, border: `1px solid ${on(p.vibId) && picked ? T.accent : T.border}`, background: on(p.vibId) && picked ? T.accent + "18" : T.cardBg, overflow: "hidden" }}>
+          <button type="button" aria-pressed={!!picked && picked.includes(p.vibId)} title={p.vibId} onClick={() => (picked ? onToggle(p.vibId) : onOnly(p.vibId))} style={{ border: "none", background: "none", padding: "4px 6px 4px 11px", fontSize: 12.5, color: T.textPrimary, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", gap: 6, alignItems: "center" }} data-testid={`vm-point-${p.vibId}`}>
+            <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${picked && on(p.vibId) ? T.accent : T.textMuted}`, background: picked && on(p.vibId) ? T.accent : "transparent" }} />
+            {pointLabel(p)}
+          </button>
+          <button type="button" aria-label={`Only ${p.vibId}`} title="Show only this point" onClick={() => onOnly(p.vibId)} style={{ border: "none", borderLeft: `1px solid ${T.border}`, background: "none", padding: "0 8px", fontSize: 11, color: T.textSecondary, cursor: "pointer" }} data-testid={`vm-only-${p.vibId}`}>
+            only
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
