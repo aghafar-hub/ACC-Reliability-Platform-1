@@ -11,6 +11,7 @@ import { LevelPill, StatePill } from "../components/Level";
 import { LEVELS, levelColor, toLevel } from "../levels";
 import { fieldsFor, monthLabel, shortDate, systemStatus } from "../vibModel";
 import { reportTone, workflowTone } from "../tones";
+import VibImportReport from "./VibImportReport";
 
 // One vibration report: its readings per VIB ID (system status from the
 // limits, report status from the contractor — the report status wins, both
@@ -29,6 +30,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   const [filter, setFilter] = useState("All");
   const [family, setFamily] = useState("All");
   const [editing, setEditing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [step, setStep] = useState(null);
   const [notice, setNotice] = useState("");
   const [busyPdf, setBusyPdf] = useState(false);
@@ -100,7 +102,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   };
   const buttons = rep && (
     <>
-      {!editing && (
+      {!editing && !importing && (
         <button type="button" style={s.btnGhost} onClick={pdf} disabled={busyPdf} data-testid="vrep-pdf">
           <i className="ti ti-download" aria-hidden="true" /> {busyPdf ? "Making PDF…" : "PDF"}
         </button>
@@ -110,17 +112,22 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
           <i className="ti ti-file-type-pdf" aria-hidden="true" /> Report file
         </a>
       )}
-      {canEdit && !editing && (
+      {canEdit && !editing && !importing && (
+        <button type="button" style={s.btnGhost} onClick={() => { setNotice(""); setImporting(true); }} data-testid="vrep-import">
+          <i className="ti ti-file-import" aria-hidden="true" /> Import report file
+        </button>
+      )}
+      {canEdit && !editing && !importing && (
         <button type="button" style={s.btnGhost} onClick={() => setEditing(true)} data-testid="vrep-edit">
           <i className="ti ti-pencil" aria-hidden="true" /> {entries.length ? "Edit readings" : "Add readings"}
         </button>
       )}
-      {["Draft", "Returned"].includes(wf) && isOwnContractor && !editing && (
+      {["Draft", "Returned"].includes(wf) && isOwnContractor && !editing && !importing && (
         <button type="button" style={s.btnPrimary} onClick={() => setStep("submit")} disabled={!entries.length} data-testid="vrep-submit">
           <i className="ti ti-send" aria-hidden="true" /> Send to ACC
         </button>
       )}
-      {wf === "ACC review" && me.canApprove && !editing && (
+      {wf === "ACC review" && me.canApprove && !editing && !importing && (
         <>
           <button type="button" style={s.btnGhost} onClick={() => setStep("return")} data-testid="vrep-return">
             <i className="ti ti-arrow-back-up" aria-hidden="true" /> Return to {rep.Contractor}
@@ -189,7 +196,21 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
             </div>
           )}
 
-          {editing ? (
+          {importing ? (
+            <VibImportReport
+              webhookUrl={webhookUrl}
+              rep={rep}
+              entries={entries}
+              scopeEquipment={scopeEquipment}
+              onCancel={() => setImporting(false)}
+              onSaved={(msg) => {
+                setImporting(false);
+                setNotice(msg);
+                setTab("readings");
+                load();
+              }}
+            />
+          ) : editing ? (
             <ReadingsEditor
               webhookUrl={webhookUrl}
               rep={rep}
@@ -249,6 +270,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
                 tabs={[
                   { id: "readings", label: "Readings", count: entries.length },
                   { id: "coverage", label: "Coverage", count: coverage.length ? `${coverage.length - notMeasured.length} / ${coverage.length}` : 0 },
+                  ...((data.recommendations || []).length ? [{ id: "recs", label: "Recommendations", count: data.recommendations.length }] : []),
                   { id: "history", label: "History", count: (data.history || []).length },
                 ]}
               />
@@ -285,6 +307,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
                 </>
               )}
               {tab === "coverage" && <CoverageTable T={T} s={s} rows={coverage} />}
+              {tab === "recs" && <RecommendationList T={T} s={s} rows={data.recommendations || []} groups={groups} />}
               {tab === "history" && <HistoryList T={T} s={s} rows={data.history || []} rep={rep} />}
             </>
           )}
@@ -305,6 +328,25 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
           }}
         />
       )}
+    </div>
+  );
+}
+
+// Condition + recommendation per machine, as written in the imported report.
+function RecommendationList({ T, s, rows, groups }) {
+  const name = Object.fromEntries(groups.map((g) => [g.id, g.name]));
+  return (
+    <div style={{ display: "grid", gap: 10 }} data-testid="vrep-recs">
+      {rows.map((r) => (
+        <div key={r.equipmentId} style={{ ...s.card, marginBottom: 0, padding: "12px 16px", borderLeft: `4px solid ${r.condition ? levelColor(T, r.condition) : T.border}` }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+            <b>{r.equipmentId}</b>
+            <span style={{ color: T.textSecondary, fontSize: 13 }}>{name[r.equipmentId] || ""}</span>
+            {r.condition && <LevelPill level={r.condition} />}
+          </div>
+          <div style={{ fontSize: 13.5, whiteSpace: "pre-wrap", color: r.recommendation ? T.textPrimary : T.textSecondary }}>{r.recommendation || "No recommendation."}</div>
+        </div>
+      ))}
     </div>
   );
 }

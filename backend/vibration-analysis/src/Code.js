@@ -179,6 +179,7 @@ function dispatch(action, params, session) {
   // Vibration Log (VibrationLog.js)
   if (action==='getVibLog')             return handleGetVibLog(params, session);
   if (action==='getVibReport')          return handleGetVibReport(params, session);
+  if (action==='getVibEntriesFor')      return handleGetVibEntriesFor(params, session);
   if (action==='getVibEquipmentHistory') return handleGetVibEquipmentHistory(params, session);
   if (action==='saveVibReport')         return vlLocked_(function () { return handleSaveVibReport(params, session); });
   if (action==='saveVibEntries')        return vlLocked_(function () { return handleSaveVibEntries(params, session); });

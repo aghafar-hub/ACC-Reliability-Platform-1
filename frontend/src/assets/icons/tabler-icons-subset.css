@@ -16,6 +16,7 @@
 .ti-arrow-left:before { content: "\ea19"; }
 .ti-arrow-right:before { content: "\ea1f"; }
 .ti-arrow-up-right:before { content: "\ea24"; }
+.ti-arrows-diff:before { content: "\f296"; }
 .ti-arrows-exchange:before { content: "\f1f4"; }
 .ti-atom-2:before { content: "\ebdf"; }
 .ti-ban:before { content: "\ea2e"; }
@@ -44,6 +45,7 @@
 .ti-chevron-right:before { content: "\ea61"; }
 .ti-chevron-up:before { content: "\ea62"; }
 .ti-circle-check:before { content: "\ea67"; }
+.ti-circle-plus:before { content: "\ea69"; }
 .ti-clipboard-list:before { content: "\ea6d"; }
 .ti-clipboard-plus:before { content: "\efb2"; }
 .ti-clipboard-text:before { content: "\f089"; }
@@ -117,6 +119,7 @@
 .ti-photo-check:before { content: "\f35e"; }
 .ti-player-pause:before { content: "\ed45"; }
 .ti-player-play:before { content: "\ed46"; }
+.ti-player-skip-forward:before { content: "\ed49"; }
 .ti-plug:before { content: "\ebd9"; }
 .ti-plus:before { content: "\eb0b"; }
 .ti-point:before { content: "\eb0c"; }

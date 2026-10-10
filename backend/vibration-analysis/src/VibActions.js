@@ -32,7 +32,7 @@ var VACTION_HEADERS = [
   'Closure evidence', 'Closure comment', 'Closure requested by', 'Closure requested at', 'Closed by', 'Closed at',
   'Return reason', 'Created by', 'Created at', 'Updated at'
 ];
-var VFINDING_HEADERS = ['Finding ID', 'Action ID', 'Report ID', 'Equipment ID', 'Month', 'Severity', 'Points', 'Created at'];
+var VFINDING_HEADERS = ['Finding ID', 'Action ID', 'Report ID', 'Equipment ID', 'Month', 'Severity', 'Points', 'Created at', 'Recommendation'];
 var VA_OPEN = ['Draft', 'Open', 'Waiting Stoppage', 'Closure Requested'];
 var VA_FOLLOWUP_DAYS = { Alert: 30, Danger: 7 };
 var VA_PRIORITIES = ['Immediate', 'Next stoppage', 'Planned', 'Monitor only'];
@@ -84,6 +84,11 @@ function vaApplyFindings_(ss, rep, me) {
   var ft = vlEnsure_(ss, SHEET_VFINDINGS, VFINDING_HEADERS);
   var res = { created: [], added: [] };
   var nextNo = finds.rows.length;
+  // the contractor's recommendation from the report (import) goes on the
+  // action as "YYYY-MM: text"; one typed by hand in the app is kept
+  var recs = vlRecommendations_(ss, id);
+  var month = vlMonth_(rep['Month']);
+  var recOf = function (eqId) { var r = recs[eqId]; return r && r.recommendation ? month + ': ' + r.recommendation : ''; };
   Object.keys(byEq).sort().forEach(function (eqId) {
     var list = byEq[eqId];
     var worst = '';
@@ -99,11 +104,13 @@ function vaApplyFindings_(ss, rep, me) {
       var dup = finds.rows.filter(function (f) { return f['Action ID'] === actionId && f['Report ID'] === id; })[0];
       var sev = (VL_LEVEL_RANK[worst] || 0) > (VL_LEVEL_RANK[open['Severity']] || 0) ? worst : open['Severity'];
       var ch = { 'Severity': sev, 'Last finding date': date, 'Last report ID': id, 'Findings': (vlNum_(open['Findings']) || 0) + (dup ? 0 : 1) };
+      var cur = String(open['Contractor recommendation'] || '');
+      if (recOf(eqId) && (!cur.trim() || /^\d{4}-\d{2}:/.test(cur))) ch['Contractor recommendation'] = recOf(eqId);
       if (String(open['Status']) === 'Closure Requested') { ch['Status'] = 'Open'; ch['Return reason'] = 'New finding in ' + id + ' while waiting for closure'; }
       if (!open['Follow-up days'] && VA_FOLLOWUP_DAYS[sev]) { ch['Follow-up reading'] = 'Yes'; ch['Follow-up days'] = VA_FOLLOWUP_DAYS[sev]; }
       vaWrite_(ss, open, ch);
       if (dup) {
-        ft.sheet.getRange(dup._row, 1, 1, ft.headers.length).setValues([vlRowFrom_(ft.headers, { 'Finding ID': dup['Finding ID'], 'Action ID': actionId, 'Report ID': id, 'Equipment ID': eqId, 'Month': vlMonth_(rep['Month']), 'Severity': worst, 'Points': points, 'Created at': vlNowIso_() })]);
+        ft.sheet.getRange(dup._row, 1, 1, ft.headers.length).setValues([vlRowFrom_(ft.headers, { 'Finding ID': dup['Finding ID'], 'Action ID': actionId, 'Report ID': id, 'Equipment ID': eqId, 'Month': vlMonth_(rep['Month']), 'Severity': worst, 'Points': points, 'Created at': vlNowIso_(), 'Recommendation': recs[eqId] ? recs[eqId].recommendation : '' })]);
         return;
       }
       res.added.push(actionId);
@@ -115,6 +122,7 @@ function vaApplyFindings_(ss, rep, me) {
         'Report scope': rep['Report scope'], 'Status': 'Draft', 'Severity': worst, 'Findings': 1, 'Last finding date': date,
         'Last report ID': id, 'Source': 'Automatic', 'Follow-up reading': VA_FOLLOWUP_DAYS[worst] ? 'Yes' : 'No',
         'Follow-up days': VA_FOLLOWUP_DAYS[worst] || '', 'Priority': worst === 'Danger' ? 'Immediate' : '',
+        'Contractor recommendation': recOf(eqId),
         'Created by': 'System (' + (me.email || 'ACC') + ' approved ' + id + ')', 'Created at': vlNowIso_(),
       });
       saved._row = null;
@@ -123,7 +131,7 @@ function vaApplyFindings_(ss, rep, me) {
     }
     nextNo++;
     ft.sheet.appendRow(vlRowFrom_(ft.headers, { 'Finding ID': 'VF-' + ('00000' + nextNo).slice(-6), 'Action ID': actionId, 'Report ID': id, 'Equipment ID': eqId,
-      'Month': vlMonth_(rep['Month']), 'Severity': worst, 'Points': points, 'Created at': vlNowIso_() }));
+      'Month': vlMonth_(rep['Month']), 'Severity': worst, 'Points': points, 'Created at': vlNowIso_(), 'Recommendation': recs[eqId] ? recs[eqId].recommendation : '' }));
   });
   if (res.created.length || res.added.length) {
     vlAudit_(ss, me.email, 'Findings from report', id, res.created.length + ' new draft action(s), ' + res.added.length + ' added to open action(s)');

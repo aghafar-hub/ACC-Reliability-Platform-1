@@ -343,14 +343,25 @@ export function getVibLog(webhookUrl) {
 export function getVibReport(webhookUrl, reportId) {
   return getChecked(webhookUrl, "getVibReport", { reportId });
 }
+// Every reading of these machines, all reports (report import duplicate check). Not cached.
+export async function getVibEntriesFor(webhookUrl, equipmentIds) {
+  const data = await verifiedGet(webhookUrl, "getVibEntriesFor", { equipmentIds: JSON.stringify(equipmentIds) });
+  if (data && (data.status === "error" || data.error)) throw new Error(data.error || "Load failed");
+  return data.entries || [];
+}
 export function getVibEquipmentHistory(webhookUrl, equipmentId) {
   return getChecked(webhookUrl, "getVibEquipmentHistory", { equipmentId });
 }
 export function saveVibReport(webhookUrl, report) {
   return postVerified(webhookUrl, "saveVibReport", { report });
 }
-export function saveVibEntries(webhookUrl, reportId, entries) {
-  return postVerified(webhookUrl, "saveVibEntries", { reportId, entries });
+// Report import (opts): recommendations [{ equipmentId, condition, recommendation, source }],
+// merge: true → the entries are added / replace the same VIB ID + date; the report's other readings stay.
+export function saveVibEntries(webhookUrl, reportId, entries, opts = {}) {
+  const body = { reportId, entries };
+  if (opts.recommendations) body.recommendations = opts.recommendations;
+  if (opts.merge) body.mode = "merge";
+  return postVerified(webhookUrl, "saveVibEntries", body);
 }
 export function vibReportTransition(webhookUrl, fields) {
   return postVerified(webhookUrl, "vibReportTransition", fields);

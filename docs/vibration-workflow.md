@@ -31,7 +31,7 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
   - RMS: H / V / A in mm/s.
   - SPM: HDm / HDc in dBsv.
   - G's: in g.
-- Until the Excel import is built, readings are typed on the report page.
+- Readings come from the contractor's PDF (**Import report file** on the report page, see `vibration-report-import.md`) or are typed on the report page.
 - Checks on save:
   - the VIB ID must belong to the report's scope;
   - a measurement date is required and can't be in the future;

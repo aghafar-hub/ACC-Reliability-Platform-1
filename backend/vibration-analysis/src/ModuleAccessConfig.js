@@ -50,6 +50,7 @@ var MA_CONFIG = {
     getVibLog: ["log", "dashboard", "reports"],
     getVibReport: ["log", "dashboard", "equipment"],
     getVibEquipmentHistory: ["equipment", "log", "dashboard", "trends"],
+    getVibEntriesFor: ["log"],
     getVibActions: ["actions", "dashboard", "equipment", "reports"],
     getVibRoutes: ["routes", "mywork", "dashboard", "reports"],
     getVibRoute: ["routes", "mywork"],

@@ -20,6 +20,7 @@ var SHEET_VLOG     = 'Vibration Log';
 var SHEET_VENTRIES = 'Vibration Log Entries';
 var SHEET_VCOVER   = 'Report Coverage';
 var SHEET_VAUDIT   = 'Vibration Audit';
+var SHEET_VRECS    = 'Vibration Report Recommendations';
 
 var VLOG_HEADERS = [
   'Report ID','Month','Contractor','Report scope','Report status','Workflow status','Source',
@@ -40,6 +41,12 @@ var VCOVER_HEADERS = [
   'Compliance mark (old)','Report status','Readings in app','Outcome'
 ];
 var VAUDIT_HEADERS = ['When','Who','Action','Record','Details'];
+// One row per machine and report: the condition and recommendation the
+// contractor wrote in the report (filled by "Import report file").
+var VREC_HEADERS = [
+  'Report ID','Month','Contractor','Report scope','Equipment ID','Equipment name','Condition','Recommendation',
+  'Source file','Updated at','Updated by'
+];
 
 var VL_DUE_DAYS = 45;
 var VL_LEVEL_RANK = { Normal: 1, Caution: 2, Alert: 3, Danger: 4 };
@@ -248,9 +255,10 @@ function vlAreaOf_(line) {
 }
 
 // RHI reports per line; ASEC sends one report for the cement mills.
+// The line comes from the RMS / SPM Register, else the VIB ID Registry's Area.
 function vlScopeOf_(x) {
   if (x.contractor === 'ASEC') return 'Cement Mills';
-  var line = String(x.line || '').replace(/\s+/g, '').toLowerCase();
+  var line = String(x.line || x.area || '').replace(/[\s#]+/g, '').toLowerCase();
   if (line === 'line1') return 'Line 1';
   if (line === 'line2') return 'Line 2';
   if (line === 'cm1' || line === 'cm2') return 'Cement Mills';
@@ -350,7 +358,11 @@ function handleGetVibReport(params, session) {
   var audit = vlRead_(ss, SHEET_VAUDIT).rows.filter(function (r) { return r['Record'] === id; }).map(function (r) {
     return { when: String(r['When']), who: r['Who'], action: r['Action'], details: r['Details'] };
   });
-  return { status: 'ok', report: vlReportOut_(rep, vlToday_()), entries: entries, coverage: coverage, history: audit,
+  var recMap = vlRecommendations_(ss, id);
+  var recommendations = Object.keys(recMap).sort().map(function (k) {
+    return { equipmentId: k, condition: recMap[k].condition, recommendation: recMap[k].recommendation };
+  });
+  return { status: 'ok', report: vlReportOut_(rep, vlToday_()), entries: entries, coverage: coverage, history: audit, recommendations: recommendations,
            me: { contractor: me.contractor, acc: me.acc, canApprove: me.canApprove } };
 }
 
@@ -363,6 +375,20 @@ function handleGetVibEquipmentHistory(params, session) {
     return r['Equipment ID'] === eqId && (!me.contractor || r['Contractor'] === me.contractor);
   }).map(vlEntryOut_);
   return { status: 'ok', equipmentId: eqId, entries: rows };
+}
+
+// Readings of several machines across every report (report import: a
+// reading already in the app is not added again).
+function handleGetVibEntriesFor(params, session) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var me = vlActor_(session);
+  var ids = typeof params.equipmentIds === 'string' ? JSON.parse(params.equipmentIds || '[]') : (params.equipmentIds || []);
+  var want = {};
+  ids.forEach(function (x) { want[String(x)] = true; });
+  var rows = vlRead_(ss, SHEET_VENTRIES).rows.filter(function (r) {
+    return want[r['Equipment ID']] && (!me.contractor || r['Contractor'] === me.contractor);
+  }).map(vlEntryOut_);
+  return { status: 'ok', entries: rows };
 }
 
 // ─── writes ────────────────────────────────────────────────────────────────
@@ -495,6 +521,23 @@ function handleSaveVibEntries(params, session) {
   });
   if (problems.length) return { status: 'error', error: problems.slice(0, 8).join('\n') + (problems.length > 8 ? '\n…and ' + (problems.length - 8) + ' more' : ''), problems: problems };
 
+  // merge (report import): the readings sent are added or replace the same
+  // VIB ID + date; the report's other readings stay as they are
+  if (String(params.mode || '') === 'merge') {
+    var sent = {};
+    out.forEach(function (o) { sent[o['VIB ID'] + '|' + o['Measurement date']] = true; });
+    vlRead_(ss, SHEET_VENTRIES).rows.forEach(function (r) {
+      if (r['Report ID'] !== id) return;
+      var k = r['VIB ID'] + '|' + vlDate_(r['Measurement date']);
+      if (sent[k]) return;
+      var o = {};
+      VENTRY_HEADERS.forEach(function (h) { o[h] = r[h] === undefined ? '' : r[h]; });
+      o['Measurement date'] = vlDate_(r['Measurement date']);
+      o['Reading kind'] = 'Report reading';
+      out.push(o);
+    });
+  }
+
   // same VIB ID twice in the month: the latest is the report reading
   var byVib = {};
   out.forEach(function (o) { (byVib[o['VIB ID']] = byVib[o['VIB ID']] || []).push(o); });
@@ -508,10 +551,13 @@ function handleSaveVibEntries(params, session) {
   var existing = vlRead_(ss, SHEET_VENTRIES);
   existing.rows.filter(function (r) { return r['Report ID'] === id; }).map(function (r) { return r._row; })
     .sort(function (a, b) { return b - a; }).forEach(function (rn) { t.sheet.deleteRow(rn); });
-  out.forEach(function (o, i) {
+  var block = out.map(function (o, i) {
     o['Entry ID'] = id + '-' + ('000' + (i + 1)).slice(-4);
-    t.sheet.appendRow(vlRowFrom_(t.headers, o));
+    return vlRowFrom_(t.headers, o);
   });
+  // one write for the whole report (an imported report has hundreds of rows)
+  if (block.length) t.sheet.getRange(t.sheet.getLastRow() + 1, 1, block.length, t.headers.length).setValues(block);
+  var recs = vlSaveRecommendations_(ss, rep, master, params.recommendations, me);
 
   vlWriteCoverage_(ss, rep, out, master);
   var counts = vlCounts_(out, master, rep);
@@ -524,8 +570,50 @@ function handleSaveVibEntries(params, session) {
   };
   changes['Due date'] = dates[0] ? vlAddDays_(dates[0], VL_DUE_DAYS) : vlDueDate_(rep);
   vlWriteReport_(ss, rep, changes);
-  vlAudit_(ss, me.email, 'Readings saved', id, out.length + ' readings');
-  return { status: 'ok', reportId: id, saved: out.length };
+  vlAudit_(ss, me.email, 'Readings saved', id, out.length + ' readings' + (recs === null ? '' : ', ' + recs + ' recommendation(s)'));
+  return { status: 'ok', reportId: id, saved: out.length, recommendations: recs };
+}
+
+// Recommendations from an imported report: [{ equipmentId, condition,
+// recommendation, source }]. Rows of the machines sent are replaced; the
+// report's other machines keep theirs. null when none were sent.
+function vlSaveRecommendations_(ss, rep, master, raw, me) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  var list = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  if (!list || !list.length) return 0;
+  var id = rep['Report ID'];
+  var t = vlEnsure_(ss, SHEET_VRECS, VREC_HEADERS);
+  var mine = {};
+  list.forEach(function (x) { mine[String(x.equipmentId || '')] = x; });
+  var old = vlRead_(ss, SHEET_VRECS);
+  old.rows.filter(function (r) { return r['Report ID'] === id && mine[r['Equipment ID']]; }).map(function (r) { return r._row; })
+    .sort(function (a, b) { return b - a; }).forEach(function (rn) { t.sheet.deleteRow(rn); });
+  var rows = [];
+  Object.keys(mine).forEach(function (eqId) {
+    var x = mine[eqId];
+    var eq = master.eq[eqId];
+    var text = String(x.recommendation || '').trim();
+    var cond = vlLevel_(x.condition);
+    if (!eq || (!text && !cond)) return;
+    if (eq.contractor !== rep['Contractor']) return;
+    rows.push(vlRowFrom_(t.headers, {
+      'Report ID': id, 'Month': vlMonth_(rep['Month']), 'Contractor': rep['Contractor'], 'Report scope': rep['Report scope'],
+      'Equipment ID': eqId, 'Equipment name': eq.name || '', 'Condition': cond, 'Recommendation': text.slice(0, 5000),
+      'Source file': String(x.source || '').slice(0, 200), 'Updated at': vlNowIso_(), 'Updated by': me.email || '',
+    }));
+  });
+  if (rows.length) t.sheet.getRange(t.sheet.getLastRow() + 1, 1, rows.length, t.headers.length).setValues(rows);
+  return rows.length;
+}
+
+// This report's recommendations by Equipment ID.
+function vlRecommendations_(ss, reportId) {
+  var out = {};
+  if (!ss.getSheetByName(SHEET_VRECS)) return out;
+  vlRead_(ss, SHEET_VRECS).rows.forEach(function (r) {
+    if (r['Report ID'] === reportId) out[r['Equipment ID']] = { condition: r['Condition'], recommendation: String(r['Recommendation'] || '') };
+  });
+  return out;
 }
 
 // Equipment counts by worst final status of its report readings.
