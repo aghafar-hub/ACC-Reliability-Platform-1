@@ -80,8 +80,11 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 - **Equipment list**: each machine's status = worst final status of its latest month with readings, compared with
   the month before (▲ worse / ▼ better), worst point, last measured; tiles for *got worse* and *not measured in
   90 days*; donut by status and bars by scope (both filter the list).
-- **Machine page**: one card per point (latest RMS max, SPM HDm, G's with status), trend per point with the limit
-  bands, report timeline (one line, ● ▲ ◆ ■ per month — opens that report), all readings, its reports.
+- **Machine page**: one card per point (latest RMS max, SPM HDm, G's with status). **Trend tab: one chart per VIB ID**
+  with every reading — RMS: Horizontal / Vertical / Axial, SPM: HDm / HDc, G's: one line — on the VIB ID's own limits
+  (else the machine's). VIB ID chips (All, any mix, or "only" one point); "Combine in one chart" puts the picked points
+  of one family in one chart (colour = point, line style = direction; RMS and SPM never share an axis); period
+  6 m / 12 m / 24 m / All. The Readings tab lists only the picked VIB IDs. Report timeline under the charts.
 - **Trends**: up to 6 machines on one chart (highest point value per date); limit bands only when all picked
   machines share the same limits.
 - The old pages *Equipment Reading*, *Graphs* and the old *New reading* were replaced (they read the old RMS /

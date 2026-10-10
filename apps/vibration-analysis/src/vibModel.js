@@ -118,3 +118,6 @@ export function monthEnd(month) {
 export function reportId(month, contractor, scope) {
   return `VL-${month}-${contractor}-${{ "Line 1": "L1", "Line 2": "L2", "Cement Mills": "CM" }[scope]}`;
 }
+
+// A VIB ID as people say it: "Motor DE · RMS" (machine page trend chips and charts)
+export const pointLabel = (p) => `${String(p.description || p.positionCode).split(";")[0].replace(/\s*\(.*\)$/, "")} · ${p.family === "Gs" ? "G's" : p.family}`;

@@ -7,11 +7,14 @@ import { levelBg } from "../levels";
 // event markers (dotted vertical line + label), a crosshair tooltip on
 // hover and a legend. Missing values are left out, never drawn as 0.
 //
-// series: [{ label, color, points: [{ date: "yyyy-mm-dd", value }] }]
+// series: [{ label, color, dash?, points: [{ date: "yyyy-mm-dd", value }] }] — dash: SVG dash pattern
+// (line style as a second cue when colour alone can't tell series apart)
 // limits: [caution, alert, danger] or null; unit: "mm/s" …
-export default function TrendChart({ T, series, limits, unit, height = 260, markers = [], testid }) {
+// width: drawing width in SVG units (smaller for a chart in a half-width
+// column, so its text stays the same size on screen)
+export default function TrendChart({ T, series, limits, unit, height = 260, width = 900, markers = [], testid }) {
   const [hover, setHover] = useState(null);
-  const W = 900;
+  const W = width;
   const H = height;
   const L = 44;
   const R = 16;
@@ -90,11 +93,11 @@ export default function TrendChart({ T, series, limits, unit, height = 260, mark
             </g>
           ) : null
         )}
-        {series.map((s) => {
+        {series.map((s, si) => {
           const pts = s.points.filter((p) => p.value != null && !isNaN(p.value)).sort((a, b) => (a.date < b.date ? -1 : 1));
           return (
-            <g key={s.label}>
-              <polyline fill="none" stroke={s.color} strokeWidth="2" points={pts.map((p) => `${x(p.date)},${y(p.value)}`).join(" ")} />
+            <g key={si + s.label}>
+              <polyline fill="none" stroke={s.color} strokeWidth="2" strokeDasharray={s.dash || undefined} points={pts.map((p) => `${x(p.date)},${y(p.value)}`).join(" ")} />
               {pts.map((p) => (
                 <circle key={p.date} cx={x(p.date)} cy={y(p.value)} r={hover === p.date ? 5 : 3.5} fill={s.color} stroke={T.cardBg} strokeWidth="1.5" />
               ))}
@@ -122,9 +125,9 @@ export default function TrendChart({ T, series, limits, unit, height = 260, mark
           }}
         >
           <b>{new Date(hover + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</b>
-          {hv.map(({ s, p }) => (
-            <div key={s.label} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3 }}>
-              <span style={{ width: 10, height: 3, background: s.color }} />
+          {hv.map(({ s, p }, i) => (
+            <div key={i + s.label} style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 3 }}>
+              <Swatch s={s} w={14} />
               <span style={{ flex: 1 }}>{s.label}</span>
               <b>
                 {p.value} {unit}
@@ -135,15 +138,24 @@ export default function TrendChart({ T, series, limits, unit, height = 260, mark
       )}
       {series.length > 1 && (
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, color: T.textSecondary, marginTop: 6 }}>
-          {series.map((s) => (
-            <span key={s.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 14, height: 3, background: s.color, borderRadius: 2 }} />
+          {series.map((s, i) => (
+            <span key={i + s.label} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <Swatch s={s} w={22} />
               {s.label}
             </span>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+// legend / tooltip key: the series colour with its line style
+function Swatch({ s, w }) {
+  return (
+    <svg width={w} height="6" aria-hidden="true" style={{ flexShrink: 0 }}>
+      <line x1="0" x2={w} y1="3" y2="3" stroke={s.color} strokeWidth="2.5" strokeDasharray={s.dash || undefined} />
+    </svg>
   );
 }
 

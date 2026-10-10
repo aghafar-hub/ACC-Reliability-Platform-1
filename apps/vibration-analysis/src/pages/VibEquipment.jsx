@@ -7,12 +7,12 @@ import ContractorChips from "../components/ContractorChips";
 import { Donut, StackedBars } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
 import { LevelPill, LevelSymbol, StatePill } from "../components/Level";
-import TrendChart from "../components/TrendChart";
+import VibPointCharts from "../components/VibPointCharts";
 // shapes so a level never relies on colour alone (design reference §5)
 const LEVEL_SYMBOL = { Normal: "●", Caution: "▲", Alert: "◆", Danger: "■" };
 import { LEVEL_RANK, LEVELS, levelColor, levelInk, worstLevel } from "../levels";
 import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/BottomSheet";
-import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, monthLabel, shortDate } from "../vibModel";
+import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, addDays, familyOrder, monthLabel, pointLabel, shortDate } from "../vibModel";
 import { seriesColors } from "../tones";
 import NewReadingModal from "./VibNewReading";
 import MeasureCell, { MeasureLegend, STATE_TONE } from "../components/MeasureCell";
@@ -312,13 +312,42 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   );
 }
 
+// The machine's VIB IDs as chips: All, or any mix; "only" (double-click /
+// the small arrow) shows that one point alone.
+function PointPicker({ T, s, points, picked, onToggle, onAll, onOnly }) {
+  if (points.length < 2) return null;
+  const on = (id) => !picked || picked.includes(id);
+  return (
+    <div role="group" aria-label="VIB IDs" style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }} data-testid="vm-pick">
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: T.textSecondary, marginRight: 2 }}>VIB IDs</span>
+      <button type="button" aria-pressed={!picked} onClick={onAll} style={{ ...s.btn, padding: "4px 12px", fontSize: 12.5, borderRadius: 999, background: !picked ? T.accent : T.cardBg, color: !picked ? "#fff" : T.textPrimary, borderColor: !picked ? T.accent : T.border }} data-testid="vm-point-all">
+        All ({points.length})
+      </button>
+      {points.map((p) => (
+        <span key={p.vibId} style={{ display: "inline-flex", alignItems: "stretch", borderRadius: 999, border: `1px solid ${on(p.vibId) && picked ? T.accent : T.border}`, background: on(p.vibId) && picked ? T.accent + "18" : T.cardBg, overflow: "hidden" }}>
+          <button type="button" aria-pressed={!!picked && picked.includes(p.vibId)} title={p.vibId} onClick={() => (picked ? onToggle(p.vibId) : onOnly(p.vibId))} style={{ border: "none", background: "none", padding: "4px 6px 4px 11px", fontSize: 12.5, color: T.textPrimary, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", gap: 6, alignItems: "center" }} data-testid={`vm-point-${p.vibId}`}>
+            <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${picked && on(p.vibId) ? T.accent : T.textMuted}`, background: picked && on(p.vibId) ? T.accent : "transparent" }} />
+            {pointLabel(p)}
+          </button>
+          <button type="button" aria-label={`Only ${p.vibId}`} title="Show only this point" onClick={() => onOnly(p.vibId)} style={{ border: "none", borderLeft: `1px solid ${T.border}`, background: "none", padding: "0 8px", fontSize: 11, color: T.textSecondary, cursor: "pointer" }} data-testid={`vm-only-${p.vibId}`}>
+            only
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOpenReport, today }) {
   const { T, s, themeName } = useTheme();
   const isMobile = useIsMobile();
   const [hist, setHist] = useState(() => peekCached("getVibEquipmentHistory", { equipmentId: eqId })?.entries || null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("trend");
-  const [metric, setMetric] = useState("RMS");
+  // Trend: the VIB IDs to show (null = all), one chart each or combined, period
+  const [picked, setPicked] = useState(null);
+  const [combine, setCombine] = useState(false);
+  const [range, setRange] = useState("all");
   useEffect(() => {
     let live = true;
     getVibEquipmentHistory(webhookUrl, eqId)
@@ -348,19 +377,26 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
     return Object.values(byPos);
   }, [entries, info]);
 
-  // One line per position for the chosen family.
-  const series = useMemo(() => {
-    const field = { RMS: "Max velocity (mm/s)", SPM: "HDm (dBsv)", Gs: "G's (g)" }[metric];
-    const byPos = {};
-    entries.forEach((e) => {
-      if (e.Family !== metric) return;
-      const v = parseFloat(e[field]);
-      if (isNaN(v)) return;
-      (byPos[e.Position] ||= { label: String(e["Point description"]).replace(/\s*\(.*\)$/, "") || e.Position, points: [] }).points.push({ date: e["Measurement date"], value: v });
-    });
-    return Object.values(byPos).map((sr, i) => ({ ...sr, color: colors[i % colors.length] }));
-  }, [entries, metric, colors]);
-  const limits = metric === "RMS" ? info?.rms || RMS_DEFAULT : metric === "SPM" ? info?.spm || SPM_DEFAULT : null;
+  // The machine's VIB IDs: RMS first, then SPM, then G's; _order fixes each one's colour when combined.
+  const vibPoints = useMemo(
+    () => [...(info?.points || [])].sort((a, b) => familyOrder(a.family) - familyOrder(b.family) || a.positionCode.localeCompare(b.positionCode) || a.vibId.localeCompare(b.vibId)).map((p, i) => ({ ...p, _order: i })),
+    [info]
+  );
+  const shown = picked ? vibPoints.filter((p) => picked.includes(p.vibId)) : vibPoints;
+  const limitsOf = useCallback(
+    (p) => {
+      const own = info?.vibLimits?.[p.vibId];
+      if (Array.isArray(own) && own.length === 3 && own.every((n) => n !== "" && n != null)) return own.map(Number);
+      return p.family === "RMS" ? info?.rms || RMS_DEFAULT : p.family === "SPM" ? info?.spm || SPM_DEFAULT : null;
+    },
+    [info]
+  );
+  const from = range === "all" ? "" : addDays(today || new Date().toISOString().slice(0, 10), -Math.round(30.44 * Number(range)));
+  const togglePoint = (id) => {
+    const cur = picked || vibPoints.map((p) => p.vibId);
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+    setPicked(next.length === vibPoints.length ? null : next);
+  };
 
   // Report timeline: worst final status per month.
   const months = useMemo(() => {
@@ -383,7 +419,6 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
     });
     return Object.values(r).sort((a, b) => (a.id < b.id ? 1 : -1));
   }, [entries]);
-  const families = ["RMS", "SPM", "Gs"].filter((f) => (info?.points || []).some((p) => p.family === f));
 
   return (
     <div style={{ padding: isMobile ? "14px 12px" : "20px 24px" }} data-testid="vib-machine">
@@ -454,12 +489,26 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
       {!hist && !error && <div style={{ ...s.card, color: T.textSecondary }}>Loading readings…</div>}
       {hist && tab === "trend" && (
         <div style={{ ...s.card }} data-testid="vm-trend">
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
-            <b style={{ color: T.textPrimary }}>{metric === "RMS" ? "RMS velocity (highest of H / V / A)" : metric === "SPM" ? "SPM HDm" : "G's (PeakVue)"}</b>
-            <ContractorChips value={metric} onChange={setMetric} options={families} allLabel={null} label="Measure" size="sm" testid="vm-metric" />
-            <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>{limits ? `Limits ${limits.join(" / ")} ${UNIT[metric]}` : "No limits for G's"}</span>
+          <PointPicker T={T} s={s} points={vibPoints} picked={picked} onToggle={togglePoint} onAll={() => setPicked(null)} onOnly={(id) => setPicked([id])} />
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", margin: "10px 0 12px" }}>
+            <div role="group" aria-label="Period" style={{ display: "flex", gap: 6 }} data-testid="vm-range">
+              {[["6", "6 m"], ["12", "12 m"], ["24", "24 m"], ["all", "All"]].map(([k, l]) => (
+                <button key={k} type="button" aria-pressed={range === k} onClick={() => setRange(k)} style={{ ...s.btn, padding: "4px 12px", fontSize: 12.5, borderRadius: 999, background: range === k ? T.accent : T.cardBg, color: range === k ? "#fff" : T.textPrimary, borderColor: range === k ? T.accent : T.border }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {shown.length > 1 && (
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textPrimary, cursor: "pointer" }} data-testid="vm-combine">
+                <input type="checkbox" checked={combine} onChange={(e) => setCombine(e.target.checked)} />
+                Combine in one chart
+              </label>
+            )}
+            <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>
+              {combine && shown.length > 1 ? "Colour = point · line style = direction" : "One chart per VIB ID · every reading"}
+            </span>
           </div>
-          <TrendChart T={T} series={series} limits={limits} unit={UNIT[metric]} testid="vm-chart" />
+          <VibPointCharts T={T} points={shown} entries={entries} colors={colors} limitsOf={limitsOf} combine={combine && shown.length > 1} from={from} testid="vm-chart" />
           <div style={{ borderTop: `1px solid ${T.border2}`, marginTop: 12, paddingTop: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", color: T.textMuted, marginBottom: 8 }}>REPORT TIMELINE (FINAL STATUS)</div>
             <div style={{ display: "flex", gap: 0, overflowX: "auto", paddingBottom: 4 }} data-testid="vm-timeline">
@@ -493,7 +542,7 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
               </tr>
             </thead>
             <tbody>
-              {entries.slice(0, 400).map((e) => (
+              {(picked ? entries.filter((e) => picked.includes(e["VIB ID"])) : entries).slice(0, 400).map((e) => (
                 <tr key={(e["Entry ID"] || "") + e["VIB ID"] + e["Measurement date"]}>
                   <td style={{ ...s.td, whiteSpace: "nowrap" }}>{shortDate(e["Measurement date"])}</td>
                   <td style={{ ...s.td, fontSize: 12, color: T.textSecondary }}>{e["VIB ID"]}</td>
