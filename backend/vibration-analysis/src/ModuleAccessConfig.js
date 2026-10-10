@@ -39,10 +39,10 @@ var MA_CONFIG = {
   orgToContractor: { "ORG-RHI": "RHI", "ORG-ASEC": "ASEC" },
 
   readRules: {
-    getIdCheck: "admin",
+    getIdCheck: "settings:equipment-ids",
     test: "open",
     getMyAccess: "open",
-    getModuleAccessConfig: "admin",
+    getModuleAccessConfig: "settings:module-access",
     readActions: ["actions", "dashboard"],
     readLastActionNo: ["actions"],
     getVibLog: ["log", "dashboard"],

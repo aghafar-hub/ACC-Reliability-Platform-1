@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import RequireAuth from './auth/RequireAuth';
 import { isTechnicianOnly } from './auth/session';
 import { EmbeddedNavProvider } from './embeddedNav';
+import { SettingsAccessProvider } from './settingsAccess';
 import { hasModuleTabsBeyondMyWork, MODULE_BACKENDS, ModuleAccessProvider, useModuleAccess } from './moduleAccess';
 import ChangePassword from './pages/ChangePassword';
 import ComingSoon from './pages/ComingSoon';
@@ -213,8 +214,10 @@ function ShellForUser() {
 function AuthenticatedShell() {
   return (
     <ModuleAccessProvider>
-      <TranslationsLoader />
-      <ShellForUser />
+      <SettingsAccessProvider>
+        <TranslationsLoader />
+        <ShellForUser />
+      </SettingsAccessProvider>
     </ModuleAccessProvider>
   );
 }

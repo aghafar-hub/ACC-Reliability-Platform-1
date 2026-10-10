@@ -272,6 +272,8 @@ function maBaseDenial_(access, session) {
 function maCheckRead_(session, action) {
   var rule = MA_CONFIG.readRules[action];
   if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the App Owner can see this.";
+  // "settings:<page>" — Settings → Settings access decides (PlatformEquipment.js)
+  if (typeof rule === "string" && rule.indexOf("settings:") === 0) return maIsAdmin_(session) || psaRank_(psaLevel_(session, rule.slice(9))) >= 1 ? "" : "You do not have permission for this settings page.";
   if (rule === "open" || !maIsEnforced_() || maIsAdmin_(session)) return "";
   var access = maResolve_(session);
   var base = maBaseDenial_(access, session);

@@ -368,3 +368,80 @@ function installIdCheck() {
   var r = peRun_();
   Logger.log("Platform list: " + (r.result.connected ? r.result.platformCount + " machines" : "NOT connected — " + r.result.error) + " · problems: " + r.result.problems.length);
 }
+
+
+// ─── Settings access (Platform Core's SETTINGS_ACCESS, read here too) ────────
+// Same rules as Platform Core SettingsAccess.js (keep both in step): who may
+// view / change which Settings page. Used by the "settings:<page>" rules in
+// ModuleAccessConfig.js.
+var PSA_PAGES = ["appearance", "language", "delegations", "users", "module-access", "settings-access", "equipment-ids", "email", "oil-analysis", "vibration-analysis"];
+var PSA_OWNER_ONLY = ["users", "settings-access", "email"];
+var PSA_VIEW_MAX = ["equipment-ids"];
+var PSA_MODULE_PAGES = ["oil-analysis", "vibration-analysis"];
+var PSA_DEFAULTS = {
+  "language": { "ROLE-MGR": "View", "ROLE-RENG": "View", "ROLE-CMGR": "View", "ROLE-CENG": "View", "ROLE-TECH": "View", "ROLE-VIEW": "View" },
+  "delegations": { "ROLE-MGR": "Edit", "ROLE-RENG": "Edit", "ROLE-CMGR": "Edit", "ROLE-CENG": "Edit" },
+  "module-access": { "ROLE-MGR": "View" },
+  "equipment-ids": { "ROLE-MGR": "View", "ROLE-RENG": "View" },
+  "oil-analysis": { "ROLE-MGR": "View", "ROLE-RENG": "Responsible" },
+  "vibration-analysis": { "ROLE-MGR": "View", "ROLE-RENG": "Responsible" },
+};
+var PSA_MEMO = null;
+
+function psaRank_(l) {
+  return { Hidden: 0, View: 1, Responsible: 2, Edit: 3 }[l] || 0;
+}
+function psaClamp_(page, l) {
+  if (PSA_OWNER_ONLY.indexOf(page) !== -1) return "Hidden";
+  if (page === "appearance") return "Edit";
+  if (PSA_VIEW_MAX.indexOf(page) !== -1 && psaRank_(l) > 1) return "View";
+  if (l === "Responsible" && PSA_MODULE_PAGES.indexOf(page) === -1) return "Edit";
+  return ["Hidden", "View", "Responsible", "Edit"].indexOf(l) === -1 ? "Hidden" : l;
+}
+
+// { matrix: { page: { role: level } }, people: [{ email, page, level }] }
+function psaRead_() {
+  if (PSA_MEMO) return PSA_MEMO;
+  var matrix = {};
+  PSA_PAGES.forEach(function (p) { matrix[p] = {}; Object.keys(PSA_DEFAULTS[p] || {}).forEach(function (r) { matrix[p][r] = psaClamp_(p, PSA_DEFAULTS[p][r]); }); });
+  var read = { matrix: matrix, people: [] };
+  var id = "";
+  try { id = PropertiesService.getScriptProperties().getProperty("PLATFORM_CORE_SPREADSHEET_ID") || ""; } catch (e) {}
+  if (!id) return (PSA_MEMO = read);
+  var cached = peCacheGet_("pe|sa|" + id);
+  if (cached) return (PSA_MEMO = cached);
+  try {
+    var ss = SpreadsheetApp.openById(id);
+    var sh = ss.getSheetByName("SETTINGS_ACCESS");
+    if (sh) sh.getDataRange().getValues().slice(1).forEach(function (r) {
+      var p = String(r[0] || "").trim(), role = String(r[1] || "").trim();
+      if (matrix[p] && role) matrix[p][role] = psaClamp_(p, String(r[2] || "").trim());
+    });
+    var ph = ss.getSheetByName("SETTINGS_ACCESS_PEOPLE");
+    if (ph) ph.getDataRange().getValues().slice(1).forEach(function (r) {
+      var email = String(r[0] || "").trim().toLowerCase(), p = String(r[1] || "").trim();
+      if (email && matrix[p]) read.people.push({ email: email, page: p, level: psaClamp_(p, String(r[2] || "").trim()) });
+    });
+    peCachePut_("pe|sa|" + id, read, PE_TTL);
+  } catch (e) {}
+  return (PSA_MEMO = read);
+}
+
+// This person's level on a settings page: Hidden · View · Edit ("Responsible"
+// resolves to Edit for this module's ACC responsible engineer, else View).
+function psaLevel_(session, page) {
+  if (!session) return "Hidden";
+  var roles = session.roles || [];
+  if (roles.indexOf("ROLE-ADMIN") !== -1 || page === "appearance") return "Edit";
+  var read = psaRead_();
+  var email = String(session.email || "").toLowerCase();
+  var best = "Hidden";
+  roles.forEach(function (r) { var l = (read.matrix[page] || {})[r]; if (l && psaRank_(l) > psaRank_(best)) best = l; });
+  read.people.forEach(function (x) { if (x.email === email && x.page === page) best = x.level; });
+  best = psaClamp_(page, best);
+  if (best === "Responsible") {
+    var mine = page === MA_CONFIG.moduleId ? (maResolve_(session).responsibilities || []) : [];
+    best = mine.indexOf(MA_RESP.ACC) !== -1 ? "Edit" : "View";
+  }
+  return best;
+}

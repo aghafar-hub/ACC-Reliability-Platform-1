@@ -47,11 +47,11 @@ var MA_CONFIG = {
   // (any member), or a list of tabs (View on any one of them is enough).
   // Not listed = "member".
   readRules: {
-    getIdCheck: "admin",
+    getIdCheck: "settings:equipment-ids",
     test: "open",
     getMyAccess: "open",
     getInAppNotifications: "open",
-    getModuleAccessConfig: "admin",
+    getModuleAccessConfig: "settings:module-access",
     getDashboard: ["dashboard"],
     getActions: ["actions", "dashboard", "equipment", "reports"],
     getOilChanges: ["oilchange", "equipment", "dashboard", "routines", "reports", "inventory"],

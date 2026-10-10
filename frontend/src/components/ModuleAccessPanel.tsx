@@ -57,7 +57,7 @@ function tabLabel(moduleId: string, tabId: string) {
   return TAB_LABELS[moduleId]?.[tabId] || tabId;
 }
 
-export default function ModuleAccessPanel() {
+export default function ModuleAccessPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { sessionToken } = useAuth();
   const { refresh: refreshMyAccess } = useModuleAccess();
   const { users } = useOrgUsers();
@@ -134,7 +134,8 @@ export default function ModuleAccessPanel() {
       {loading && !config && <p className="ma-muted">Loading…</p>}
 
       {config && (
-        <fieldset className="ma-fieldset" disabled={saving}>
+        <fieldset className="ma-fieldset" disabled={saving || readOnly}>
+          {readOnly && <div className="ma-warning" data-testid="ma-readonly">View only — your Settings access lets you see these lists but not change them.</div>}
           {!config.enforced && (
             <div className="ma-warning">
               Access rules aren't active on this module's server yet (its login secret isn't set), so everyone can still

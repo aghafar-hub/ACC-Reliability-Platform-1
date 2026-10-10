@@ -84,3 +84,24 @@ export function saveEquipmentMaster(
 export function listEquipmentLog(sessionToken: string, limit = 200): Promise<{ entries: EquipmentChange[] }> {
   return postAction(PLATFORM_CORE_URL, 'listEquipmentLog', { sessionToken, limit });
 }
+
+// ─── Settings access (Platform Core SettingsAccess.js) ───────────────────────
+export type SettingsLevel = 'Hidden' | 'View' | 'Responsible' | 'Edit';
+export type SettingsAccess = {
+  pages: string[];
+  roles: string[];
+  ownerOnly: string[];
+  viewMax: string[];
+  modulePages: string[];
+  mine: Record<string, SettingsLevel>;
+  matrix?: Record<string, Record<string, SettingsLevel>>;
+  people?: { email: string; page: string; level: SettingsLevel }[];
+};
+
+export function getSettingsAccess(sessionToken: string): Promise<SettingsAccess> {
+  return postAction(PLATFORM_CORE_URL, 'getSettingsAccess', { sessionToken });
+}
+
+export function saveSettingsAccess(sessionToken: string, matrix: SettingsAccess['matrix'], people: SettingsAccess['people']): Promise<{ saved: boolean; access: SettingsAccess }> {
+  return postAction(PLATFORM_CORE_URL, 'saveSettingsAccess', { sessionToken, matrix, people });
+}

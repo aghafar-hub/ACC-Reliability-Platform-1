@@ -22,7 +22,7 @@ const CONTRACTORS = ['RHI', 'ASEC'];
 const CRITICALITY = ['High', 'Medium', 'Low'];
 const KIND_ORDER = ['notInPlatform', 'noEquipmentId', 'duplicate', 'orphanRecords', 'retired', 'idMismatch', 'registerNoVibId', 'vibIdNoRegister', 'contractorDiffers'];
 
-export default function EquipmentIdsPanel() {
+export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boolean }) {
   const { sessionToken } = useAuth();
   const [tab, setTab] = useState<Tab>('equipment');
   const [list, setList] = useState<PlatformEquipment[] | null>(null);
@@ -113,7 +113,7 @@ export default function EquipmentIdsPanel() {
         ))}
       </div>
 
-      {tab === 'equipment' && <EquipmentTab list={list} counts={counts} onAdd={() => setEditing({ mode: 'add', item: { contractor: 'RHI', criticality: 'Medium' } })} onOpen={(e) => setEditing({ mode: 'edit', item: e })} />}
+      {tab === 'equipment' && <EquipmentTab list={list} counts={counts} onAdd={readOnly ? undefined : () => setEditing({ mode: 'add', item: { contractor: 'RHI', criticality: 'Medium' } })} onOpen={readOnly ? undefined : (e) => setEditing({ mode: 'edit', item: e })} />}
       {tab === 'lub' && <IdsTab kind="lub" check={oil} />}
       {tab === 'vib' && <IdsTab kind="vib" check={vib} />}
       {tab === 'problems' && (
@@ -122,8 +122,8 @@ export default function EquipmentIdsPanel() {
           checks={checks}
           checking={checking}
           onCheck={() => load(true)}
-          onAddToPlatform={(id) => setEditing({ mode: 'add', item: { id, contractor: 'RHI', criticality: 'Medium' } })}
-          onMark={async (p, status) => {
+          onAddToPlatform={readOnly ? undefined : (id) => setEditing({ mode: 'add', item: { id, contractor: 'RHI', criticality: 'Medium' } })}
+          onMark={readOnly ? undefined : async (p, status) => {
             if (!sessionToken) return;
             setChecks((cs) => cs.map((c) => (c.moduleId !== p.moduleId ? c : { ...c, problems: c.problems.map((x) => (x.key === p.key ? { ...x, status } : x)) })));
             await markIdProblem(sessionToken, p.moduleId, p.key, status);
@@ -171,7 +171,7 @@ function Chips<T extends string>({ value, options, onChange, label, all, names }
   );
 }
 
-function EquipmentTab({ list, counts, onAdd, onOpen }: { list: PlatformEquipment[] | null; counts: { lub: (id: string) => number; vib: (id: string) => number }; onAdd: () => void; onOpen: (e: PlatformEquipment) => void }) {
+function EquipmentTab({ list, counts, onAdd, onOpen }: { list: PlatformEquipment[] | null; counts: { lub: (id: string) => number; vib: (id: string) => number }; onAdd?: () => void; onOpen?: (e: PlatformEquipment) => void }) {
   const [q, setQ] = useState('');
   const [contractor, setContractor] = useState<string>('All');
   const [area, setArea] = useState('All');
@@ -196,9 +196,9 @@ function EquipmentTab({ list, counts, onAdd, onOpen }: { list: PlatformEquipment
         </select>
         <Chips value={contractor} options={CONTRACTORS} onChange={setContractor} label="Contractor" all="All contractors" />
         <Chips value={status} options={['Active', 'Retired'] as ('Active' | 'Retired')[]} onChange={setStatus} label="Status" all="All" />
-        <button type="button" className="eid-primary" onClick={onAdd} data-testid="eid-add">
+        {onAdd && <button type="button" className="eid-primary" onClick={onAdd} data-testid="eid-add">
           <TablerIcon className="ti-plus" size={14} /> Add equipment
-        </button>
+        </button>}
       </div>
       <p className="eid-muted">{rows.length} machines</p>
       <div className="eid-table-wrap">
@@ -217,7 +217,7 @@ function EquipmentTab({ list, counts, onAdd, onOpen }: { list: PlatformEquipment
           </thead>
           <tbody>
             {rows.slice(0, limit).map((e) => (
-              <tr key={e.id} onClick={() => onOpen(e)} data-testid={`eid-row-${e.id}`}>
+              <tr key={e.id} className={onOpen ? undefined : 'eid-row-static'} onClick={() => onOpen?.(e)} data-testid={`eid-row-${e.id}`}>
                 <td className="eid-code">{e.id}</td>
                 <td>{e.name}</td>
                 <td>
@@ -312,7 +312,7 @@ function IdsTab({ kind, check }: { kind: 'lub' | 'vib'; check?: ModuleIdCheck })
 
 type ModuleProblem = IdProblem & { moduleId: string };
 
-function ProblemsTab({ problems, checks, checking, onCheck, onAddToPlatform, onMark }: { problems: ModuleProblem[]; checks: ModuleIdCheck[]; checking: boolean; onCheck: () => void; onAddToPlatform: (id: string) => void; onMark: (p: ModuleProblem, s: 'OK' | 'Open') => void }) {
+function ProblemsTab({ problems, checks, checking, onCheck, onAddToPlatform, onMark }: { problems: ModuleProblem[]; checks: ModuleIdCheck[]; checking: boolean; onCheck: () => void; onAddToPlatform?: (id: string) => void; onMark?: (p: ModuleProblem, s: 'OK' | 'Open') => void }) {
   const [mod, setMod] = useState<string>('All');
   const [showOk, setShowOk] = useState(false);
   const shown = problems.filter((p) => (mod === 'All' || p.moduleId === mod) && (showOk || p.status !== 'OK'));
@@ -346,12 +346,14 @@ function ProblemsTab({ problems, checks, checking, onCheck, onAddToPlatform, onM
                 <span className="eid-tag">{ID_MODULES.find((m) => m.id === p.moduleId)?.short}</span> {p.detail}
               </span>
               <span className="eid-problem-actions">
-                {p.kind === 'notInPlatform' && p.status !== 'OK' && (
+                {onAddToPlatform && p.kind === 'notInPlatform' && p.status !== 'OK' && (
                   <button type="button" className="eid-secondary" onClick={() => onAddToPlatform(p.id)}>
                     Add to platform
                   </button>
                 )}
-                {p.status === 'OK' ? (
+                {!onMark ? (
+                  p.status === 'OK' && <span className="eid-dim">Marked OK</span>
+                ) : p.status === 'OK' ? (
                   <button type="button" className="eid-link" onClick={() => onMark(p, 'Open')}>
                     Marked OK · reopen
                   </button>

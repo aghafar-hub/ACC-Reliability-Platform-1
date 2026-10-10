@@ -1,0 +1,41 @@
+.sa-panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.sa-card { border: 1px solid var(--shell-border); border-radius: 12px; background: var(--shell-card-bg); padding: 16px 18px; min-width: 0; }
+.sa-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; color: var(--shell-accent); }
+.sa-head b { color: var(--shell-text); font-size: 15px; }
+.sa-muted { color: var(--shell-text-secondary); font-size: 13px; margin: 0; }
+.sa-foot { margin-top: 10px; line-height: 1.5; }
+.sa-msg { border-radius: 8px; padding: 9px 12px; font-size: 13.5px; }
+.sa-msg--ok { background: color-mix(in srgb, var(--shell-success, #1f9d55) 10%, var(--shell-card-bg)); border: 1px solid color-mix(in srgb, var(--shell-success, #1f9d55) 45%, transparent); }
+.sa-msg--error { background: color-mix(in srgb, var(--shell-danger, #c42b2b) 10%, var(--shell-card-bg)); border: 1px solid color-mix(in srgb, var(--shell-danger, #c42b2b) 45%, transparent); }
+.sa-table-wrap { overflow-x: auto; }
+.sa-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sa-table th { font-size: 11.5px; font-weight: 700; color: var(--shell-text-secondary); text-transform: uppercase; letter-spacing: 0.3px; padding: 8px 6px; border-bottom: 1px solid var(--shell-border); text-align: center; vertical-align: bottom; line-height: 1.3; }
+.sa-table th:not(:first-child) { width: 1%; min-width: 84px; }
+.sa-table th:first-child, .sa-table td:first-child { text-align: start; }
+.sa-table td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--shell-border) 60%, transparent); text-align: center; white-space: nowrap; }
+.sa-table td:first-child { white-space: normal; min-width: 150px; }
+.sa-people td, .sa-people th { text-align: start; }
+.sa-people td:first-child { word-break: break-all; min-width: 120px; }
+.sa-page { font-weight: 600; color: var(--shell-text); }
+.sa-lvl { display: inline-block; border: 0; border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; font-weight: 700; }
+.sa-lvl--Edit { background: color-mix(in srgb, var(--shell-success, #18734a) 14%, transparent); color: var(--shell-success, #18734a); }
+.sa-lvl--Responsible { background: color-mix(in srgb, var(--shell-success, #18734a) 9%, transparent); color: var(--shell-success, #18734a); outline: 1px dashed color-mix(in srgb, var(--shell-success, #18734a) 50%, transparent); }
+.sa-lvl--View { background: color-mix(in srgb, var(--shell-accent) 12%, transparent); color: var(--shell-accent); }
+.sa-lvl--Hidden { background: color-mix(in srgb, var(--shell-text-secondary) 12%, transparent); color: var(--shell-text-secondary); }
+.sa-cell { cursor: pointer; }
+.sa-cell:hover { filter: brightness(0.95); outline: 1px solid var(--shell-border); }
+.sa-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--shell-border); background: var(--shell-card-bg); color: var(--shell-text); border-radius: 7px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sa-btn--primary { background: var(--shell-accent); border-color: var(--shell-accent); color: var(--shell-accent-text, #fff); }
+.sa-btn:disabled { opacity: 0.5; cursor: default; }
+.sa-link { border: 0; background: none; color: var(--shell-accent); font: inherit; font-weight: 600; cursor: pointer; }
+.sa-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.sa-add-who { flex: 1 1 260px; min-width: 0; }
+.sa-add-who .id-search { margin-bottom: 0; }
+.sa-add-who .id-search-input { padding-top: 8px; padding-bottom: 8px; font-size: 14px; border-radius: 8px; }
+.sa-select { border: 1px solid var(--shell-border); background: var(--shell-card-bg); color: var(--shell-text); border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 13.5px; }
+.sa-savebar { position: sticky; bottom: 0; display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding: 10px 0; background: var(--shell-bg, transparent); }
+/* phone: the page names stay put while the levels scroll */
+.sa-table:not(.sa-people) th:first-child, .sa-table:not(.sa-people) td:first-child { position: sticky; inset-inline-start: 0; z-index: 1; background: var(--shell-card-bg); }
+@media (max-width: 860px) {
+  .sa-table td:first-child { min-width: 118px; }
+}

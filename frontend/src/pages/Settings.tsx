@@ -7,7 +7,8 @@ import ModuleAccessPanel from '../components/ModuleAccessPanel';
 import DelegationsPanel from '../components/DelegationsPanel';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
-import { tabLevel, useModuleAccess } from '../moduleAccess';
+import { useSettingsAccess } from '../settingsAccess';
+import SettingsAccessPanel from '../components/SettingsAccessPanel';
 import { InstallCard } from '../components/InstallGuide';
 import ThemePicker from '../components/ThemePicker';
 import { useEmbeddedNav } from '../embeddedNav';
@@ -15,7 +16,7 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access' | 'equipment-ids';
+type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access' | 'settings-access' | 'equipment-ids';
 
 // One list of sections, shown as the left navigation (design reference):
 // the platform's own settings first, then each module's.
@@ -28,7 +29,9 @@ const SECTIONS: Section[] = [
   { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
   // Phase 0 — App Owner only (filtered below).
   { id: 'module-access', group: 'Platform', label: 'Module Access', hint: 'Who opens which module and tab', icon: 'shield', tab: 'general', sub: 'module-access' },
-  // App Owner only: the platform's Equipment IDs and what doesn't match them
+  // App Owner only: who sees which Settings page
+  { id: 'settings-access', group: 'Platform', label: 'Settings access', hint: 'Who sees which settings', icon: 'shield', tab: 'general', sub: 'settings-access' },
+  // the platform's Equipment IDs and what doesn't match them
   { id: 'equipment-ids', group: 'Platform', label: 'Equipment & IDs', hint: 'Equipment IDs · Lub / Vib IDs · not matching', icon: 'equipment', tab: 'general', sub: 'equipment-ids' },
   { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Connection, registries, alerts', icon: 'droplet', tab: 'oil-analysis' },
   { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Connection and readings', icon: 'graphs', tab: 'vibration-analysis' },
@@ -52,26 +55,17 @@ export default function Settings() {
   const embeddedNav = useEmbeddedNav();
   const activeTab = (searchParams.get('module') as SettingsTabId | null) ?? 'general';
   // ?tab=delegations opens straight on My delegations (My Work's "Nobody responsible" link)
-  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>(
-    searchParams.get('tab') === 'delegations' ? 'delegations' : searchParams.get('tab') === 'language' ? 'language' : searchParams.get('tab') === 'equipment-ids' ? 'equipment-ids' : 'appearance',
-  );
+  const [generalSubTab, setGeneralSubTab] = useState<GeneralSubTabId>(() => {
+    const t = searchParams.get('tab');
+    return (SECTIONS.find((x) => x.sub && x.sub === t)?.sub as GeneralSubTabId) || 'appearance';
+  });
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
-  const { access } = useModuleAccess();
-  // anyone who can be responsible, manage, or be asked to cover
-  const canDelegate =
-    isAppOwner ||
-    !!claims?.roles.some((r) => r === ROLE.RELIABILITY_ENGINEER || r === ROLE.CONTRACTOR_ENGINEER || r === ROLE.MANAGER || r === ROLE.CONTRACTOR_MANAGER) ||
-    Object.values(access).some((a) => a?.responsibilities?.some((x) => /Responsible Engineer|Manager/.test(x)));
-  // A module's own settings page is a section like any other (Phase 0):
-  // hidden for anyone whose access hides it; Users / Module Access are for
-  // the App Admin only.
-  const sections = SECTIONS.filter((x) => {
-    if (x.tab !== 'general') return tabLevel(access[x.tab], 'settings') !== 'Hidden';
-    if (x.sub === 'module-access' || x.sub === 'users' || x.sub === 'equipment-ids') return isAppOwner;
-    if (x.sub === 'delegations') return canDelegate;
-    return true;
-  });
+  // Settings → Settings access decides who sees which page (Hidden / View /
+  // Edit); Appearance is open to everyone (settingsAccess.tsx).
+  const { levels } = useSettingsAccess();
+  const level = (x: Section) => levels[x.sub || x.tab] || 'Hidden';
+  const sections = SECTIONS.filter((x) => x.sub === 'appearance' || level(x) !== 'Hidden');
   const current = sections.find((x) => (activeTab === 'general' ? x.sub === generalSubTab : x.tab === activeTab)) || sections[0];
 
   // Opened straight on a module's section (a link, or a reload on it): send
@@ -147,7 +141,7 @@ export default function Settings() {
 
       {activeTab === 'general' && (
         <div className="settings-body">
-          {generalSubTab === 'appearance' && (
+          {current.sub === 'appearance' && (
             <>
               <div className="settings-card">
                 <p className="settings-card-title">Colour theme</p>
@@ -157,11 +151,12 @@ export default function Settings() {
               <InstallCard />
             </>
           )}
-          {generalSubTab === 'language' && <ArabicWordsPanel isAppOwner={isAppOwner} />}
-          {generalSubTab === 'delegations' && canDelegate && <DelegationsPanel />}
-          {generalSubTab === 'users' && isAppOwner && <AccountsPanel />}
-          {generalSubTab === 'module-access' && isAppOwner && <ModuleAccessPanel />}
-          {generalSubTab === 'equipment-ids' && isAppOwner && <EquipmentIdsPanel />}
+          {current.sub === 'language' && <ArabicWordsPanel isAppOwner={levels.language === 'Edit'} />}
+          {current.sub === 'delegations' && <DelegationsPanel />}
+          {current.sub === 'users' && isAppOwner && <AccountsPanel />}
+          {current.sub === 'module-access' && <ModuleAccessPanel readOnly={levels['module-access'] !== 'Edit'} />}
+          {current.sub === 'settings-access' && isAppOwner && <SettingsAccessPanel />}
+          {current.sub === 'equipment-ids' && <EquipmentIdsPanel readOnly={levels['equipment-ids'] !== 'Edit'} />}
         </div>
       )}
       {/* For a module section, its own Settings page appears in the right

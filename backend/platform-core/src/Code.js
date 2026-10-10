@@ -44,11 +44,16 @@ function doPost(e) {
       case 'getTranslations':
         return ok_(getTranslations_());
       case 'addTranslationTerms':
-        requireAppAdmin_(session.userId);
+        requireSettingsEdit_(session, 'language');
         return ok_(addTranslationTerms_(session.email || session.userId, body.terms));
       case 'saveTranslation':
-        requireAppAdmin_(session.userId);
+        requireSettingsEdit_(session, 'language');
         return ok_(saveTranslation_(session.email || session.userId, body.key, body.arabic, body.status));
+      // Settings access (SettingsAccess.js): who sees which Settings page
+      case 'getSettingsAccess':
+        return ok_(getSettingsAccess_(session));
+      case 'saveSettingsAccess':
+        return ok_(saveSettingsAccess_(session, body));
       // Equipment list (AssetMaster.js): Equipment IDs are owned here
       case 'listEquipmentMaster':
         return ok_(listEquipmentMaster_(session));
