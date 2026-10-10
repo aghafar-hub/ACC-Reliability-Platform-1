@@ -11,7 +11,7 @@ saved or sent.
 |---|---|---|
 | Contractor Action Status | open actions by stage | Open Actions by Stage + Past Due / No Owner (PDF or Excel) |
 | Measurement Overdue / Missed | Overdue · Never measured · Due now · On time | Overdue / Never Measured + Contractor On-time % for the last 12 months (PDF or Excel) |
-| Machines in Alert / Danger | Normal · Caution · Alert · Danger · Not read 3 m | Condition by Area + Machines in Alert / Danger (PDF or Excel) |
+| Machines in Alert / Danger | Normal · Caution · Alert · Danger · Not read (window from Settings, default 6 m) | Condition by Area + Machines in Alert / Danger (PDF or Excel) |
 | Monthly Activity Summary | machines measured, reports approved, actions opened / closed in the chosen month | PDF or CSV |
 
 The "Reports for" chips (All contractors · RHI · ASEC) apply to every card.

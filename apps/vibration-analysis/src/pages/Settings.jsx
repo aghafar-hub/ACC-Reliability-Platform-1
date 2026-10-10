@@ -232,12 +232,13 @@ export default function Settings({ webhookUrl, onSync, onOpenLimits }) {
           <NumberTile T={T} s={s} label="Measure every (default)" unit="days" value={intervals.interval} onChange={(v) => setIntervals({ ...intervals, interval: v })} canEdit={canEdit} testid="ms-interval" />
           <NumberTile T={T} s={s} label='Grace before "Overdue"' unit="days" value={intervals.grace} onChange={(v) => setIntervals({ ...intervals, grace: v })} canEdit={canEdit} testid="ms-grace" />
           <NumberTile T={T} s={s} label="Report due after first reading" unit="days" value={intervals.reportDue} onChange={(v) => setIntervals({ ...intervals, reportDue: v })} canEdit={canEdit} testid="ms-reportdue" />
+          <NumberTile T={T} s={s} label='Dashboard "Not read" after no report for' unit="months" value={intervals.notRead} onChange={(v) => setIntervals({ ...intervals, notRead: v })} canEdit={canEdit} testid="ms-notread" />
           <Tile T={T} label="RMS limits (mm/s)" value={lim.rms || "—"} sub="Normal · Alert · Danger — most machines" />
           <Tile T={T} label="SPM limits (dBsv)" value={lim.spm || "—"} sub="Normal · Caution · Alarm — most machines" />
           <Tile T={T} label="Machines with own limits" value={lim.ownLimits ?? "—"} sub={`${lim.ownInterval ?? 0} own interval · ${lim.notRunning ?? 0} not running`} />
         </div>
-        <CardFoot T={T} s={s} changed={settings?.changed?.intervals} msg={msgs.intervals} onSave={canEdit ? () => save("intervals", { interval: Number(intervals.interval), grace: Number(intervals.grace), reportDue: Number(intervals.reportDue) }) : null}
-          canSave={dirty(intervals, settings?.intervals || {}, ["interval", "grace", "reportDue"])} busy={busy === "intervals"} testid="ms-save-intervals" />
+        <CardFoot T={T} s={s} changed={settings?.changed?.intervals} msg={msgs.intervals} onSave={canEdit ? () => save("intervals", { interval: Number(intervals.interval), grace: Number(intervals.grace), reportDue: Number(intervals.reportDue), notRead: Number(intervals.notRead) }) : null}
+          canSave={dirty(intervals, settings?.intervals || {}, ["interval", "grace", "reportDue", "notRead"])} busy={busy === "intervals"} testid="ms-save-intervals" />
       </Card>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>

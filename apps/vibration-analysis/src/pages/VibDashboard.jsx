@@ -16,7 +16,8 @@ import { generateVibDashboardPdf } from "../vibPdf";
 // Tracker; condition by area filters the donut and the worst machines; a
 // worst machine opens its Equipment page.
 
-const NOT_READ_MONTHS = 3;
+// "Not read" window: Settings → Vibration Analysis → Intervals (default 6 months)
+const NOT_READ_DEFAULT = 6;
 const PERIODS = [
   { id: 3, label: "3 m" },
   { id: 6, label: "6 m" },
@@ -58,6 +59,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
 
   const me = d?.me || {};
   const months = (d?.months || []).slice(-period);
+  const NOT_READ_MONTHS = Math.min(d?.months?.length || 12, Number(d?.notReadMonths) || NOT_READ_DEFAULT);
   const cutoff = d ? d.months[d.months.length - NOT_READ_MONTHS] : "";
   const inC = (c) => contractor === "All" || c === contractor;
   const allMachines = useMemo(() => (d?.machines || []).filter((m) => inC(m.contractor)), [d, contractor]); // eslint-disable-line react-hooks/exhaustive-deps

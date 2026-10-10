@@ -81,6 +81,7 @@ function handleGetVibDashboard(params, session) {
     status: 'ok', today: today, months: months, machines: machines, grid: grid,
     onTime: { due: due, onTime: onTime, year: today.slice(0, 4) },
     targets: vsTargets_(), // Settings → Vibration Analysis → Targets
+    notReadMonths: VL_NOT_READ_MONTHS, // Settings → Vibration Analysis → Intervals
     actions: {
       open: open.length,
       byStage: VA_OPEN.map(function (s) { return { stage: s, count: open.filter(function (a) { return a['Status'] === s; }).length }; }),

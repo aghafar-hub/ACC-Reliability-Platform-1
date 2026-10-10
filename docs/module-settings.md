@@ -7,7 +7,7 @@ Both modules use the same five cards. Each card saves on its own, shows
 | Card | Oil Lubrication | Vibration Analysis |
 |---|---|---|
 | Status | backend, platform equipment list, last ID check, version · Test connection · Details (address, sheet link, Sync now) | same |
-| Intervals | sampling and oil change interval per Lub ID (Equipment Registry columns P/Q; same text format as before: months `6`, `2 Y`, `Monthly`, `If needed`, `As needed`) · search · Set for all shown | default measuring interval (30), grace before Overdue (7), report due (45) days · RMS / SPM limits most machines use · machines with own limits · link to Limits & intervals |
+| Intervals | sampling and oil change interval per Lub ID (Equipment Registry columns P/Q; same text format as before: months `6`, `2 Y`, `Monthly`, `If needed`, `As needed`) · search · Set for all shown | default measuring interval (30), grace before Overdue (7), report due (45) days, dashboard "Not read" after (6) months · RMS / SPM limits most machines use · machines with own limits · link to Limits & intervals |
 | Lists | action phrases (`OL_ACTION_PHRASES`) | action phrases (`VA_ACTION_PHRASES`, new) — offered as tap-to-add on an action's text boxes |
 | Targets | routes, samples, actions closed in time (%) — routes and samples on the Oil dashboard | machines measured, reports in time, actions closed in time (%) — measured on the Vibration dashboard |
 | Notifications | link to Settings → Email & notifications (App Owner), status of the platform switch | same |

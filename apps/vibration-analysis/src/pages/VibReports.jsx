@@ -5,7 +5,7 @@ import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
 import { PageHeader } from "../components/Tile";
 import { LEVELS, levelColor } from "../levels";
-import { ACTIVITY_SECTION, OPEN_ACTIONS, READY_MADE, actionCounts, conditionCounts, measuringCounts, monthActivity, periodMonths } from "../vibReportData";
+import { ACTIVITY_SECTION, OPEN_ACTIONS, READY_MADE, actionCounts, conditionCounts, measuringCounts, monthActivity, notReadMonths, periodMonths } from "../vibReportData";
 import VibNewReport from "./VibNewReport";
 
 // Vibration Reports — the Oil Reports page for this module (same parts,
@@ -241,7 +241,7 @@ export default function VibReports({ webhookUrl }) {
           <SplitBar
             T={T}
             testid="vib-report-condition-bar"
-            parts={[...LEVELS.map((lv) => ({ label: lv, value: cond[lv] || 0, color: levelColor(T, lv) })), { label: "Not read 3 m", value: cond["Not read"] || 0, color: `${T.textMuted || T.textSecondary}66` }]}
+            parts={[...LEVELS.map((lv) => ({ label: lv, value: cond[lv] || 0, color: levelColor(T, lv) })), { label: `Not read ${notReadMonths(data.dashboard)} m`, value: cond["Not read"] || 0, color: `${T.textMuted || T.textSecondary}66` }]}
           />
         </ReportCard>
 

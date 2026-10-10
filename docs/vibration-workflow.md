@@ -188,7 +188,7 @@ G's has no limits, and gets no system status, unless 1 or 2 sets them.
 
 **Dashboard** (backend `Dashboard.js`, one request `getVibDashboard`)
 - **Tiles:** Danger machines, Alert machines (new this month), machines overdue for measuring (and due now), follow-up readings due in 14 days, open actions (past due, no owner). Each tile opens the list behind it.
-- **Machine condition:** each active machine counted once, by the worst final status in its latest report month. A machine with no report reading in the last 3 months counts as "Not read 3 m".
+- **Machine condition:** each active machine counted once, by the worst final status in its latest report month. A machine with no report reading in the last N months counts as "Not read N m" — N is set in Settings → Vibration Analysis → Intervals (default 6, 1–12; the Reports page uses the same window).
 - **Machines measured:** one square per area per month (3, 6 or 12 months): the share of the area's machines measured that month (Measurement Tracker). 90 % or more green, 70–89 % amber, under 70 % red. A square opens the Measurement Tracker.
 - **Measured this year:** machine-months measured ÷ machine-months due this year.
 - **Condition by area:** the same counts per area (Line 1, Line 2, CM#1, CM#2); tap a row to filter the donut and the worst machines.

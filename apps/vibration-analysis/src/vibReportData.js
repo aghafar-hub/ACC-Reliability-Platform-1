@@ -8,7 +8,8 @@ import { monthLabel, shortDate } from "./vibModel";
 // vibReports.js turns the same sections into a PDF or an Excel workbook
 // (the Oil module's reportGenerators.js pattern: one list drives both).
 
-export const NOT_READ_MONTHS = 3; // same as the Dashboard
+// "Not read" window: the Dashboard's (Settings → Vibration Analysis → Intervals)
+export const notReadMonths = (d) => Math.min(d?.months?.length || 12, Number(d?.notReadMonths) || 6);
 export const OPEN_ACTIONS = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 export const OPEN_ROUTES = ["Unassigned", "Assigned", "In Progress", "Submitted", "Returned"];
 export const PERIODS = [3, 6, 12];
@@ -31,10 +32,11 @@ export const periodLabel = (months) => (months.length ? `${monthLabel(months[0])
 // ── shared filters ─────────────────────────────────────────────────────────
 const inC = (contractor) => (x) => contractor === "All" || x === contractor;
 
-// Machines with their condition ("Not read" when no report in the last 3 months).
+// Machines with their condition ("Not read" when no report in the window).
 export function conditionMachines(d, contractor) {
   if (!d?.machines) return [];
-  const cutoff = d.months?.length >= NOT_READ_MONTHS ? d.months[d.months.length - NOT_READ_MONTHS] : "";
+  const n = notReadMonths(d);
+  const cutoff = d.months?.length >= n ? d.months[d.months.length - n] : "";
   return d.machines
     .filter((m) => inC(contractor)(m.contractor))
     .map((m) => ({ ...m, cond: !m.lastMonth || m.lastMonth < cutoff ? "Not read" : m.status || "Not read" }));
@@ -104,7 +106,7 @@ function condSummary(data, { contractor }) {
     rows,
     stats: [{ label: "Machines", value: c.total }, ...cols.map((x) => ({ label: x, value: c[x] || 0, level: x }))],
     chart: { kind: "stack", parts: cols.map((x) => ({ label: x, value: c[x] || 0, level: x })) },
-    note: `Condition = the worst final status of each machine's latest report. "Not read" = no report in the last ${NOT_READ_MONTHS} months.`,
+    note: `Condition = the worst final status of each machine's latest report. "Not read" = no report in the last ${notReadMonths(data.dashboard)} months.`,
   };
 }
 

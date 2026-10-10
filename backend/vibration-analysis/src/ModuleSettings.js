@@ -5,7 +5,7 @@
 //
 //   getModuleSettings                → status, email summary, defaults + limits
 //                                      summary, phrases, targets, last change, canEdit
-//   saveModuleSettings card=intervals interval, grace, reportDue (days)
+//   saveModuleSettings card=intervals interval, grace, reportDue (days), notRead (months)
 //                      card=lists     phrases: [..]   (VA_ACTION_PHRASES tab)
 //                      card=targets   measured, reports, actions (%)
 // Every save goes to the Vibration Audit tab (→ Activity) and stamps
@@ -14,7 +14,9 @@
 var MS_PAGE = "vibration-analysis";
 var MS_STAMP_PROP = "MS_CHANGED_";
 var VS_PHRASES_SHEET = "VA_ACTION_PHRASES";
-var VS_DEFAULTS = { VS_DEFAULT_INTERVAL: 30, VS_GRACE_DAYS: 7, VS_REPORT_DUE_DAYS: 45 };
+var VS_DEFAULTS = { VS_DEFAULT_INTERVAL: 30, VS_GRACE_DAYS: 7, VS_REPORT_DUE_DAYS: 45, VS_NOT_READ_MONTHS: 6 };
+// Dashboard / Reports: a machine with no report in this many months counts as "Not read"
+var VL_NOT_READ_MONTHS = 6;
 var VS_TARGET_DEFAULTS = { VS_TARGET_MEASURED: 95, VS_TARGET_REPORTS: 100, VS_TARGET_ACTIONS: 80 };
 
 // Run at the start of every request (Code.js): the defaults the rest of the
@@ -26,6 +28,7 @@ function vsApplySettings_() {
     VL_DEFAULT_INTERVAL = n("VS_DEFAULT_INTERVAL");
     VL_GRACE_DAYS = n("VS_GRACE_DAYS");
     VL_DUE_DAYS = n("VS_REPORT_DUE_DAYS");
+    VL_NOT_READ_MONTHS = Math.min(12, n("VS_NOT_READ_MONTHS"));
   } catch (e) {}
 }
 
@@ -134,7 +137,7 @@ function handleGetModuleSettings(session) {
     canEdit: msCanEdit_(session),
     module: msStatus_(),
     email: msEmail_(),
-    intervals: { interval: VL_DEFAULT_INTERVAL, grace: VL_GRACE_DAYS, reportDue: VL_DUE_DAYS },
+    intervals: { interval: VL_DEFAULT_INTERVAL, grace: VL_GRACE_DAYS, reportDue: VL_DUE_DAYS, notRead: VL_NOT_READ_MONTHS },
     limits: vsLimitsSummary_(ss),
     phrases: vsPhrases_(ss),
     targets: vsTargets_(),
@@ -151,17 +154,19 @@ function handleSaveModuleSettings(params, session) {
   var card = String(params.card || "");
 
   if (card === "intervals") {
-    var v = { interval: Number(params.interval), grace: Number(params.grace), reportDue: Number(params.reportDue) };
-    if (!(v.interval >= 1 && v.interval <= 366) || !(v.grace >= 0 && v.grace <= 60) || !(v.reportDue >= 1 && v.reportDue <= 366)) {
-      return { status: "error", error: "Measure every 1–366 days, grace 0–60 days, report due 1–366 days." };
+    var v = { interval: Number(params.interval), grace: Number(params.grace), reportDue: Number(params.reportDue),
+      notRead: params.notRead === undefined || params.notRead === "" ? VL_NOT_READ_MONTHS : Number(params.notRead) };
+    if (!(v.interval >= 1 && v.interval <= 366) || !(v.grace >= 0 && v.grace <= 60) || !(v.reportDue >= 1 && v.reportDue <= 366) || !(v.notRead >= 1 && v.notRead <= 12)) {
+      return { status: "error", error: "Measure every 1–366 days, grace 0–60 days, report due 1–366 days, \"Not read\" after 1–12 months." };
     }
-    var before = { interval: VL_DEFAULT_INTERVAL, grace: VL_GRACE_DAYS, reportDue: VL_DUE_DAYS };
+    var before = { interval: VL_DEFAULT_INTERVAL, grace: VL_GRACE_DAYS, reportDue: VL_DUE_DAYS, notRead: VL_NOT_READ_MONTHS };
     props.setProperty("VS_DEFAULT_INTERVAL", String(Math.round(v.interval)));
     props.setProperty("VS_GRACE_DAYS", String(Math.round(v.grace)));
     props.setProperty("VS_REPORT_DUE_DAYS", String(Math.round(v.reportDue)));
-    var names = { interval: "measure every", grace: "grace", reportDue: "report due" };
+    props.setProperty("VS_NOT_READ_MONTHS", String(Math.round(v.notRead)));
+    var names = { interval: "measure every", grace: "grace", reportDue: "report due", notRead: "\"Not read\" after" };
     var diff = Object.keys(v).filter(function (k) { return Math.round(v[k]) !== before[k]; })
-      .map(function (k) { return names[k] + " " + before[k] + " → " + Math.round(v[k]) + " days"; });
+      .map(function (k) { return names[k] + " " + before[k] + " → " + Math.round(v[k]) + (k === "notRead" ? " months" : " days"); });
     if (diff.length) { vlAudit_(ss, by, "Settings", "Intervals", diff.join(", ")); msStamp_("intervals", by); }
     return { status: "ok", settings: handleGetModuleSettings(session) };
   }
