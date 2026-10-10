@@ -73,26 +73,40 @@ export default function VibPointCharts({ T, points, entries, colors, limitsOf, c
     }));
   }, [points, entries, colors, limitsOf, combine, from]);
 
+  // one time axis for every chart: from the first reading in the period to
+  // the machine's last reading, so each chart ends at the same date
+  const span = useMemo(() => {
+    const ds = charts.flatMap((c) => c.series.flatMap((sr) => sr.points.map((p) => p.date))).sort();
+    return ds.length ? [ds[0], ds[ds.length - 1]] : null;
+  }, [charts]);
+
   if (!points.length) return <div style={{ color: T.textSecondary, padding: 20 }}>Pick one or more VIB IDs above.</div>;
+  const count = (c) => c.series.reduce((k, sr) => k + sr.points.length, 0);
+  const drawn = charts.filter((c) => count(c));
+  const empty = charts.filter((c) => !count(c));
   return (
-    // several charts: two per row on a wide screen (small multiples); one chart: full width
-    <div style={{ display: "grid", gap: 14, gridTemplateColumns: charts.length > 1 ? "repeat(auto-fit, minmax(min(100%, 520px), 1fr))" : "1fr" }} data-testid={testid}>
-      {charts.map((c) => {
-        const n = c.series.reduce((k, sr) => k + sr.points.length, 0);
-        return (
+    <div data-testid={testid}>
+      {/* several charts: two per row on a wide screen (small multiples); one chart: full width */}
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: drawn.length > 1 ? "repeat(auto-fit, minmax(min(100%, 520px), 1fr))" : "1fr" }}>
+        {drawn.map((c) => (
           <div key={c.key} style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 12px 8px", minWidth: 0 }} data-testid={`vm-pchart-${c.key}`}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
               <b style={{ color: T.textPrimary, fontSize: 14 }}>{c.title}</b>
               {c.sub && <span style={{ fontSize: 12, color: T.textSecondary }}>{c.sub}</span>}
               <span style={{ marginLeft: "auto", fontSize: 12, color: T.textSecondary }}>
                 {c.limits ? `Limits ${c.limits.join(" / ")} ${UNIT[c.fam]}${c.fam === "SPM" ? " (HDm)" : ""}` : c.fam === "Gs" ? "No limits for G's" : ""}
-                {n ? "" : " · no readings in this period"}
               </span>
             </div>
-            <TrendChart T={T} series={c.series} limits={c.limits} unit={UNIT[c.fam]} height={charts.length > 1 ? 250 : 260} width={charts.length > 1 ? 600 : 900} />
+            <TrendChart T={T} series={c.series} limits={c.limits} unit={UNIT[c.fam]} span={span} height={drawn.length > 1 ? 250 : 260} width={drawn.length > 1 ? 600 : 900} />
           </div>
-        );
-      })}
+        ))}
+      </div>
+      {!drawn.length && <div style={{ color: T.textSecondary, padding: 20 }}>No readings in this period.</div>}
+      {empty.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 12.5, color: T.textSecondary }} data-testid="vm-pchart-empty">
+          No readings {from ? "in this period " : ""}for: {empty.map((c) => (combine ? FAMILY_NAME[c.fam] : `${c.title} (${c.sub})`)).join(" · ")}
+        </div>
+      )}
     </div>
   );
 }

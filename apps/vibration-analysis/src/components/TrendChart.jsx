@@ -12,7 +12,9 @@ import { levelBg } from "../levels";
 // limits: [caution, alert, danger] or null; unit: "mm/s" …
 // width: drawing width in SVG units (smaller for a chart in a half-width
 // column, so its text stays the same size on screen)
-export default function TrendChart({ T, series, limits, unit, height = 260, width = 900, markers = [], testid }) {
+// span: ["yyyy-mm-dd", "yyyy-mm-dd"] — the time axis to use (several charts
+// side by side share one axis, ending at the machine's last reading)
+export default function TrendChart({ T, series, limits, unit, height = 260, width = 900, markers = [], span, testid }) {
   const [hover, setHover] = useState(null);
   const W = width;
   const H = height;
@@ -24,8 +26,10 @@ export default function TrendChart({ T, series, limits, unit, height = 260, widt
   const dates = useMemo(() => [...new Set(all.map((p) => p.date))].sort(), [all]);
   if (!all.length) return <div style={{ color: T.textSecondary, fontSize: 13, padding: 20 }}>No readings to draw yet.</div>;
   const t = (d) => new Date(d + "T00:00:00").getTime();
-  const t0 = t(dates[0]);
-  const t1 = dates.length > 1 ? t(dates[dates.length - 1]) : t0 + 86400000;
+  const a0 = span?.[0] && span[0] < dates[0] ? span[0] : dates[0];
+  const a1 = span?.[1] && span[1] > dates[dates.length - 1] ? span[1] : dates[dates.length - 1];
+  const t0 = t(a0);
+  const t1 = a1 > a0 ? t(a1) : t0 + 86400000;
   const maxV = Math.max(...all.map((p) => p.value));
   const minV = Math.min(0, ...all.map((p) => p.value));
   const top = limits ? Math.max(maxV * 1.15, limits[1] * 1.15) : maxV * 1.15 || 1;
@@ -33,7 +37,7 @@ export default function TrendChart({ T, series, limits, unit, height = 260, widt
   const x = (d) => L + ((t(d) - t0) / (t1 - t0 || 1)) * (W - L - R);
   const y = (v) => TOP + (1 - (v - minV) / (yMax - minV || 1)) * (H - TOP - B);
   const ticks = niceTicks(minV, yMax, 5);
-  const months = monthTicks(dates[0], dates[dates.length - 1]);
+  const months = monthTicks(a0, a1);
   const bands = limits
     ? [
         [minV, limits[0], "Normal"],
@@ -84,7 +88,7 @@ export default function TrendChart({ T, series, limits, unit, height = 260, widt
           </text>
         ))}
         {markers.map((mk, i) =>
-          mk.date >= dates[0] && mk.date <= dates[dates.length - 1] ? (
+          mk.date >= a0 && mk.date <= a1 ? (
             <g key={i}>
               <line x1={x(mk.date)} x2={x(mk.date)} y1={TOP} y2={H - B} stroke={T.textSecondary} strokeDasharray="2 3" />
               <text x={x(mk.date) + 4} y={TOP + 10} fontSize="12" fill={T.textSecondary}>

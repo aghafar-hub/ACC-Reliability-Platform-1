@@ -394,7 +394,16 @@ export default function App({ navBridge } = {}) {
   } else if (page === "reports") {
     content = <VibReports webhookUrl={webhookUrl} />;
   } else if (page === "limits") {
-    content = <VibLimits webhookUrl={webhookUrl} limits={vibLimits} reload={reloadLimits} scopeEquipment={scopeEquipment} />;
+    content = (
+      <VibLimits
+        webhookUrl={webhookUrl}
+        limits={vibLimits}
+        reload={reloadLimits}
+        scopeEquipment={scopeEquipment}
+        vibPoints={vibPoints}
+        onPointStatus={(ids, status) => setVibPoints((list) => list.map((p) => (ids.includes(p.vibId) ? { ...p, status } : p)))}
+      />
+    );
   } else if (page === "settings") {
     content = (
       <Settings

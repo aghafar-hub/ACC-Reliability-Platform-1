@@ -298,6 +298,7 @@ export function rowToVibPoint(row) {
     readingColumns: String(row["Reading Columns"] || "").trim(),
     contractor: String(row.Contractor || "").trim(),
     status: String(row.Status || ""),
+    area: String(row.Area || "").trim(),
     _rowNum: row._rowNum,
   };
 }

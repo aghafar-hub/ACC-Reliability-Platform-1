@@ -97,6 +97,7 @@ var MA_CONFIG = {
     vibReportTransition: ["log"],
     saveVibReadings: ["newreading", "equipment"],
     saveVibLimits: ["limits"],
+    setVibPointStatus: ["limits"],
     saveVibAction: ["actions"],
     vibActionTransition: ["actions"],
     createVibRoute: ["routes"],

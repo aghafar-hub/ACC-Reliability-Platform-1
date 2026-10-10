@@ -378,6 +378,10 @@ export function getVibLimits(webhookUrl) {
 export function saveVibLimits(webhookUrl, change) {
   return postVerified(webhookUrl, "saveVibLimits", { change });
 }
+// Switch VIB IDs on / off (App Owner): status "Active" | "Inactive"
+export function setVibPointStatus(webhookUrl, vibIds, status, reason) {
+  return postVerified(webhookUrl, "setVibPointStatus", { vibIds, pointStatus: status, reason });
+}
 export function getVibActions(webhookUrl) {
   return getChecked(webhookUrl, "getVibActions");
 }

@@ -32,6 +32,7 @@ function lmActive_(ss) {
     if (String(r['Active'] || 'Yes') !== 'Yes') return;
     var eq = String(r['Equipment ID'] || '').trim();
     var fam = String(r['Family'] || '').trim();
+    if (fam === 'Point status') return; // history of VIB IDs switched on / off (handleSetVibPointStatus)
     if (fam === 'Settings') {
       out.settings[eq] = { interval: vlNum_(r['Interval days']), status: String(r['Equipment status'] || 'Active') };
       return;
@@ -170,4 +171,64 @@ function handleSaveVibLimits(params, session) {
   }
   vlAudit_(ss, me.email, 'Limits changed', eqId, summary.join('; ') + ' — ' + reason);
   return { status: 'ok', equipmentId: eqId, changed: summary };
+}
+
+// ─── VIB IDs switched on / off ─────────────────────────────────────────────
+// A measurement no longer taken (e.g. SPM in the cement mills, where only G's
+// is measured now) is switched off: the VIB ID Registry's Status column
+// becomes Inactive, so the point leaves the machine page, charts, routes and
+// coverage. Its readings stay in the log. Switching it on again brings it back.
+// Each change is a "Point status" row in this tab (Change history).
+// params: { vibIds: [..], status: 'Active' | 'Inactive', reason }
+function handleSetVibPointStatus(params, session) {
+  if (session && !maIsAdmin_(session)) return { status: 'error', error: 'Only the App Owner can switch measuring points on or off.' };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var me = vlActor_(session);
+  var ids = typeof params.vibIds === 'string' ? JSON.parse(params.vibIds) : (params.vibIds || []);
+  var status = String(params.pointStatus || params.status || '');
+  var reason = String(params.reason || '').trim();
+  if (['Active', 'Inactive'].indexOf(status) === -1) return { status: 'error', error: 'Status must be Active or Inactive.' };
+  if (!ids.length) return { status: 'error', error: 'Pick the VIB IDs to change.' };
+  if (!reason) return { status: 'error', error: 'Give the reason for the change.' };
+  var sheet = ss.getSheetByName(SHEET_VIB_REGISTRY);
+  if (!sheet) return { status: 'error', error: 'VIB ID Registry tab not found.' };
+  var want = {};
+  ids.forEach(function (v) { want[String(v).trim()] = true; });
+  var points = readVibRegistry(ss);
+  var found = {};
+  var changed = [];
+  points.forEach(function (p) {
+    if (!want[p['VIB ID']]) return;
+    found[p['VIB ID']] = true;
+    var cur = String(p['Status'] || '').toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+    if (cur === status) return;
+    sheet.getRange(p._rowNum, 8).setValue(status);
+    changed.push(p);
+  });
+  var unknown = Object.keys(want).filter(function (v) { return !found[v]; });
+  if (unknown.length) return { status: 'error', error: 'Not in the VIB ID Registry: ' + unknown.slice(0, 10).join(', ') };
+  if (changed.length) {
+    var t = vlEnsure_(ss, SHEET_VLIMITS, VLIMIT_HEADERS);
+    var existing = vlRead_(ss, SHEET_VLIMITS).rows;
+    var col = t.headers.indexOf('Active') + 1;
+    var on = {};
+    changed.forEach(function (p) { on[p['VIB ID']] = true; });
+    existing.forEach(function (r) {
+      if (r['Family'] === 'Point status' && String(r['Active'] || 'Yes') === 'Yes' && on[String(r['VIB ID'] || '')]) t.sheet.getRange(r._row, col).setValue('No');
+    });
+    var now = vlNowIso_();
+    var n = existing.length;
+    var rows = changed.map(function (p) {
+      n++;
+      var o = { 'Change ID': 'LIM-' + ('0000' + n).slice(-5), 'Equipment ID': p['Equipment ID'], 'VIB ID': p['VIB ID'], 'Family': 'Point status',
+        'Unit': VL_UNIT[p['Family']] || '', 'Basis': p['Family'], 'Equipment status': status, 'Reason': reason, 'Changed by': me.email, 'Changed at': now, 'Active': 'Yes' };
+      return vlRowFrom_(t.headers, o);
+    });
+    t.sheet.getRange(t.sheet.getLastRow() + 1, 1, rows.length, t.headers.length).setValues(rows);
+    var fams = {};
+    changed.forEach(function (p) { fams[p['Family']] = (fams[p['Family']] || 0) + 1; });
+    vlAudit_(ss, me.email, status === 'Inactive' ? 'VIB IDs switched off' : 'VIB IDs switched on', changed.length + ' VIB IDs',
+      Object.keys(fams).map(function (f) { return fams[f] + ' ' + f; }).join(', ') + ' — ' + reason);
+  }
+  return { status: 'ok', changed: changed.map(function (p) { return p['VIB ID']; }), pointStatus: status };
 }

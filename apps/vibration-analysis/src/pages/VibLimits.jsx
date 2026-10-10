@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { saveVibLimits } from "../api";
+import { useMemo, useState } from "react";
+import { saveVibLimits, setVibPointStatus } from "../api";
+import { areaText, useAreaNames } from "../officialAreas";
 import { useTheme } from "../ThemeContext";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
@@ -22,7 +23,7 @@ const FAMS = [
   ["Gs", "G's (PeakVue)", "g"],
 ];
 
-export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }) {
+export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment, vibPoints = [], onPointStatus }) {
   const [chartsOpen, setChartsOpen] = useState(false);
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
@@ -84,6 +85,7 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
             onChange={setTab}
             tabs={[
               { id: "machines", label: "Machines", count: base.length },
+              { id: "points", label: "Measuring points", count: vibPoints.filter((p) => p.vibId && isOff(p)).length || undefined },
               ...(canEdit ? [{ id: "history", label: "Change history", count: (limits.history || []).length }] : []),
             ]}
           />
@@ -143,6 +145,9 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
               </div>
             </>
           )}
+          {tab === "points" && (
+            <MeasuringPoints webhookUrl={webhookUrl} canEdit={canEdit} vibPoints={vibPoints} scopeEquipment={scopeEquipment} contractor={contractor} onPointStatus={onPointStatus} reload={reload} />
+          )}
           {tab === "history" && (
             <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflowX: "auto" }} data-testid="vlim-history">
               <table data-phone-cards="" style={s.table}>
@@ -163,8 +168,8 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment }
                       <tr key={h["Change ID"]} style={{ opacity: h.Active === "Yes" ? 1 : 0.6 }}>
                         <td style={{ ...s.td, whiteSpace: "nowrap" }}>{h["Changed at"] ? new Date(h["Changed at"]).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : ""}</td>
                         <td style={s.td}>{h["Equipment ID"]}</td>
-                        <td style={s.td}>{h["VIB ID"] || (h.Family === "Settings" ? "Interval / status" : h.Family)}</td>
-                        <td style={s.td}>{h.Family === "Settings" ? `${h["Interval days"]} days · ${h["Equipment status"]}` : h["Caution from"] !== "" ? `${h["Caution from"]} / ${h["Alert from"]} / ${h["Danger from"]} ${h.Unit}` : "back to default"}</td>
+                        <td style={s.td}>{h["VIB ID"] ? `${h["VIB ID"]}${h.Family === "Point status" ? " · measuring" : ""}` : h.Family === "Settings" ? "Interval / status" : h.Family}</td>
+                        <td style={s.td}>{h.Family === "Point status" ? (h["Equipment status"] === "Inactive" ? "Switched off" : "Switched on") : h.Family === "Settings" ? `${h["Interval days"]} days · ${h["Equipment status"]}` : h["Caution from"] !== "" ? `${h["Caution from"]} / ${h["Alert from"]} / ${h["Danger from"]} ${h.Unit}` : "back to default"}</td>
                         <td style={s.td}>{h.Reason}</td>
                         <td style={s.td}>{h["Changed by"]}</td>
                         <td style={s.td}>{h.Active === "Yes" ? "Current" : "Replaced"}</td>
@@ -347,5 +352,217 @@ function EditLimits({ webhookUrl, e, canEdit, info, vibLimits, history, onClose,
         </div>
       )}
     </ModalShell>
+  );
+}
+
+const isOff = (p) => String(p.status).toLowerCase() === "inactive";
+const FAM_LABEL = { RMS: "RMS", SPM: "SPM", Gs: "G's" };
+
+// Measuring points: switch VIB IDs on or off, e.g. SPM in the cement mills
+// where only G's is measured now. An off point leaves the machine page, the
+// charts, routes and coverage; its readings stay in the log. Pick by area and
+// type (RMS / SPM / G's), tick the VIB IDs, then switch off / on with a reason.
+function MeasuringPoints({ webhookUrl, canEdit, vibPoints, scopeEquipment, contractor, onPointStatus, reload }) {
+  const { T, s } = useTheme();
+  const resolveArea = useAreaNames();
+  const [area, setArea] = useState("All");
+  const [fam, setFam] = useState("All");
+  const [state, setState] = useState("All");
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState(() => new Set());
+  const [confirm, setConfirm] = useState(null); // "Inactive" | "Active"
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+
+  const all = useMemo(
+    () =>
+      vibPoints
+        .filter((p) => p.vibId && (contractor === "All" || p.contractor === contractor))
+        .map((p) => {
+          const m = scopeEquipment?.[p.equipmentId];
+          const r = resolveArea(p.area || m?.line || "", p.equipmentId, m?.line);
+          return { ...p, name: m?.name || "", place: areaText(r) || p.area || m?.line || "—", line: r.line || "" };
+        })
+        .sort((a, b) => a.equipmentId.localeCompare(b.equipmentId) || a.positionCode.localeCompare(b.positionCode) || a.family.localeCompare(b.family)),
+    [vibPoints, scopeEquipment, contractor, resolveArea]
+  );
+  // areas grouped by line for the picker
+  const groups = useMemo(() => {
+    const g = {};
+    all.forEach((p) => {
+      const ln = p.line || "Other";
+      (g[ln] ||= new Set()).add(p.place);
+    });
+    return Object.entries(g).sort(([a], [b]) => a.localeCompare(b));
+  }, [all]);
+  const match = idTextMatch(q, all.map((p) => p.equipmentId));
+  const rows = all.filter(
+    (p) =>
+      (area === "All" || (area.startsWith("line:") ? p.line === area.slice(5) : p.place === area)) &&
+      (fam === "All" || FAM_LABEL[p.family] === fam) &&
+      (state === "All" || (state === "Off" ? isOff(p) : !isOff(p))) &&
+      match(p.equipmentId, `${p.name} ${p.vibId} ${p.description}`)
+  );
+  const picked = rows.filter((p) => sel.has(p.vibId));
+  const pickedOn = picked.filter((p) => !isOff(p));
+  const pickedOff = picked.filter(isOff);
+  const allPicked = rows.length > 0 && picked.length === rows.length;
+  const toggle = (id) => setSel((cur) => { const n = new Set(cur); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const byFam = (list) => Object.entries(list.reduce((o, p) => ({ ...o, [FAM_LABEL[p.family] || p.family]: (o[FAM_LABEL[p.family] || p.family] || 0) + 1 }), {})).map(([f, n]) => `${n} ${f}`).join(" · ");
+
+  const save = async () => {
+    const list = confirm === "Inactive" ? pickedOn : pickedOff;
+    if (!reason.trim()) return setError("Give the reason for the change.");
+    setBusy(true);
+    setError("");
+    try {
+      const ids = list.map((p) => p.vibId);
+      await setVibPointStatus(webhookUrl, ids, confirm, reason.trim());
+      onPointStatus?.(ids, confirm);
+      setDone(`${ids.length} VIB ID${ids.length > 1 ? "s" : ""} switched ${confirm === "Inactive" ? "off" : "on"}.`);
+      setSel(new Set());
+      setConfirm(null);
+      setReason("");
+      reload?.();
+    } catch (err) {
+      setError(String(err.message || err));
+    }
+    setBusy(false);
+  };
+
+  const pill = (active, label, onClick, testid) => (
+    <button type="button" aria-pressed={active} onClick={onClick} style={{ ...s.btn, padding: "4px 12px", fontSize: 12.5, borderRadius: 999, background: active ? T.accent : T.cardBg, color: active ? "#fff" : T.textPrimary, borderColor: active ? T.accent : T.border }} data-testid={testid}>
+      {label}
+    </button>
+  );
+
+  return (
+    <div data-testid="vlim-points">
+      <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 10, maxWidth: 820 }}>
+        A VIB ID switched off is no longer measured: it leaves the machine page, the charts, routes and coverage. Its readings stay in the log. {canEdit ? "Pick an area and a type, tick the VIB IDs, then switch them off or on." : "Only the App Owner switches points on or off."}
+      </div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <EquipmentSearch freeText options={[...new Map(all.map((p) => [p.equipmentId, { code: p.equipmentId, description: p.name }])).values()]} value={q} onChange={setQ} placeholder="Equipment, VIB ID or point…" width={240} testid="vpts-find" />
+        <select style={s.select} value={area} onChange={(e) => setArea(e.target.value)} aria-label="Area" data-testid="vpts-area">
+          <option value="All">All areas</option>
+          {groups.map(([ln, set]) => (
+            <optgroup key={ln} label={ln}>
+              {ln !== "Other" && <option value={`line:${ln}`}>All of {ln}</option>}
+              {[...set].sort().map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <div role="group" aria-label="Type" style={{ display: "flex", gap: 6 }}>
+          {["All", "RMS", "SPM", "G's"].map((f) => pill(fam === f, f === "All" ? "All types" : f, () => setFam(f), `vpts-fam-${f === "G's" ? "Gs" : f}`))}
+        </div>
+        <div role="group" aria-label="Measuring" style={{ display: "flex", gap: 6 }}>
+          {[["All", "On and off"], ["On", "Measured"], ["Off", "Switched off"]].map(([k, l]) => pill(state === k, l, () => setState(k), `vpts-state-${k}`))}
+        </div>
+      </div>
+      {done && (
+        <div role="status" style={{ ...s.card, padding: "10px 14px", color: T.success, marginBottom: 10 }} data-testid="vpts-done">
+          {done}
+        </div>
+      )}
+      {canEdit && (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+          <span style={{ fontSize: 13, color: T.textSecondary }}>
+            {rows.length} VIB IDs shown{picked.length ? ` · ${picked.length} ticked` : ""}
+          </span>
+          <button type="button" style={{ ...s.btnGhost, padding: "4px 12px" }} onClick={() => setSel(allPicked ? new Set() : new Set(rows.map((p) => p.vibId)))} data-testid="vpts-all">
+            {allPicked ? "Untick all" : `Tick all ${rows.length}`}
+          </button>
+          <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button type="button" style={{ ...s.btnGhost, padding: "6px 14px" }} disabled={!pickedOff.length} onClick={() => { setError(""); setConfirm("Active"); }} data-testid="vpts-on">
+              Switch on ({pickedOff.length})
+            </button>
+            <button type="button" style={{ ...s.btnPrimary, padding: "6px 14px", opacity: pickedOn.length ? 1 : 0.5 }} disabled={!pickedOn.length} onClick={() => { setError(""); setConfirm("Inactive"); }} data-testid="vpts-off">
+              Switch off ({pickedOn.length})
+            </button>
+          </span>
+        </div>
+      )}
+      <div className="phone-cards-box" style={{ ...s.card, padding: 0, overflow: "auto", maxHeight: 560 }}>
+        <table data-phone-cards="" style={s.table} data-testid="vpts-table">
+          <thead>
+            <tr>
+              {[canEdit ? "" : null, "VIB ID", "Equipment", "Point", "Type", "Area", "Measuring"].filter((h) => h !== null).map((h, i) => (
+                <th key={i} style={{ ...s.th, position: "sticky", top: 0, zIndex: 1 }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 600).map((p) => (
+              <tr key={p.vibId} style={{ opacity: isOff(p) ? 0.65 : 1 }} data-testid={`vpts-row-${p.vibId}`}>
+                {canEdit && (
+                  <td style={s.td}>
+                    <input type="checkbox" checked={sel.has(p.vibId)} onChange={() => toggle(p.vibId)} aria-label={`Tick ${p.vibId}`} />
+                  </td>
+                )}
+                <td style={{ ...s.td, fontWeight: 700, whiteSpace: "nowrap" }}>{p.vibId}</td>
+                <td style={s.td}>
+                  {p.equipmentId} <span style={{ color: T.textSecondary }}>{p.name}</span>
+                </td>
+                <td style={s.td}>{String(p.description).split(";")[0]}</td>
+                <td style={s.td}>{FAM_LABEL[p.family] || p.family}</td>
+                <td style={s.td}>{p.place}</td>
+                <td style={s.td}>
+                  <StatePill tone={isOff(p) ? T.textMuted : T.success}>{isOff(p) ? "Switched off" : "Measured"}</StatePill>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length > 600 && <div style={{ padding: 10, fontSize: 12.5, color: T.textSecondary }}>First 600 of {rows.length} — narrow the area or type to see the rest. Tick all still takes all {rows.length}.</div>}
+        {!rows.length && <div style={{ padding: 16, color: T.textSecondary }}>No VIB IDs match.</div>}
+      </div>
+      {confirm && (
+        <ModalShell
+          icon={confirm === "Inactive" ? "player-pause" : "player-play"}
+          title={confirm === "Inactive" ? "Switch off measuring points" : "Switch measuring points back on"}
+          subtitle={`${(confirm === "Inactive" ? pickedOn : pickedOff).length} VIB IDs · ${byFam(confirm === "Inactive" ? pickedOn : pickedOff)}`}
+          onClose={() => !busy && setConfirm(null)}
+          width={560}
+          testid="vpts-modal"
+          footer={
+            <>
+              <button type="button" style={s.btnGhost} onClick={() => setConfirm(null)} disabled={busy}>
+                Cancel
+              </button>
+              <button type="button" style={s.btnPrimary} onClick={save} disabled={busy} data-testid="vpts-save">
+                {busy ? "Saving…" : confirm === "Inactive" ? "Switch off" : "Switch on"}
+              </button>
+            </>
+          }
+        >
+          <FormSection icon="list" title="What changes">
+            <div style={{ fontSize: 13, color: T.textPrimary }}>
+              {confirm === "Inactive"
+                ? "These points are no longer expected: they leave the machine pages, charts, routes and coverage. Readings already saved stay in the log."
+                : "These points are measured again: they come back on the machine pages, charts, routes and coverage."}
+            </div>
+            <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 6 }}>
+              {[...new Set((confirm === "Inactive" ? pickedOn : pickedOff).map((p) => p.place))].join(" · ")}
+            </div>
+          </FormSection>
+          <FormSection icon="message" title="Reason" hint="required — kept in the Change history">
+            <textarea style={{ ...s.input, minHeight: 60 }} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. SPM no longer measured in the cement mills — G's only" data-testid="vpts-reason" />
+          </FormSection>
+          {error && (
+            <div role="alert" style={{ color: T.danger, fontSize: 13 }}>
+              {error}
+            </div>
+          )}
+        </ModalShell>
+      )}
+    </div>
   );
 }

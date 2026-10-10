@@ -101,6 +101,14 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 - Every change needs a **reason** and adds a row to `Vibration Limits`. The replaced row is kept with Active = No, so nothing is overwritten.
 - Readings already saved keep the limits they were judged with (*Limits used* on each reading). A change applies to new readings only.
 
+**Measuring points** (Limits & intervals → Measuring points tab)
+- Switches VIB IDs off when a measurement is no longer taken, for example SPM in the cement mills, gypsum crusher and packing, where only G's is measured now.
+- Pick an area and a type (RMS / SPM / G's), tick the VIB IDs (or "Tick all"), then **Switch off** or **Switch on**, with a reason. App Owner only.
+- Switching off sets the VIB ID Registry's Status column to `Inactive`. The point then leaves the machine page, its charts, routes and coverage. Its readings stay in the log.
+- Each change adds a "Point status" row to `Vibration Limits` and shows in **Change history**.
+
+**Machine page charts**: all charts share one time axis that ends at the machine's last reading, and the 6 m / 12 m / 24 m periods count back from that reading. A VIB ID with no readings in the period gets no empty chart; it is named in one line under the charts.
+
 **Order of limits**
 1. VIB ID limit.
 2. Machine limit for that family (RMS / SPM / G's).

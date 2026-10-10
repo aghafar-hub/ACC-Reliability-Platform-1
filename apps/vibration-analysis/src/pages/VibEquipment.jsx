@@ -372,7 +372,9 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
   const vibPoints = useMemo(() => orderedPoints(info), [info]);
   const shown = picked ? vibPoints.filter((p) => picked.includes(p.vibId)) : vibPoints;
   const limitsOf = useCallback((p) => { const l = limitsFor(p, info); return Array.isArray(l) && l.length === 3 ? l.map(Number) : null; }, [info]);
-  const from = range === "all" ? "" : addDays(today || new Date().toISOString().slice(0, 10), -Math.round(30.44 * Number(range)));
+  // the period counts back from the machine's last reading, not from today
+  const lastReading = entries.length ? String(entries[0]["Measurement date"] || "").slice(0, 10) : "";
+  const from = range === "all" ? "" : addDays(lastReading || today || new Date().toISOString().slice(0, 10), -Math.round(30.44 * Number(range)));
   const togglePoint = (id) => {
     const cur = picked || vibPoints.map((p) => p.vibId);
     const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
@@ -429,7 +431,7 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
           {error}
         </div>
       )}
-      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 210px), 1fr))", marginBottom: 14 }} data-testid="vm-points">
+      <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 270px), 1fr))", marginBottom: 14 }} data-testid="vm-points">
         {positions.map((p) => {
           const lv = worstLevel(Object.values(p.fam).map((e) => e?.["Final status"] || ""));
           return (
@@ -438,17 +440,24 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
                 <b style={{ color: T.textPrimary }}>{p.name}</b>
                 <span style={{ fontSize: 12, color: T.textSecondary }}>{p.pos}</span>
               </div>
-              <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-                {["RMS", "SPM", "Gs"].map((f) =>
-                  f in p.fam ? (
-                    <div key={f}>
-                      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".05em", color: T.textMuted }}>{f === "RMS" ? "RMS MAX" : f === "SPM" ? "SPM HDm" : "G's"}</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: T.textPrimary }}>{p.fam[f] ? (f === "RMS" ? p.fam[f]["Max velocity (mm/s)"] : f === "SPM" ? p.fam[f]["HDm (dBsv)"] : p.fam[f]["G's (g)"]) ?? "–" : "–"}</div>
-                      <div style={{ fontSize: 12, color: T.textSecondary }}>{UNIT[f]}</div>
-                      {p.fam[f]?.["Final status"] && <LevelPill level={p.fam[f]["Final status"]} />}
+              {/* one row per measurement: label · value unit · status — fits any card width */}
+              <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                {["RMS", "SPM", "Gs"].map((f) => {
+                  if (!(f in p.fam)) return null;
+                  const e = p.fam[f];
+                  const v = e ? (f === "RMS" ? e["Max velocity (mm/s)"] : f === "SPM" ? e["HDm (dBsv)"] : e["G's (g)"]) : null;
+                  const has = v !== null && v !== undefined && v !== "";
+                  return (
+                    <div key={f} style={{ display: "grid", gridTemplateColumns: "64px minmax(0, 1fr) auto", alignItems: "center", gap: 8, minHeight: 30 }} data-testid={`vm-val-${p.pos}-${f}`}>
+                      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: ".04em", color: T.textMuted }}>{f === "RMS" ? "RMS MAX" : f === "SPM" ? "SPM HDm" : "G's"}</span>
+                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <b style={{ fontSize: 19, color: has ? T.textPrimary : T.textMuted }}>{has ? v : "–"}</b>
+                        <span style={{ fontSize: 12, color: T.textSecondary, marginLeft: 4 }}>{UNIT[f]}</span>
+                      </span>
+                      {has && e?.["Final status"] ? <LevelPill level={e["Final status"]} /> : <span style={{ fontSize: 12, color: T.textMuted }}>{has ? "" : "no reading"}</span>}
                     </div>
-                  ) : null
-                )}
+                  );
+                })}
               </div>
             </div>
           );
