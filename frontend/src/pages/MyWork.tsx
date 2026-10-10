@@ -22,7 +22,7 @@ import { tapHaptic } from '../haptics';
 import WorkQueue from '../components/WorkQueue';
 import { TablerIcon } from '../icons';
 import VibRouteDetail from './VibRouteDetail';
-import { fetchMyWork, myWorkModules, type ModuleWork } from '../myWork';
+import { fetchMyWork, myWorkModules, type ModuleWork, rememberWorkCounts } from '../myWork';
 import '../components/TeamTab.css';
 import './MyWork.css';
 
@@ -541,6 +541,7 @@ export default function MyWork({
     if (!sessionToken || !workModuleKey) return;
     let cancelled = false;
     fetchMyWork(sessionToken, workModules).then((w) => {
+      rememberWorkCounts(w);
       if (cancelled) return;
       setWork(w);
       if (w.every((m) => !m.error)) writeDevice(`${deviceKey}.work`, w);

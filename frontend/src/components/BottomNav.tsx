@@ -7,7 +7,29 @@ import { useEmbeddedNav, type NavRecord } from '../embeddedNav';
 import { tapHaptic } from '../haptics';
 import { Icon } from '../icons';
 import { canOpenModule, useModuleAccess } from '../moduleAccess';
-import { OIL, OIL_ROUTE, VIB, VIB_ROUTE, useQuickActions } from '../quickActions';
+import { OIL, OIL_ROUTE, VIB, VIB_ROUTE, useQuickActions, type QuickItem } from '../quickActions';
+
+// ＋ sheet (step 6): the most used entries on top (★, counted on this device),
+// then each module's entries under its name.
+const USE_KEY = 'acc.quickUse.v1';
+function useCounts(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(USE_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+function countUse(key: string) {
+  try {
+    const c = useCounts();
+    c[key] = (c[key] || 0) + 1;
+    localStorage.setItem(USE_KEY, JSON.stringify(c));
+  } catch {
+    /* storage blocked */
+  }
+}
+const MODULE_NAME: Record<string, string> = { [OIL]: 'Oil Lubrication', [VIB]: 'Vibration Analysis' };
+const MODULE_ICON: Record<string, string> = { [OIL]: 'droplet', [VIB]: 'graphs' };
 import './BottomNav.css';
 
 // The phone's bottom bar (design system D2), only visible <=860px
@@ -106,17 +128,42 @@ export default function BottomNav({ onOpenMore, moreOpen = false }: { onOpenMore
           <div className="quick-sheet" role="dialog" aria-modal="true" aria-label="Log from the field" data-testid="quick-sheet">
             <div className="quick-sheet-grab" aria-hidden="true" />
             <p className="quick-sheet-title">Log from the field</p>
-            {quick.map((q) => (
-              <button key={q.key} type="button" className="quick-sheet-item" onClick={() => openPage(q.moduleId, q.route, q.page, q.record)} data-testid={`quick-${q.key}`}>
-                <span className="quick-sheet-icon">
-                  <Icon name={q.icon} size={22} />
-                </span>
-                <span className="quick-sheet-text">
-                  <b>{q.label}</b>
-                  <small>{q.hint}</small>
-                </span>
-              </button>
-            ))}
+            {(() => {
+              const used = useCounts();
+              const most = [...quick].filter((q) => (used[q.key] || 0) > 0).sort((a, b) => used[b.key] - used[a.key]).slice(0, 2);
+              const rest = quick.filter((q) => !most.includes(q));
+              const item = (q: QuickItem, star: boolean) => (
+                <button key={q.key} type="button" className="quick-sheet-item" onClick={() => { countUse(q.key); openPage(q.moduleId, q.route, q.page, q.record); }} data-testid={`quick-${q.key}`}>
+                  <span className="quick-sheet-icon">
+                    <Icon name={q.icon} size={22} />
+                  </span>
+                  <span className="quick-sheet-text">
+                    <b>{q.label}</b>
+                    <small>{star ? MODULE_NAME[q.moduleId] || q.hint : q.hint}</small>
+                  </span>
+                  {star && <span className="quick-sheet-star" aria-label="Most used">★</span>}
+                </button>
+              );
+              const mods = [...new Set(rest.map((q) => q.moduleId))];
+              return (
+                <>
+                  {most.length > 0 && (
+                    <div data-testid="quick-most">
+                      <p className="quick-sheet-group"><span className="quick-sheet-star">★</span> Most used</p>
+                      {most.map((q) => item(q, true))}
+                    </div>
+                  )}
+                  {mods.map((m) => (
+                    <div key={m} data-testid={`quick-group-${m}`}>
+                      <p className="quick-sheet-group">
+                        <Icon name={MODULE_ICON[m] || 'dashboard'} size={13} /> {MODULE_NAME[m] || m}
+                      </p>
+                      {rest.filter((q) => q.moduleId === m).map((q) => item(q, false))}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
           </div>
         </>
       )}

@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { canOpenModule, useModuleAccess } from "../moduleAccess";
 import { useBackClose } from "../mobile/useBackClose";
+import { pushRecent } from "../mobile/recent";
+import { lastWorkCounts } from "../myWork";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEmbeddedNav } from "../embeddedNav";
@@ -58,6 +60,8 @@ export default function ModuleTabs() {
   const menuRef = useRef<HTMLDivElement>(null);
   const { access } = useModuleAccess();
   const stripRef = useRef<HTMLElement>(null);
+  // how many page chips fit beside "More ▾" with full names (3, 2 or 1)
+  const [fitN, setFitN] = useState(3);
   const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,6 +103,23 @@ export default function ModuleTabs() {
     }
   }, [activeKey, location.pathname]);
   useBackClose(moreAt !== null, () => setMoreAt(null));
+  // phone: "Oil Lubrication ▾" opens the module switch (step 6)
+  const [switchOpen, setSwitchOpen] = useState(false);
+  useBackClose(switchOpen, () => setSwitchOpen(false));
+  useEffect(() => setSwitchOpen(false), [location.pathname]);
+
+  // start again from 3 chips when the module or the screen width changes,
+  // then drop one at a time until nothing is cut off
+  useEffect(() => {
+    const reset = () => setFitN(3);
+    reset();
+    window.addEventListener("resize", reset);
+    return () => window.removeEventListener("resize", reset);
+  }, [cfg?.moduleId, activeKey]);
+  useLayoutEffect(() => {
+    const s = stripRef.current;
+    if (s && s.offsetParent && fitN > 1 && s.scrollWidth > s.clientWidth + 1) setFitN(fitN - 1);
+  });
 
   if (!cfg || groups.length === 0) return null;
 
@@ -108,14 +129,18 @@ export default function ModuleTabs() {
 
   function go(pageId: string) {
     tapHaptic();
+    const label = [...groups.map((g) => ({ id: g.pages[0], label: g.label, icon: g.icon })), ...groups.flatMap((g) => (g.views || []).map((v) => ({ id: v.id, label: v.label, icon: g.icon }))), ...more]
+      .find((x) => x.id === pageId);
+    if (label) pushRecent({ key: `${cfg!.moduleId}:${pageId}`, label: label.label, icon: label.icon, tabler: true, route: cfg!.route, moduleId: cfg!.moduleId, page: pageId });
     embeddedNav.navigateTo(cfg!.moduleId, pageId);
     if (location.pathname !== cfg!.route) navigate(cfg!.route);
     setMoreOpen(false);
   }
 
   const otherCfgs = MODULE_TABS.filter((m) => canOpenModule(access[m.moduleId]));
-  const phoneModules = otherCfgs.map((m) => ({ moduleId: m.moduleId, short: m.title.split(" ")[0] }));
+  const counts = lastWorkCounts().counts;
   function switchModule(moduleId: string) {
+    setSwitchOpen(false);
     const target = MODULE_TABS.find((m) => m.moduleId === moduleId);
     if (!target || moduleId === cfg!.moduleId) return;
     tapHaptic();
@@ -196,43 +221,61 @@ export default function ModuleTabs() {
         )}
       </nav>
 
-      {/* phone: Oil | Vibration switch, then the module's pages as a
-          strip of chips you swipe sideways (mobile proposal M1) */}
+      {/* phone (step 6): "Module name ▾" opens the module switch; the
+          module's first 3 pages as chips (the open page always shown) and
+          "More ▾" for the rest — everything fits, no sideways scroll */}
       <div className="module-tabs-phone">
-        {phoneModules.length > 1 && (
-          <div className="mt-switch" role="tablist" aria-label="Module" data-testid="module-switch">
-            {phoneModules.map((m) => (
-              <button
-                key={m.moduleId}
-                type="button"
-                role="tab"
-                aria-selected={m.moduleId === cfg.moduleId}
-                className={m.moduleId === cfg.moduleId ? "mt-switch-btn mt-switch-btn--on" : "mt-switch-btn"}
-                onClick={() => switchModule(m.moduleId)}
-              >
-                {m.short}
-              </button>
-            ))}
-          </div>
-        )}
-        <nav className="mt-strip" ref={stripRef} aria-label={`${cfg.title} pages`} data-testid="module-strip">
-          {[
-            ...groups.map((g) => ({ id: g.pages[0], label: g.label, on: g === activeGroup })),
-            ...more.map((m) => ({ id: m.id, label: m.label, on: m.id === active })),
-          ].map((it) => (
-            <button
-              key={it.id}
-              type="button"
-              className={it.on ? "mt-chip mt-chip--on" : "mt-chip"}
-              aria-current={it.on ? "page" : undefined}
-              data-phone-page={it.id}
-              onClick={() => go(it.id)}
-            >
-              {it.label}
-            </button>
-          ))}
+        <button type="button" className="mt-name" onClick={() => { tapHaptic(); setSwitchOpen(true); }} aria-haspopup="dialog" data-testid="module-switch">
+          <span className="mt-name-text">{cfg.title}</span> <Icon name="chevronDown" size={16} />
+        </button>
+        <nav className="mt-strip mt-strip--fit" ref={stripRef} aria-label={`${cfg.title} pages`} data-testid="module-strip">
+          {(() => {
+            const chips = groups.map((g) => ({ id: g.pages[0], label: g.label, on: g === activeGroup }));
+            let shown = chips.slice(0, fitN);
+            const on = chips.find((c) => c.on);
+            if (on && !shown.includes(on)) shown = [...shown.slice(0, fitN - 1), on];
+            const moreOn = !shown.some((c) => c.on);
+            return (
+              <>
+                {shown.map((it) => (
+                  <button key={it.id} type="button" className={it.on ? "mt-chip mt-chip--on" : "mt-chip"} aria-current={it.on ? "page" : undefined} data-phone-page={it.id} onClick={() => go(it.id)}>
+                    {it.label}
+                  </button>
+                ))}
+                {(chips.length > shown.length || more.length > 0) && (
+                  <button type="button" className={moreOn ? "mt-chip mt-chip--more mt-chip--on" : "mt-chip mt-chip--more"} data-phone-page="more" data-testid="module-strip-more"
+                    onClick={() => { tapHaptic(); window.dispatchEvent(new CustomEvent("acc-open-more", { detail: { moduleId: cfg.moduleId } })); }}>
+                    {moreOn && activeMore ? activeMore.label : "More"} <Icon name="chevronDown" size={13} />
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </nav>
       </div>
+      {switchOpen &&
+        createPortal(
+          <>
+            <div className="module-sheet-backdrop" onClick={() => setSwitchOpen(false)} aria-hidden="true" />
+            <div className="module-sheet" role="dialog" aria-modal="true" aria-label="Switch module" data-testid="module-switch-sheet">
+              <div className="module-sheet-grab" aria-hidden="true" />
+              <p className="more-group-title">Switch module</p>
+              {otherCfgs.map((m) => {
+                const on = m.moduleId === cfg.moduleId;
+                const n = counts[m.moduleId] || 0;
+                return (
+                  <button key={m.moduleId} type="button" className={on ? "module-sheet-item module-sheet-item--active" : "module-sheet-item"} onClick={() => switchModule(m.moduleId)} data-module={m.moduleId}>
+                    <Icon name={m.moduleId === "oil-analysis" ? "droplet" : "graphs"} size={20} />
+                    <span>{m.title}</span>
+                    {n > 0 && <span className="mt-switch-badge">{n > 99 ? "99+" : n}</span>}
+                    {on && <Icon name="compliance" size={16} style={{ marginInlineStart: n > 0 ? 8 : "auto", color: "var(--shell-accent)" }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </>,
+          document.body,
+        )}
 
       {showSubRow && (
         <div className="module-tabs-sub">

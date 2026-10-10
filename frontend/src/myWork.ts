@@ -48,6 +48,32 @@ export function myWorkModules(access: Record<string, ModuleAccess | undefined>):
   return MODULE_BACKENDS.filter((m) => m.myWork && !!access[m.id] && tabLevel(access[m.id], 'mywork') !== 'Hidden');
 }
 
+// "Needs you" per module (phone More hub badges): what My Work counts as to
+// do now, remembered from the last load (this device).
+const COUNTS_KEY = 'acc.workCounts.v1';
+export function workCountsOf(work: ModuleWork[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  work.forEach((m) => {
+    out[m.moduleId] = m.sections.filter((s) => !s.summary && s.severity === 'action').reduce((n, s) => n + (s.total || 0), 0);
+  });
+  return out;
+}
+export function rememberWorkCounts(work: ModuleWork[]) {
+  try {
+    localStorage.setItem(COUNTS_KEY, JSON.stringify({ at: Date.now(), counts: workCountsOf(work) }));
+  } catch {
+    /* storage blocked */
+  }
+}
+export function lastWorkCounts(): { at: number; counts: Record<string, number> } {
+  try {
+    const v = JSON.parse(localStorage.getItem(COUNTS_KEY) || 'null');
+    return v && v.counts ? v : { at: 0, counts: {} };
+  } catch {
+    return { at: 0, counts: {} };
+  }
+}
+
 export async function fetchMyWork(sessionToken: string, modules: ModuleBackend[]): Promise<ModuleWork[]> {
   const results = await Promise.allSettled(modules.map((m) => moduleGet(m.id, sessionToken, { action: 'getMyWork' })));
   return results.map((r, i) => {

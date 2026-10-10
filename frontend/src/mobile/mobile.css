@@ -65,6 +65,37 @@
   border-bottom: 0;
 }
 
+/* More as a hub (step 6) */
+.more-account { border-bottom: 0; border-top: 1px solid var(--shell-border, #d9e0e8); padding-top: 12px; margin-top: 12px; }
+.more-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--shell-border, #d9e0e8); border-radius: 12px; padding: 0 12px; background: var(--shell-bg, #f4f6f9); color: var(--shell-text-secondary, #4b5563); margin: 4px 2px 0; }
+.more-search input { flex: 1; min-width: 0; border: 0; background: transparent; font: 400 15px var(--sans); padding: 11px 0; color: var(--shell-text, #0f1b2d); outline: none; }
+.more-recent { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 2px; }
+.more-recent-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--shell-border, #d9e0e8); background: var(--shell-card-bg, #fff); color: var(--shell-text, #0f1b2d); border-radius: 999px; padding: 7px 12px; font: 600 13.5px var(--sans); cursor: pointer; }
+.more-recent-chip--on { border-color: var(--shell-accent, #1e5bb8); color: var(--shell-accent, #1e5bb8); }
+.more-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 4px 2px; }
+.more-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; border: 1px solid var(--shell-border, #d9e0e8); background: var(--shell-card-bg, #fff); border-radius: 14px; padding: 12px 6px 10px; cursor: pointer; font-family: var(--sans); color: var(--shell-text, #0f1b2d); min-width: 0; }
+.more-tile b { font-size: 13.5px; line-height: 1.2; }
+.more-tile small { font-size: 12px; color: var(--shell-text-secondary, #4b5563); }
+.more-tile--soon { border-style: dashed; }
+.more-tile-badge { position: absolute; top: 6px; inset-inline-end: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--shell-danger, #c42b2b); color: #fff; font: 700 11.5px/20px var(--sans); }
+.more-tile-icon { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; }
+.more-tile-icon--oil { background: color-mix(in srgb, #2563c9 12%, transparent); color: #2563c9; }
+.more-tile-icon--vib { background: color-mix(in srgb, #7a3fc4 12%, transparent); color: #7a3fc4; }
+.more-tile-icon--other { background: color-mix(in srgb, var(--shell-text-secondary, #4b5563) 12%, transparent); color: var(--shell-text-secondary, #4b5563); }
+.more-account-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 2px 4px; }
+.more-action { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--shell-border, #d9e0e8); background: var(--shell-card-bg, #fff); color: var(--shell-text, #0f1b2d); border-radius: 12px; padding: 9px 4px; font: 600 13px var(--sans); cursor: pointer; }
+.more-action.more-lang { flex-direction: row; flex-wrap: nowrap; gap: 4px; white-space: nowrap; border-radius: 12px; padding: 9px 4px; font: 600 13px var(--sans); color: var(--shell-text, #0f1b2d); }
+.more-action.more-signout { color: var(--shell-danger, #c42b2b); }
+.more-drill-head { display: flex; align-items: center; gap: 10px; padding: 4px 2px 10px; }
+.more-back { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--shell-border, #d9e0e8); background: var(--shell-card-bg, #fff); color: var(--shell-text, #0f1b2d); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.more-drill-title { display: flex; flex-direction: column; }
+.more-drill-title b { font-size: 16px; color: var(--shell-text, #0f1b2d); }
+.more-drill-title small { font-size: 12.5px; color: var(--shell-text-secondary, #4b5563); }
+.more-muted { color: var(--shell-text-secondary, #4b5563); font-weight: 400; }
+.more-empty { padding: 10px 6px; }
+.more-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+[dir='rtl'] .more-back svg { transform: none !important; }
+
 /* New-version prompt (UpdatePrompt.tsx) */
 .update-toast {
   position: fixed;

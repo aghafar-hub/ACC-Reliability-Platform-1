@@ -26,6 +26,9 @@ export function useBackClose(open: boolean, close: () => void) {
     let popped = false;
     const onPop = () => {
       if (stack[stack.length - 1] !== id) return;
+      // landed on our own entry: a nested popup (e.g. More → a module's
+      // pages) just dropped its entry — this popup stays open
+      if (window.history.state?.accSheet === id) return;
       popped = true;
       stack.pop();
       closeRef.current();

@@ -193,6 +193,54 @@
   .module-tabs-sub {
     padding: 8px 16px 0;
   }
+  /* step 6: "Module name ▾" + 3 chips and More ▾, no sideways scroll */
+  .mt-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 32px);
+    margin: 0 16px 8px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid var(--shell-border, #d9e0e8);
+    border-radius: 10px;
+    background: var(--shell-card-bg, #fff);
+    color: var(--shell-text, #0f1b2d);
+    font: 700 15px var(--sans);
+    cursor: pointer;
+  }
+  .mt-name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mt-strip--fit {
+    overflow: hidden;
+  }
+  .mt-strip--fit .mt-chip {
+    flex: 0 0 auto;
+  }
+  .mt-chip--more {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--shell-accent, #1e5bb8);
+  }
+  .mt-chip--more.mt-chip--on {
+    color: var(--shell-accent-text, #fff);
+  }
+  .mt-switch-badge {
+    margin-inline-start: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--shell-danger, #c42b2b);
+    color: #fff;
+    font: 700 11.5px/20px var(--sans);
+    text-align: center;
+  }
 }
 .module-sheet-backdrop {
   position: fixed;

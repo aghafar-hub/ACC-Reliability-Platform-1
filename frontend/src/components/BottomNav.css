@@ -205,3 +205,24 @@
   border: 2px solid var(--shell-card-bg, #fff);
   box-sizing: content-box;
 }
+
+/* ＋ sheet groups (step 6) */
+.quick-sheet-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 4px 2px;
+  font: 700 12px var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--shell-text-secondary, #4b5563);
+}
+.quick-sheet-star {
+  color: #c98a00;
+  margin-inline-start: auto;
+  font-size: 16px;
+}
+.quick-sheet-group .quick-sheet-star {
+  margin-inline-start: 0;
+  font-size: 13px;
+}

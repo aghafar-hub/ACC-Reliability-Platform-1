@@ -128,18 +128,26 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
 
 ## 8. Phone (≤860 px; mobile app design, M1–M3)
 
-- **Header:** module or page name, search, and sync only. The bell lives in
-  the bottom bar's Alerts (with an unread badge). Settings, account,
-  language and sign-out are in **More**.
-- **Bottom bar:** Home · Equipment · ＋ · Alerts · More. **More** is a sheet
-  listing every page of every module, plus My Work, Settings, My
-  delegations and Sign out (`src/mobile/MoreSheet.tsx`).
-- **Module pages:** an **Oil | Vibration** switch, then the pages as a
-  chip strip you swipe sideways. Both stay pinned under the header.
+- **Header:** module or page name, search, sync and the bell. Settings,
+  account, language and sign-out are in **More**.
+- **Bottom bar:** Home · Equipment · ＋ · My Work · More.
+- **More is a hub** (step 6, `src/mobile/MoreSheet.tsx`), the same size
+  with two modules or ten: search (pages and Lub / Vib IDs), Recent pages
+  (`src/mobile/recent.ts`), one tile per module (red badge = My Work items
+  waiting for you), the platform pages as chips, then the account row with
+  Settings · EN / عربي · Log out. Tapping a tile slides to that module's
+  pages; Back returns to the hub.
+- **＋ sheet:** ★ Most used (top 2, counted on this device) first, then the
+  entries grouped under each module's name.
+- **Module pages:** a **Module name ▾** button (opens "Switch module" with
+  the badges), then the module's pages as chips with **full names** — as
+  many as fit (3, 2 or 1, open page always shown) — and **More ▾** for the
+  rest, which opens the hub straight on that module. No sideways swipe.
   Switching module keeps the same kind of page (Dashboard → Dashboard).
 - **Back:** every sheet, popup and panel adds a history step
   (`useBackClose` in `src/mobile/useBackClose.ts`), so the iPhone swipe and
-  the Android back button close it instead of leaving the page.
+  the Android back button close it instead of leaving the page. Nested
+  sheets (hub → module pages) close one level at a time.
 - **Scrolling:** the page itself scrolls (no inner scroll box), so the
   browser bar collapses and a status-bar tap goes to the top. Each page's
   scroll position is kept for the visit (`ScrollKeeper`).

@@ -55,6 +55,16 @@ function ShellRoot() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Phone "More" (bottom bar) — a sheet with every page, settings and account.
   const [moreOpen, setMoreOpen] = useState(false);
+  // a module's page strip "More ▾" opens it straight on that module's pages
+  const [moreModule, setMoreModule] = useState<string | null>(null);
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      setMoreModule((e as CustomEvent<{ moduleId?: string }>).detail?.moduleId || null);
+      setMoreOpen(true);
+    };
+    window.addEventListener('acc-open-more', onOpen);
+    return () => window.removeEventListener('acc-open-more', onOpen);
+  }, []);
   const location = useLocation();
 
   // Belt-and-suspenders: every link inside Sidebar already closes the
@@ -170,8 +180,8 @@ function ShellRoot() {
         </main>
         {/* <=860px only (BottomNav.css) — fixed to the viewport bottom, so
             it's a sibling of <main>, not nested inside it. */}
-        <BottomNav onOpenMore={() => setMoreOpen(true)} moreOpen={moreOpen} />
-        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
+        <BottomNav onOpenMore={() => { setMoreModule(null); setMoreOpen(true); }} moreOpen={moreOpen} />
+        <MoreSheet open={moreOpen} startModule={moreModule} onClose={() => setMoreOpen(false)} />
         <ScrollKeeper />
         <InstallBanner />
       </div>
