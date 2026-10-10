@@ -89,6 +89,9 @@ function doPost(e) {
 }
 
 function doGet(e) {
+  // Install check (InstallCheck.js): open <web app address>?action=installCheck
+  // in a browser to see whether this deployment runs the latest files.
+  if (e && e.parameter && e.parameter.action === 'installCheck') return ContentService.createTextOutput(checkInstall());
   return safeHandle_(function () {
     return ok_({ status: 'Platform Core is running' });
   });
