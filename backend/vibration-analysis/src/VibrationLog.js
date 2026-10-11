@@ -265,6 +265,13 @@ function vlScopeOf_(x) {
   return '';
 }
 
+// A drive of a merged machine can be read in another line's report (its
+// Report Equipment ID and Area say so); every other point: its machine's scope.
+function vlPointScope_(p, eq) {
+  if (p && p['Report Area']) return vlScopeOf_({ contractor: eq.contractor, line: p['Report Area'] }) || eq.scope;
+  return eq.scope;
+}
+
 function vlScopes_(master) {
   var out = {};
   Object.keys(master.eq).forEach(function (id) {
@@ -482,7 +489,7 @@ function handleSaveVibEntries(params, session) {
     var line = 'Row ' + (i + 1) + ' (' + (vibId || 'no VIB ID') + '): ';
     if (!p) { problems.push(line + 'unknown or inactive VIB ID.'); return; }
     var eq = master.eq[p['Equipment ID']] || {};
-    if (eq.contractor !== rep['Contractor'] || eq.scope !== rep['Report scope']) { problems.push(line + 'not in ' + rep['Contractor'] + ' ' + rep['Report scope'] + '.'); return; }
+    if (eq.contractor !== rep['Contractor'] || vlPointScope_(p, eq) !== rep['Report scope']) { problems.push(line + 'not in ' + rep['Contractor'] + ' ' + rep['Report scope'] + '.'); return; }
     var date = vlDate_(x.date);
     if (!date) { problems.push(line + 'measurement date missing.'); return; }
     if (date > vlToday_()) { problems.push(line + 'measurement date is in the future.'); return; }

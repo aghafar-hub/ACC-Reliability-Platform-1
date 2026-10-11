@@ -94,6 +94,28 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 - The old pages *Equipment Reading*, *Graphs* and the old *New reading* were replaced (they read the old RMS /
   SPM DATA tabs, which the Vibration Log now holds).
 
+## One machine, two drives
+
+Some machines have two drives that the contractor measures and reports as two
+machines (RHI's bucket elevators: 342.BE050 "m01" and 342.BE051 "m02"). In the
+app they are **one Equipment ID** (the platform's), and the drive is part of
+each VIB ID: `Vb-342.BE050-M1-MDE-RMS`, `Vb-342.BE050-M2-MDE-RMS` (position
+`M2-MDE`, point "M2 Motor DE").
+
+- **VIB ID Registry → Report_Equipment_ID** (column K): the ID the report uses
+  for that drive (342.BE051). The report import finds the drive by it, matches
+  "Motor DE" to that drive's points only, and shows "(drive M2)".
+- A drive read in another line's report (341.BE040's drive 2 is in RHI's Line 2
+  report as 342.BE041) keeps that line in the registry's **Area**; that report
+  takes that drive's readings, not the other drive's.
+- The machine has one condition, one open action, one history row per month
+  and one register row.
+- **MergeDrives.js** did the one-time merge (October 2026) of 341.BE040
+  (+342.BE041), 342.BE050 (+342.BE051), 351.BE350 (351.BE340 = M1, 351.BE350 =
+  M2, reported as 351.BE341) and 352.BE340 (+352.BE341). Run
+  `mergeTwoDriveMachinesDryRun`, then `mergeTwoDriveMachines`; a second run
+  changes nothing. Another machine: add a group to `MD_GROUPS`.
+
 ## Limits, intervals and automatic draft actions (step 3)
 
 **Limits & intervals** (More → Limits & intervals)

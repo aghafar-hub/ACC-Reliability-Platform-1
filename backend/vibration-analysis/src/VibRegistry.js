@@ -36,6 +36,12 @@ function readVibRegistry(ss) {
       'Contractor':         String(row[6]||'').trim(),
       'Status':             String(row[7]||'').trim(),
       'Area':               String(row[8]||'').trim(),
+      // the ID the contractor's report uses for this point's machine (a
+      // drive of a merged machine: MergeDrives.js); empty = the Equipment ID
+      'Report Equipment ID': String(row[10]||'').trim(),
+      // that drive's own line (Area as typed in the registry: the platform
+      // area below is the machine's)
+      'Report Area':        String(row[10]||'').trim() ? String(row[8]||'').trim() : '',
       _rowNum: dataStart + i,
     });
   }

@@ -4,7 +4,7 @@
 // Pure: no React, no network — tested in Node.
 import { canonId } from "./rhiReport.js";
 import { band, toLevel, LEVEL_RANK } from "../levels.js";
-import { limitsFor } from "../vibModel.js";
+import { limitsFor, scopeOf } from "../vibModel.js";
 
 // Merge several read files of one month (ASEC may send one or two).
 export function mergeParsed(list) {
@@ -87,7 +87,26 @@ export function findVib(machine, family, point, sub, raw) {
 }
 
 // ── machine → app machine ──
+// A drive of a machine with two drives (VIB IDs Vb-342.BE050-M1-… / -M2-…):
+// the report names the drive by its own ID (342.BE051, the point's Report
+// Equipment ID). Only that drive's points, without the M1 / M2 prefix, so the
+// report's "Motor DE" finds its VIB ID; the drive's own line decides the scope.
+function driveOf(eqIn, equipment) {
+  const id = canonId(eqIn);
+  if (!id) return null;
+  for (const x of Object.values(equipment || {})) {
+    const pts = (x.points || []).filter((p) => p.reportEq && canonId(p.reportEq) === id);
+    if (!pts.length) continue;
+    const strip = (p) => ({ ...p, positionCode: String(p.positionCode || "").replace(/^M\d+-/i, ""), description: String(p.description || "").replace(/^M\d+\s+/i, "") });
+    const area = pts.find((p) => p.reportArea)?.reportArea;
+    return { ...x, points: pts.map(strip), scope: (area && scopeOf(x.contractor, area)) || x.scope, drive: (String(pts[0].positionCode).match(/^(M\d+)-/i) || [])[1] || "" };
+  }
+  return null;
+}
+
 function findMachine(m, equipment, rep) {
+  const drive = driveOf(m.eq, equipment);
+  if (drive) return { hit: drive, how: "drive" };
   const all = Object.values(equipment || {});
   const id = canonId(m.eq);
   let hit = equipment[m.eq] || equipment[id] || all.find((x) => canonId(x.id) === id);
@@ -169,6 +188,7 @@ export function matchImport(merged, rep, equipment, existing = []) {
       eqId: hit?.id || "",
       eqName: hit?.name || "",
       matchedBy: hit ? how : "",
+      drive: hit?.drive || "",
       machineProblem: "",
       skipMachine: false,
       conditionRaw: m.condition || "",

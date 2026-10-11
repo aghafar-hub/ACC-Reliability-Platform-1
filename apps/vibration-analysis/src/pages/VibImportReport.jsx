@@ -295,6 +295,7 @@ function MachineCard({ m, T, s, month, picks, equipment, edit, onPick, isMobile 
           <span style={{ fontSize: 13 }}>
             <b>{m.eqId}</b> {m.eqName}
             {m.matchedBy === "name" && <span style={{ color: T.textSecondary }}> (by name)</span>}
+            {m.matchedBy === "drive" && <span style={{ color: T.textSecondary }}> (drive {m.drive})</span>}
           </span>
         ) : (
           <EquipmentSearch options={picks} value={m.eqId} onChange={(v) => onPick(m.key, v)} placeholder="Pick the machine…" width={260} ariaLabel={`Machine for ${m.eqIn}`} testid={`vimp-pick-${m.eqIn || m.nameIn}`} />

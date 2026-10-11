@@ -299,6 +299,9 @@ export function rowToVibPoint(row) {
     contractor: String(row.Contractor || "").trim(),
     status: String(row.Status || ""),
     area: String(row.Area || "").trim(),
+    // a drive of a merged machine: the ID its report uses, and that drive's line
+    reportEq: String(row["Report Equipment ID"] || "").trim(),
+    reportArea: String(row["Report Area"] || "").trim(),
     _rowNum: row._rowNum,
   };
 }

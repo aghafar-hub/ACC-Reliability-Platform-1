@@ -9,7 +9,7 @@ import { Donut } from "../components/DashCharts";
 import Tile, { PageHeader, TabBar } from "../components/Tile";
 import { LevelPill, StatePill } from "../components/Level";
 import { LEVELS, levelColor, toLevel } from "../levels";
-import { fieldsFor, monthLabel, shortDate, systemStatus } from "../vibModel";
+import { fieldsFor, monthLabel, scopeOf, shortDate, systemStatus } from "../vibModel";
 import { reportTone, workflowTone } from "../tones";
 import VibImportReport from "./VibImportReport";
 
@@ -550,7 +550,10 @@ function ReadingsEditor({ webhookUrl, rep, entries, scopeEquipment, onCancel, on
   const machines = useMemo(
     () =>
       Object.values(scopeEquipment || {})
-        .filter((x) => x.contractor === rep.Contractor && x.scope === rep["Report scope"] && x.points.length)
+        .filter((x) => x.contractor === rep.Contractor)
+        // a drive read in another line's report (merged machine): just that drive's points
+        .map((x) => (x.scope === rep["Report scope"] ? x : { ...x, points: x.points.filter((p) => p.reportArea && scopeOf(x.contractor, p.reportArea) === rep["Report scope"]) }))
+        .filter((x) => x.points.length)
         .sort((a, b) => a.id.localeCompare(b.id)),
     [scopeEquipment, rep]
   );
