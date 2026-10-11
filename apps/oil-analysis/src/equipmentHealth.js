@@ -9,7 +9,7 @@
 //
 //   0 → Good, 1–2 → Fair, 3+ → Poor. "Needs attention" = not Good.
 
-import { isActionOverdue, normActionStatus, ACTION_STATUS, sampleTrackerStatus } from "./parsers";
+import { isActionOverdue, isSampledPoint, lastSampleDate, normActionStatus, ACTION_STATUS, sampleTrackerStatus } from "./parsers";
 
 export const HEALTH_COLOR = { Good: "success", Fair: "warning", Poor: "danger" };
 export const HEALTH_RANK = { Good: 0, Fair: 1, Poor: 2 };
@@ -22,7 +22,7 @@ function toTime(d) {
 }
 
 // Everything for one lubrication point, from data the app already holds.
-export function pointHealth({ reg, samples, oilChange, actions, topUps, now = Date.now() }) {
+export function pointHealth({ reg, samples, oilChange, actions, topUps, tracker, now = Date.now() }) {
   const sorted = [...(samples || [])].filter((s) => s.sampledDate).sort((a, b) => toTime(b.sampledDate) - toTime(a.sampledDate));
   const latest = sorted[0] || null;
   const reasons = []; // { text, weight, kind }
@@ -35,9 +35,11 @@ export function pointHealth({ reg, samples, oilChange, actions, topUps, now = Da
   if (oilChange?.status === "Overdue") add(3, "Oil change overdue", "change");
 
   let sampleState = null;
-  if (reg?.oilAnalysisRequired === "Yes") {
-    sampleState = sampleTrackerStatus(latest?.sampledDate || "", reg.interval || "");
-    if (sampleState.label === "MISSING") add(2, latest ? "Sample missing" : "Never sampled", "sample");
+  // same sampling rule as the Oil Dashboard and the Oil Analysis Report
+  if (isSampledPoint(reg)) {
+    const last = lastSampleDate(latest?.sampledDate, tracker);
+    sampleState = sampleTrackerStatus(last, reg.interval || "");
+    if (sampleState.label === "MISSING") add(2, last ? "Sample missing" : "Never sampled", "sample");
     else if (sampleState.label === "OVERDUE") add(1, "Sample overdue", "sample");
   }
 
@@ -67,7 +69,7 @@ export function pointHealth({ reg, samples, oilChange, actions, topUps, now = Da
 
 // Index the app's lists by lubrication point once, so a list of hundreds of
 // points doesn't re-scan every list per row.
-export function indexByLp({ samples, actions, oilChanges, topUps }) {
+export function indexByLp({ samples, actions, oilChanges, topUps, trackerByEquip }) {
   const by = (list, key) => {
     const m = new Map();
     (list || []).forEach((x) => {
@@ -83,6 +85,7 @@ export function indexByLp({ samples, actions, oilChanges, topUps }) {
     actions: by(actions, (a) => a.equipmentCode || a.unitId),
     oilChange: new Map((oilChanges || []).map((o) => [o.equipmentCode, o])),
     topUps: by(topUps, (t) => t.lpId),
+    tracker: trackerByEquip || {},
   };
 }
 
@@ -93,6 +96,7 @@ export function healthForLp(reg, idx, now) {
     oilChange: idx.oilChange.get(reg.code) || null,
     actions: idx.actions.get(reg.code) || [],
     topUps: idx.topUps.get(reg.code) || [],
+    tracker: idx.tracker?.[reg.code],
     now,
   });
 }

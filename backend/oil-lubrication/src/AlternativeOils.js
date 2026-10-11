@@ -43,8 +43,10 @@ function ensureServerHeaders_(sheet, headerRow, startCol, headers) {
   if (needs) range.setValues([headers]);
 }
 
+// Oil names compare without case or spaces: "Mobilgear 600 XP 460" and
+// "Mobil gear 600 XP 460" are the same oil.
 function normOil_(v) {
-  return String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return String(v || "").toLowerCase().replace(/\s+/g, "");
 }
 
 // Same oil: same type, and the same brand when both name one.

@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
-import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket } from "./parsers";
+import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket, lastSampleDate } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
 import { actionsForSample, cellMark, changeLabel, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "./labReport";
 import { LAB_GROUPS, LAB_PARAMS, SERIES_LIGHT, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
@@ -688,7 +688,7 @@ function buildSampleSection(doc, { trackerByEquip, equipmentRegistry, contractor
 
   const rows = registry.map((eq) => {
     const history = (trackerByEquip || {})[eq.code] || [];
-    const lastDate = history[0]?.date || "";
+    const lastDate = lastSampleDate("", history);
     const status = sampleTrackerStatus(lastDate, eq.interval);
     return { eq, lastDate, status, sortDays: sampleOverdueDays(lastDate, eq.interval) ?? -999999 };
   });
@@ -1669,7 +1669,7 @@ function excelMissingOverdueSamples({ trackerByEquip, equipmentRegistry, contrac
   const rows = registry
     .map((eq) => {
       const history = (trackerByEquip || {})[eq.code] || [];
-      const lastDate = history[0]?.date || "";
+      const lastDate = lastSampleDate("", history);
       const status = sampleTrackerStatus(lastDate, eq.interval);
       return { eq, lastDate, status };
     })

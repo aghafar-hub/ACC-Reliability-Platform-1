@@ -103,7 +103,8 @@ function getDashboard(scope) {
   // Oil Change LOG is an event log, not a per-point status row — "overdue"
   // has to be derived: take each LP_ID's most recent event and check its
   // own NextDueDate (col L / index 11), computed at log time from that
-  // point's Oil_Change_Interval. Points with no logged event yet have no
+  // point's Oil_Change_Interval (or, when empty, that change + the interval
+  // — see oilChangeNextDue_). Points with no logged event yet have no
   // baseline to call overdue against, so they're not counted either way.
   var ocRows = readSheet(ss, "Oil Change LOG", true);
   var latestDueByLp = {};
@@ -118,11 +119,11 @@ function getDashboard(scope) {
   }
   var overdueOilChanges = 0;
   var nowMs = Date.now();
+  var changeInterval = {};
+  (readEquipmentRegistry().equipment || []).forEach(function (eq) { changeInterval[eq.code] = eq.oilChangeInterval; });
   Object.keys(latestDueByLp).forEach(function(lp) {
-    var due = latestDueByLp[lp].due;
-    if (!due) return;
-    var d = (due instanceof Date) ? due : new Date(due);
-    if (!isNaN(d.getTime()) && d.getTime() < nowMs) overdueOilChanges++;
+    var d = oilChangeNextDue_(latestDueByLp[lp].date, latestDueByLp[lp].due, changeInterval[lp]);
+    if (d && d.getTime() < nowMs) overdueOilChanges++;
   });
 
   // Action Tracker — col K (index 10) = Status, count Open/In Progress/Waiting Stoppage

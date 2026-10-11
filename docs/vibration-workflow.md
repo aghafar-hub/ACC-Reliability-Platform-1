@@ -115,6 +115,11 @@ each VIB ID: `Vb-342.BE050-M1-MDE-RMS`, `Vb-342.BE050-M2-MDE-RMS` (position
   M2, reported as 351.BE341) and 352.BE340 (+352.BE341). Run
   `mergeTwoDriveMachinesDryRun`, then `mergeTwoDriveMachines`; a second run
   changes nothing. Another machine: add a group to `MD_GROUPS`.
+- The merge recounts "Equipment with readings" (and "VIB IDs read", "Entries")
+  on the Vibration Log rows of the reports those machines are in. For a merge
+  run before this, use `recountVibrationLogDryRun`, then `recountVibrationLog`
+  (Apps Script editor). The status columns of old reports count readings, not
+  machines, so the recount leaves them alone.
 
 ## Limits, intervals and automatic draft actions (step 3)
 

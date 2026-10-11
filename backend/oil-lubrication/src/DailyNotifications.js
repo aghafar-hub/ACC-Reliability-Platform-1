@@ -85,7 +85,7 @@ function lpsDueSoon_(ss, today, days) {
     var lp = String(r[1] || "").trim();
     var ev = asDate_(r[4]);
     if (!lp || !ev) return;
-    if (!nextChange[lp] || ev.getTime() > nextChange[lp].ev.getTime()) nextChange[lp] = { ev: ev, next: asDate_(r[11]) };
+    if (!nextChange[lp] || ev.getTime() > nextChange[lp].ev.getTime()) nextChange[lp] = { ev: ev, next: r[11] };
   });
   var lastSample = {};
   readSheet(ss, "Data_Entry", true).forEach(function (r) {
@@ -97,6 +97,7 @@ function lpsDueSoon_(ss, today, days) {
   equipment.forEach(function (eq) {
     if (!eq.code || !eq.contractor) return;
     var nc = nextChange[eq.code];
+    if (nc) nc = { ev: nc.ev, next: oilChangeNextDue_(nc.ev, nc.next, eq.oilChangeInterval) };
     if (nc && nc.next && nc.next.getTime() >= today.getTime() && nc.next.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Oil Change"]) {
       out.push({ code: eq.code, contractor: eq.contractor, type: "Oil change", due: nc.next });
     }

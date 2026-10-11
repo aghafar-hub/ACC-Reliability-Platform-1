@@ -278,6 +278,7 @@ export default function Equipment({
   onCodeChange,
   focus,
   allTopUps: topUpsProp,
+  trackerByEquip,
 }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
@@ -296,7 +297,7 @@ export default function Equipment({
     return () => { cancelled = true; };
   }, [webhookUrl, topUpsProp, freshTick]);
   const allTopUps = topUpsProp !== undefined ? topUpsProp || NO_TOP_UPS : ownTopUps;
-  const lpIndex = useMemo(() => indexByLp({ samples, actions, oilChanges, topUps: allTopUps }), [samples, actions, oilChanges, allTopUps]);
+  const lpIndex = useMemo(() => indexByLp({ samples, actions, oilChanges, topUps: allTopUps, trackerByEquip }), [samples, actions, oilChanges, allTopUps, trackerByEquip]);
   // Stock products, for the oil-stock gauge on a point page (D5).
   const [products, setProducts] = useState(null);
   useEffect(() => {
@@ -433,7 +434,7 @@ export default function Equipment({
   const criticality = isLpView ? criticalityFor(latest, oilChangeOverdue) : "Normal";
   const criticalityColor = criticality === "High" ? "danger" : criticality === "Medium" ? "warning" : "success";
   const lpHealth = isLpView && reg
-    ? pointHealth({ reg, samples: samplesForEquip, oilChange: lpOilChangeState, actions: actionsForEquip, topUps: topUps.length ? topUps : lpIndex.topUps.get(reg.code) || [] })
+    ? pointHealth({ reg, samples: samplesForEquip, oilChange: lpOilChangeState, actions: actionsForEquip, topUps: topUps.length ? topUps : lpIndex.topUps.get(reg.code) || [], tracker: lpIndex.tracker[reg.code] })
     : null;
   const health = lpHealth?.health || "Good";
   // Oil changes are logged from confirmed routes; by hand only by engineers.

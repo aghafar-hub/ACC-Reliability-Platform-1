@@ -13,8 +13,17 @@ const OPEN = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 const UNIT = { RMS: "mm/s", SPM: "dBsv", Gs: "g" };
 const RANK = { Normal: 1, Caution: 2, Alert: 3, Danger: 4 };
 
+// The month a machine's last report must be in or after to count as read
+// (Vibration Dashboard: "Not read N m", Settings → Vibration Analysis → Intervals).
+export function notReadCutoff(today, months = 6) {
+  const [y, m] = String(today).slice(0, 7).split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 - (Math.max(1, months) - 1), 1));
+  return d.toISOString().slice(0, 7);
+}
+
 export function buildVibPlant({ summary, actions }) {
   const today = summary?.today || new Date().toISOString().slice(0, 10);
+  const cutoff = notReadCutoff(today, Number(summary?.notReadMonths) || 6);
   const all = actions?.actions || [];
   const open = all.filter((a) => OPEN.includes(a.Status));
   const pastDue = (a) => ["Open", "Waiting Stoppage"].includes(a.Status) && a["Due date"] && a["Due date"] < today;
@@ -29,15 +38,20 @@ export function buildVibPlant({ summary, actions }) {
   const machines = (summary?.equipment || [])
     .filter((e) => !e.inactive)
     .map((e) => {
-      const word = e.status || "";
-      const late = !!e.nextDue && e.nextDue < today;
+      // a last report older than the "not read" window is not today's condition
+      const stale = !e.lastMonth || e.lastMonth < cutoff;
+      const word = stale ? "" : e.status || "";
+      // the Measurement Tracker's state (interval + grace); older backends: next due passed
+      const late = e.measureState ? e.measureState === "Overdue" : !!e.nextDue && e.nextDue < today;
+      const never = e.measureState ? e.measureState === "Never measured" : !e.lastDate;
       const acts = openBy.get(e.equipmentId) || [];
       const overdue = acts.filter(pastDue).length;
       const worst = (e.points || []).slice().sort((a, b) => (RANK[b.final] || 0) - (RANK[a.final] || 0) || (Number(b.value) || 0) - (Number(a.value) || 0))[0];
       const reasons = [];
       if (RANK[word] >= 2) reasons.push(`Vibration ${word}`);
       if (late) reasons.push("Measurement overdue");
-      if (!e.lastDate) reasons.push("Never measured");
+      if (never) reasons.push("Never measured");
+      else if (stale && e.status) reasons.push(`Not read in ${Number(summary?.notReadMonths) || 6} months`);
       if (overdue) reasons.push(`${overdue} action${overdue > 1 ? "s" : ""} past due`);
       return {
         id: e.equipmentId,
@@ -52,7 +66,7 @@ export function buildVibPlant({ summary, actions }) {
         measureLate: late,
         nextDue: e.nextDue ? { date: e.nextDue, label: "Vibration measurement", late } : null,
         facts: [
-          { label: "Latest status", value: word ? `${word} · ${e.lastDate || e.lastMonth}` : "Not measured yet", tone: word === "Danger" ? "purple" : word === "Alert" ? "danger" : word === "Caution" ? "warning" : "" },
+          { label: "Latest status", value: word ? `${word} · ${e.lastDate || e.lastMonth}` : e.status ? `Not read lately · last ${e.status} · ${e.lastDate || e.lastMonth}` : "Not measured yet", tone: word === "Danger" ? "purple" : word === "Alert" ? "danger" : word === "Caution" ? "warning" : "" },
           { label: "Worst point", value: worst && worst.value != null && worst.value !== "" ? `${[worst.position, worst.point].filter(Boolean).join(" ")} · ${worst.value} ${UNIT[worst.family] || ""}`.trim() : "—" },
           { label: "Next measurement", value: e.nextDue ? `${e.nextDue}${late ? " · overdue" : ""}` : "—", tone: late ? "danger" : "" },
           { label: "Measuring points", value: String((e.vibIds && e.vibIds.length) || (e.points || []).length || "—") },

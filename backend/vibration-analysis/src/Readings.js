@@ -106,6 +106,9 @@ function handleGetVibEquipmentSummary(params, session) {
       };
     }
   });
+  // When it is due: the Measurement Tracker's rule (readings + the old
+  // tracker's months, interval + grace), so every page agrees on "overdue".
+  var col = vtCollect_(ss), today = vlToday_();
   var out = [];
   Object.keys(master.eq).forEach(function (eqId) {
     var e = master.eq[eqId];
@@ -113,15 +116,17 @@ function handleGetVibEquipmentSummary(params, session) {
     var x = per[eqId] || { months: {}, points: {}, count: 0 };
     var ms = Object.keys(x.months).sort();
     var last = ms[ms.length - 1], prev = ms[ms.length - 2];
+    var measured = (col.per[eqId] || {}).dates || [];
+    var due = vtDueState_(measured.length ? measured[measured.length - 1] : '', e.interval || VL_DEFAULT_INTERVAL, e.inactive, today);
     out.push({
       equipmentId: eqId, name: e.name, line: e.line, contractor: e.contractor, scope: e.scope, vibIds: e.vibIds,
       status: last ? x.months[last].worst : '', lastMonth: last || '', lastDate: last ? x.months[last].date : '',
       lastReportId: last ? x.months[last].reportId : '', prevStatus: prev ? x.months[prev].worst : '', prevMonth: prev || '',
       readings: x.count, rms: e.rms, spm: e.spm, gs: e.gs, interval: e.interval, inactive: e.inactive,
-      nextDue: last && x.months[last].date ? vlAddDays_(x.months[last].date, e.interval || VL_DEFAULT_INTERVAL) : '',
+      nextDue: due.nextDue, measureState: due.state,
       points: Object.keys(x.points).sort().map(function (k) { return x.points[k]; }),
     });
   });
   out.sort(function (a, b) { return a.equipmentId < b.equipmentId ? -1 : 1; });
-  return { status: 'ok', today: vlToday_(), equipment: out, me: { contractor: me.contractor, acc: me.acc, canApprove: me.canApprove } };
+  return { status: 'ok', today: today, equipment: out, notReadMonths: VL_NOT_READ_MONTHS, me: { contractor: me.contractor, acc: me.acc, canApprove: me.canApprove } };
 }

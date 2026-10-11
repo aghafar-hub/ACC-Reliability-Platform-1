@@ -153,6 +153,7 @@ export function overlaySamplesOnTracker(trackerByEquip, samples) {
         status: smp.reportStatus || "",
         date: smp.sampledDate,
         sortDate: d.getTime(),
+        fromSample: true,
       });
     }
     result[code] = [...byMonth.values()].sort((a, b) => b.sortDate - a.sortDate);
@@ -316,6 +317,26 @@ export function sampleTrackerStatus(lastDateStr, intervalText) {
   if (ageMonths <= months + OK_GRACE_MONTHS + OVERDUE_GRACE_MONTHS)
     return { label: "OVERDUE", daysInfo: `${formatMonths(ageMonths - months)} overdue` };
   return { label: "MISSING", daysInfo: `${formatMonths(ageMonths - months)} missing` };
+}
+
+// One sampling rule for every page that counts it (Plant overview, Oil
+// Dashboard, Oil Analysis Report, the health score): a point is sampled on a
+// schedule when its interval is fixed, and it was last sampled on its newest
+// lab result or an old Sample Tracker month that holds a real result
+// (Normal / Caution / Alert) — a "MISSING" or "Oil changed" cell is not a sample.
+export function isSampledPoint(reg) {
+  return !!intervalMonths(reg?.interval);
+}
+// trackerEntries = trackerByEquip[code] (newest first; lab results are
+// overlaid on it with fromSample). Returns YYYY-MM-DD, or "".
+export function lastSampleDate(latestSampleDate, trackerEntries) {
+  const fromSample = latestSampleDate ? new Date(latestSampleDate).getTime() : NaN;
+  const cell = (trackerEntries || []).find((e) => e.fromSample || conditionBucket(e.status));
+  const fromTracker = cell ? Number(cell.sortDate) : NaN;
+  const best = Math.max(isNaN(fromSample) ? -Infinity : fromSample, isNaN(fromTracker) ? -Infinity : fromTracker);
+  if (best === -Infinity) return "";
+  const d = new Date(best);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 // Classifies a tracker/sample cell's status text into one of three real
@@ -684,7 +705,9 @@ export function deriveCurrentOilChanges(registry, events) {
   return (registry || []).map((reg) => {
     const latest = latestByLp.get(reg.code) || null;
     const changeDate = latest?.eventDate || "";
-    const nextDueDate = latest?.nextDueDate || "";
+    // Migrated history rows have no NextDueDate: fall back to the last
+    // change + the point's Oil_Change_Interval, or they could never be due.
+    const nextDueDate = latest?.nextDueDate || computeOilChangeNextDue(changeDate, reg.oilChangeInterval);
     return {
       equipmentCode: reg.code,
       lpId: reg.code,

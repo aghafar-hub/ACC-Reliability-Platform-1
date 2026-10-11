@@ -16,6 +16,7 @@ import BottomSheet, { SheetButton, SheetChip, SheetGroup } from "../components/B
 import { RMS_DEFAULT, SCOPES, SPM_DEFAULT, addDays, limitsFor, monthLabel, orderedPoints, shortDate } from "../vibModel";
 import { seriesColors } from "../tones";
 import NewReadingModal from "./VibNewReading";
+import { notReadCutoff } from "../plantSummary";
 import MeasureCell, { MeasureLegend, STATE_TONE } from "../components/MeasureCell";
 
 // Equipment: every machine with its latest vibration condition (list), and
@@ -92,13 +93,19 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   const today = data?.today || new Date().toISOString().slice(0, 10);
   const me = data?.me || {};
   const isStale = (e) => !e.lastDate || daysBetween(e.lastDate, today) > STALE_DAYS;
+  // Condition as on the Vibration Dashboard: a last report older than the
+  // "not read" window (Settings → Vibration Analysis → Intervals) is "Not read".
+  const notReadMonths = Number(data?.notReadMonths) || 6;
+  const cutoff = notReadCutoff(today, notReadMonths);
+  const cond = (e) => (!e.lastMonth || e.lastMonth < cutoff ? "Not read" : e.status || "Not read");
+  const notReadColor = T.textMuted || T.textSecondary;
   const base = (data?.equipment || []).filter((e) => (contractor === "All" || e.contractor === contractor) && (scope === "All" || e.scope === scope));
-  const worse = (e) => e.prevStatus && (LEVEL_RANK[e.status] || 0) > (LEVEL_RANK[e.prevStatus] || 0);
+  const worse = (e) => cond(e) !== "Not read" && e.prevStatus && (LEVEL_RANK[e.status] || 0) > (LEVEL_RANK[e.prevStatus] || 0);
   const rows = base
     .filter(((match) => (e) => match(e.equipmentId, e.name))(idTextMatch(q, (data?.equipment || []).map((e) => e.equipmentId))))
-    .filter((e) => (show === "All" ? true : show === "Needs attention" ? ["Alert", "Danger"].includes(e.status) : show === "Not measured 90 d" ? isStale(e) : show === "Got worse" ? worse(e) : e.status === show))
-    .sort((a, b) => (LEVEL_RANK[b.status] || 0) - (LEVEL_RANK[a.status] || 0) || a.equipmentId.localeCompare(b.equipmentId));
-  const count = (l) => base.filter((e) => e.status === l).length;
+    .filter((e) => (show === "All" ? true : show === "Needs attention" ? ["Alert", "Danger"].includes(cond(e)) : show === "Not measured 90 d" ? isStale(e) : show === "Got worse" ? worse(e) : cond(e) === show))
+    .sort((a, b) => (LEVEL_RANK[cond(b)] || 0) - (LEVEL_RANK[cond(a)] || 0) || a.equipmentId.localeCompare(b.equipmentId));
+  const count = (l) => base.filter((e) => cond(e) === l).length;
   const stale = base.filter(isStale);
   const scopes = SCOPES.filter((sc) => base.some((e) => e.scope === sc) || scope === sc);
 
@@ -147,7 +154,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
               <Donut
                 T={T}
                 size={124}
-                segments={[...LEVELS.map((l) => ({ label: l, value: count(l), color: levelColor(T, l) })), { label: "No readings", value: base.filter((e) => !e.status).length, color: T.border }]}
+                segments={[...LEVELS.map((l) => ({ label: l, value: count(l), color: levelColor(T, l) })), { label: `Not read ${notReadMonths} m`, value: count("Not read"), color: notReadColor + "66" }]}
                 center={base.length}
                 sub="machines"
                 ariaLabel="Machines by latest status"
@@ -159,6 +166,10 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
                     <b style={{ marginLeft: "auto" }}>{count(l)}</b>
                   </button>
                 ))}
+                <button type="button" onClick={() => setShow(show === "Not read" ? "All" : "Not read")} style={{ display: "flex", gap: 8, alignItems: "center", background: "none", border: "none", padding: 0, cursor: "pointer", color: T.textSecondary, fontFamily: "inherit" }} data-testid="veq-notread">
+                  <span style={{ width: 11, height: 11, borderRadius: 3, background: notReadColor + "66" }} /> Not read {notReadMonths} m
+                  <b style={{ marginLeft: "auto", color: T.textPrimary }}>{count("Not read")}</b>
+                </button>
               </div>
             </div>
             <div style={{ ...s.card, marginBottom: 0 }}>
@@ -172,7 +183,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
                 onRow={(r) => setScope(scope === r.label ? "All" : r.label)}
                 rows={SCOPES.filter((sc) => (data.equipment || []).some((e) => e.scope === sc && (contractor === "All" || e.contractor === contractor))).map((sc) => {
                   const list = (data.equipment || []).filter((e) => e.scope === sc && (contractor === "All" || e.contractor === contractor));
-                  return { label: sc, parts: LEVELS.map((l) => ({ label: l, value: list.filter((e) => e.status === l).length, color: levelColor(T, l) })) };
+                  return { label: sc, parts: [...LEVELS.map((l) => ({ label: l, value: list.filter((e) => cond(e) === l).length, color: levelColor(T, l) })), { label: "Not read", value: list.filter((e) => cond(e) === "Not read").length, color: notReadColor + "66" }] };
                 })}
               />
             </div>
@@ -188,7 +199,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
                 <EquipmentSearch freeText options={base.map((e) => ({ code: e.equipmentId, description: e.name }))} value={q} onChange={setQ} placeholder="Equipment ID or name…" width="100%" inputStyle={{ minHeight: 44, fontSize: 15 }} testid="veq-find" />
               </div>
               <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 6, scrollbarWidth: "none" }} data-testid="veq-show-chips">
-                {["All", "Needs attention", "Got worse", "Not measured 90 d", ...LEVELS].map((o) => {
+                {["All", "Needs attention", "Got worse", "Not measured 90 d", ...LEVELS, "Not read"].map((o) => {
                   const on = show === o;
                   const lv = LEVELS.includes(o);
                   return (
@@ -252,7 +263,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
               ))}
             </select>
             <select style={s.select} value={show} onChange={(e) => setShow(e.target.value)} aria-label="Show" data-testid="veq-show">
-              {["All", "Needs attention", "Got worse", "Not measured 90 d", ...LEVELS].map((o) => (
+              {["All", "Needs attention", "Got worse", "Not measured 90 d", ...LEVELS, "Not read"].map((o) => (
                 <option key={o}>{o}</option>
               ))}
             </select>

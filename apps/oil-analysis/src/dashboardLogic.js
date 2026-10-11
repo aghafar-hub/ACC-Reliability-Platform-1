@@ -5,8 +5,9 @@ import {
   ACTION_STATUS,
   computeOilChangeStatus,
   conditionBucket,
-  intervalMonths,
   isActionOverdue,
+  isSampledPoint,
+  lastSampleDate,
   isRouteOverdue,
   normActionStatus,
   ROUTE_STATUS,
@@ -171,14 +172,17 @@ export function oilHealth(samples, codes, periodDays, now = new Date()) {
 }
 
 // Sampling on time: of the points that need sampling on a fixed interval,
-// how many are within it right now (not Overdue / Missing).
-export function samplingOnTime(scopedRegistry, trackerByEquip) {
+// how many are within it right now (not Overdue / Missing). Same rule as the
+// Plant overview and the Oil Analysis Report (parsers.js isSampledPoint /
+// lastSampleDate).
+export function samplingOnTime(scopedRegistry, trackerByEquip, samples) {
+  const latest = latestSampleByPoint(samples);
   let due = 0;
   let ok = 0;
   const byContractor = { RHI: { due: 0, ok: 0 }, ASEC: { due: 0, ok: 0 } };
   (scopedRegistry || []).forEach((eq) => {
-    if (!intervalMonths(eq.interval)) return;
-    const last = (trackerByEquip?.[eq.code] || [])[0]?.date || "";
+    if (!isSampledPoint(eq)) return;
+    const last = lastSampleDate(latest.get(eq.code)?.sampledDate, trackerByEquip?.[eq.code]);
     const st = sampleTrackerStatus(last, eq.interval).label;
     due++;
     const good = st === "OK";

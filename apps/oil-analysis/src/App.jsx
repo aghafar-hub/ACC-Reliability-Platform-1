@@ -1186,8 +1186,8 @@ function AppShell({ config, setConfig, navBridge }) {
   // machine, handed to the shell — see plantSummary.js.
   const plant = useMemo(() => {
     if (!navBridge || !(equipmentRegistry || []).length || allTopUps === null) return null;
-    return buildOilPlant({ registry: equipmentRegistry, samples, actions, oilChanges, topUps: allTopUps });
-  }, [navBridge, equipmentRegistry, samples, actions, oilChanges, allTopUps]);
+    return buildOilPlant({ registry: equipmentRegistry, samples, actions, oilChanges, topUps: allTopUps, trackerByEquip });
+  }, [navBridge, equipmentRegistry, samples, actions, oilChanges, allTopUps, trackerByEquip]);
   useEffect(() => {
     if (!plant) return;
     const t = setTimeout(() => navBridge.onPlant?.(plant), 300);
@@ -1373,6 +1373,7 @@ function AppShell({ config, setConfig, navBridge }) {
             <div style={{ display: page === "equipment" ? undefined : "none" }}>
               <Equipment
                 allTopUps={allTopUps}
+                trackerByEquip={trackerByEquip}
                 samples={samples}
                 equipmentRegistry={registryView}
                 actions={actions}

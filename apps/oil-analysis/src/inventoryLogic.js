@@ -62,6 +62,10 @@ export function lowStockSorted(products) {
 
 // "Mobil SHC 630 · Mobil" says Mobil twice — the brand only when the name
 // doesn't already carry it ("Mobilgear 600 XP 460 · Total" keeps it).
+// Oil names compare without case or spaces ("Mobilgear" = "Mobil gear"),
+// the same as the server's normOil_.
+const normOil = (v) => String(v || "").toLowerCase().replace(/\s+/g, "");
+
 export function oilLabel(lubricant, brand) {
   const l = String(lubricant || "").trim();
   const b = String(brand || "").trim();
@@ -80,8 +84,8 @@ export function shortfallBars(rows, { merge }) {
     .filter((r) => (r.quantityNeeded || 0) > 0)
     .forEach((r) => {
       const key = merge
-        ? `${String(r.lubricant || "").trim().toLowerCase()}|${String(r.lubricantBrand || "").trim().toLowerCase()}`
-        : `${r.contractor}|${String(r.lubricant || "").trim().toLowerCase()}|${String(r.lubricantBrand || "").trim().toLowerCase()}`;
+        ? `${normOil(r.lubricant)}|${normOil(r.lubricantBrand)}`
+        : `${r.contractor}|${normOil(r.lubricant)}|${normOil(r.lubricantBrand)}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(r);
     });
@@ -147,7 +151,7 @@ export function toCsv(rows) {
 // The stock product a lubrication point draws from (D5 — the stock gauge
 // on the point page): same contractor and the same oil, or a product
 // approved as its equivalent. An exact match beats an equivalent.
-const normOil = (v) => String(v || "").trim().toLowerCase().replace(/\s+/g, " ");
+
 export function productForPoint(reg, products) {
   if (!reg?.lubricant) return null;
   const oil = normOil(reg.lubricant);

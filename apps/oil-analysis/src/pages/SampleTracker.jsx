@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket } from "../parsers";
+import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket, lastSampleDate } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import SampleHistoryModal from "../components/SampleHistoryModal";
 import { MonthProgress } from "../components/DashCharts";
@@ -197,7 +197,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     () =>
       registry.map((eq) => {
         const history = trackerByEquip[eq.code] || [];
-        const lastDate = history[0]?.date || "";
+        const lastDate = lastSampleDate("", history);
         const status = sampleTrackerStatus(lastDate, eq.interval);
         return { eq, history, status, oilChangedMonths: oilChangedMonthsByEquip[eq.code] || new Set() };
       }),
@@ -237,7 +237,7 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     return filtered
       .map(({ eq, history, status }) => {
         if (status.label !== "OK") return null;
-        const lastDate = history[0]?.date || "";
+        const lastDate = lastSampleDate("", history);
         if (!lastDate) return null;
         const dueDate = computeOilChangeNextDue(lastDate, eq.interval);
         if (!dueDate) return null;
@@ -293,7 +293,8 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     let done = 0;
     let remaining = 0;
     filtered.forEach((r) => {
-      const last = r.history[0]?.date ? new Date(r.history[0].date) : null;
+      const lastDate = lastSampleDate("", r.history);
+      const last = lastDate ? new Date(lastDate) : null;
       if (last && !isNaN(last) && last >= monthStart) {
         done++;
         return;

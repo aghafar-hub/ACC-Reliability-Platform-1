@@ -3,7 +3,7 @@ import LabReviewPanel from "../components/LabReviewPanel";
 import { useTheme } from "../ThemeContext";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
-import { formatDate, intervalMonths, sampleTrackerStatus } from "../parsers";
+import { formatDate, intervalMonths, isSampledPoint, lastSampleDate, sampleTrackerStatus } from "../parsers";
 import LastActionsPanel from "../components/LastActionsPanel";
 import LabTrendCharts, { Chip, LabCountControls } from "../components/LabTrendCharts";
 import { toTime } from "../pointHistory";
@@ -119,8 +119,8 @@ export default function OilReportSearch({
 
   // Sampling status and next sample due.
   const trackerHistory = equipCode !== "All" ? (trackerByEquip || {})[equipCode] || [] : [];
-  const lastSampleDate = latest?.sampledDate || trackerHistory[0]?.date || "";
-  const samplingStatus = equipCode !== "All" && reg?.interval ? sampleTrackerStatus(lastSampleDate, reg.interval) : null;
+  const lastSampled = lastSampleDate(latest?.sampledDate, trackerHistory);
+  const samplingStatus = equipCode !== "All" && isSampledPoint(reg) ? sampleTrackerStatus(lastSampled, reg.interval) : null;
   const sampleMonths = intervalMonths(reg?.interval || "");
   const nextSampleDue = (() => {
     const t = toTime(latest?.sampledDate);
@@ -542,7 +542,7 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
       const info = byCode.get(code);
       const latest = info?.latest || null;
       const tracker = (trackerByEquip || {})[code] || [];
-      const sampling = reg?.interval ? sampleTrackerStatus(latest?.sampledDate || tracker[0]?.date || "", reg.interval) : null;
+      const sampling = isSampledPoint(reg) ? sampleTrackerStatus(lastSampleDate(latest?.sampledDate, tracker), reg.interval) : null;
       return { code, reg, latest, n: info?.n || 0, sampling, marks: latest?.flaggedReadings || [] };
     });
   }, [codes, samples, registry, trackerByEquip]);

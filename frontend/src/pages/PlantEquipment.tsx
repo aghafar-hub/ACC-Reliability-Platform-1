@@ -35,7 +35,8 @@ export function PlantEquipmentList() {
     attention: (m) => conditionRank(m.condition) >= 2,
     Poor: (m) => m.condition === 'Poor',
     'both-poor': poorOnBoth,
-    ...Object.fromEntries(modules.map((mod) => [mod.short, (m: MergedMachine) => !!m.parts[mod.moduleId]])),
+    // "Oil only" = in this module and no other (the shared ones are "Oil + Vib")
+    ...Object.fromEntries(modules.map((mod) => [mod.short, (m: MergedMachine) => !!m.parts[mod.moduleId] && Object.keys(m.parts).length === 1])),
   };
   const match = idTextMatch(q, base.map((m) => m.id));
   const rows = base.filter(showFilter[show] || (() => true)).filter((m) => match(m.id, m.name));
@@ -66,7 +67,7 @@ export function PlantEquipmentList() {
         {chip('Poor', '◆ Poor', counts.Poor)}
         {modules.length > 1 && chip('both', 'Oil + Vib', base.filter(showFilter.both).length)}
         {modules.length > 1 && chip('both-poor', 'Poor on both', base.filter(poorOnBoth).length)}
-        {modules.length > 1 && modules.map((mod) => chip(mod.short, `${mod.short} only`, base.filter((m) => m.parts[mod.moduleId]).length))}
+        {modules.length > 1 && modules.map((mod) => chip(mod.short, `${mod.short} only`, base.filter(showFilter[mod.short]).length))}
       </div>
       <div className="plant-chiprow">
         {contractors.length > 1 && (

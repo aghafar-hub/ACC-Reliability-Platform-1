@@ -644,6 +644,49 @@ function vlCounts_(entries, master, rep) {
   return c;
 }
 
+// Recount the Vibration Log's machine and reading counts from the readings
+// saved (after machines were merged or IDs renamed). Only reports with
+// readings in the app. The status columns are left alone (old reports count
+// readings there, not machines), and so is "Equipment in scope".
+// → [{ reportId, changes }]
+function vlRecountReports_(ss, dry, only) {
+  var master = vlMasterData_(ss, { includeInactive: true });
+  var by = {};
+  vlRead_(ss, SHEET_VENTRIES).rows.forEach(function (r) {
+    var id = r['Report ID'];
+    if (!id || (only && !only[id])) return;
+    (by[id] = by[id] || []).push(r);
+  });
+  var keys = ['Equipment with readings', 'Equipment: received', 'VIB IDs read', 'Entries'];
+  var out = [];
+  vlRead_(ss, SHEET_VLOG).rows.forEach(function (rep) {
+    var list = by[rep['Report ID']];
+    if (!list) return;
+    var c = vlCounts_(list, master, rep);
+    var now = { 'Equipment with readings': c.eqWith, 'VIB IDs read': c.vibIds, 'Entries': list.length };
+    // "received" follows "with readings" only where the two already agreed
+    if (Number(rep['Equipment: received'] || 0) === Number(rep['Equipment with readings'] || 0)) now['Equipment: received'] = c.eqWith;
+    var changed = keys.filter(function (k) { return k in now && Number(rep[k] || 0) !== now[k]; });
+    if (!changed.length) return;
+    out.push({ reportId: rep['Report ID'], changes: changed.map(function (k) { return k + ' ' + Number(rep[k] || 0) + ' → ' + now[k]; }).join(', ') });
+    if (!dry) vlWriteReport_(ss, rep, now);
+  });
+  if (!dry) vlForget_(SHEET_VLOG);
+  return out;
+}
+
+// Apps Script editor: see what would change, then recount.
+function recountVibrationLogDryRun() { var r = vlRecountReports_(SpreadsheetApp.getActiveSpreadsheet(), true); Logger.log(JSON.stringify(r, null, 1)); return r; }
+function recountVibrationLog() {
+  return vlLocked_(function () {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var r = vlRecountReports_(ss, false);
+    if (r.length) vlAudit_(ss, 'Apps Script editor', 'Log recounted', r.length + ' reports', r.map(function (x) { return x.reportId; }).join(', '));
+    Logger.log(JSON.stringify(r, null, 1));
+    return r;
+  });
+}
+
 // One coverage row per equipment in the report's scope: measured or not.
 function vlWriteCoverage_(ss, rep, entries, master) {
   var id = rep['Report ID'];

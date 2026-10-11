@@ -232,7 +232,7 @@ function getOilInventoryForecast(monthsParam, scope, daysParam) {
     }
     if (occurrences === 0) return;
 
-    var key = reg.contractor + "|" + reg.lubricant.trim().toLowerCase() + "|" + (reg.lubricantBrand || "").trim().toLowerCase();
+    var key = reg.contractor + "|" + normOil_(reg.lubricant) + "|" + normOil_(reg.lubricantBrand);
     if (!needed[key]) {
       needed[key] = { contractor: reg.contractor, lubricant: reg.lubricant, lubricantBrand: reg.lubricantBrand || "", quantityNeeded: 0, lpCount: 0 };
     }
@@ -483,22 +483,22 @@ function updateOilProduct(ss, data) {
 // not prevented elsewhere either) — returns the first match, exact tier
 // always preferred over an equivalence tier.
 function findInventoryProductRow_(productRows, lubricant, lubricantBrand, contractor) {
-  var type = String(lubricant || "").trim().toLowerCase();
-  var brand = String(lubricantBrand || "").trim().toLowerCase();
+  var type = normOil_(lubricant);
+  var brand = normOil_(lubricantBrand);
   if (!type || !contractor) return null;
 
   for (var i = 0; i < productRows.length; i++) {
     var r = productRows[i];
     if (String(r[16] || "").trim() !== contractor) continue;
-    if (String(r[1] || "").trim().toLowerCase() !== type) continue;
-    if (brand && String(r[2] || "").trim().toLowerCase() !== brand) continue;
+    if (normOil_(r[1]) !== type) continue;
+    if (brand && normOil_(r[2]) !== brand) continue;
     return r;
   }
   for (var j = 0; j < productRows.length; j++) {
     var r2 = productRows[j];
     if (String(r2[16] || "").trim() !== contractor) continue;
-    if (String(r2[17] || "").trim().toLowerCase() !== type) continue;
-    if (brand && String(r2[18] || "").trim().toLowerCase() !== brand) continue;
+    if (normOil_(r2[17]) !== type) continue;
+    if (brand && normOil_(r2[18]) !== brand) continue;
     return r2;
   }
   return null;

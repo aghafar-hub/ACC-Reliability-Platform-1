@@ -15,6 +15,7 @@
 
 import { healthForLp, indexByLp, worstHealth } from "./equipmentHealth";
 import { isActionOverdue, normActionStatus, ACTION_STATUS } from "./parsers";
+import { alertsWithoutAction } from "./dashboardLogic";
 
 const toIso = (d) => {
   if (!d) return "";
@@ -24,8 +25,8 @@ const toIso = (d) => {
 const earliest = (dates) => dates.filter(Boolean).sort()[0] || "";
 const latestOf = (dates) => dates.filter(Boolean).sort().slice(-1)[0] || "";
 
-export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, now = Date.now() }) {
-  const idx = indexByLp({ samples, actions, oilChanges, topUps });
+export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, trackerByEquip, now = Date.now() }) {
+  const idx = indexByLp({ samples, actions, oilChanges, topUps, trackerByEquip });
   const today = new Date(now).toISOString().slice(0, 10);
   const byMachine = new Map();
   (registry || []).forEach((reg) => {
@@ -106,7 +107,12 @@ export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, 
   const open = (actions || []).filter((a) => normActionStatus(a.status) !== ACTION_STATUS.CLOSED);
   const pastDue = open.filter((a) => isActionOverdue(a));
   const changeLate = machines.filter((m) => m.changeOverdue);
-  const alertNoAction = machines.filter((m) => m.reasons.includes("Latest lab result Alert") && !m.openActions);
+  // same rule as the Oil Dashboard: latest result Alert and no action of any
+  // status raised since that sample (a closed one means it was dealt with)
+  const alertPoints = new Set(alertsWithoutAction(samples, actions).map((a) => a.code));
+  const machineOf = new Map((registry || []).map((r) => [r.code, r.equipmentId || r.code]));
+  const alertMachines = new Set([...alertPoints].map((c) => machineOf.get(c)).filter(Boolean));
+  const alertNoAction = machines.filter((m) => alertMachines.has(m.id));
   const worst = (list) => list.slice().sort((a, b) => b.overdueActions - a.overdueActions || a.id.localeCompare(b.id)).slice(0, 3).map((m) => m.id);
 
   return {

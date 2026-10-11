@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { sampleTrackerStatus } from "../parsers";
+import { lastSampleDate, sampleTrackerStatus } from "../parsers";
 import NewReport from "./NewReport";
 import {
   generateContractorActionReport,
@@ -167,7 +167,7 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
     let overdue = 0;
     registry.forEach((eq) => {
       const history = (trackerByEquip || {})[eq.code] || [];
-      const status = sampleTrackerStatus(history[0]?.date || "", eq.interval);
+      const status = sampleTrackerStatus(lastSampleDate("", history), eq.interval);
       if (status.label === "MISSING") missing++;
       else if (status.label === "OVERDUE") overdue++;
     });

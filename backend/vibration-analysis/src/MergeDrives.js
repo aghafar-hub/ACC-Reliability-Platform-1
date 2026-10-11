@@ -38,7 +38,15 @@ function mdMerge_(dry, who, groups) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var out = { dryRun: !!dry, groups: [] };
     (groups || MD_GROUPS).forEach(function (g) { out.groups.push(mdMergeOne_(ss, g, dry, who)); });
-    if (!dry) { idaDone_(); try { vcBump_(); } catch (e) {} }
+    if (!dry) {
+      // the Vibration Log's per-report counts of the reports these machines are in
+      var keeps = {}, only = {};
+      (groups || MD_GROUPS).forEach(function (g) { keeps[idaKey_(g.keep)] = true; });
+      vlForget_(SHEET_VENTRIES);
+      vlRead_(ss, SHEET_VENTRIES).rows.forEach(function (r) { if (keeps[idaKey_(r['Equipment ID'])]) only[r['Report ID']] = true; });
+      out.logRecounted = vlRecountReports_(ss, false, only).length;
+      idaDone_(); try { vcBump_(); } catch (e) {}
+    }
     return out;
   });
 }

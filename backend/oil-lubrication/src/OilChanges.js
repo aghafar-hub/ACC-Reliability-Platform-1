@@ -120,6 +120,16 @@ function findRegistryEntryForOilChange_(ss, lpId) {
 // sync if Oil_Change_Interval's text format ever changes. Handles "2 Y" /
 // "0.5 Y" (the real format) and blank/"As needed" (no fixed interval, so no
 // NextDueDate is set).
+// A point's next oil change: the NextDueDate logged with its latest change,
+// or (migrated history rows have none) that change + Oil_Change_Interval.
+function oilChangeNextDue_(eventDate, storedNext, intervalText) {
+  var stored = asDate_(storedNext);
+  if (stored) return stored;
+  var ev = asDate_(eventDate);
+  var months = intervalMonthsForOilChange_(intervalText);
+  return ev && months ? addMonths_(ev, months) : null;
+}
+
 function intervalMonthsForOilChange_(freqText) {
   var t = String(freqText || "").trim().toLowerCase();
   if (!t || t === "as needed" || t === "if needed") return null;
