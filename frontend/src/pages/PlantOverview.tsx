@@ -11,7 +11,7 @@ import "./Plant.css";
 // open actions by area and the work due in the next 5 weeks. Machines are
 // named by Equipment ID only.
 export default function PlantOverview() {
-  const { state, modules, machines, loading, failed, openModule } =
+  const { state, modules, machines, loading, failed, slow, openModule } =
     usePlantData();
   const navigate = useNavigate();
   const [contractor, setContractor] = useState("All");
@@ -324,7 +324,11 @@ export default function PlantOverview() {
                       Couldn't load {mod.label} — open it to try again.
                     </p>
                   ) : (
-                    <p className="plant-muted">Loading…</p>
+                    <p className="plant-muted" data-testid={`plant-loading-${mod.short}`}>
+                      {slow.includes(mod.moduleId)
+                        ? `Still loading ${mod.label} — the first load after an update can take a minute.`
+                        : 'Loading…'}
+                    </p>
                   )
                 ) : (
                   <>

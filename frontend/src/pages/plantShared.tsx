@@ -30,14 +30,17 @@ export function usePlantData() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when a summary or the area list changes
   }, [key, allowed.join(','), areaList]);
-  // a module whose data couldn't load (its own sync failed, or nothing came
-  // within 20 s) and has no saved copy on this device
-  const [waited, setWaited] = useState(false);
+  // a module whose data couldn't load: its own sync failed, or nothing came
+  // within 2 minutes (the first load after an update, with an empty server
+  // cache, can take a minute on the live data). After 20 s it shows as slow.
+  const [waited, setWaited] = useState(0);
   useEffect(() => {
-    const t = setTimeout(() => setWaited(true), 20000);
-    return () => clearTimeout(t);
+    const a = setTimeout(() => setWaited(1), 20000);
+    const b = setTimeout(() => setWaited(2), 120000);
+    return () => { clearTimeout(a); clearTimeout(b); };
   }, []);
-  const failed = modules.filter((m) => !state[m.moduleId] && (waited || embeddedNav.syncInfoFor(m.moduleId)?.syncState === 'error')).map((m) => m.moduleId);
+  const failed = modules.filter((m) => !state[m.moduleId] && (waited >= 2 || embeddedNav.syncInfoFor(m.moduleId)?.syncState === 'error')).map((m) => m.moduleId);
+  const slow = waited >= 1 ? modules.filter((m) => !state[m.moduleId] && !failed.includes(m.moduleId)).map((m) => m.moduleId) : [];
   const loading = modules.some((m) => !state[m.moduleId] && !failed.includes(m.moduleId));
   const openModule = (moduleId: string, page: string, record?: NavRecord) => {
     const m = PLANT_MODULES.find((x) => x.moduleId === moduleId);
@@ -45,7 +48,7 @@ export function usePlantData() {
     embeddedNav.navigateTo(moduleId, page, record);
     navigate(m.route);
   };
-  return { state, modules, allowed, machines, loading, failed, openModule, contractorStaff: !!claims && claims.orgId !== ORG_ACC };
+  return { state, modules, allowed, machines, loading, failed, slow, openModule, contractorStaff: !!claims && claims.orgId !== ORG_ACC };
 }
 
 // Area filter: "All", a whole line, or one area — grouped by line, in the
