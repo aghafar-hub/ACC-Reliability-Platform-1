@@ -100,7 +100,8 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
   const cond = (e) => (!e.lastMonth || e.lastMonth < cutoff ? "Not read" : e.status || "Not read");
   const notReadColor = T.textMuted || T.textSecondary;
   const base = (data?.equipment || []).filter((e) => (contractor === "All" || e.contractor === contractor) && (scope === "All" || e.scope === scope));
-  const worse = (e) => cond(e) !== "Not read" && e.prevStatus && (LEVEL_RANK[e.status] || 0) > (LEVEL_RANK[e.prevStatus] || 0);
+  const rose = (e) => e.prevStatus && (LEVEL_RANK[e.status] || 0) > (LEVEL_RANK[e.prevStatus] || 0); // row text: last report vs the one before
+  const worse = (e) => cond(e) !== "Not read" && rose(e); // the tile and filter: machines read lately only
   const rows = base
     .filter(((match) => (e) => match(e.equipmentId, e.name))(idTextMatch(q, (data?.equipment || []).map((e) => e.equipmentId))))
     .filter((e) => (show === "All" ? true : show === "Needs attention" ? ["Alert", "Danger"].includes(cond(e)) : show === "Not measured 90 d" ? isStale(e) : show === "Got worse" ? worse(e) : cond(e) === show))
@@ -220,7 +221,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
               ) : (
                 rows.map((e) => {
                   const wp = e.points.filter((p) => p.final === e.status && p.date && p.date.slice(0, 7) === e.lastMonth)[0];
-                  const up = worse(e);
+                  const up = rose(e);
                   const down = e.prevStatus && (LEVEL_RANK[e.status] || 0) < (LEVEL_RANK[e.prevStatus] || 0);
                   const old = e.lastDate && daysBetween(e.lastDate, today) > STALE_DAYS;
                   return (
@@ -236,7 +237,10 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
                             {wp && <span>{wp.point} · {wp.value ?? "–"} {UNIT[wp.family] || ""}</span>}
                           </span>
                         </span>
-                        {e.status ? <LevelPill level={e.status} /> : <span style={{ fontSize: 12, color: T.textMuted }}>No readings</span>}
+                        <span style={{ textAlign: "right" }}>
+                          {e.status ? <LevelPill level={e.status} /> : <span style={{ fontSize: 12, color: T.textMuted }}>No readings</span>}
+                          {e.status && cond(e) === "Not read" && <span style={{ display: "block", fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>not read {notReadMonths} m</span>}
+                        </span>
                         <i className="ti ti-chevron-right" aria-hidden="true" style={{ color: T.textMuted, marginTop: 2 }} />
                       </span>
                     </button>
@@ -285,7 +289,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
               <tbody>
                 {rows.map((e) => {
                   const wp = e.points.filter((p) => p.final === e.status && p.date && p.date.slice(0, 7) === e.lastMonth)[0];
-                  const up = worse(e);
+                  const up = rose(e);
                   const down = e.prevStatus && (LEVEL_RANK[e.status] || 0) < (LEVEL_RANK[e.prevStatus] || 0);
                   return (
                     <tr key={e.equipmentId} style={{ cursor: "pointer" }} onClick={() => onOpen(e.equipmentId)} data-testid={`veq-row-${e.equipmentId}`}>
@@ -294,7 +298,7 @@ function EquipmentList({ data, error, reload, onOpen, onAdd }) {
                       <td style={s.td}>
                         {e.contractor} · {e.scope || "—"}
                       </td>
-                      <td style={s.td}>{e.status ? <LevelPill level={e.status} /> : <span style={{ color: T.textMuted }}>No readings</span>}</td>
+                      <td style={s.td}>{e.status ? <LevelPill level={e.status} /> : <span style={{ color: T.textMuted }}>No readings</span>}{e.status && cond(e) === "Not read" && <div style={{ fontSize: 11.5, color: T.textMuted, marginTop: 2 }}>not read {notReadMonths} m</div>}</td>
                       <td style={{ ...s.td, fontSize: 12.5, color: up ? T.alert : down ? T.success : T.textSecondary, whiteSpace: "nowrap" }}>
                         {up ? "▲ worse" : down ? "▼ better" : e.prevStatus ? "same" : "—"}
                         {e.prevStatus && <span style={{ color: T.textMuted }}> (was {e.prevStatus})</span>}
