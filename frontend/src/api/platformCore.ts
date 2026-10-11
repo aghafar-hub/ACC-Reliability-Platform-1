@@ -83,6 +83,20 @@ export type EquipmentChange = { at: string; by: string; id: string; change: stri
 // when it sends no total, while pages come back full). serverTotal: what the
 // server said (undefined = it sent none — an older Platform Core copy).
 export async function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number; total: number; serverTotal?: number }> {
+  // the whole list in one packed answer (Platform Core AssetMaster.js amPack_)
+  const first = await postAction<{ packed?: { cols: string[]; dict: Record<string, string[]>; rows: (string | number)[][] }; total?: number; equipment?: PlatformEquipment[] }>(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, packed: 1, limit: 400, offset: 0 });
+  if (first?.packed) {
+    const { cols, dict, rows } = first.packed;
+    const list = rows.map((r) => {
+      const o: Record<string, string> = {};
+      cols.forEach((c, i) => {
+        o[c] = String(dict[i] ? dict[i][r[i] as number] : r[i] ?? '');
+      });
+      return o as unknown as PlatformEquipment;
+    });
+    return { equipment: list, count: list.length, total: Math.max(first.total ?? 0, list.length), serverTotal: first.total };
+  }
+  // an older Platform Core copy: pages of 400
   const LIMIT = 400;
   const equipment: PlatformEquipment[] = [];
   let serverTotal: number | undefined;

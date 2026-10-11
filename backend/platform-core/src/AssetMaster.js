@@ -90,18 +90,51 @@ function amOut_(r, orgs) {
  * body.limit / body.offset: one page of the list (the app asks 400 at a
  * time — the whole live list in one answer is too big for the web app to
  * hand back). Without a limit, the whole list (older app versions).
+ * body.packed = 1: the whole list packed (amPack_), about 70 KB for 1,900
+ * machines — one request instead of five pages.
  */
 function listEquipmentMaster_(session, body) {
   var orgs = amOrgs_();
   var scope = getContractorScope_(session);
   var rows = amRead_().rows
     .filter(function (r) { return !scope || String(r.Contractor).trim() === scope; });
+  // packed=1 (current app): the whole list in one small answer (amPack_)
+  if (body && String(body.packed) === '1') {
+    var all = rows.map(function (r) { return amOut_(r, orgs); });
+    return { packed: amPack_(all), count: all.length, total: all.length };
+  }
   var limit = Number(body && body.limit) || 0;
   var offset = Math.max(0, Number(body && body.offset) || 0);
   var page = limit > 0 ? rows.slice(offset, offset + limit) : rows;
   var list = page.map(function (r) { return amOut_(r, orgs); });
   var next = limit > 0 && offset + limit < rows.length ? offset + limit : null;
   return { equipment: list, count: list.length, total: rows.length, next: next };
+}
+
+// A list of row objects as { cols, dict, rows }: each row an array of values
+// in cols order; a column with few different values sends them once in
+// dict[column index] and each row holds the index. The app unpacks it
+// (frontend/src/api/platformCore.ts listEquipmentMaster).
+function amPack_(list) {
+  var cols = list.length ? Object.keys(list[0]) : [];
+  var dict = {}, index = {};
+  cols.forEach(function (c, i) {
+    var map = {}, values = [];
+    for (var r = 0; r < list.length; r++) {
+      var v = list[r][c] == null ? '' : list[r][c];
+      if (!Object.prototype.hasOwnProperty.call(map, v)) {
+        map[v] = values.length;
+        values.push(v);
+        if (values.length * 2 > list.length) return; // mostly different: as they are
+      }
+    }
+    dict[i] = values;
+    index[i] = map;
+  });
+  var rows = list.map(function (o) {
+    return cols.map(function (c, i) { var v = o[c] == null ? '' : o[c]; return index[i] ? index[i][v] : v; });
+  });
+  return { cols: cols, dict: dict, rows: rows };
 }
 
 /**

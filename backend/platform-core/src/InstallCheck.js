@@ -11,7 +11,7 @@ var INSTALL_CHECK_FILES = {
   "Activity":{"activityAllowed_":"asrpgn","actIso_":"1y00ss9","actEquipmentDiff_":"m784cs","listPlatformActivity_":"wndapp","actUserEmail_":"nqz66p"},
   "AdminSettings":{"getSetting_":"1ktol17","setSetting_":"11irz0l","runScheduledBackup_":"bth9sd","assertMinimumAdminsAfterDeactivation_":"3cpve5","getPlatformHealth_":"13ot872","exportAllData_":"1mfeas8"},
   "Areas":{"arKey_":"pqdqqv","arRead_":"chprba","arClean_":"3xn59q","getAreas_":"hm2kch","arMachines_":"2j1yqg","maybeAppAdmin_":"1bxlg1m","saveAreas_":"1f488fz","arDiff_":"163wqf7"},
-  "AssetMaster":{"amKey_":"10lx1wv","amRead_":"23hih1","amOrgs_":"7yb3hc","amText_":"vfar33","amOut_":"13q9d4u","listEquipmentMaster_":"4lg513","saveEquipmentMaster_":"pisx4u","amRenameOrDelete_":"ioyon8","amLog_":"hzjr8e","listEquipmentLog_":"1fmjez5"},
+  "AssetMaster":{"amKey_":"10lx1wv","amRead_":"23hih1","amOrgs_":"7yb3hc","amText_":"vfar33","amOut_":"13q9d4u","listEquipmentMaster_":"1vxbvr8","amPack_":"b7kxft","saveEquipmentMaster_":"pisx4u","amRenameOrDelete_":"ioyon8","amLog_":"hzjr8e","listEquipmentLog_":"1fmjez5"},
   "Auth":{"hashPassword_":"wir64t","generateSalt_":"kbl19u","generateTempPassword_":"16ag8g","createUser_":"ssk2dw","login_":"1jhzt1g","changePassword_":"nnpmey","adminResetPassword_":"1rdcuzx"},
   "Code":{"doPost":"14wfey7","doGet":"3a0mlt"},
   "Config":{"getSpreadsheetId_":"182aohm"},
