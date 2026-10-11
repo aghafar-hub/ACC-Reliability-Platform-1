@@ -94,11 +94,12 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
 
   const allCells = months.flatMap((m) => m.cells);
   const yearReports = reports.filter((r) => r.Month.startsWith(yr));
-  const waiting = reports.filter((r) => r["Workflow status"] === "ACC review");
-  const drafts = reports.filter((r) => ["Draft", "Returned"].includes(r["Workflow status"]));
+  // every tile follows the Year chosen, like the timeline below it
+  const waiting = yearReports.filter((r) => r["Workflow status"] === "ACC review");
+  const drafts = yearReports.filter((r) => ["Draft", "Returned"].includes(r["Workflow status"]));
   const received = allCells.filter((c) => ["Received", "Received late"].includes(c.status));
   const approved = yearReports.filter((r) => ["Approved", "Historic"].includes(r["Workflow status"]) && r["Report status"] !== "Missing");
-  const notImported = reports.filter((r) => r["Report status"] === "Report not imported");
+  const notImported = yearReports.filter((r) => r["Report status"] === "Report not imported");
 
   if (openReportId) {
     return (
@@ -155,6 +156,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
             <PhoneSummary open={chartsOpen} onToggle={() => setChartsOpen((v) => !v)} testid="vlog-summary">
               <span style={{ color: T.textPrimary, fontWeight: 700 }}>{received.length} received in {yr}</span>
               <span style={{ color: T.textSecondary }}>{drafts.length} draft or returned</span>
+              {notImported.length > 0 && <span style={{ color: T.textSecondary }}>{notImported.length} not imported</span>}
               {waiting.length > 0 && <span style={{ color: T.info, fontWeight: 600 }}>{waiting.length} to review</span>}
             </PhoneSummary>
           )}
@@ -163,7 +165,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
             <Tile
               icon="ti-hourglass"
               value={waiting.length}
-              label={me.acc ? "Waiting ACC review" : "With ACC for review"}
+              label={me.acc ? `Waiting ACC review · ${yr}` : `With ACC for review · ${yr}`}
               sub={waiting.slice(0, 2).map((r) => `${r.Contractor} ${r["Report scope"]} · ${monthLabel(r.Month)}`).join(" · ") || "Nothing to review"}
               tone={waiting.length ? T.info : undefined}
               onClick={waiting.length ? () => setStatusFilter("ACC review") : undefined}
@@ -179,7 +181,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
             <Tile
               icon="ti-pencil"
               value={drafts.length}
-              label={me.acc ? "With the contractor" : "Draft or returned"}
+              label={me.acc ? `With the contractor · ${yr}` : `Draft or returned · ${yr}`}
               sub={drafts.slice(0, 2).map((r) => `${r.Contractor} ${r["Report scope"]} · ${monthLabel(r.Month)}`).join(" · ") || "None"}
               onClick={drafts.length ? () => setStatusFilter("Draft") : undefined}
               testid="vlog-tile-drafts"
@@ -187,9 +189,10 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
             <Tile
               icon="ti-file-import"
               value={notImported.length}
-              label="Reports not imported"
+              label={`Reports not imported · ${yr}`}
               sub="Received at ACC before the app; readings not in it"
               tone={notImported.length ? T.accent : undefined}
+              onClick={notImported.length ? () => setStatusFilter("Report not imported") : undefined}
               testid="vlog-tile-notimported"
             />
           </div>
