@@ -14,7 +14,7 @@ var INSTALL_CHECK_FILES = {
   "AlternativeOils":{"ensureServerHeaders_":"1ye6oio","normOil_":"1q9pscs","sameOil_":"lb6zi7","oilLabel_":"10gf9i","approvedOilsFor_":"1gvb6n","currentOilByLp_":"1icmjv5","labelMatchesOption_":"16za3ta","oilPlanFor_":"1mvzvs2","oilPlanContext_":"faop9y","oilPlanForLp_":"9dg57e","getOilPlan":"os9u8u","checkOilUsed_":"gwbvi3","routineItemOil_":"1ik9dwo","productById_":"iqapmz","setOilEquivalent":"ltkr12"},
   "AuditLog":{"recordAudit_":"l9k5nj","getAuditTrail":"allpb1"},
   "Auth":{"checkSecret_":"wg08ky","getSessionSecret_":"dv51fe","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","requireSession_":"xifh5e","checkAuth_":"a8otsf"},
-  "Code":{"doGet":"ihdg6d","doPost":"186d7xl","doPostInner_":"1gk08qh"},
+  "Code":{"doGet":"1e5yub9","doPost":"186d7xl","doPostInner_":"1gk08qh"},
   "DailyNotifications":{"notifySentKeys_":"19f96kg","markNotified_":"his2kj","isoDay_":"1c1o63p","weekKey_":"gwimfg","lpsOnOpenRoutes_":"mel74h","lpsDueSoon_":"13zcttf","runDailyOilNotifications":"1jnyl3i","installDailyOilNotificationsTrigger":"k95iey"},
   "Dashboard":{"readAll":"1kxv73h","getStartupBundle":"19m7gl9","getDashboard":"8u036g","getEquipmentData":"14ndn37","searchEquipment":"4rdi1e","getChanges":"1qegkyq","filterChangedSince":"dvcrhy","getDashboardSettings_":"1q5hcs4","updateDashboardSettings_":"5wwzw0"},
   "EmailEvents":{"msMailAllowed_":"1esubwk","msEventMode_":"1j2gmqw","msSendMail_":"4a8yul","msQueueDigest_":"1ysp0xs","sendEmailDigest":"105abcf","installEmailDigest":"i8qram"},
@@ -44,7 +44,7 @@ var INSTALL_CHECK_FILES = {
   "Utils":{"outputResult_":"1x4cpd6","jsonOut":"z1oc5r","logError":"1i6xqhb","dataStartRowFor":"gzfm90","readSheet":"1eda1p3","canonicalContractor_":"1bh8a4m","invalidateDashboardCache":"1ll4t2t","invalidateRoutinesOverviewCache":"1l0qj1b","compareDates":"1i1pd4s","toComparableDate":"fbtwm","getPaginated":"14ukbjy","findRowIndex":"len83t","updateRow":"hil1ra","deleteRow":"4ktn69","appendRow":"b0q9in","stampLastModified":"1xjfj6y","hasConflict_":"poiw6f","normalizeMonthHeader":"1b0cwqk"}
 };
 
-function checkInstall() {
+function checkInstall(mode) {
   var g = (function () { return this; })() || globalThis;
   var fp = function (src) {
     var t = String(src).replace(/\s+/g, ''), h = 5381;
@@ -65,6 +65,19 @@ function checkInstall() {
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
   if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
+  // The signing secret must be the same in all three projects: compare these
+  // fingerprints (a short hash; the secret itself is never shown). Editor
+  // run only: the web address (?action=installCheck) is public.
+  if (mode !== 'web') try {
+    var props = PropertiesService.getScriptProperties();
+    var sec = props.getProperty('SESSION_SIGNING_SECRET');
+    var fpOf = function (v) {
+      return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, v, Utilities.Charset.UTF_8)).slice(0, 8);
+    };
+    lines.push('SESSION_SIGNING_SECRET: ' + (sec ? 'fingerprint ' + fpOf(sec) + (sec !== sec.trim() ? ' — WARNING: has spaces at the start or end' : '') : 'NOT SET'));
+    var pc = props.getProperty('PLATFORM_CORE_SPREADSHEET_ID');
+    lines.push('PLATFORM_CORE_SPREADSHEET_ID: ' + (pc ? 'set, ends …' + String(pc).trim().slice(-6) : 'NOT SET'));
+  } catch (e) {}
   var text = lines.join('\n');
   Logger.log(text);
   return text;

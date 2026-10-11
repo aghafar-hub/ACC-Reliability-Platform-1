@@ -41,7 +41,7 @@ for (const project of ["platform-core", "oil-lubrication", "vibration-analysis"]
 
 var INSTALL_CHECK_FILES = ${JSON.stringify(files, null, 0).replace(/\},"/g, '},\n  "').replace(/^\{/, "{\n  ").replace(/\}$/, "\n}")};
 
-function checkInstall() {
+function checkInstall(mode) {
   var g = (function () { return this; })() || globalThis;
   var fp = function (src) {
     var t = String(src).replace(/\\s+/g, ''), h = 5381;
@@ -62,6 +62,19 @@ function checkInstall() {
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
   if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
+  // The signing secret must be the same in all three projects: compare these
+  // fingerprints (a short hash; the secret itself is never shown). Editor
+  // run only: the web address (?action=installCheck) is public.
+  if (mode !== 'web') try {
+    var props = PropertiesService.getScriptProperties();
+    var sec = props.getProperty('SESSION_SIGNING_SECRET');
+    var fpOf = function (v) {
+      return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, v, Utilities.Charset.UTF_8)).slice(0, 8);
+    };
+    lines.push('SESSION_SIGNING_SECRET: ' + (sec ? 'fingerprint ' + fpOf(sec) + (sec !== sec.trim() ? ' — WARNING: has spaces at the start or end' : '') : 'NOT SET'));
+    var pc = props.getProperty('PLATFORM_CORE_SPREADSHEET_ID');
+    lines.push('PLATFORM_CORE_SPREADSHEET_ID: ' + (pc ? 'set, ends …' + String(pc).trim().slice(-6) : 'NOT SET'));
+  } catch (e) {}
   var text = lines.join('\\n');
   Logger.log(text);
   return text;

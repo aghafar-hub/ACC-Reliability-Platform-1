@@ -13,7 +13,7 @@ var INSTALL_CHECK_FILES = {
   "Auth":{"getSessionSecret_":"dv51fe","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","requireSession_":"xifh5e","getSessionOrNull_":"126wvym"},
   "BackfillLastReadings":{"handleBackfillLastReadings":"1prs4hx"},
   "Cache":{"vcVersion_":"djx6jf","vcBump_":"1pv3ctc","vcKey_":"12pwdxh","vcGet_":"1j9t0sd","vcPut_":"15u21bn","vcRead_":"bkcg02"},
-  "Code":{"doGet":"ppntla","doPost":"njvvsa","dispatchWithAccess_":"1fkxm96","dispatch":"1uqzo4n","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
+  "Code":{"doGet":"ytnu5a","doPost":"njvvsa","dispatchWithAccess_":"1fkxm96","dispatch":"1uqzo4n","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
   "Compliance":{"readCompliance":"16ondc1","parseLabelToYearMonth":"1tddnt5","handleUpdateCompliance":"1v8uziw","handleMarkMissingCompliance":"14me95i"},
   "Config":{"dataStartRowFor":"wb5qrr","headerRowFor":"1z00e4k","worstStatus":"1lkh80x"},
   "Dashboard":{"handleGetVibDashboard":"1t0phdg"},
@@ -40,7 +40,7 @@ var INSTALL_CHECK_FILES = {
   "VibrationLog":{"vlLocked_":"b5ys0d","vlTz_":"34a0kb","vlDate_":"28ilj8","vlMonth_":"jrjxf1","vlToday_":"1fbn5da","vlNowIso_":"1ldpv4a","vlAddDays_":"1qn8ell","vlMonthEnd_":"r0qzvj","vlNum_":"17csnvl","vlBand_":"1as1utb","vlLevel_":"bjqkj0","vlYmdFast_":"1q5ixek","vlRead_":"pgel3a","vlReadSheet_":"1kyort5","vlEnsure_":"7p5btf","vlRowFrom_":"195pn8s","vlAudit_":"17ly45p","vlActor_":"18gfx4h","vlMasterData_":"m98b9f","vlAreaOf_":"dfo94t","vlScopeOf_":"52bf92","vlScopes_":"9y1sd0","vlDueDate_":"1ayowuk","vlReportStatus_":"g3ygc7","vlReportOut_":"vmz4mi","handleGetVibLog":"1802t6y","vlEntryOut_":"wj1wob","handleGetVibReport":"1qlgn4","handleGetVibEquipmentHistory":"1dw7p4e","handleGetVibEntriesFor":"18h6zu","vlFindReport_":"16x01of","vlWriteReport_":"1qdocy4","handleSaveVibReport":"nm70ss","handleSaveVibEntries":"127i2pf","vlSaveRecommendations_":"1t71s74","vlRecommendations_":"1nwm8sg","vlCounts_":"vmiscp","vlWriteCoverage_":"1bl7um","handleVibReportTransition":"xgaynn","vlNotify_":"1p8fz7x"}
 };
 
-function checkInstall() {
+function checkInstall(mode) {
   var g = (function () { return this; })() || globalThis;
   var fp = function (src) {
     var t = String(src).replace(/\s+/g, ''), h = 5381;
@@ -61,6 +61,19 @@ function checkInstall() {
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
   if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
+  // The signing secret must be the same in all three projects: compare these
+  // fingerprints (a short hash; the secret itself is never shown). Editor
+  // run only: the web address (?action=installCheck) is public.
+  if (mode !== 'web') try {
+    var props = PropertiesService.getScriptProperties();
+    var sec = props.getProperty('SESSION_SIGNING_SECRET');
+    var fpOf = function (v) {
+      return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, v, Utilities.Charset.UTF_8)).slice(0, 8);
+    };
+    lines.push('SESSION_SIGNING_SECRET: ' + (sec ? 'fingerprint ' + fpOf(sec) + (sec !== sec.trim() ? ' — WARNING: has spaces at the start or end' : '') : 'NOT SET'));
+    var pc = props.getProperty('PLATFORM_CORE_SPREADSHEET_ID');
+    lines.push('PLATFORM_CORE_SPREADSHEET_ID: ' + (pc ? 'set, ends …' + String(pc).trim().slice(-6) : 'NOT SET'));
+  } catch (e) {}
   var text = lines.join('\n');
   Logger.log(text);
   return text;
