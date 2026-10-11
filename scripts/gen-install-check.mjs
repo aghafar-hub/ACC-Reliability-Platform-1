@@ -83,6 +83,17 @@ function checkInstall() {
       if (need.length && !noTab.length && !emptyTab.length) lines.push('All ' + need.length + ' main tabs found.');
     }
   } catch (e) {}
+  // Platform Core: how big the equipment list answer is (a tab filled far
+  // down makes the answer too big for the web app to hand back)
+  if (typeof amRead_ === 'function') {
+    try {
+      var t = amRead_();
+      var sh = t.sheet;
+      var answer = JSON.stringify(listEquipmentMaster_({ orgId: 'ORG-ACC' }));
+      lines.push('EQUIPMENT_MASTER: ' + t.rows.length + ' machines · data to row ' + sh.getLastRow() + ', column ' + sh.getLastColumn() +
+        ' · sheet size ' + sh.getMaxRows() + ' rows × ' + sh.getMaxColumns() + ' columns · equipment list answer ' + Math.round(answer.length / 1024) + ' KB');
+    } catch (e) { lines.push('EQUIPMENT_MASTER could not be read: ' + e.message); }
+  }
   if (!missing.length && !old.length && !tabTrouble) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
   var text = lines.join('\\n');
   Logger.log(text);
