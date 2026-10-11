@@ -70,17 +70,21 @@ export type PlatformEquipment = {
 export type EquipmentChange = { at: string; by: string; id: string; change: string; before: string; after: string };
 
 // The list comes in pages of 400: the whole live list in one answer is too
-// big for the web app to hand back. A backend without paging answers the
-// whole list at once (no "next"), which ends the loop too.
-export async function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number }> {
+// big for the web app to hand back. Each page asks from the number already
+// received, until the server's total is reached; "total" tells the page if
+// any are still missing. A backend without paging answers the whole list
+// at once (no total), which ends the loop too.
+export async function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number; total: number }> {
   const equipment: PlatformEquipment[] = [];
-  let offset: number | null = 0;
-  for (let guard = 0; offset !== null && guard < 100; guard++) {
-    const page: { equipment: PlatformEquipment[]; next?: number | null } = await postAction(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: 400, offset });
-    equipment.push(...(page.equipment || []));
-    offset = typeof page.next === 'number' ? page.next : null;
+  let total = Infinity;
+  for (let guard = 0; equipment.length < total && guard < 100; guard++) {
+    const page: { equipment: PlatformEquipment[]; total?: number } = await postAction(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: 400, offset: equipment.length });
+    const got = page.equipment || [];
+    equipment.push(...got);
+    total = typeof page.total === 'number' ? page.total : equipment.length;
+    if (!got.length) break;
   }
-  return { equipment, count: equipment.length };
+  return { equipment, count: equipment.length, total: Number.isFinite(total) ? total : equipment.length };
 }
 
 export function saveEquipmentMaster(

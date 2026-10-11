@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
 import EquipmentIdsPanel from '../components/EquipmentIdsPanel';
+import SectionBoundary from '../components/SectionBoundary';
 import ModuleAccessPanel from '../components/ModuleAccessPanel';
 import DelegationsPanel from '../components/DelegationsPanel';
 import { useAuth } from '../auth/AuthContext';
@@ -155,6 +156,7 @@ export default function Settings() {
 
       {activeTab === 'general' && (
         <div className="settings-body">
+          <SectionBoundary key={current.sub} name={current.label}>
           {current.sub === 'appearance' && (
             <>
               <div className="settings-card">
@@ -172,6 +174,7 @@ export default function Settings() {
           {current.sub === 'settings-access' && isAppOwner && <SettingsAccessPanel />}
           {current.sub === 'email' && isAppOwner && <EmailSettingsPanel />}
           {current.sub === 'equipment-ids' && <EquipmentIdsPanel readOnly={levels['equipment-ids'] !== 'Edit'} />}
+          </SectionBoundary>
         </div>
       )}
       {/* For a module section, its own Settings page appears in the right

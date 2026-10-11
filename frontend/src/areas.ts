@@ -52,10 +52,28 @@ export function areaResolver(list: AreaEntry[], machines: Record<string, string>
 export const areaLabel = (r: ResolvedArea) => r.area || r.line;
 
 const KEY = 'acc.areas.v1';
+// Every entry well-formed (names as text, aliases a list), whatever was
+// stored in this browser or came back from the server.
+function cleanList(raw: unknown): AreaList | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Partial<AreaList> & { areas?: unknown };
+  const areas = (Array.isArray(r.areas) ? r.areas : [])
+    .filter((x): x is AreaEntry => !!x && typeof x === 'object')
+    .map((x) => ({
+      ...x,
+      kind: x.kind === 'Line' ? ('Line' as const) : ('Area' as const),
+      name: String(x.name ?? '').trim(),
+      line: String(x.line ?? ''),
+      aliases: (Array.isArray(x.aliases) ? x.aliases : []).map((a) => String(a)).filter(Boolean),
+    }))
+    .filter((x) => x.name);
+  const machines = r.machines && typeof r.machines === 'object' ? r.machines : {};
+  return { ...(r as AreaList), areas, machines };
+}
 let store: AreaList | null = (() => {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as AreaList) : null;
+    return raw ? cleanList(JSON.parse(raw)) : null;
   } catch {
     return null;
   }
@@ -74,7 +92,9 @@ function publish(list: AreaList | null) {
 }
 publish(store);
 
-export function setAreas(list: AreaList) {
+export function setAreas(raw: AreaList) {
+  const list = cleanList(raw);
+  if (!list) return;
   store = list;
   publish(list);
   try {

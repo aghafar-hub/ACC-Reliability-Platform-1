@@ -9,6 +9,7 @@ import ShellModal, { FormSection } from './ShellModal';
 import AreasTab from './AreasTab';
 import { areaResolver, useAreas } from '../areas';
 import './EquipmentIdsPanel.css';
+import SectionBoundary from './SectionBoundary';
 
 // Settings → Equipment & IDs (App Owner only).
 //   Equipment ID — owned by the platform: this page adds, edits and retires them.
@@ -42,7 +43,10 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
       try {
         const [eq, ch] = await Promise.all([listEquipmentMaster(sessionToken).catch((e) => ({ error: describeError(e, "Couldn't load the equipment list.") })), fetchIdChecks(sessionToken, fresh)]);
         if ('error' in eq) setError(eq.error as string);
-        else setList(eq.equipment);
+        else {
+          setList(eq.equipment);
+          if (eq.count < eq.total) setError(`Loaded ${eq.count} of ${eq.total} machines — reload the page to get the rest.`);
+        }
         setChecks(ch);
       } finally {
         setChecking(false);
@@ -117,7 +121,11 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
       </div>
 
       {tab === 'equipment' && <EquipmentTab list={list} counts={counts} onAdd={readOnly ? undefined : () => setEditing({ mode: 'add', item: { contractor: 'RHI', criticality: 'Medium' } })} onOpen={readOnly ? undefined : (e) => setEditing({ mode: 'edit', item: e })} />}
-      {tab === 'areas' && <AreasTab list={list} readOnly={readOnly} />}
+      {tab === 'areas' && (
+        <SectionBoundary name="Areas">
+          <AreasTab list={list} readOnly={readOnly} />
+        </SectionBoundary>
+      )}
       {tab === 'lub' && <IdsTab kind="lub" check={oil} />}
       {tab === 'vib' && <IdsTab kind="vib" check={vib} />}
       {tab === 'problems' && (
