@@ -41,7 +41,7 @@ for (const project of ["platform-core", "oil-lubrication", "vibration-analysis"]
 
 var INSTALL_CHECK_FILES = ${JSON.stringify(files, null, 0).replace(/\},"/g, '},\n  "').replace(/^\{/, "{\n  ").replace(/\}$/, "\n}")};
 
-function checkInstall(mode) {
+function checkInstall() {
   var g = (function () { return this; })() || globalThis;
   var fp = function (src) {
     var t = String(src).replace(/\\s+/g, ''), h = 5381;

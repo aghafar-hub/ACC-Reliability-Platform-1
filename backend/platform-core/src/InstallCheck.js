@@ -13,7 +13,7 @@ var INSTALL_CHECK_FILES = {
   "Areas":{"arKey_":"pqdqqv","arRead_":"chprba","arClean_":"3xn59q","getAreas_":"hm2kch","arMachines_":"2j1yqg","maybeAppAdmin_":"1bxlg1m","saveAreas_":"1f488fz","arDiff_":"163wqf7"},
   "AssetMaster":{"amKey_":"10lx1wv","amRead_":"23hih1","amOrgs_":"7yb3hc","amOut_":"znx6ta","listEquipmentMaster_":"l1s7u1","saveEquipmentMaster_":"1tgxcj5","amLog_":"hzjr8e","listEquipmentLog_":"1fmjez5"},
   "Auth":{"hashPassword_":"wir64t","generateSalt_":"kbl19u","generateTempPassword_":"16ag8g","createUser_":"ssk2dw","login_":"1jhzt1g","changePassword_":"nnpmey","adminResetPassword_":"1rdcuzx"},
-  "Code":{"doPost":"1jh5hpn","doGet":"2xa6u9"},
+  "Code":{"doPost":"1jh5hpn","doGet":"3a0mlt"},
   "Config":{"getSpreadsheetId_":"182aohm"},
   "EmailSettings":{"emRead_":"19e0wxs","getEmailSettings_":"jybs4u","saveEmailSettings_":"5s5e0c","emWrite_":"1m4jlvb","emailAllowed_":"1qtf346"},
   "Rbac":{"hasPermission_":"1mnoeg3","requirePermission_":"khphl8","getContractorScope_":"oxfbok","requireAppAdmin_":"642o5n","seedRolePermissions_":"aemt8","runSeedRolePermissions":"11w7214","updateRolesPhase7":"m5uum","addContractorManagerRole":"tppggn"},
@@ -25,7 +25,7 @@ var INSTALL_CHECK_FILES = {
   "Utils":{"jsonResponse_":"1exhh7h","ok_":"1ad88x3","safeHandle_":"1em776o","withLock_":"gssndl","withIdempotency_":"19nvc10","getSheet_":"1ys5ey3","readSheetAsObjects_":"a9iuei","findRowByColumn_":"fuavec","appendRow_":"1wntmlo","deleteRowsByColumn_":"1nk8u42"}
 };
 
-function checkInstall(mode) {
+function checkInstall() {
   var g = (function () { return this; })() || globalThis;
   var fp = function (src) {
     var t = String(src).replace(/\s+/g, ''), h = 5381;
