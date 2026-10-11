@@ -179,10 +179,10 @@ export default function App({ navBridge } = {}) {
     }
     setSyncState((st) => (st.status === "ok" ? st : { status: "loading", message: "Loading…" }));
     try {
-      // both at once: the server answers each from its cache when nothing changed
-      const [data, lim] = await Promise.all([getStartupBundle(url), getVibLimits(url).catch(() => null)]);
-      applyBundle(data);
-      if (lim) setVibLimits(lim);
+      // both at once (the server answers each from its cache when nothing
+      // changed); the limits show as soon as they arrive
+      getVibLimits(url).then((lim) => lim && setVibLimits(lim)).catch(() => {});
+      applyBundle(await getStartupBundle(url));
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setSyncState({ status: "ok", message: `✓ Loaded — ${time}` });
     } catch (err) {

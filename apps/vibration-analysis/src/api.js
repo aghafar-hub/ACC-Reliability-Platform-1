@@ -185,6 +185,31 @@ export function getStartupBundle(webhookUrl) {
   return getChecked(webhookUrl, "getStartupBundle");
 }
 
+// A list the server sent packed (Code.js vbPack_) back to row objects.
+function unpackRows(x) {
+  const dict = x.dict || {};
+  return (x.rows || []).map((r) => {
+    const o = {};
+    x.cols.forEach((c, i) => {
+      const v = dict[i] ? dict[i][r[i]] : r[i];
+      if (v !== undefined) o[c] = v;
+    });
+    return o;
+  });
+}
+// Every packed list in an answer unpacked (an older server copy sends them plain).
+export function unpackLists(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  let out = data;
+  for (const k of Object.keys(data)) {
+    if (data[k] && data[k]._packed) {
+      if (out === data) out = { ...data };
+      out[k] = unpackRows(data[k]);
+    }
+  }
+  return out;
+}
+
 // The `{ rms, spm }` getStartupBundle() leaves out — see that function's
 // own comment.
 export function getRmsSpmHistory(webhookUrl) {
@@ -338,8 +363,10 @@ async function getChecked(webhookUrl, action, params) {
   const hit = fresh(k);
   if (hit) return hit;
   if (inflight.has(k)) return inflight.get(k);
-  const p = verifiedGet(webhookUrl, action, Date.now() < freshUntil ? { ...(params || {}), fresh: 1 } : params)
-    .then((data) => {
+  // pack=1: long lists come packed (smaller answers), unpacked here
+  const p = verifiedGet(webhookUrl, action, { ...(params || {}), pack: 1, ...(Date.now() < freshUntil ? { fresh: 1 } : {}) })
+    .then((raw) => {
+      const data = unpackLists(raw);
       if (data && (data.status === "error" || data.error)) throw new Error(data.error || "Load failed");
       remember(k, data);
       return data;

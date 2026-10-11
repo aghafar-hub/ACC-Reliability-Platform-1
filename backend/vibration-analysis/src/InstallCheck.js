@@ -13,7 +13,7 @@ var INSTALL_CHECK_FILES = {
   "Auth":{"getSessionSecret_":"dv51fe","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","requireSession_":"xifh5e","getSessionOrNull_":"126wvym"},
   "BackfillLastReadings":{"handleBackfillLastReadings":"1prs4hx"},
   "Cache":{"vcVersion_":"djx6jf","vcBump_":"1pv3ctc","vcKey_":"12pwdxh","vcGet_":"1j9t0sd","vcPut_":"15u21bn","vcRead_":"bkcg02"},
-  "Code":{"doGet":"ppntla","doPost":"njvvsa","dispatchWithAccess_":"1fkxm96","dispatch":"1uqzo4n","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
+  "Code":{"doGet":"ppntla","doPost":"njvvsa","dispatchWithAccess_":"m0ro0f","vbPackLists_":"19gtcov","vbPack_":"9x5nru","dispatch":"1uqzo4n","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
   "Compliance":{"readCompliance":"16ondc1","parseLabelToYearMonth":"1tddnt5","handleUpdateCompliance":"1v8uziw","handleMarkMissingCompliance":"14me95i"},
   "Config":{"dataStartRowFor":"wb5qrr","headerRowFor":"1z00e4k","worstStatus":"1lkh80x"},
   "Dashboard":{"handleGetVibDashboard":"1t0phdg"},

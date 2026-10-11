@@ -146,13 +146,66 @@ function dispatchWithAccess_(action, params) {
   if (action === 'getModuleSettings') return handleGetModuleSettings(session);
   if (action === 'getActivityFeed') return handleGetActivityFeed(session, params);
   // reads: from the cache when nothing changed since (Cache.js)
-  return vcRead_(action, params, session, function () {
+  var read = vcRead_(action, params, session, function () {
     var result = dispatch(action, params, session);
     if (action === 'readAll' || action === 'getStartupBundle' || action === 'getRmsSpmHistory') {
       result = maFilterSections_(session, result);
     }
     return result;
   });
+  return String(params.pack || '') === '1' ? vbPackLists_(read) : read;
+}
+
+// pack=1 (the current app): every long list in the answer is packed
+// (vbPack_). The plant's 2,000+ VIB IDs as plain rows make answers too big
+// for the web app to hand back; packed they are about a quarter the size.
+function vbPackLists_(result) {
+  if (!result || typeof result !== 'object' || Object.prototype.toString.call(result) === '[object Array]') return result;
+  var out = {};
+  Object.keys(result).forEach(function (k) {
+    var v = result[k];
+    var isRows = Object.prototype.toString.call(v) === '[object Array]' && v.length >= 50 &&
+      v.every(function (x) { return x && typeof x === 'object' && Object.prototype.toString.call(x) !== '[object Array]' && !(x instanceof Date); });
+    out[k] = isRows ? vbPack_(v) : v;
+  });
+  return out;
+}
+
+// A list of row objects as { _packed: 1, cols, dict, rows }: each row an
+// array of values in cols order; a column of plain values with few different
+// ones sends them once in dict[column index] and each row holds the index.
+// The app unpacks it (apps/vibration-analysis/src/api.js unpackRows).
+function vbPack_(list) {
+  var cols = [];
+  var seenCol = {};
+  list.forEach(function (o) {
+    Object.keys(o).forEach(function (k) { if (!seenCol[k]) { seenCol[k] = true; cols.push(k); } });
+  });
+  var dict = {};
+  var index = {};
+  cols.forEach(function (c, i) {
+    var map = {};
+    var values = [];
+    for (var r = 0; r < list.length; r++) {
+      var v = list[r][c] === undefined ? null : list[r][c];
+      if (v !== null && typeof v === 'object') return; // dates, lists, objects: as they are
+      var key = typeof v + ':' + v;
+      if (!Object.prototype.hasOwnProperty.call(map, key)) {
+        map[key] = values.length;
+        values.push(v);
+        if (values.length * 2 > list.length) return; // mostly different: as they are
+      }
+    }
+    dict[i] = values;
+    index[i] = map;
+  });
+  var rows = list.map(function (o) {
+    return cols.map(function (c, i) {
+      var v = o[c] === undefined ? null : o[c];
+      return index[i] ? index[i][typeof v + ':' + v] : v;
+    });
+  });
+  return { _packed: 1, cols: cols, dict: dict, rows: rows };
 }
 
 function dispatch(action, params, session) {

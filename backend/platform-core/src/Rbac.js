@@ -69,7 +69,10 @@ function requirePermission_(session, moduleId, actionCode) {
  * questions).
  */
 function getContractorScope_(session) {
-  return session.orgId === ORG_ACC ? null : session.orgId;
+  // the App Owner sees everything, whatever org the account is under
+  if ((session.roles || []).indexOf('ROLE-ADMIN') !== -1) return null;
+  var org = String(session.orgId || '').trim();
+  return org.toUpperCase() === ORG_ACC ? null : org;
 }
 
 /**
