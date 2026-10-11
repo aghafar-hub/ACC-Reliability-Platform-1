@@ -23,6 +23,8 @@ import { reportTone, workflowTone } from "../tones";
 const CONTRACTOR_ORDER = ["RHI", "ASEC"];
 // Status filter: finished months whose report has no readings in the app
 const NOT_IMPORTED = "Not imported";
+// Status filter: reports the contractor still has to finish (Draft) or correct (Returned)
+const WITH_CONTRACTOR = "Draft or returned";
 
 export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId, scopeEquipment }) {
   const { T, s } = useTheme();
@@ -98,7 +100,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
       statusFilter === "All"
         ? months
         : months
-            .map((m) => ({ ...m, cells: m.cells.filter((c) => (statusFilter === NOT_IMPORTED ? isNotImported(c) : c.status === statusFilter || c.report?.["Workflow status"] === statusFilter)) }))
+            .map((m) => ({ ...m, cells: m.cells.filter((c) => (statusFilter === NOT_IMPORTED ? isNotImported(c) : statusFilter === WITH_CONTRACTOR ? ["Draft", "Returned"].includes(c.report?.["Workflow status"]) : c.status === statusFilter || c.report?.["Workflow status"] === statusFilter)) }))
             .filter((m) => m.cells.length),
     [months, statusFilter, isNotImported]
   );
@@ -126,7 +128,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
     );
   }
 
-  const statusOptions = ["All", NOT_IMPORTED, "Received", "Not sent yet", "No report", "Report not imported", "Skipped", "Draft", "ACC review", "Returned", "Approved"];
+  const statusOptions = ["All", NOT_IMPORTED, WITH_CONTRACTOR, "Received", "Not sent yet", "No report", "Report not imported", "Skipped", "Draft", "ACC review", "Returned", "Approved"];
   const contractors = me.contractor ? [me.contractor] : CONTRACTOR_ORDER;
 
   return (
@@ -192,9 +194,9 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
             <Tile
               icon="ti-pencil"
               value={drafts.length}
-              label={me.acc ? `With the contractor · ${yr}` : `Draft or returned · ${yr}`}
-              sub={drafts.slice(0, 2).map((r) => `${r.Contractor} ${r["Report scope"]} · ${monthLabel(r.Month)}`).join(" · ") || "None"}
-              onClick={drafts.length ? () => setStatusFilter("Draft") : undefined}
+              label={me.acc ? `Waiting for the contractor · ${yr}` : `To finish or correct · ${yr}`}
+              sub={drafts.slice(0, 2).map((r) => `${r.Contractor} ${r["Report scope"]} · ${monthLabel(r.Month)}`).join(" · ") || "No draft or returned report"}
+              onClick={drafts.length ? () => setStatusFilter(WITH_CONTRACTOR) : undefined}
               testid="vlog-tile-drafts"
             />
             <Tile
