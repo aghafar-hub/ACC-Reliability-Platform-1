@@ -15,10 +15,15 @@ export class ApiError extends Error {
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: { message: string; correlationId?: string } };
 
+// Reads are safe to repeat: when Google answers a read with its own error
+// page (a passing hiccup delivering the answer), try once more.
+const READ_ACTION = /^(get|list|fetch|read)/;
+
 export async function postAction<T>(
   baseUrl: string,
   action: string,
   params: Record<string, unknown> = {},
+  retried = false,
 ): Promise<T> {
   let response: Response;
   try {
@@ -38,6 +43,10 @@ export async function postAction<T>(
   try {
     envelope = JSON.parse(text);
   } catch {
+    if (!retried && READ_ACTION.test(action)) {
+      await new Promise((r) => setTimeout(r, 1200));
+      return postAction<T>(baseUrl, action, params, true);
+    }
     throw new ApiError(`The server returned an unexpected response${serverErrorText(text)} (${action})`);
   }
 
