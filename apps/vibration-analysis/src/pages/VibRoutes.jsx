@@ -88,7 +88,7 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
                 </option>
               ))}
             </select>
-            {me.engineer && (
+            {(me.engineer || me.canApprove) && (
               <button type="button" style={s.btnPrimary} onClick={() => setCreating({ type: "Scheduled", machines: picked.map((k) => sugg.find((x) => x.key === k)).filter(Boolean) })} data-testid="vr-create">
                 <i className="ti ti-plus" aria-hidden="true" /> Create route
               </button>
@@ -164,7 +164,7 @@ export default function VibRoutes({ webhookUrl, openRouteId, setOpenRouteId }) {
               rows={sugg}
               picked={picked}
               setPicked={setPicked}
-              canPlan={me.engineer}
+              canPlan={me.engineer || me.canApprove}
               canDismiss={me.engineer || me.acc}
               onCreate={() => setCreating({ type: picked.some((k) => sugg.find((x) => x.key === k)?.type === "Follow-up") ? "Follow-up" : "Scheduled", machines: picked.map((k) => sugg.find((x) => x.key === k)).filter(Boolean) })}
               onDismiss={setDismissing}
