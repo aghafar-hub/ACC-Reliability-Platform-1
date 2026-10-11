@@ -1,5 +1,5 @@
 import { PLATFORM_CORE_URL } from '../config';
-import { newOperationId, postAction } from './client';
+import { ApiError, newOperationId, postAction } from './client';
 
 export type LoginResult = {
   userId: string;
@@ -87,9 +87,20 @@ export async function listEquipmentMaster(sessionToken: string): Promise<{ equip
   const equipment: PlatformEquipment[] = [];
   let serverTotal: number | undefined;
   for (let guard = 0; guard < 100; guard++) {
-    const page = await postAction<{ equipment?: PlatformEquipment[]; total?: number } | PlatformEquipment[]>(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: LIMIT, offset: equipment.length });
-    const got = Array.isArray(page) ? page : page?.equipment || [];
+    const ask = () => postAction<{ equipment?: PlatformEquipment[]; total?: number } | PlatformEquipment[]>(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: LIMIT, offset: equipment.length });
+    let page = await ask();
+    let got = Array.isArray(page) ? page : page?.equipment || [];
+    // an empty page while the server said there are more: ask again twice
+    for (let again = 0; !got.length && serverTotal !== undefined && equipment.length < serverTotal && again < 2; again++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      page = await ask();
+      got = Array.isArray(page) ? page : page?.equipment || [];
+    }
     if (!Array.isArray(page) && typeof page?.total === 'number') serverTotal = page.total;
+    if (!got.length && serverTotal !== undefined && equipment.length < serverTotal) {
+      const keys = page && typeof page === 'object' ? Object.keys(page).join(', ') : typeof page;
+      throw new ApiError(`Machines from ${equipment.length + 1} came back empty three times (server total ${serverTotal}; answer had: ${keys || 'nothing'}).`);
+    }
     equipment.push(...got);
     if (!got.length) break;
     if (serverTotal !== undefined ? equipment.length >= serverTotal : got.length < LIMIT) break;

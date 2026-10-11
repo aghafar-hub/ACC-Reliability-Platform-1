@@ -92,6 +92,8 @@ function checkInstall() {
     try {
       var page = listEquipmentMaster_({ roles: ['ROLE-ADMIN'], orgId: 'ORG-ACC' }, { limit: 400, offset: 0 });
       lines.push('App Owner equipment list: ' + page.count + ' on the first page, total ' + (page.total === undefined ? 'NOT SENT (old AssetMaster.js / Code.js)' : page.total));
+      var page2 = listEquipmentMaster_({ roles: ['ROLE-ADMIN'], orgId: 'ORG-ACC' }, { limit: 400, offset: 400 });
+      lines.push('Second page (machines 401–800): ' + page2.count + ' machines, ' + Math.round(JSON.stringify(page2).length / 1024) + ' KB');
     } catch (e) { lines.push('App Owner equipment list failed: ' + e.message); }
     // App Owner accounts and their org (the org is in the login token: sign out and in after changing it)
     try {
