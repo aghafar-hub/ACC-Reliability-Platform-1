@@ -38,8 +38,7 @@ const BASE_ROUTE = '/oil-lubrication';
 // Unmounting and remounting on every visit (the previous design, tied to
 // React Router mounting/unmounting a routed element) discarded this app's
 // own in-memory synced data on every tab switch, forcing a full re-sync
-// each time you came back. The new Routine-based Oil Analysis module built
-// this session lives separately at /oil-analysis-new.
+// each time you came back.
 //
 // PERFORMANCE: this used to wait for `visible` (the route actually being
 // open) before even starting the download — so the very first click on

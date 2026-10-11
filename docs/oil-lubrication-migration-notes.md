@@ -178,7 +178,13 @@ together.
 
 New backend endpoints: `getRoutines`, `getRoutineItems&routineId=`,
 `createRoutine`, `submitRoutineItem`, `submitRoutine`, `approveRoutine`,
-`addRoutineComment`. Not part of the main Full Sync — the Routines page
+`addRoutineComment`. `approveRoutine` also records the route's work on the
+server in the same request (`Routines.js` `recordApprovedRoutine_`): each
+done point's oil change (Oil Change LOG + stock), top-up (Oil Top Up LOG +
+stock) or sample mark ("Awaiting Lab Report"). Each record is skipped when
+it is already there, so approving again repairs a gap and the route page's
+own follow-up calls (kept as a backup for an older server) are harmless
+repeats. Not part of the main Full Sync — the Routines page
 fetches on demand, the same way Equipment Registry has its own separate
 sync trigger rather than riding along with samples/actions/oil changes.
 

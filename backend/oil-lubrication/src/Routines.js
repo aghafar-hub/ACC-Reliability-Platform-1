@@ -665,11 +665,14 @@ function approveRoutine(ss, data) {
   var rowIdx = findRowIndex(sheet, [0], [routineId], dataStartRowFor("ROUTINES"));
   if (rowIdx === -1) return { error: "Routine not found" };
   var current = routineStatusAt_(sheet, rowIdx);
-  if (current === ROUTE_STATUS.CONFIRMED) return { status: "ok", unchanged: true };
+  // Approving again records anything an earlier approval missed (each
+  // record below is skipped when it is already there).
+  if (current === ROUTE_STATUS.CONFIRMED) return { status: "ok", unchanged: true, recorded: recordApprovedRoutine_(ss, sheet, rowIdx, data.actingUser) };
   if (current !== ROUTE_STATUS.WAITING) return { error: "Only a route Waiting Approval can be confirmed" };
   sheet.getRange(rowIdx, 6).setValue(ROUTE_STATUS.CONFIRMED);
   sheet.getRange(rowIdx, 8).setValue(data.approvedBy || data.actingUser || "");
   sheet.getRange(rowIdx, 9).setValue(new Date());
+  var recorded = recordApprovedRoutine_(ss, sheet, rowIdx, data.actingUser);
 
   try {
     var routeName = sheet.getRange(rowIdx, 13).getValue();
@@ -679,7 +682,60 @@ function approveRoutine(ss, data) {
     logError("notifyRoutineApproved_", e, { routineId: routineId });
   }
 
-  return { status: "ok" };
+  return { status: "ok", recorded: recorded };
+}
+
+// The work of a confirmed route, recorded on the server in the same request
+// as the approval (it used to be done by the engineer's browser afterwards,
+// so a closed tab or a dropped connection lost it): each done point's oil
+// change (Oil Change LOG + stock), top-up (Oil Top Up LOG + stock) or sample
+// mark (Oil Sample Tracker "Awaiting Lab Report"). Each one is skipped when
+// it is already recorded, so this is safe to run again.
+// → { done, logged, already, failed: [{ lpId, error }] }
+function recordApprovedRoutine_(ss, sheet, rowIdx, actingUser) {
+  var route = sheet.getRange(rowIdx, 1, 1, 17).getValues()[0];
+  var routineId = String(route[0] || "").trim();
+  var createdBy = String(route[1] || "").trim();
+  var assignedTo = String(route[2] || "").trim();
+  var contractor = String(route[3] || "").trim();
+  var routeType = String(route[13] || "").trim();
+  var reason = String(route[16] || "").trim();
+  var out = { done: 0, logged: 0, already: 0, failed: [] };
+  var items = readSheet(ss, "OA_ROUTINE_ITEMS", true).filter(function (r) {
+    return String(r[1] || "").trim() === routineId && String(r[5] || "").trim() === "Yes";
+  });
+  items.forEach(function (it) {
+    var lpId = String(it[2] || "").trim();
+    var itemId = String(it[0] || "").trim();
+    var when = it[7] ? new Date(it[7]) : new Date();
+    if (isNaN(when.getTime())) when = new Date();
+    out.done++;
+    try {
+      var res;
+      if (routeType === "Oil Change") {
+        res = logOilChangeEvent(ss, { lpId: lpId, routineItemId: itemId, eventDate: when, doneBy: assignedTo, contractor: contractor });
+        if (!res.error && !res.duplicate) recordAudit_(ss, "Oil Change LOG", lpId, "create", actingUser || "", contractor, "Logged oil change (route " + routineId + ")");
+      } else if (routeType === "Emergency Top Up") {
+        res = logOilTopUp_(ss, { lpId: lpId, eventDate: when, quantityUsed: it[8], reason: reason || "Emergency top-up", requestedBy: createdBy, doneBy: assignedTo, routineId: routineId, contractor: contractor });
+        if (!res.error && !res.duplicate) {
+          recordAudit_(ss, "Oil Top Up LOG", lpId, "create", actingUser || "", contractor, "Logged oil top-up: " + reason);
+          try { applyLeakageRule_(ss, lpId, when); } catch (leakErr) { logError("applyLeakageRule_", leakErr, { lpId: lpId }); }
+        }
+      } else if (routeType === "Sampling") {
+        res = updateSampleTrackerMonthly(ss, { equipmentCode: lpId, sampleDate: Utilities.formatDate(when, Session.getScriptTimeZone(), "yyyy-MM-dd"), status: "Awaiting Lab Report" }) ? {} : { error: "point not in the Oil Sample Tracker" };
+      } else {
+        return;
+      }
+      if (res.error) out.failed.push({ lpId: lpId, error: res.error });
+      else if (res.duplicate) out.already++;
+      else out.logged++;
+    } catch (e) {
+      out.failed.push({ lpId: lpId, error: String(e && e.message || e) });
+    }
+  });
+  if (out.failed.length) logError("recordApprovedRoutine_", out.failed.length + " not recorded", { routineId: routineId, failed: out.failed });
+  if (out.logged) invalidateDashboardCache();
+  return out;
 }
 
 

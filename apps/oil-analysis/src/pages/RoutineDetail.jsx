@@ -352,6 +352,9 @@ export default function RoutineDetail({ webhookUrl, routineId, equipmentRegistry
     const routeType = approvedRoutine.routeType;
     if (routeType !== "Oil Change" && routeType !== "Sampling" && routeType !== "Emergency Top Up") return;
 
+    // The server now records the route's work itself when it approves
+    // (Routines.js recordApprovedRoutine_). These calls stay as a backup for
+    // an older server: each one is skipped when it is already recorded.
     const results = await Promise.allSettled(
       doneItems.map((item) => {
         const eventDate = item.actualDate || todayISO();

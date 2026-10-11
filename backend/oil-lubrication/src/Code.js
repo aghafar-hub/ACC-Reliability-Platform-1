@@ -602,7 +602,7 @@ function doPostInner_(e) {
         if (!appResult.error) invalidateRoutinesOverviewCache();
         logError("doPost:approveRoutine", appResult.error || "ok", {routineId: data.routineId, actingUser: actingUser});
         if (!appResult.error) recordAudit_(ss, "ROUTINES", data.routineId, "update", actingUser, approveContractor, "Confirmed route");
-        return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok"});
+        return jsonOut(appResult.error ? {status: "error", message: appResult.error} : {status: "ok", recorded: appResult.recorded});
       }
 
       // Phase 1 — return submitted work for correction (with a reason).
@@ -783,9 +783,11 @@ function doPostInner_(e) {
         var logResult = logOilChangeEvent(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilChangeEvent", logResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
-        if (!logResult.error) recordAudit_(ss, "Oil Change LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil change");
+        // a repeat for the same route point is ignored, so it isn't an audit event
+        if (!logResult.error && !logResult.duplicate) recordAudit_(ss, "Oil Change LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil change");
         return jsonOut(logResult.error ? {status: "error", message: logResult.error} : {
           status: "ok",
+          duplicate: !!logResult.duplicate,
           eventId: logResult.eventId,
           nextDueDate: logResult.nextDueDate,
           inventoryDeducted: logResult.inventoryDeducted,
@@ -867,13 +869,14 @@ function doPostInner_(e) {
         var topUpResult = logOilTopUp_(ss, data);
         invalidateDashboardCache();
         logError("doPost:logOilTopUp", topUpResult.error || "ok", {lpId: data.lpId, actingUser: actingUser});
-        if (!topUpResult.error) recordAudit_(ss, "Oil Top Up LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil top-up: " + (data.reason || ""));
+        if (!topUpResult.error && !topUpResult.duplicate) recordAudit_(ss, "Oil Top Up LOG", data.lpId, "create", actingUser, scope || resolveLpContractor_(data.lpId), "Logged oil top-up: " + (data.reason || ""));
         // Phase 2: 3 top-ups on one point within 30 days → Draft "Check oil leakage".
-        if (!topUpResult.error) {
+        if (!topUpResult.error && !topUpResult.duplicate) {
           try { applyLeakageRule_(ss, data.lpId, data.eventDate ? new Date(data.eventDate) : new Date()); } catch (leakErr) { logError("applyLeakageRule_", leakErr, {lpId: data.lpId}); }
         }
         return jsonOut(topUpResult.error ? {status: "error", message: topUpResult.error} : {
           status: "ok",
+          duplicate: !!topUpResult.duplicate,
           topUpId: topUpResult.topUpId,
           inventoryDeducted: topUpResult.inventoryDeducted,
           inventoryNote: topUpResult.inventoryNote,

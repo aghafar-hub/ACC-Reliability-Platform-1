@@ -26,11 +26,6 @@ import EmbeddedVibrationAnalysis from './pages/EmbeddedVibrationAnalysis';
 import Login from './pages/Login';
 import MyWork from './pages/MyWork';
 import TopBar from './components/TopBar';
-import LpRegisterPage from './pages/oil-analysis/LpRegisterPage';
-import NewRoutinePage from './pages/oil-analysis/NewRoutinePage';
-import OilAnalysisLayout from './pages/oil-analysis/OilAnalysisLayout';
-import RoutineDetailPage from './pages/oil-analysis/RoutineDetailPage';
-import RoutinesListPage from './pages/oil-analysis/RoutinesListPage';
 import Settings from './pages/Settings';
 import Activity from './pages/Activity';
 import Team from './pages/Team';
@@ -157,14 +152,8 @@ function ShellRoot() {
             <Route path="/team" element={<Team />} />
             {/* The Oil Lubrication module's old address — kept so bookmarks and old links still work. */}
             <Route path="/oil-analysis" element={<OldOilAddress />} />
-            {/* The new Routine-based Oil Analysis module — parked here, not linked from the sidebar for now. */}
-            <Route path="/oil-analysis-new" element={<OilAnalysisLayout />}>
-              <Route index element={<Navigate to="routines" replace />} />
-              <Route path="lp-register" element={<LpRegisterPage />} />
-              <Route path="routines" element={<RoutinesListPage />} />
-              <Route path="routines/new" element={<NewRoutinePage />} />
-              <Route path="routines/:routineId" element={<RoutineDetailPage />} />
-            </Route>
+            {/* The old parked route module was removed (it could approve a route without recording its work). */}
+            <Route path="/oil-analysis-new/*" element={<OldOilAddress />} />
           </Routes>
           {/* Rendered unconditionally, outside <Routes> — each mounts itself
               lazily on first visit and then stays mounted (hidden via CSS)
