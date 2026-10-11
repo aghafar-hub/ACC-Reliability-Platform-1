@@ -125,7 +125,7 @@ function checkInstall() {
       var lim = handleGetVibLimits({}, { email: 'install-check', roles: ['ROLE-ADMIN'], orgId: 'ORG-ACC' });
       lines.push('Limits answer: ' + (lim && lim.error ? 'ERROR ' + lim.error : Math.round(JSON.stringify(vbPackLists_(lim)).length / 1024) + ' KB packed') + ' · ' + ((Date.now() - t1) / 1000).toFixed(1) + ' s');
     } catch (e) { lines.push('Limits answer failed: ' + e.message); }
-  } else if (typeof getStartupBundle === 'function') {
+  } else if (typeof getStartupBundle === 'function' && typeof SHEET_VENTRIES !== 'undefined') { // Vibration only (Oil has its own getStartupBundle)
     lines.push('Code.js is OLD: it does not pack the answers, so the Vibration pages stay empty. Paste Code.js again.');
   }
   if (!missing.length && !old.length && !tabTrouble) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
