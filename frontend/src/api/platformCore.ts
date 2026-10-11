@@ -79,17 +79,23 @@ export type EquipmentChange = { at: string; by: string; id: string; change: stri
 // received, until the server's total is reached; "total" tells the page if
 // any are still missing. A backend without paging answers the whole list
 // at once (no total), which ends the loop too.
-export async function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number; total: number }> {
+// 400 machines per request; keeps asking while the server reports more (or,
+// when it sends no total, while pages come back full). serverTotal: what the
+// server said (undefined = it sent none — an older Platform Core copy).
+export async function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number; total: number; serverTotal?: number }> {
+  const LIMIT = 400;
   const equipment: PlatformEquipment[] = [];
-  let total = Infinity;
-  for (let guard = 0; equipment.length < total && guard < 100; guard++) {
-    const page: { equipment: PlatformEquipment[]; total?: number } = await postAction(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: 400, offset: equipment.length });
-    const got = page.equipment || [];
+  let serverTotal: number | undefined;
+  for (let guard = 0; guard < 100; guard++) {
+    const page = await postAction<{ equipment?: PlatformEquipment[]; total?: number } | PlatformEquipment[]>(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: LIMIT, offset: equipment.length });
+    const got = Array.isArray(page) ? page : page?.equipment || [];
+    if (!Array.isArray(page) && typeof page?.total === 'number') serverTotal = page.total;
     equipment.push(...got);
-    total = typeof page.total === 'number' ? page.total : equipment.length;
     if (!got.length) break;
+    if (serverTotal !== undefined ? equipment.length >= serverTotal : got.length < LIMIT) break;
   }
-  return { equipment, count: equipment.length, total: Number.isFinite(total) ? total : equipment.length };
+  const total = Math.max(serverTotal ?? 0, equipment.length);
+  return { equipment, count: equipment.length, total, serverTotal };
 }
 
 export function saveEquipmentMaster(

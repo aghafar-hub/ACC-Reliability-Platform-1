@@ -59,7 +59,8 @@ export default function App({ navBridge } = {}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
-  const [config, setConfig] = useState(() => configStore.load());
+  // never an address saved by the old stand-alone app (see the mount effect)
+  const [config, setConfig] = useState(() => ({ ...configStore.load(), webhookUrl: DEFAULT_WEBHOOK_URL }));
   const [logoUrl, setLogoUrl] = useState(() => configStore.loadLogo());
 
   const [rmsRegister, setRmsRegister] = useState([]);
@@ -173,7 +174,7 @@ export default function App({ navBridge } = {}) {
   }, [applyBundle]);
 
   const loadStartupBundle = useCallback(async () => {
-    const url = configRef.current?.webhookUrl || webhookRef.current;
+    const url = webhookRef.current || DEFAULT_WEBHOOK_URL;
     if (!url) {
       setSyncState({ status: "error", message: "No webhook URL — go to Settings → Configuration" });
       return;
@@ -303,7 +304,7 @@ export default function App({ navBridge } = {}) {
   // Equipment → scope, limits and VIB IDs, shared by the redesigned pages.
   const scopeEquipment = useMemo(() => buildEquipment(vibPoints, rmsRegister, spmRegister, vibLimits), [vibPoints, rmsRegister, spmRegister, vibLimits]);
   const reloadLimits = useCallback(async () => {
-    const url = configRef.current?.webhookUrl || webhookRef.current;
+    const url = webhookRef.current || DEFAULT_WEBHOOK_URL;
     const d = await getVibLimits(url);
     setVibLimits(d);
     return d;

@@ -36,6 +36,7 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
   const [editing, setEditing] = useState<{ mode: 'add' | 'edit'; item: Partial<PlatformEquipment> } | null>(null);
   const [idEditing, setIdEditing] = useState<{ kind: 'lub' | 'vib'; id?: string } | null>(null);
   const [notice, setNotice] = useState('');
+  const [serverTotal, setServerTotal] = useState<number | undefined | null>(null);
 
   const load = useCallback(
     async (fresh = false) => {
@@ -47,6 +48,7 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
         if ('error' in eq) setError(eq.error as string);
         else {
           setList(eq.equipment);
+          setServerTotal(eq.serverTotal);
           if (eq.count < eq.total) setError(`Loaded ${eq.count} of ${eq.total} machines — reload the page to get the rest.`);
         }
         setChecks(ch);
@@ -131,7 +133,7 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
       ))}
 
       <div className="eid-tiles">
-        <Tile label="Machines on the platform" value={list ? list.filter((e) => !/retired/i.test(e.status)).length : '…'} sub={list ? `${list.filter((e) => /retired/i.test(e.status)).length} retired` : ''} onClick={() => setTab('equipment')} />
+        <Tile label="Machines on the platform" value={list ? list.filter((e) => !/retired/i.test(e.status)).length : '…'} sub={list ? `${list.filter((e) => /retired/i.test(e.status)).length} retired${serverTotal !== null ? ` · server: ${serverTotal ?? 'no total sent'}` : ''}` : ''} onClick={() => setTab('equipment')} />
         <Tile label="Lub IDs (Oil)" value={oil ? oil.ids.length : '…'} sub={oil ? `${oil.ids.filter((x) => !x.inPlatform).length} not on the platform` : ''} onClick={() => setTab('lub')} />
         <Tile label="Vib IDs (Vibration)" value={vib ? vib.ids.length : '…'} sub={vib ? `${vib.ids.filter((x) => !x.inPlatform).length} not on the platform` : ''} onClick={() => setTab('vib')} />
         <Tile label="Not matching" value={checks.length ? openProblems.length : '…'} sub={checks.length ? `${problems.length - openProblems.length} marked OK` : ''} tone={openProblems.length ? 'danger' : 'ok'} onClick={() => setTab('problems')} testid="eid-tile-problems" />
