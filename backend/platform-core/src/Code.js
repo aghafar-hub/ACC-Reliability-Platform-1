@@ -70,7 +70,7 @@ function doPost(e) {
         return ok_(saveEmailSettings_(session, body));
       // Equipment list (AssetMaster.js): Equipment IDs are owned here
       case 'listEquipmentMaster':
-        return ok_(listEquipmentMaster_(session));
+        return ok_(listEquipmentMaster_(session, body));
       case 'saveEquipmentMaster':
         return ok_(saveEquipmentMaster_(session, body));
       // Areas (Areas.js): the official area names; any user reads, App Owner saves

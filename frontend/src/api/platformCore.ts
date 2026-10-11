@@ -69,8 +69,18 @@ export type PlatformEquipment = {
 };
 export type EquipmentChange = { at: string; by: string; id: string; change: string; before: string; after: string };
 
-export function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number }> {
-  return postAction(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken });
+// The list comes in pages of 400: the whole live list in one answer is too
+// big for the web app to hand back. A backend without paging answers the
+// whole list at once (no "next"), which ends the loop too.
+export async function listEquipmentMaster(sessionToken: string): Promise<{ equipment: PlatformEquipment[]; count: number }> {
+  const equipment: PlatformEquipment[] = [];
+  let offset: number | null = 0;
+  for (let guard = 0; offset !== null && guard < 100; guard++) {
+    const page: { equipment: PlatformEquipment[]; next?: number | null } = await postAction(PLATFORM_CORE_URL, 'listEquipmentMaster', { sessionToken, limit: 400, offset });
+    equipment.push(...(page.equipment || []));
+    offset = typeof page.next === 'number' ? page.next : null;
+  }
+  return { equipment, count: equipment.length };
 }
 
 export function saveEquipmentMaster(

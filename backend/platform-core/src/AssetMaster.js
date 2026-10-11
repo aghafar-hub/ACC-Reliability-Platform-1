@@ -63,30 +63,45 @@ function amOrgs_() {
   return { byId: byId, byName: byName };
 }
 
+// Text from a cell, without invisible control characters (a stray one
+// pasted into a description can break the web app's answer).
+function amText_(v) {
+  return String(v == null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u2028\u2029]/g, ' ');
+}
+
 function amOut_(r, orgs) {
   var org = String(r.Contractor || '').trim();
   return {
-    id: String(r.Equipment_ID).trim(),
-    name: String(r.Equipment_Description || ''),
-    mainArea: String(r.Main_Area || ''),
-    plantArea: String(r.Plant_Area || ''),
-    subArea: String(r.Sub_Area || ''),
+    id: amText_(r.Equipment_ID).trim(),
+    name: amText_(r.Equipment_Description),
+    mainArea: amText_(r.Main_Area),
+    plantArea: amText_(r.Plant_Area),
+    subArea: amText_(r.Sub_Area),
     contractor: orgs.byId[org] || org.replace(/^ORG-/, ''),
     contractorOrg: org,
-    criticality: String(r.Criticality || ''),
-    parent: String(r.Parent_Equipment_ID || ''),
-    status: String(r.Equipment_Status || 'Active') || 'Active',
+    criticality: amText_(r.Criticality),
+    parent: amText_(r.Parent_Equipment_ID),
+    status: amText_(r.Equipment_Status || 'Active') || 'Active',
   };
 }
 
-/** Everyone signed in; a contractor sees its own equipment only (spec §6.2). */
-function listEquipmentMaster_(session) {
+/**
+ * Everyone signed in; a contractor sees its own equipment only (spec §6.2).
+ * body.limit / body.offset: one page of the list (the app asks 400 at a
+ * time — the whole live list in one answer is too big for the web app to
+ * hand back). Without a limit, the whole list (older app versions).
+ */
+function listEquipmentMaster_(session, body) {
   var orgs = amOrgs_();
   var scope = getContractorScope_(session);
-  var list = amRead_().rows
-    .filter(function (r) { return !scope || String(r.Contractor).trim() === scope; })
-    .map(function (r) { return amOut_(r, orgs); });
-  return { equipment: list, count: list.length };
+  var rows = amRead_().rows
+    .filter(function (r) { return !scope || String(r.Contractor).trim() === scope; });
+  var limit = Number(body && body.limit) || 0;
+  var offset = Math.max(0, Number(body && body.offset) || 0);
+  var page = limit > 0 ? rows.slice(offset, offset + limit) : rows;
+  var list = page.map(function (r) { return amOut_(r, orgs); });
+  var next = limit > 0 && offset + limit < rows.length ? offset + limit : null;
+  return { equipment: list, count: list.length, total: rows.length, next: next };
 }
 
 /**
