@@ -61,8 +61,11 @@ function mdMergeOne_(ss, g, dry, who) {
     var mine = vibs.filter(function (v) { return idaKey_(v.eq) === idaKey_(d.eq); });
     if (!mine.length) res.problems.push(d.eq + ' has no VIB IDs');
     mine.forEach(function (v) {
-      var m = v.id.match(new RegExp('^Vb-' + d.eq.replace(/\./g, '\\.') + '-(.+)$', 'i'));
-      if (!m) { res.problems.push(v.id + ' does not start with Vb-' + d.eq + '-'); return; }
+      // the point is the drive's by its Equipment ID column; its name may
+      // carry another machine ID (renamed by hand): keep only the position part
+      var m = v.id.match(/^Vb-[^-]+-(.+)$/i);
+      if (!m) { res.problems.push(v.id + ' is not a Vb-<machine>-<point> ID'); return; }
+      if (v.id.toUpperCase().indexOf('VB-' + d.eq.toUpperCase() + '-') !== 0) (res.notes = res.notes || []).push(v.id + ' (machine ' + d.eq + ') renamed by its point part');
       var to = 'Vb-' + g.keep + '-' + d.tag + '-' + m[1];
       if (keyOf[idaKey_(to)]) { res.problems.push(to + ' already exists'); return; }
       plan.renames.vib[idaKey_(v.id)] = { from: v.id, to: to };
