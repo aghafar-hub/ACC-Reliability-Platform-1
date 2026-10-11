@@ -105,8 +105,10 @@ function listEquipmentMaster_(session, body) {
 }
 
 /**
- * App Admin only. body: { mode: 'add' | 'edit' | 'retire' | 'restore', item: { id, name, mainArea, plantArea,
- * subArea, contractor (RHI / ASEC or an OrgId), criticality, parent } }
+ * App Admin only. body: { mode: 'add' | 'edit' | 'retire' | 'restore' | 'rename' | 'delete', item: { id, name,
+ * mainArea, plantArea, subArea, contractor (RHI / ASEC or an OrgId), criticality, parent, newId (rename) } }
+ * Rename and delete change this list only; the app then asks Oil and
+ * Vibration to move or delete the machine's records (their IdAdmin.js).
  */
 function saveEquipmentMaster_(session, body) {
   requireAppAdmin_(session.userId);
@@ -141,6 +143,7 @@ function saveEquipmentMaster_(session, body) {
     }
     if (!found) throw new Error(id + ' is not in the list.');
     var before = amOut_(found, orgs);
+    if (mode === 'rename' || mode === 'delete') return amRenameOrDelete_(t, orgs, found, mode, amKey_(item.newId), by, before, now);
     var next = {};
     Object.keys(found).forEach(function (k) { next[k] = found[k]; });
     var change;
@@ -163,6 +166,42 @@ function saveEquipmentMaster_(session, body) {
     amLog_(by, id, change, JSON.stringify(before), JSON.stringify(after));
     return { saved: true, item: after };
   });
+}
+
+// A new Equipment ID for the machine (and for machines that name it as
+// parent), or the machine out of the list for good.
+function amRenameOrDelete_(t, orgs, found, mode, newId, by, before, now) {
+  var id = amKey_(found.Equipment_ID);
+  var col = function (k) { return t.headers.indexOf(k) + 1; };
+  var parentCol = col('Parent_Equipment_ID');
+  var modCol = col('Modified_Date');
+  if (mode === 'rename') {
+    if (!newId) throw new Error('Give the new Equipment ID.');
+    if (newId === id) throw new Error('The new Equipment ID is the same.');
+    if (!AM_ID_RE.test(newId)) throw new Error(newId + ' does not look like a plant Equipment ID (e.g. 321.FN125).');
+    if (t.rows.some(function (r) { return amKey_(r.Equipment_ID) === newId; })) throw new Error(newId + ' is already in the list.');
+  }
+  // children first: their rows don't move when this one is renamed
+  if (parentCol > 0) {
+    t.rows.forEach(function (r) {
+      if (amKey_(r.Parent_Equipment_ID) !== id) return;
+      t.sheet.getRange(r._row, parentCol).setValue(mode === 'rename' ? newId : '');
+      if (modCol > 0) t.sheet.getRange(r._row, modCol).setValue(now);
+    });
+  }
+  if (mode === 'delete') {
+    t.sheet.deleteRow(found._row);
+    amLog_(by, id, 'Deleted', JSON.stringify(before), '');
+    return { saved: true, deleted: true, id: id };
+  }
+  t.sheet.getRange(found._row, col('Equipment_ID')).setValue(newId);
+  if (modCol > 0) t.sheet.getRange(found._row, modCol).setValue(now);
+  var next = {};
+  Object.keys(found).forEach(function (k) { next[k] = found[k]; });
+  next.Equipment_ID = newId;
+  var after = amOut_(next, orgs);
+  amLog_(by, id, 'ID changed to ' + newId, JSON.stringify(before), JSON.stringify(after));
+  return { saved: true, item: after, from: id };
 }
 
 function amLog_(by, id, change, before, after) {

@@ -75,6 +75,7 @@ var MA_CONFIG = {
 
   writeRules: {
     markIdCheck: "admin",
+    idAdmin: "admin",
     saveModuleSettings: "settings:vibration-analysis",
     append: maVibGenericSheetTabs_,
     updateRow: maVibGenericSheetTabs_,

@@ -249,6 +249,7 @@ function dispatch(action, params, session) {
   if (action==='getIdCheck')            return handleGetIdCheck(params);
   if (action==='saveModuleSettings')    return vlLocked_(function () { return handleSaveModuleSettings(params, session); });
   if (action==='markIdCheck')           return handleMarkIdCheck(params, session && session.email);
+  if (action==='idAdmin')               return handleIdAdmin(params, session); // IdAdmin.js
   if (action==='saveVibLimits')         return vlLocked_(function () { return handleSaveVibLimits(params, session); });
   if (action==='setVibPointStatus')     return vlLocked_(function () { return handleSetVibPointStatus(params, session); });
   // VibActions.js

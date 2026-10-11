@@ -42,6 +42,17 @@ export async function fetchIdChecks(sessionToken: string, fresh = false): Promis
   });
 }
 
+// App Owner: change / delete / add IDs in a module (backend IdAdmin.js).
+// Throws the module's own message when it refuses.
+export async function idAdmin(sessionToken: string, moduleId: string, body: Record<string, unknown>): Promise<{ status: string; summary?: string; item?: Record<string, string> }> {
+  const r = (await modulePost(moduleId, sessionToken, { action: 'idAdmin', ...body })) as { status?: string; error?: string; message?: string; summary?: string; item?: Record<string, string> };
+  if (!r || r.status !== 'ok') {
+    const name = ID_MODULES.find((m) => m.id === moduleId)?.name || moduleId;
+    throw new Error(`${name}: ${r?.error || r?.message || 'not updated yet — paste IdAdmin.js and Code.js, then publish a new version.'}`);
+  }
+  return r as { status: string; summary?: string; item?: Record<string, string> };
+}
+
 export function markIdProblem(sessionToken: string, moduleId: string, key: string, status: 'OK' | 'Open') {
   return modulePost(moduleId, sessionToken, { action: 'markIdCheck', key, status });
 }

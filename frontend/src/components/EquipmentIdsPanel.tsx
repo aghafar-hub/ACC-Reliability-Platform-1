@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { describeError } from '../api/client';
 import { listEquipmentLog, listEquipmentMaster, saveEquipmentMaster, type EquipmentChange, type PlatformEquipment } from '../api/platformCore';
-import { fetchIdChecks, ID_MODULES, markIdProblem, type IdProblem, type ModuleIdCheck } from '../equipmentIds';
+import { fetchIdChecks, ID_MODULES, idAdmin, markIdProblem, type IdProblem, type ModuleIdCheck } from '../equipmentIds';
 import { TablerIcon } from '../icons';
 import IdSearch, { idTextMatch } from './IdSearch';
 import ShellModal, { FormSection } from './ShellModal';
@@ -34,6 +34,8 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [editing, setEditing] = useState<{ mode: 'add' | 'edit'; item: Partial<PlatformEquipment> } | null>(null);
+  const [idEditing, setIdEditing] = useState<{ kind: 'lub' | 'vib'; id?: string } | null>(null);
+  const [notice, setNotice] = useState('');
 
   const load = useCallback(
     async (fresh = false) => {
@@ -82,6 +84,30 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
     setList(eq.equipment);
   }
 
+  // A new Equipment ID / a machine deleted: the platform list first, then
+  // each module moves (or deletes) the machine's IDs and history. Run again
+  // after a module failed: the platform step is skipped once it is done.
+  const key = (s: string) => s.replace(/\s+/g, '').toUpperCase();
+  async function equipmentIdChange(op: 'rename' | 'delete', id: string, to = '') {
+    if (!sessionToken) return '';
+    const listed = (x: string) => (list || []).some((e) => key(e.id) === key(x));
+    try {
+      if (listed(id)) await saveEquipmentMaster(sessionToken, op, { id, newId: to });
+      else if (op === 'rename' && !listed(to)) throw new Error(`${id} is not in the list.`);
+      const done: string[] = [];
+      for (const m of ID_MODULES) {
+        const r = await idAdmin(sessionToken, m.id, op === 'rename' ? { op: 'renameEquipment', from: id, to } : { op: 'deleteEquipment', id });
+        done.push(`${m.short}: ${r.summary}`);
+      }
+      return done.join(' · ');
+    } finally {
+      setLog(null);
+      const eq = await listEquipmentMaster(sessionToken).catch(() => null);
+      if (eq) setList(eq.equipment);
+      load(true);
+    }
+  }
+
   const notConnected = checks.filter((c) => c.failed || !c.connected);
 
   return (
@@ -90,6 +116,14 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
         <b>Equipment IDs</b> are owned by the platform — added, changed and retired only here. <b>Lub IDs</b> belong to Oil Lubrication and <b>Vib IDs</b> to Vibration Analysis, and each must point to an Equipment ID from this list. The modules show the platform's name, area and contractor. Anything that doesn't match is listed under <b>Not matching</b>; new problems reach you every morning (bell + email).
       </p>
       {error && <div className="eid-msg eid-msg--error">{error}</div>}
+      {notice && (
+        <div className="eid-msg eid-msg--ok" data-testid="eid-notice">
+          {notice}{' '}
+          <button type="button" className="eid-link" onClick={() => setNotice('')}>
+            OK
+          </button>
+        </div>
+      )}
       {notConnected.map((c) => (
         <div key={c.moduleId} className="eid-msg eid-msg--warn" data-testid={`eid-notconnected-${c.moduleId}`}>
           <b>{c.module}:</b> {c.failed || `not reading the platform list — ${c.error || 'set the script property PLATFORM_CORE_SPREADSHEET_ID'}.`}
@@ -126,8 +160,8 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
           <AreasTab list={list} readOnly={readOnly} />
         </SectionBoundary>
       )}
-      {tab === 'lub' && <IdsTab kind="lub" check={oil} />}
-      {tab === 'vib' && <IdsTab kind="vib" check={vib} />}
+      {tab === 'lub' && <IdsTab kind="lub" check={oil} onOpen={readOnly ? undefined : (id) => setIdEditing({ kind: 'lub', id })} />}
+      {tab === 'vib' && <IdsTab kind="vib" check={vib} onOpen={readOnly ? undefined : (id) => setIdEditing({ kind: 'vib', id })} />}
       {tab === 'problems' && (
         <ProblemsTab
           problems={problems}
@@ -154,6 +188,25 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
           onSave={async (mode, item) => {
             await save(mode, item);
             setEditing(null);
+          }}
+          onRename={async (from, to) => setNotice(`${from} is now ${to}. ${await equipmentIdChange('rename', from, to)}`)}
+          onDelete={async (id) => {
+            setNotice(`${id} deleted with its history. ${await equipmentIdChange('delete', id)}`);
+            setEditing(null);
+          }}
+        />
+      )}
+      {idEditing && sessionToken && (
+        <IdModal
+          kind={idEditing.kind}
+          id={idEditing.id}
+          platformIds={(list || []).map((e) => e.id)}
+          sessionToken={sessionToken}
+          onClose={() => setIdEditing(null)}
+          onDone={(msg) => {
+            setIdEditing(null);
+            setNotice(msg);
+            load(true);
           }}
         />
       )}
@@ -262,7 +315,7 @@ function EquipmentTab({ list, counts, onAdd, onOpen }: { list: PlatformEquipment
   );
 }
 
-function IdsTab({ kind, check }: { kind: 'lub' | 'vib'; check?: ModuleIdCheck }) {
+function IdsTab({ kind, check, onOpen }: { kind: 'lub' | 'vib'; check?: ModuleIdCheck; onOpen?: (id?: string) => void }) {
   const [q, setQ] = useState('');
   const [only, setOnly] = useState<'All' | 'Not on the platform'>('All');
   const [limit, setLimit] = useState(PAGE);
@@ -276,13 +329,18 @@ function IdsTab({ kind, check }: { kind: 'lub' | 'vib'; check?: ModuleIdCheck })
   return (
     <section className="eid-card">
       <p className="eid-muted">
-        Owned by {check.module}: added and changed there{kind === 'lub' ? ' (Equipment Registry tab)' : ' (VIB ID Registry tab)'}. Shown here to check them against the platform list.
+        Owned by {check.module}{kind === 'lub' ? ' (Equipment Registry tab)' : ' (VIB ID Registry tab)'}.{onOpen ? ` Open one to change, rename or delete it; a new ${label} must point to an Equipment ID from the platform list.` : ''}
       </p>
       <div className="eid-filters">
         <div className="eid-search">
           <IdSearch options={base.map((x) => ({ code: idOf(x), description: x.equipmentId }))} value={q} onChange={(v) => { setQ(v); setLimit(PAGE); }} placeholder={`${label} or Equipment ID…`} testid={`eid-${kind}-find`} />
         </div>
         <Chips value={only} options={['Not on the platform'] as 'Not on the platform'[]} onChange={setOnly} label="Show" all="All" />
+        {onOpen && (
+          <button type="button" className="eid-primary" onClick={() => onOpen()} data-testid={`eid-${kind}-add`}>
+            <TablerIcon className="ti-plus" size={14} /> Add {label}
+          </button>
+        )}
       </div>
       <p className="eid-muted">{rows.length} {label}s</p>
       <div className="eid-table-wrap">
@@ -300,7 +358,7 @@ function IdsTab({ kind, check }: { kind: 'lub' | 'vib'; check?: ModuleIdCheck })
           </thead>
           <tbody>
             {rows.slice(0, limit).map((x, i) => (
-              <tr key={idOf(x) + i} className="eid-row-static">
+              <tr key={idOf(x) + i} className={onOpen ? undefined : 'eid-row-static'} onClick={onOpen ? () => onOpen(idOf(x)) : undefined} data-testid={`eid-${kind}-row`}>
                 <td className="eid-code">{idOf(x)}</td>
                 <td className="eid-code">{x.equipmentId || <span className="eid-bad">none</span>}</td>
                 <td>{x.point}</td>
@@ -431,10 +489,12 @@ function LogTab({ log }: { log: EquipmentChange[] | null }) {
   );
 }
 
-function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: 'add' | 'edit'; item: Partial<PlatformEquipment>; list: PlatformEquipment[]; counts: { lub: (id: string) => number; vib: (id: string) => number }; onClose: () => void; onSave: (mode: 'add' | 'edit' | 'retire' | 'restore', item: Partial<PlatformEquipment> & { id: string }) => Promise<void> }) {
+function EquipmentModal({ mode, item, list, counts, onClose, onSave, onRename, onDelete }: { mode: 'add' | 'edit'; item: Partial<PlatformEquipment>; list: PlatformEquipment[]; counts: { lub: (id: string) => number; vib: (id: string) => number }; onClose: () => void; onSave: (mode: 'add' | 'edit' | 'retire' | 'restore', item: Partial<PlatformEquipment> & { id: string }) => Promise<void>; onRename: (from: string, to: string) => Promise<void>; onDelete: (id: string) => Promise<void> }) {
   const [f, setF] = useState<Partial<PlatformEquipment>>({ ...item });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [newId, setNewId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const set = (k: keyof PlatformEquipment, v: string) => setF((x) => ({ ...x, [k]: v }));
   const retired = /retired/i.test(f.status || '');
   // suggestions: the official lines and areas (Areas tab), else the names in use
@@ -450,7 +510,15 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: '
     if (m === 'retire' && (counts.lub(f.id || '') || counts.vib(f.id || '')) && !window.confirm(`${f.id} still has Lub / Vib IDs. Retire it anyway? They will be listed under Not matching.`)) return;
     setBusy(true);
     try {
-      await onSave(m, { ...f, id: String(f.id || '') });
+      let id = String(f.id || '');
+      const to = (newId || '').trim().toUpperCase();
+      if (m === 'edit' && to && to !== id) {
+        await onRename(id, to);
+        id = to;
+        setF((x) => ({ ...x, id: to }));
+        setNewId(null);
+      }
+      await onSave(m, { ...f, id });
     } catch (e) {
       setErr(describeError(e, "Couldn't save."));
       setBusy(false);
@@ -472,6 +540,11 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: '
               {retired ? 'Restore' : 'Retire'}
             </button>
           )}
+          {mode === 'edit' && (
+            <button type="button" className="eid-danger" disabled={busy} onClick={() => setDeleting(true)} data-testid="eid-delete">
+              Delete
+            </button>
+          )}
           <span style={{ flex: 1 }} />
           <button type="button" className="eid-secondary" onClick={onClose}>
             Cancel
@@ -483,14 +556,37 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: '
       }
     >
       {err && <div className="eid-msg eid-msg--error">{err}</div>}
+      {deleting && (
+        <DeleteConfirm
+          id={String(f.id || '')}
+          what={`the machine from the platform list, its ${counts.lub(f.id || '')} Lub IDs and ${counts.vib(f.id || '')} Vib IDs, and all their history in Oil and Vibration (readings, samples, reports, actions, routes)`}
+          onCancel={() => setDeleting(false)}
+          onDelete={async () => {
+            setErr('');
+            try {
+              await onDelete(String(f.id || ''));
+            } catch (e) {
+              setErr(describeError(e, "Couldn't delete."));
+              setDeleting(false);
+            }
+          }}
+        />
+      )}
       <FormSection icon="list-details" title="Equipment">
         <div className="eid-form">
           <label>
             <span>Equipment ID</span>
             {mode === 'add' ? (
               <input className="eid-input eid-code" value={f.id || ''} onChange={(e) => set('id', e.target.value.toUpperCase())} placeholder="e.g. 321.FN125" data-testid="eid-f-id" />
+            ) : newId === null ? (
+              <span className="eid-read eid-code">
+                {f.id}{' '}
+                <button type="button" className="eid-link" onClick={() => setNewId(f.id || '')} data-testid="eid-change-id">
+                  Change ID
+                </button>
+              </span>
             ) : (
-              <span className="eid-read eid-code">{f.id}</span>
+              <input className="eid-input eid-code" value={newId} onChange={(e) => setNewId(e.target.value.toUpperCase())} data-testid="eid-f-newid" autoFocus />
             )}
           </label>
           <label className="eid-span2">
@@ -529,7 +625,191 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave }: { mode: '
           </label>
         </div>
         {mode === 'edit' && <p className="eid-muted">Changing the contractor moves this machine — and its Lub IDs and Vib IDs — to the other contractor in both modules.</p>}
+        {newId !== null && <p className="eid-muted">A new Equipment ID moves everything with it: the machine's Lub IDs and Vib IDs that carry the old ID are renamed too, and all their history follows.</p>}
       </FormSection>
+    </ShellModal>
+  );
+}
+
+// Type the ID to delete it: deleting takes all its history and can't be undone.
+function DeleteConfirm({ id, what, onCancel, onDelete }: { id: string; what: string; onCancel: () => void; onDelete: () => Promise<void> }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="eid-msg eid-msg--error eid-delete" data-testid="eid-delete-confirm">
+      <b>Delete {id} for good?</b> This removes {what}. It can't be undone.
+      <label>
+        <span>Type {id} to confirm</span>
+        <input className="eid-input eid-code" value={typed} onChange={(e) => setTyped(e.target.value)} data-testid="eid-delete-type" />
+      </label>
+      <div className="eid-delete-actions">
+        <button type="button" className="eid-secondary" onClick={onCancel} disabled={busy}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="eid-danger"
+          disabled={busy || typed.trim().toUpperCase() !== id.toUpperCase()}
+          onClick={async () => {
+            setBusy(true);
+            await onDelete();
+            setBusy(false);
+          }}
+          data-testid="eid-delete-go"
+        >
+          {busy ? 'Deleting…' : 'Delete for good'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type IdField = { k: string; label: string; options?: string[]; span?: boolean; code?: boolean };
+const LUB_FIELDS: IdField[] = [
+  { k: 'lubricationLocation', label: 'Lubrication location' },
+  { k: 'pointCode', label: 'Point code', code: true },
+  { k: 'lubricationPoint', label: 'Lubrication point' },
+  { k: 'position', label: 'Position' },
+  { k: 'reportEquipmentId', label: 'Lab report Unit ID', code: true },
+  { k: 'manufacturer', label: 'Manufacturer' },
+  { k: 'model', label: 'Model' },
+  { k: 'operatingTempC', label: 'Operating temp (°C)' },
+  { k: 'lubricant', label: 'Lubricant type' },
+  { k: 'lubricantBrand', label: 'Lubricant brand' },
+  { k: 'lubricantQuantityL', label: 'Quantity (L)' },
+  { k: 'interval', label: 'Oil analysis interval' },
+  { k: 'oilChangeInterval', label: 'Oil change interval' },
+  { k: 'oilAnalysisRequired', label: 'Oil analysis required', options: ['Yes', 'No'] },
+  { k: 'status', label: 'Status', options: ['Active', 'Inactive'] },
+];
+const VIB_FIELDS: IdField[] = [
+  { k: 'positionCode', label: 'Position code', code: true },
+  { k: 'description', label: 'Point description', span: true },
+  { k: 'family', label: 'Family', options: ['RMS', 'SPM', 'Gs'] },
+  { k: 'readingColumns', label: 'Reading columns' },
+  { k: 'status', label: 'Status', options: ['Active', 'Inactive'] },
+];
+
+// Settings → Equipment & IDs → Lub IDs / Vib IDs: add one, or open one to
+// change its fields, give it a new ID (its history follows) or delete it
+// with its history (backend IdAdmin.js in the module).
+function IdModal({ kind, id, platformIds, sessionToken, onClose, onDone }: { kind: 'lub' | 'vib'; id?: string; platformIds: string[]; sessionToken: string; onClose: () => void; onDone: (msg: string) => void }) {
+  const moduleId = kind === 'lub' ? 'oil-analysis' : 'vibration-analysis';
+  const label = kind === 'lub' ? 'Lub ID' : 'Vib ID';
+  const idKey = kind === 'lub' ? 'lpId' : 'vibId';
+  const fields = kind === 'lub' ? LUB_FIELDS : VIB_FIELDS;
+  const T = kind === 'lub' ? 'Lub' : 'Vib';
+  const [f, setF] = useState<Record<string, string> | null>(id ? null : { status: 'Active', ...(kind === 'vib' ? { family: 'RMS' } : { oilAnalysisRequired: 'Yes' }) });
+  const [newId, setNewId] = useState(id || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  useEffect(() => {
+    if (!id) return;
+    idAdmin(sessionToken, moduleId, { op: `get${T}`, id })
+      .then((r) => setF(r.item || {}))
+      .catch((e) => setErr(describeError(e, "Couldn't open it.")));
+  }, [id, sessionToken, moduleId, T]);
+  const set = (k: string, v: string) => setF((x) => ({ ...(x || {}), [k]: v }));
+  const save = async () => {
+    if (!f) return;
+    setErr('');
+    setBusy(true);
+    try {
+      const to = newId.trim();
+      const msgs: string[] = [];
+      if (id && to && to !== id) {
+        const r = await idAdmin(sessionToken, moduleId, { op: `rename${T}`, from: id, to });
+        msgs.push(`${id} is now ${to} (${r.summary}).`);
+      }
+      await idAdmin(sessionToken, moduleId, { op: `save${T}`, mode: id ? 'edit' : 'add', item: { ...f, [idKey]: to || id } });
+      onDone(msgs.join(' ') || `${to || id} ${id ? 'saved' : 'added'}.`);
+    } catch (e) {
+      setErr(describeError(e, "Couldn't save."));
+      setBusy(false);
+    }
+  };
+  return (
+    <ShellModal
+      icon={kind === 'lub' ? 'droplet' : 'activity'}
+      title={id || `Add ${label}`}
+      subtitle={kind === 'lub' ? 'Oil Lubrication · Equipment Registry' : 'Vibration Analysis · VIB ID Registry'}
+      onClose={onClose}
+      width={640}
+      testid="eid-id-modal"
+      footer={
+        <>
+          {id && (
+            <button type="button" className="eid-danger" disabled={busy || !f} onClick={() => setDeleting(true)} data-testid="eid-id-delete">
+              Delete
+            </button>
+          )}
+          <span style={{ flex: 1 }} />
+          <button type="button" className="eid-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="eid-primary" disabled={busy || !f || !newId.trim() || !(f.equipmentId || '').trim()} onClick={save} data-testid="eid-id-save">
+            {busy ? 'Saving…' : id ? 'Save' : 'Add'}
+          </button>
+        </>
+      }
+    >
+      {err && <div className="eid-msg eid-msg--error">{err}</div>}
+      {deleting && id && (
+        <DeleteConfirm
+          id={id}
+          what={kind === 'lub' ? 'the Lub ID with all its samples, actions, oil changes, top ups and route items (stock movements stay, without the link)' : 'the Vib ID with all its readings, report entries, limits and route points'}
+          onCancel={() => setDeleting(false)}
+          onDelete={async () => {
+            setErr('');
+            try {
+              const r = await idAdmin(sessionToken, moduleId, { op: `delete${T}`, id });
+              onDone(`${id} deleted with its history (${r.summary}).`);
+            } catch (e) {
+              setErr(describeError(e, "Couldn't delete."));
+              setDeleting(false);
+            }
+          }}
+        />
+      )}
+      {!f ? (
+        !err && <p className="eid-muted">Loading…</p>
+      ) : (
+        <>
+          <FormSection icon="list-details" title={label}>
+            <div className="eid-form">
+              <label>
+                <span>{label}</span>
+                <input className="eid-input eid-code" value={newId} onChange={(e) => setNewId(e.target.value)} placeholder={kind === 'lub' ? 'e.g. LP-321.FN125-GB-R' : 'e.g. Vb-321.FN125-MDE-RMS'} data-testid="eid-id-f-id" />
+              </label>
+              <label>
+                <span>Equipment ID</span>
+                <input className="eid-input eid-code" list="eid-platform-ids" value={f.equipmentId || ''} onChange={(e) => set('equipmentId', e.target.value.toUpperCase())} data-testid="eid-id-f-eq" />
+                <datalist id="eid-platform-ids">{platformIds.map((x) => <option key={x} value={x} />)}</datalist>
+              </label>
+            </div>
+            {id && newId.trim() && newId.trim() !== id && <p className="eid-muted">A new {label} moves all its history with it.</p>}
+          </FormSection>
+          <FormSection icon="adjustments" title="Details">
+            <div className="eid-form">
+              {fields.map((x) =>
+                x.options ? (
+                  <div key={x.k}>
+                    <span className="eid-label">{x.label}</span>
+                    <Chips value={f[x.k] || x.options[0]} options={x.options} onChange={(v) => set(x.k, v)} label={x.label} />
+                  </div>
+                ) : (
+                  <label key={x.k} className={x.span ? 'eid-span2' : undefined}>
+                    <span>{x.label}</span>
+                    <input className={x.code ? 'eid-input eid-code' : 'eid-input'} value={f[x.k] || ''} onChange={(e) => set(x.k, e.target.value)} />
+                  </label>
+                ),
+              )}
+            </div>
+            <p className="eid-muted">Contractor and area come from the platform's Equipment ID.</p>
+          </FormSection>
+        </>
+      )}
     </ShellModal>
   );
 }

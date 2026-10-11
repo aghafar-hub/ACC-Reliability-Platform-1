@@ -30,7 +30,7 @@
 .eid-chips { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .eid-chip { border: 1px solid var(--shell-border); background: var(--shell-card-bg); color: var(--shell-text-secondary); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
 .eid-chip--on { background: var(--shell-accent); border-color: var(--shell-accent); color: var(--shell-accent-text, #fff); font-weight: 700; }
-.eid-primary, .eid-secondary { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.eid-primary, .eid-secondary, .eid-danger { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .eid-primary { background: var(--shell-accent); color: var(--shell-accent-text, #fff); border: 1px solid var(--shell-accent); }
 .eid-filters .eid-primary { margin-inline-start: auto; }
 .eid-secondary { background: var(--shell-card-bg); color: var(--shell-text); border: 1px solid var(--shell-border); }
@@ -97,3 +97,11 @@
 .eid-area-split { font-size: 12px; color: var(--shell-text-secondary); margin-bottom: 4px; }
 .eid-tag-x { border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; padding: 0 0 0 4px; line-height: 1; }
 .eid-area-alias-in { width: 110px; padding: 2px 6px; font: inherit; font-size: 12px; border: 1px dashed var(--shell-border); border-radius: 999px; background: transparent; color: var(--shell-text); }
+
+.eid-danger { background: var(--shell-card-bg); color: var(--shell-danger, #c42b2b); border: 1px solid var(--shell-danger, #c42b2b); }
+.eid-danger:disabled { opacity: 0.55; cursor: default; }
+.eid-msg--ok { background: color-mix(in srgb, var(--shell-success, #1f9d55) 10%, var(--shell-card-bg)); border: 1px solid color-mix(in srgb, var(--shell-success, #1f9d55) 45%, transparent); }
+.eid-delete { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.eid-delete label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.eid-delete-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.eid-form + .eid-muted { margin-top: 10px; }

@@ -94,8 +94,8 @@ export async function listEquipmentMaster(sessionToken: string): Promise<{ equip
 
 export function saveEquipmentMaster(
   sessionToken: string,
-  mode: 'add' | 'edit' | 'retire' | 'restore',
-  item: Partial<PlatformEquipment> & { id: string },
+  mode: 'add' | 'edit' | 'retire' | 'restore' | 'rename' | 'delete',
+  item: Partial<PlatformEquipment> & { id: string; newId?: string },
 ): Promise<{ saved: boolean; item: PlatformEquipment }> {
   return postAction(PLATFORM_CORE_URL, 'saveEquipmentMaster', { sessionToken, mode, item });
 }

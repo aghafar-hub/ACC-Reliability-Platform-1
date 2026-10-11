@@ -97,6 +97,7 @@ var MA_CONFIG = {
   // Not listed = any member, outside Maintenance.
   writeRules: {
     markIdCheck: "admin",
+    idAdmin: "admin",
     saveModuleSettings: "settings:oil-analysis",
     markNotificationRead: "open",
     markAllNotificationsRead: "open",

@@ -1011,6 +1011,12 @@ function doPostInner_(e) {
         return jsonOut(handleMarkIdCheck(data, actingUser));
       }
 
+      if (data.action === "idAdmin") {
+        // IdAdmin.js — App Owner changes / deletes / adds IDs
+        requireAdmin_(auth.session);
+        return jsonOut(handleIdAdmin(data, actingUser));
+      }
+
       if (data.action === "updateDashboardSettings") {
         // The Oil Dashboard's on-time target (Dashboard.js) — platform-wide,
         // so ROLE-ADMIN only, like updateNotificationSettings above.
