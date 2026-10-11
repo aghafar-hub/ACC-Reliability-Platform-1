@@ -47,7 +47,7 @@ function checkInstall() {
     for (var i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0;
     return h.toString(36);
   };
-  var missing = [], old = [], ok = 0;
+  var missing = [], old = [], ok = 0, tabTrouble = false;
   Object.keys(INSTALL_CHECK_FILES).forEach(function (file) {
     var want = INSTALL_CHECK_FILES[file], names = Object.keys(want);
     var gone = names.filter(function (n) { return typeof g[n] !== 'function'; });
@@ -60,7 +60,24 @@ function checkInstall() {
   var lines = ['vibration-analysis: ' + ok + ' of ' + Object.keys(INSTALL_CHECK_FILES).length + ' files OK.'];
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
   if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
-  if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
+  // the spreadsheet's tabs the code needs (an empty or wrongly named tab
+  // leaves pages empty: "Copy of …" after copying tabs between files)
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) {
+      var need = ["SHEET_RMS_REG","SHEET_SPM_REG","SHEET_VIB_REGISTRY","SHEET_VLOG","SHEET_VENTRIES","SHEET_VHIST","SHEET_VLIMITS"].map(function (v) { return g[v]; }).filter(Boolean);
+      var tabs = ss.getSheets().map(function (sh) { return sh.getName(); });
+      var noTab = need.filter(function (n) { return tabs.indexOf(n) === -1; });
+      var emptyTab = need.filter(function (n) { var sh = ss.getSheetByName(n); return sh && sh.getLastRow() < 2; });
+      var copies = tabs.filter(function (n) { return /^Copy of /i.test(n); });
+      tabTrouble = !!(noTab.length || emptyTab.length || copies.length);
+      if (noTab.length) lines.push('TABS MISSING in this spreadsheet: ' + noTab.join(', '));
+      if (emptyTab.length) lines.push('TABS EMPTY: ' + emptyTab.join(', '));
+      if (copies.length) lines.push('Tabs still named "Copy of …" (rename them): ' + copies.join(', '));
+      if (need.length && !noTab.length && !emptyTab.length) lines.push('All ' + need.length + ' main tabs found.');
+    }
+  } catch (e) {}
+  if (!missing.length && !old.length && !tabTrouble) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
   var text = lines.join('\n');
   Logger.log(text);
   return text;
