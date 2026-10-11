@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { describeError } from '../api/client';
+import { ApiError, describeError } from '../api/client';
 import { listEquipmentLog, listEquipmentMaster, saveEquipmentMaster, type EquipmentChange, type PlatformEquipment } from '../api/platformCore';
 import { fetchIdChecks, ID_MODULES, idAdmin, markIdProblem, type IdProblem, type ModuleIdCheck } from '../equipmentIds';
 import { TablerIcon } from '../icons';
@@ -23,6 +23,35 @@ type Tab = 'equipment' | 'areas' | 'lub' | 'vib' | 'problems' | 'log';
 const PAGE = 100;
 const CONTRACTORS = ['RHI', 'ASEC'];
 const CRITICALITY = ['High', 'Medium', 'Low'];
+// Same token rule as the modules' IdAdmin.js (idaTokenRe_): the Equipment ID
+// inside a Lub / Vib ID, not followed by more letters or digits.
+function idToken(id: string) {
+  return new RegExp('(^|[^A-Za-z0-9.])' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=$|[^A-Za-z0-9])', 'g');
+}
+
+// The module and ID that would block renaming `from` to `to`, else ''.
+function renameClash(from: string, to: string, checks: (ModuleIdCheck | undefined)[]): string {
+  const k = (s: string) => s.replace(/\s+/g, '').toUpperCase();
+  for (const c of checks) {
+    if (!c) continue;
+    const all = new Set(c.ids.map((x) => k(x.lubId || x.vibId || '')));
+    for (const x of c.ids) {
+      const cur = x.lubId || x.vibId || '';
+      if (k(x.equipmentId) !== k(from)) continue;
+      const next = cur.replace(idToken(from.trim()), (_m, pre) => pre + to.trim());
+      if (next !== cur && all.has(k(next))) {
+        return `${c.module}: ${next} already exists, so ${from} can't become ${to}. Nothing was changed. Delete or change the IDs under ${to} first.`;
+      }
+    }
+  }
+  return '';
+}
+
+// A module's refusal is a plain Error: show its reason, not the fallback.
+function errText(e: unknown, fallback: string) {
+  return e instanceof Error && !(e instanceof ApiError) && !(e instanceof TypeError) && e.message ? e.message : describeError(e, fallback);
+}
+
 const KIND_ORDER = ['notInPlatform', 'noEquipmentId', 'duplicate', 'orphanRecords', 'retired', 'idMismatch', 'registerNoVibId', 'vibIdNoRegister', 'contractorDiffers'];
 
 export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boolean }) {
@@ -93,6 +122,12 @@ export default function EquipmentIdsPanel({ readOnly = false }: { readOnly?: boo
   async function equipmentIdChange(op: 'rename' | 'delete', id: string, to = '') {
     if (!sessionToken) return '';
     const listed = (x: string) => (list || []).some((e) => key(e.id) === key(x));
+    // A rename the modules would refuse must stop before anything changes:
+    // a Lub / Vib ID of this machine whose new name is already taken.
+    if (op === 'rename') {
+      const clash = renameClash(id, to, [oil, vib]);
+      if (clash) throw new Error(clash);
+    }
     try {
       if (listed(id)) await saveEquipmentMaster(sessionToken, op, { id, newId: to });
       else if (op === 'rename' && !listed(to)) throw new Error(`${id} is not in the list.`);
@@ -522,7 +557,7 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave, onRename, o
       }
       await onSave(m, { ...f, id });
     } catch (e) {
-      setErr(describeError(e, "Couldn't save."));
+      setErr(errText(e, "Couldn't save."));
       setBusy(false);
     }
   };
@@ -568,7 +603,7 @@ function EquipmentModal({ mode, item, list, counts, onClose, onSave, onRename, o
             try {
               await onDelete(String(f.id || ''));
             } catch (e) {
-              setErr(describeError(e, "Couldn't delete."));
+              setErr(errText(e, "Couldn't delete."));
               setDeleting(false);
             }
           }}
@@ -710,7 +745,7 @@ function IdModal({ kind, id, platformIds, sessionToken, onClose, onDone }: { kin
     if (!id) return;
     idAdmin(sessionToken, moduleId, { op: `get${T}`, id })
       .then((r) => setF(r.item || {}))
-      .catch((e) => setErr(describeError(e, "Couldn't open it.")));
+      .catch((e) => setErr(errText(e, "Couldn't open it.")));
   }, [id, sessionToken, moduleId, T]);
   const set = (k: string, v: string) => setF((x) => ({ ...(x || {}), [k]: v }));
   const save = async () => {
@@ -727,7 +762,7 @@ function IdModal({ kind, id, platformIds, sessionToken, onClose, onDone }: { kin
       await idAdmin(sessionToken, moduleId, { op: `save${T}`, mode: id ? 'edit' : 'add', item: { ...f, [idKey]: to || id } });
       onDone(msgs.join(' ') || `${to || id} ${id ? 'saved' : 'added'}.`);
     } catch (e) {
-      setErr(describeError(e, "Couldn't save."));
+      setErr(errText(e, "Couldn't save."));
       setBusy(false);
     }
   };
@@ -768,7 +803,7 @@ function IdModal({ kind, id, platformIds, sessionToken, onClose, onDone }: { kin
               const r = await idAdmin(sessionToken, moduleId, { op: `delete${T}`, id });
               onDone(`${id} deleted with its history (${r.summary}).`);
             } catch (e) {
-              setErr(describeError(e, "Couldn't delete."));
+              setErr(errText(e, "Couldn't delete."));
               setDeleting(false);
             }
           }}
