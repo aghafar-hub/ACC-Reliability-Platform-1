@@ -46,21 +46,25 @@ function checkInstall(mode) {
   if (missing.length) lines.push('MISSING — add these files: ' + missing.join(', '));
   if (old.length) lines.push('OUT OF DATE — paste these files again (if a file is already new, another file holds an old copy of these functions: search the project for them and delete the old copy): ' + old.join('; '));
   if (!missing.length && !old.length) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
-  // The signing secret must be the same in all three projects: compare these
-  // fingerprints (a short hash; the secret itself is never shown). Editor
-  // run only: the web address (?action=installCheck) is public.
-  if (mode !== 'web') try {
-    var props = PropertiesService.getScriptProperties();
-    var sec = props.getProperty('SESSION_SIGNING_SECRET');
-    var fpOf = function (v) {
-      return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, v, Utilities.Charset.UTF_8)).slice(0, 8);
-    };
-    lines.push('SESSION_SIGNING_SECRET: ' + (sec ? 'fingerprint ' + fpOf(sec) + (sec !== sec.trim() ? ' — WARNING: has spaces at the start or end' : '') : 'NOT SET'));
-    var pc = props.getProperty('PLATFORM_CORE_SPREADSHEET_ID');
-    lines.push('PLATFORM_CORE_SPREADSHEET_ID: ' + (pc ? 'set, ends …' + String(pc).trim().slice(-6) : 'NOT SET'));
-  } catch (e) {}
   var text = lines.join('\n');
   Logger.log(text);
   return text;
 }
 
+
+// Run checkSecrets() from the editor (never over the web): the signing
+// secret must be the same in all three projects, so compare these short
+// fingerprints between them. The secret itself is never shown.
+function checkSecrets() {
+  var props = PropertiesService.getScriptProperties();
+  var fpOf = function (v) {
+    return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, v, Utilities.Charset.UTF_8)).slice(0, 8);
+  };
+  var sec = props.getProperty('SESSION_SIGNING_SECRET');
+  var pc = props.getProperty('PLATFORM_CORE_SPREADSHEET_ID');
+  var text = 'platform-core\n' +
+    'SESSION_SIGNING_SECRET: ' + (sec ? 'fingerprint ' + fpOf(sec) + (sec !== sec.trim() ? ' — WARNING: spaces at the start or end' : '') : 'NOT SET') + '\n' +
+    'PLATFORM_CORE_SPREADSHEET_ID: ' + (pc ? 'set, ends …' + String(pc).trim().slice(-6) : 'NOT SET');
+  Logger.log(text);
+  return text;
+}
