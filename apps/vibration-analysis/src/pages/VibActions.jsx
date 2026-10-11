@@ -103,7 +103,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
   const contractorData = [
     { label: "RHI", value: base.filter((a) => a.Contractor === "RHI").length, color: palette[1] },
     { label: "ASEC", value: base.filter((a) => a.Contractor === "ASEC").length, color: palette[0] },
-  ];
+  ].filter((d) => contractors.includes(d.label)); // a contractor account: only its own
   const trendData = Array.from({ length: 6 }, (_, k) => {
     const now = new Date(today);
     const d = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1);

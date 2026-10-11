@@ -105,7 +105,7 @@ export default function ActionTracker({
     return map;
   }, [registry]);
   const areas = ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean)))];
-  const contractors = ["All", ...Array.from(new Set(registry.map((r) => r.contractor).filter(Boolean)))];
+  const contractors = useMemo(() => ["All", ...Array.from(new Set(registry.map((r) => r.contractor).filter(Boolean)))], [registry]);
   const years = [
     "All",
     ...Array.from(
@@ -192,11 +192,12 @@ export default function ActionTracker({
     });
     // same contractor colours as Inventory → Consumption
     const palette = isDarkSurface(T.cardBg) ? SERIES_DARK : SERIES_LIGHT;
+    // a contractor account's registry holds only its own machines: only its own slice
     return [
       { label: "RHI", value: counts.RHI, color: palette[1] },
       { label: "ASEC", value: counts.ASEC, color: palette[0] },
-    ];
-  }, [visible, registryByCode, T.cardBg]);
+    ].filter((d) => contractors.includes(d.label));
+  }, [visible, registryByCode, T.cardBg, contractors]);
 
   // Opened (by revisionDate) vs Closed (by completedDate), last 6 calendar
   // months — the one thing neither the status donut nor the kanban board
