@@ -53,6 +53,11 @@ export function setUserRoles(
   return postAction(PLATFORM_CORE_URL, 'setUserRoles', { sessionToken, userId, roleIds });
 }
 
+// App Admin only: removes the account and its roles for good.
+export function deleteUser(sessionToken: string, userId: string): Promise<{ deleted: boolean; userId: string; email: string }> {
+  return postAction(PLATFORM_CORE_URL, 'deleteUser', { sessionToken, userId });
+}
+
 // ─── Equipment list (Platform Core AssetMaster.js) ───────────────────────────
 // Equipment IDs are owned by the platform; Lub IDs by Oil, Vib IDs by Vibration.
 export type PlatformEquipment = {

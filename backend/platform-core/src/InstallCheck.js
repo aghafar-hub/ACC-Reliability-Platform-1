@@ -13,7 +13,7 @@ var INSTALL_CHECK_FILES = {
   "Areas":{"arKey_":"pqdqqv","arRead_":"chprba","arClean_":"3xn59q","getAreas_":"hm2kch","arMachines_":"2j1yqg","maybeAppAdmin_":"1bxlg1m","saveAreas_":"1f488fz","arDiff_":"163wqf7"},
   "AssetMaster":{"amKey_":"10lx1wv","amRead_":"23hih1","amOrgs_":"7yb3hc","amText_":"vfar33","amOut_":"13q9d4u","listEquipmentMaster_":"4lg513","saveEquipmentMaster_":"1tgxcj5","amLog_":"hzjr8e","listEquipmentLog_":"1fmjez5"},
   "Auth":{"hashPassword_":"wir64t","generateSalt_":"kbl19u","generateTempPassword_":"16ag8g","createUser_":"ssk2dw","login_":"1jhzt1g","changePassword_":"nnpmey","adminResetPassword_":"1rdcuzx"},
-  "Code":{"doPost":"18ay3ef","doGet":"3a0mlt"},
+  "Code":{"doPost":"14wfey7","doGet":"3a0mlt"},
   "Config":{"getSpreadsheetId_":"182aohm"},
   "EmailSettings":{"emRead_":"19e0wxs","getEmailSettings_":"jybs4u","saveEmailSettings_":"5s5e0c","emWrite_":"1m4jlvb","emailAllowed_":"1qtf346"},
   "Rbac":{"hasPermission_":"1mnoeg3","requirePermission_":"khphl8","getContractorScope_":"oxfbok","requireAppAdmin_":"642o5n","seedRolePermissions_":"aemt8","runSeedRolePermissions":"11w7214","updateRolesPhase7":"m5uum","addContractorManagerRole":"tppggn"},
@@ -21,7 +21,7 @@ var INSTALL_CHECK_FILES = {
   "Session":{"getSessionSecret_":"dv51fe","base64UrlEncode_":"i267m8","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","issueSessionToken_":"1q63m54","requireSession_":"xifh5e"},
   "SettingsAccess":{"saRank_":"2pymrt","saClamp_":"110o91p","saSheet_":"9hnswj","saRead_":"o3scce","saLevels_":"1wqd4ug","requireSettingsEdit_":"tikzxt","saCheck_":"1lb7pvd","getSettingsAccess_":"10jd0im","saveSettingsAccess_":"bv6xgx","saWrite_":"1pjj2pv","platformLog_":"1hqeitn"},
   "Translations":{"translationsSheet_":"22rre1","getTranslations_":"1qb4z6x","addTranslationTerms_":"4xlfqq","saveTranslation_":"1d5zl9b"},
-  "Users":{"listOrgUsers_":"13fy3gu","listRoles_":"1bzjvex","setUserRoles_":"5j4sc0"},
+  "Users":{"listOrgUsers_":"13fy3gu","listRoles_":"1bzjvex","setUserRoles_":"5j4sc0","deleteUser_":"tdclle"},
   "Utils":{"jsonResponse_":"1exhh7h","ok_":"1ad88x3","safeHandle_":"1em776o","withLock_":"gssndl","withIdempotency_":"19nvc10","getSheet_":"1ys5ey3","readSheetAsObjects_":"a9iuei","findRowByColumn_":"fuavec","appendRow_":"1wntmlo","deleteRowsByColumn_":"1nk8u42"}
 };
 

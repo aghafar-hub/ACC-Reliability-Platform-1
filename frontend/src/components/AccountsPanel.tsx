@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { describeError } from '../api/client';
-import { adminResetPassword, createUser, setUserRoles, type OrgUser } from '../api/platformCore';
+import { adminResetPassword, createUser, deleteUser, setUserRoles, type OrgUser } from '../api/platformCore';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE } from '../auth/session';
 import { useOrgUsers } from '../hooks/useOrgUsers';
@@ -145,6 +145,11 @@ export default function AccountsPanel() {
   const [resetResult, setResetResult] = useState<{ email: string; tempPassword: string } | null>(null);
 
   const [editingRolesId, setEditingRolesId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [deletedEmail, setDeletedEmail] = useState<string | null>(null);
   const [localUsers, setLocalUsers] = useState<Record<string, OrgUser>>({});
   const [query, setQuery] = useState('');
   const [orgFilter, setOrgFilter] = useState('All');
@@ -185,7 +190,25 @@ export default function AccountsPanel() {
     }
   }
 
-  const displayUsers = users.map((u) => localUsers[u.userId] ?? u);
+  async function handleDelete(u: OrgUser) {
+    if (!sessionToken) return;
+    setDeleteError(null);
+    setDeletedEmail(null);
+    setDeletingId(u.userId);
+    try {
+      await deleteUser(sessionToken, u.userId);
+      setDeletedIds((prev) => [...prev, u.userId]);
+      setDeletedEmail(u.email);
+      setConfirmDeleteId(null);
+      refetch();
+    } catch (err) {
+      setDeleteError(describeError(err, 'Could not delete the account.'));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const displayUsers = users.filter((u) => !deletedIds.includes(u.userId)).map((u) => localUsers[u.userId] ?? u);
   const q = query.trim().toLowerCase();
   const shownUsers = displayUsers.filter(
     (u) => (orgFilter === 'All' || u.orgId === orgFilter) && (!q || u.email.toLowerCase().includes(q) || u.roles.map(roleLabel).join(' ').toLowerCase().includes(q)),
@@ -303,6 +326,21 @@ export default function AccountsPanel() {
                       <button type="button" onClick={() => handleReset(u.userId)} disabled={resettingId === u.userId}>
                         {resettingId === u.userId ? 'Resetting…' : 'Reset password'}
                       </button>
+                      {u.userId !== claims?.userId &&
+                        (confirmDeleteId === u.userId ? (
+                          <>
+                            <button type="button" className="accounts-danger" onClick={() => handleDelete(u)} disabled={deletingId === u.userId}>
+                              {deletingId === u.userId ? 'Deleting…' : 'Yes, delete'}
+                            </button>
+                            <button type="button" onClick={() => setConfirmDeleteId(null)} disabled={deletingId === u.userId}>
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button type="button" className="accounts-danger" onClick={() => setConfirmDeleteId(u.userId)}>
+                            Delete
+                          </button>
+                        ))}
                     </div>
                   </td>
                 </tr>
@@ -316,6 +354,8 @@ export default function AccountsPanel() {
           </table>
         </div>
         {resetError && <p className="auth-error">{resetError}</p>}
+        {deleteError && <p className="auth-error">{deleteError}</p>}
+        {deletedEmail && <p className="accounts-deleted">{deletedEmail} was deleted.</p>}
         {resetResult && (
           <div className="accounts-temp-password">
             <strong>{resetResult.email}</strong> — new temporary password: <code>{resetResult.tempPassword}</code> <CopyButton value={resetResult.tempPassword} />

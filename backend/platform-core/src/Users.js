@@ -61,3 +61,33 @@ function setUserRoles_(userId, roleIds) {
     return { userId: userId, roles: roles };
   });
 }
+
+/**
+ * App Admin only (checked again here, not just in Code.js). Removes the
+ * account for good: its USERS row and its USER_ROLES rows. Never your own
+ * account, and never the last App Admin — someone must still own the app.
+ * Records the person made (readings, actions, log lines) keep their email.
+ */
+function deleteUser_(session, userId) {
+  requireAppAdmin_(session.userId);
+  userId = String(userId || '');
+  if (!userId) throw new Error('User not found.');
+  if (userId === String(session.userId)) throw new Error('You cannot delete your own account.');
+  return withLock_(function () {
+    var usersSheet = getSheet_(SHEET_NAMES.USERS);
+    var user = findRowByColumn_(usersSheet, 'UserId', userId);
+    if (!user) throw new Error('User not found.');
+    var userRolesSheet = getSheet_(SHEET_NAMES.USER_ROLES);
+    var roleRows = readSheetAsObjects_(userRolesSheet);
+    var isAdmin = roleRows.some(function (r) { return r.UserId === userId && r.RoleId === 'ROLE-ADMIN'; });
+    if (isAdmin) {
+      var active = {};
+      readSheetAsObjects_(usersSheet).forEach(function (u) { if (u.Status === 'Active') active[u.UserId] = true; });
+      var others = roleRows.filter(function (r) { return r.RoleId === 'ROLE-ADMIN' && r.UserId !== userId && active[r.UserId]; });
+      if (!others.length) throw new Error('This is the last App Admin — give someone else App Admin first.');
+    }
+    deleteRowsByColumn_(userRolesSheet, 'UserId', userId);
+    deleteRowsByColumn_(usersSheet, 'UserId', userId);
+    return { deleted: true, userId: userId, email: String(user.Email || '') };
+  });
+}

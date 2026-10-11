@@ -42,6 +42,10 @@ function doPost(e) {
         var roles = setUserRoles_(body.userId, body.roleIds);
         platformLog_(session.email || session.userId, 'Users', actUserEmail_(body.userId), 'Roles changed', (body.roleIds || []).join(', '));
         return ok_(roles);
+      case 'deleteUser':
+        var gone = deleteUser_(session, body.userId);
+        platformLog_(session.email || session.userId, 'Users', gone.email, 'Deleted', '');
+        return ok_(gone);
       case 'listOrgUsers':
         return ok_(listOrgUsers_(session));
       case 'listRoles':

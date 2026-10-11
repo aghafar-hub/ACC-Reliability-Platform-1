@@ -287,3 +287,14 @@
   opacity: 0.6;
   cursor: default;
 }
+
+.accounts-table button.accounts-danger {
+  border-color: var(--shell-danger);
+  color: var(--shell-danger);
+}
+
+.accounts-deleted {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--shell-text-secondary);
+}
