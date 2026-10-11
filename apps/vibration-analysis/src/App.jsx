@@ -67,6 +67,7 @@ export default function App({ navBridge } = {}) {
   const [vibPoints, setVibPoints] = useState([]);
   // Own limits, intervals and Active / Inactive (backend Limits.js).
   const [vibLimits, setVibLimits] = useState(null);
+  const [limitsError, setLimitsError] = useState("");
   const [, setThresholdsMap] = useState({});
   const [syncState, setSyncState] = useState({ status: "idle", message: "Not synced yet" });
 
@@ -181,7 +182,10 @@ export default function App({ navBridge } = {}) {
     try {
       // both at once (the server answers each from its cache when nothing
       // changed); the limits show as soon as they arrive
-      getVibLimits(url).then((lim) => lim && setVibLimits(lim)).catch(() => {});
+      setLimitsError("");
+      getVibLimits(url)
+        .then((lim) => lim && setVibLimits(lim))
+        .catch((e) => setLimitsError(String(e.message || e).slice(0, 160)));
       applyBundle(await getStartupBundle(url));
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setSyncState({ status: "ok", message: `✓ Loaded — ${time}` });
@@ -492,6 +496,17 @@ export default function App({ navBridge } = {}) {
           navBridge={navBridge}
         />
         {/* a new key after Sync: the open page loads again (fresh) */}
+        {/* the machines / VIB IDs / limits didn't load: say so instead of empty pages */}
+        {(syncState.status === "error" || (limitsError && page === "limits")) && (
+          <div data-testid="vib-load-error" style={{ margin: "12px 16px 0", padding: "10px 14px", borderRadius: 8, border: `1px solid ${T.danger}`, color: T.danger, background: "transparent", fontSize: 13.5, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ flex: 1, minWidth: 200 }}>
+              <b>Couldn't load {syncState.status === "error" ? "the machines and VIB IDs" : "the limits"}:</b> {syncState.status === "error" ? syncState.message : limitsError}. If this stays, run checkInstall in the Vibration Apps Script.
+            </span>
+            <button type="button" onClick={syncNow} style={{ border: `1px solid ${T.danger}`, background: "transparent", color: T.danger, borderRadius: 6, padding: "5px 12px", fontWeight: 600, cursor: "pointer" }}>
+              Try again
+            </button>
+          </div>
+        )}
         <div key={syncRound} style={{ display: "contents" }}>
           {content}
         </div>

@@ -72,6 +72,38 @@ function checkInstall() {
       lines.push('EQUIPMENT_MASTER: ' + t.rows.length + ' machines · data to row ' + sh.getLastRow() + ', column ' + sh.getLastColumn() +
         ' · sheet size ' + sh.getMaxRows() + ' rows × ' + sh.getMaxColumns() + ' columns · equipment list answer ' + Math.round(answer.length / 1024) + ' KB');
     } catch (e) { lines.push('EQUIPMENT_MASTER could not be read: ' + e.message); }
+    // what the App Owner's Equipment & IDs page gets back (first page + total)
+    try {
+      var page = listEquipmentMaster_({ roles: ['ROLE-ADMIN'], orgId: 'ORG-ACC' }, { limit: 400, offset: 0 });
+      lines.push('App Owner equipment list: ' + page.count + ' on the first page, total ' + (page.total === undefined ? 'NOT SENT (old AssetMaster.js / Code.js)' : page.total));
+    } catch (e) { lines.push('App Owner equipment list failed: ' + e.message); }
+    // App Owner accounts and their org (the org is in the login token: sign out and in after changing it)
+    try {
+      var owners = {};
+      readSheetAsObjects_(getSheet_(SHEET_NAMES.USER_ROLES)).forEach(function (r) { if (r.RoleId === 'ROLE-ADMIN') owners[r.UserId] = true; });
+      var who = readSheetAsObjects_(getSheet_(SHEET_NAMES.USERS)).filter(function (u) { return owners[u.UserId]; })
+        .map(function (u) { return u.Email + ' (org "' + u.OrgId + '", ' + u.Status + ')'; });
+      lines.push('App Owner accounts: ' + (who.join(', ') || 'none'));
+    } catch (e) {}
+  }
+  // Vibration: how big and how slow the startup answers are (too big = the
+  // pages stay empty: the app needs Code.js with the packed answers)
+  if (typeof getStartupBundle === 'function' && typeof vbPackLists_ === 'function') {
+    try {
+      var t0 = Date.now();
+      var bundle = getStartupBundle();
+      var plainKb = Math.round(JSON.stringify(bundle).length / 1024);
+      var packedKb = Math.round(JSON.stringify(vbPackLists_(bundle)).length / 1024);
+      lines.push('Startup answer: ' + (bundle.vibPoints || []).length + ' VIB IDs, ' + (bundle.rmsRegister || []).length + ' RMS / ' + (bundle.spmRegister || []).length +
+        ' SPM register rows · ' + plainKb + ' KB plain, ' + packedKb + ' KB packed · ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s');
+    } catch (e) { lines.push('Startup answer failed: ' + e.message); }
+    try {
+      var t1 = Date.now();
+      var lim = handleGetVibLimits({}, { email: 'install-check', roles: ['ROLE-ADMIN'], orgId: 'ORG-ACC' });
+      lines.push('Limits answer: ' + (lim && lim.error ? 'ERROR ' + lim.error : Math.round(JSON.stringify(vbPackLists_(lim)).length / 1024) + ' KB packed') + ' · ' + ((Date.now() - t1) / 1000).toFixed(1) + ' s');
+    } catch (e) { lines.push('Limits answer failed: ' + e.message); }
+  } else if (typeof getStartupBundle === 'function') {
+    lines.push('Code.js is OLD: it does not pack the answers, so the Vibration pages stay empty. Paste Code.js again.');
   }
   if (!missing.length && !old.length && !tabTrouble) lines.push('Everything is in place. Remember to publish a new version of the deployment.');
   var text = lines.join('\n');
