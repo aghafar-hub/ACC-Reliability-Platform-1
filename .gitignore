@@ -32,3 +32,6 @@ npm-debug.log*
 /data/
 *.xlsx
 *.xlsm
+
+# Claude Code personal settings (not shared)
+.claude/settings.local.json
