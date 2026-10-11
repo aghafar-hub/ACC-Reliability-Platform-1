@@ -28,7 +28,9 @@ const DEFAULT_CONFIG = {
 export function loadConfig() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULT_CONFIG, ...JSON.parse(raw) } : { ...DEFAULT_CONFIG };
+    // The backend address is always the one this build was made for: an
+    // address saved in this browser by an older version is ignored.
+    return raw ? { ...DEFAULT_CONFIG, ...JSON.parse(raw), webhookUrl: DEFAULT_WEBHOOK_URL } : { ...DEFAULT_CONFIG };
   } catch {
     return { ...DEFAULT_CONFIG };
   }

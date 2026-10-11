@@ -34,16 +34,31 @@ export async function postAction<T>(
   }
 
   let envelope: Envelope<T>;
+  const text = await response.text().catch(() => '');
   try {
-    envelope = await response.json();
+    envelope = JSON.parse(text);
   } catch {
-    throw new ApiError('The server returned an unexpected response.');
+    throw new ApiError(`The server returned an unexpected response${serverErrorText(text)} (${action})`);
   }
 
   if (!envelope.ok) {
     throw new ApiError(envelope.error.message, envelope.error.correlationId);
   }
   return envelope.data;
+}
+
+// Apps Script answers with its own HTML page when the script itself fails
+// (a file missing, a time-out, permissions not granted): show the error
+// line from that page instead of a bare "unexpected response".
+function serverErrorText(text: string): string {
+  const plain = String(text || '')
+    .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const m = plain.match(/(\w*Error|Exception)[^.]{0,200}/);
+  return m ? `: ${m[0]}` : plain ? `: ${plain.slice(0, 200)}` : '';
 }
 
 /** A fresh idempotency key for a write action — see Utils.js#withIdempotency_. */

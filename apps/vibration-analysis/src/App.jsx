@@ -85,9 +85,12 @@ export default function App({ navBridge } = {}) {
 
   useEffect(() => {
     try {
-      const loadedConfig = configStore.load();
+      // The backend address is the one this build was made for: an address
+      // saved in this browser by the old stand-alone app (Settings →
+      // Configuration) or in the sheet's Configuration tab is ignored, so a
+      // stale one can never send requests to an old deployment.
+      const loadedConfig = { ...configStore.load(), webhookUrl: DEFAULT_WEBHOOK_URL };
       setConfig(loadedConfig);
-      if (loadedConfig.webhookUrl) setWebhookUrl(loadedConfig.webhookUrl);
       if (loadedConfig.googleSheetUrl) setSheetUrl(loadedConfig.googleSheetUrl);
       setThresholdsMap(loadThresholdOverrides());
       setLogoUrl(configStore.loadLogo() || logoUrl);
@@ -154,7 +157,6 @@ export default function App({ navBridge } = {}) {
     setVibPoints((data.vibPoints || []).map(rowToVibPoint));
     if (data.config && typeof data.config === "object") {
       const merged = { ...configRef.current };
-      if (data.config.webhookUrl) merged.webhookUrl = data.config.webhookUrl;
       if (data.config.googleSheetUrl) {
         merged.googleSheetUrl = data.config.googleSheetUrl;
         setSheetUrl(data.config.googleSheetUrl);
