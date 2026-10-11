@@ -21,6 +21,8 @@ import { reportTone, workflowTone } from "../tones";
 // "No report".
 
 const CONTRACTOR_ORDER = ["RHI", "ASEC"];
+// Status filter: finished months whose report has no readings in the app
+const NOT_IMPORTED = "Not imported";
 
 export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId, scopeEquipment }) {
   const { T, s } = useTheme();
@@ -87,9 +89,18 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
     return out;
   }, [yr, thisMonth, reports, scopes, byKey]);
 
+  // A finished month whose report has no readings in the app (no report,
+  // missing, not sent, or an old report never imported). The current month
+  // isn't finished, so it doesn't count yet.
+  const isNotImported = useCallback((c) => c.month < thisMonth && !(Number(c.report?.Entries) > 0), [thisMonth]);
   const visibleMonths = useMemo(
-    () => (statusFilter === "All" ? months : months.map((m) => ({ ...m, cells: m.cells.filter((c) => c.status === statusFilter || c.report?.["Workflow status"] === statusFilter) })).filter((m) => m.cells.length)),
-    [months, statusFilter]
+    () =>
+      statusFilter === "All"
+        ? months
+        : months
+            .map((m) => ({ ...m, cells: m.cells.filter((c) => (statusFilter === NOT_IMPORTED ? isNotImported(c) : c.status === statusFilter || c.report?.["Workflow status"] === statusFilter)) }))
+            .filter((m) => m.cells.length),
+    [months, statusFilter, isNotImported]
   );
 
   const allCells = months.flatMap((m) => m.cells);
@@ -99,7 +110,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
   const drafts = yearReports.filter((r) => ["Draft", "Returned"].includes(r["Workflow status"]));
   const received = allCells.filter((c) => ["Received", "Received late"].includes(c.status));
   const approved = yearReports.filter((r) => ["Approved", "Historic"].includes(r["Workflow status"]) && r["Report status"] !== "Missing");
-  const notImported = yearReports.filter((r) => r["Report status"] === "Report not imported");
+  const notImported = allCells.filter(isNotImported);
 
   if (openReportId) {
     return (
@@ -115,7 +126,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
     );
   }
 
-  const statusOptions = ["All", "Received", "Not sent yet", "No report", "Report not imported", "Skipped", "Draft", "ACC review", "Returned", "Approved"];
+  const statusOptions = ["All", NOT_IMPORTED, "Received", "Not sent yet", "No report", "Report not imported", "Skipped", "Draft", "ACC review", "Returned", "Approved"];
   const contractors = me.contractor ? [me.contractor] : CONTRACTOR_ORDER;
 
   return (
@@ -190,9 +201,9 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
               icon="ti-file-import"
               value={notImported.length}
               label={`Reports not imported · ${yr}`}
-              sub="Received at ACC before the app; readings not in it"
-              tone={notImported.length ? T.accent : undefined}
-              onClick={notImported.length ? () => setStatusFilter("Report not imported") : undefined}
+              sub={notImported.length ? `of ${allCells.filter((c) => c.month < thisMonth).length} due · ${notImported.slice(0, 3).map((c) => `${new Date(`${c.month}-15`).toLocaleDateString("en-GB", { month: "short" })} ${c.contractor} ${c.scope.replace("Line ", "L").replace("Cement Mills", "CM")}`).join(" · ")}${notImported.length > 3 ? ` · +${notImported.length - 3}` : ""}` : "Every finished month has its readings"}
+              tone={notImported.length ? T.warning : undefined}
+              onClick={notImported.length ? () => setStatusFilter(NOT_IMPORTED) : undefined}
               testid="vlog-tile-notimported"
             />
           </div>
