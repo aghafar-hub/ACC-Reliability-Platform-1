@@ -357,6 +357,17 @@ export const TERMS: TermRow[] = [
 
   // ── Settings ───────────────────────────────────────────────
   ['Settings', 'Appearance', 'المظهر'],
+  ['Settings', "Who's online", 'المتصلون الآن'],
+  ['Settings', 'Online now · login history', 'المتصلون الآن · سجل الدخول'],
+  ['Settings', 'Login history', 'سجل الدخول'],
+  ['Settings', 'Online now', 'متصل الآن'],
+  ['Settings', 'Idle', 'خامل'],
+  ['Settings', 'Earlier today', 'في وقت سابق اليوم'],
+  ['Settings', 'Not today', 'ليس اليوم'],
+  ['Settings', 'Signed in', 'تسجيل دخول'],
+  ['Settings', 'Signed out', 'تسجيل خروج'],
+  ['Settings', 'Failed sign-in', 'محاولة دخول فاشلة'],
+  ['Settings', 'Opened the app', 'فتح التطبيق'],
   ['Settings', 'Colour theme', 'لون الواجهة'],
   ['Settings', 'Appearance, accounts and each module\'s own settings.', 'المظهر والحسابات وإعدادات كل وحدة.'],
   ['Settings', 'My delegations', 'تفويضاتي'],

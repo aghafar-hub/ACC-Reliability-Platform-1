@@ -79,3 +79,25 @@ save.
 editor. It adds an hourly trigger. At the digest time set in Settings (once
 a day), `sendEmailDigest` sends each person one email listing everything
 queued for them, then empties the queue.
+
+## Who's online + login history (Oct 2026)
+
+Settings → **Who's online** — App Owner and ACC managers only (Platform Core
+`Presence.js` checks it too; it is not part of the Settings-access matrix).
+
+- **Check-in:** while the app is in view the shell sends `heartbeat` every
+  2 minutes (`frontend/src/presence.ts`): the module and page open, the
+  device kind (phone / tablet / desktop, "app" when installed) and seconds
+  since the person last touched the app. Nothing is sent while the tab is
+  hidden or the phone is locked; never what is typed.
+- **Status:** Online = checked in within 3 min and touched the app within
+  3 min; Idle = app open but untouched, or closed within 15 min; Earlier
+  today; Not today (last seen date kept in the `USER_PRESENCE` sheet,
+  saved at most every 10 min per person). The live part is in the script
+  cache, not a sheet.
+- **Login history:** sheet `LOGIN_HISTORY` (At, Email, UserId, OrgId,
+  Event, Device, Details) — Signed in, Failed sign-in (email only, never
+  the password), Signed out, and Opened the app (first check-in of each day,
+  so people who stay signed in still show their days of use). Newest 3,000
+  rows are kept. The page shows days used, sign-ins and failed sign-ins per
+  person, a day-by-day list and a CSV export.

@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from
 import BottomNav from './components/BottomNav';
 import MoreSheet from './mobile/MoreSheet';
 import ScrollKeeper from './mobile/ScrollKeeper';
+import { PresenceTracker } from './presence';
 import UpdatePrompt from './mobile/UpdatePrompt';
 import ModuleTabs from './components/ModuleTabs';
 import OfflineBanner from './components/OfflineBanner';
@@ -173,6 +174,7 @@ function ShellRoot() {
         <BottomNav onOpenMore={() => { setMoreModule(null); setMoreOpen(true); }} moreOpen={moreOpen} />
         <MoreSheet open={moreOpen} startModule={moreModule} onClose={() => setMoreOpen(false)} />
         <ScrollKeeper />
+        <PresenceTracker />
         <InstallBanner />
       </div>
       <SaveBlockedToast />

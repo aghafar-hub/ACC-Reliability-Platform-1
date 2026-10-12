@@ -6,6 +6,7 @@ import NotificationBell from '../components/NotificationBell';
 import ThemePicker from '../components/ThemePicker';
 import { ShellThemeProvider, useShellTheme } from '../shellTheme';
 import MyWork from './MyWork';
+import { PresenceTracker } from '../presence';
 import './TechnicianShell.css';
 
 // Small popover for the one setting a Technician-only account gets: the
@@ -132,6 +133,7 @@ function TechnicianShellInner() {
 export default function TechnicianShell() {
   return (
     <EmbeddedNavProvider>
+      <PresenceTracker />
       <ShellThemeProvider>
         <TechnicianShellInner />
       </ShellThemeProvider>

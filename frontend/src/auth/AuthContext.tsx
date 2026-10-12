@@ -1,5 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { changePassword as apiChangePassword, login as apiLogin } from '../api/platformCore';
+import { changePassword as apiChangePassword, login as apiLogin, signOut as apiSignOut } from '../api/platformCore';
+
+// device kind for the login history (same rule as presence.ts)
+function loginDevice(): string {
+  const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const kind = window.innerWidth <= 860 && touch ? 'phone' : touch ? 'tablet' : 'desktop';
+  return typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches ? `${kind} app` : kind;
+}
 import { decodeSessionClaims, type SessionClaims } from './session';
 
 const STORAGE_KEY = 'acc.session';
@@ -75,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [stored]);
 
   async function login(email: string, password: string, remember: boolean) {
-    const result = await apiLogin(email, password);
+    const result = await apiLogin(email, password, { device: loginDevice(), remember });
     rememberRef.current = remember;
     setStored({ sessionToken: result.sessionToken, mustChangePassword: result.mustChangePassword });
   }
@@ -87,6 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // for the login history (Platform Core Presence.js); never waits for it
+    if (stored?.sessionToken) apiSignOut(stored.sessionToken, loginDevice()).catch(() => {});
     setStored(null);
   }
 

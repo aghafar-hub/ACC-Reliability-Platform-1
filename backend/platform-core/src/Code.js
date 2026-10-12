@@ -17,7 +17,16 @@ function doPost(e) {
 
     // login is the one action allowed without an existing session.
     if (action === 'login') {
-      return ok_(login_(body.email, body.password));
+      // Presence.js: every sign-in (and failed one) goes into LOGIN_HISTORY
+      var signedIn;
+      try {
+        signedIn = login_(body.email, body.password);
+      } catch (loginErr) {
+        loginLog_(String(body.email || '').trim().toLowerCase(), '', '', 'Failed sign-in', body.device, '');
+        throw loginErr;
+      }
+      loginLog_(signedIn.email, signedIn.userId, signedIn.orgId, 'Signed in', body.device, body.remember === false ? 'not kept signed in' : '');
+      return ok_(signedIn);
     }
 
     var session = requireSession_(body.sessionToken);
@@ -84,6 +93,17 @@ function doPost(e) {
         return ok_(saveAreas_(session, body));
       case 'listEquipmentLog':
         return ok_(listEquipmentLog_(session, body.limit));
+      // Who's online + login history (Presence.js): App Owner + ACC managers
+      case 'heartbeat':
+        return ok_(heartbeat_(session, body));
+      case 'listPresence':
+        return ok_(listPresence_(session));
+      case 'listLoginHistory':
+        return ok_(listLoginHistory_(session, body));
+      case 'signOut':
+        loginLog_(session.email || '', session.userId, session.orgId, 'Signed out', body.device, '');
+        try { CacheService.getScriptCache().remove('pres|' + session.userId); } catch (e) {}
+        return ok_({ signedOut: true });
       // Additional actions (Asset Master, RBAC admin, settings) are wired
       // up as their implementations land — see the open backend tasks.
       default:

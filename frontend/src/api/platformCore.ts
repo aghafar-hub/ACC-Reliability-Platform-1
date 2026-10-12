@@ -9,8 +9,9 @@ export type LoginResult = {
   sessionToken: string;
 };
 
-export function login(email: string, password: string): Promise<LoginResult> {
-  return postAction<LoginResult>(PLATFORM_CORE_URL, 'login', { email, password });
+// device / remember: for the login history (Presence.js) only
+export function login(email: string, password: string, extra: { device?: string; remember?: boolean } = {}): Promise<LoginResult> {
+  return postAction<LoginResult>(PLATFORM_CORE_URL, 'login', { email, password, ...extra });
 }
 
 export function changePassword(sessionToken: string, newPassword: string): Promise<{ ok: true }> {
@@ -194,4 +195,37 @@ export function getAreas(sessionToken: string): Promise<AreaList> {
 
 export function saveAreas(sessionToken: string, areas: AreaEntry[]): Promise<AreaList> {
   return postAction(PLATFORM_CORE_URL, 'saveAreas', { sessionToken, areas });
+}
+
+// ─── Who's online + login history (Presence.js; App Owner + ACC managers) ──
+export type PresenceUser = {
+  userId: string;
+  email: string;
+  orgId: string;
+  roles: string[];
+  status: 'online' | 'idle' | 'today' | 'offline';
+  lastSeen: string;
+  lastInput: string;
+  firstToday: string;
+  page: string;
+  module: string;
+  device: string;
+};
+export type PresenceList = { now: string; onlineSec: number; idleSec: number; users: PresenceUser[] };
+export type LoginEntry = { at: string; email: string; userId: string; orgId: string; event: string; device: string; details: string };
+
+export function sendHeartbeat(sessionToken: string, info: { page: string; module: string; device: string; idleSec: number }): Promise<{ at: string }> {
+  return postAction(PLATFORM_CORE_URL, 'heartbeat', { sessionToken, ...info });
+}
+
+export function listPresence(sessionToken: string): Promise<PresenceList> {
+  return postAction(PLATFORM_CORE_URL, 'listPresence', { sessionToken });
+}
+
+export function listLoginHistory(sessionToken: string, from: string, email = ''): Promise<{ from: string; entries: LoginEntry[]; truncated: boolean }> {
+  return postAction(PLATFORM_CORE_URL, 'listLoginHistory', { sessionToken, from, email });
+}
+
+export function signOut(sessionToken: string, device: string): Promise<{ signedOut: boolean }> {
+  return postAction(PLATFORM_CORE_URL, 'signOut', { sessionToken, device });
 }

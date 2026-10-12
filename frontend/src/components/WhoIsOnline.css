@@ -1,0 +1,37 @@
+/* Settings → Who's online (WhoIsOnlinePanel.tsx); reuses Activity.css's act-* pieces. */
+.who-page { min-width: 0; }
+.who-tile--online { border-inline-start-color: var(--shell-success, #18734a); }
+.who-tile--idle { border-inline-start-color: var(--shell-warning, #9a5500); }
+.who-tile--today { border-inline-start-color: var(--shell-text-secondary); }
+.who-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--shell-border); margin: 4px 0 12px; }
+.who-tab { border: 0; background: none; color: var(--shell-text-secondary); font: inherit; font-size: 13.5px; font-weight: 600; padding: 8px 12px; border-bottom: 3px solid transparent; cursor: pointer; }
+.who-tab--on { color: var(--shell-text); font-weight: 700; border-bottom-color: var(--shell-accent); }
+.who-search { flex: 1 1 200px; min-width: 0; }
+.who-updated { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--shell-text-secondary); }
+.who-dot { width: 22px; text-align: center; font-size: 16px; flex-shrink: 0; }
+.who-dot--online { color: var(--shell-success, #18734a); }
+.who-dot--idle { color: var(--shell-warning, #9a5500); }
+.who-dot--today, .who-dot--offline { color: var(--shell-text-secondary); }
+.who-org { font-weight: 700; color: var(--shell-text); }
+.who-right { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; flex-shrink: 0; text-align: end; }
+.who-when { font-size: 13px; font-weight: 600; color: var(--shell-text); }
+.who-device { font-size: 12px; color: var(--shell-text-secondary); }
+.who-link { border: 0; background: none; color: var(--shell-accent); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; margin-inline-start: 8px; text-transform: none; }
+.who-note { font-size: 12px; color: var(--shell-text-secondary); margin: 12px 0 0; }
+.who-event { flex-shrink: 0; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 700; min-width: 104px; text-align: center; }
+.who-event--signed-in { background: color-mix(in srgb, var(--shell-success, #18734a) 13%, transparent); color: var(--shell-success, #18734a); }
+.who-event--opened-the-app { background: color-mix(in srgb, var(--shell-accent) 12%, transparent); color: var(--shell-accent); }
+.who-event--signed-out { background: color-mix(in srgb, var(--shell-text-secondary) 14%, transparent); color: var(--shell-text-secondary); }
+.who-event--failed-sign-in { background: color-mix(in srgb, var(--shell-danger, #c42b2b) 12%, transparent); color: var(--shell-danger, #c42b2b); }
+.who-table-box { overflow-x: auto; }
+.who-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.who-table th { text-align: start; color: var(--shell-text-secondary); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--shell-border); white-space: nowrap; }
+.who-table td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--shell-border) 60%, transparent); color: var(--shell-text); }
+.who-click { cursor: pointer; }
+.who-click:hover td { background: color-mix(in srgb, var(--shell-accent) 5%, transparent); }
+.who-bad { color: var(--shell-danger, #c42b2b); font-weight: 700; }
+@media (max-width: 860px) {
+  .who-right { align-items: flex-start; flex-direction: row; gap: 8px; flex-basis: 100%; padding-inline-start: 34px; }
+  .who-event { min-width: 0; }
+  .who-updated { margin-inline-start: 0; }
+}

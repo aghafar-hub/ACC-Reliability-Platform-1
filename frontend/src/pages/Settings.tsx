@@ -2,6 +2,7 @@ import ArabicWordsPanel from '../i18n/ArabicWordsPanel';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AccountsPanel from '../components/AccountsPanel';
+import WhoIsOnlinePanel from '../components/WhoIsOnlinePanel';
 import EquipmentIdsPanel from '../components/EquipmentIdsPanel';
 import SectionBoundary from '../components/SectionBoundary';
 import ModuleAccessPanel from '../components/ModuleAccessPanel';
@@ -19,7 +20,7 @@ import { Icon } from '../icons';
 import './Settings.css';
 
 type SettingsTabId = 'general' | 'oil-analysis' | 'vibration-analysis';
-type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'module-access' | 'settings-access' | 'equipment-ids' | 'email';
+type GeneralSubTabId = 'appearance' | 'language' | 'delegations' | 'users' | 'online' | 'module-access' | 'settings-access' | 'equipment-ids' | 'email';
 
 // One list of sections, shown as the left navigation (design reference):
 // the platform's own settings first, then each module's.
@@ -30,6 +31,8 @@ const SECTIONS: Section[] = [
   // Responsible engineers, managers and the App Owner (filtered below).
   { id: 'delegations', group: 'Platform', label: 'My delegations', hint: 'Cover while you are away', icon: 'users', tab: 'general', sub: 'delegations' },
   { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
+  // App Owner + ACC managers (filtered below): who's using the app, login history
+  { id: 'online', group: 'Platform', label: "Who's online", hint: 'Online now · login history', icon: 'users', tab: 'general', sub: 'online' },
   // Phase 0 — App Owner only (filtered below).
   { id: 'module-access', group: 'Platform', label: 'Module Access', hint: 'Who opens which module and tab', icon: 'shield', tab: 'general', sub: 'module-access' },
   // App Owner only: who sees which Settings page
@@ -72,6 +75,7 @@ export default function Settings() {
   }, [tabParam]);
   const { claims } = useAuth();
   const isAppOwner = !!claims?.roles.includes(ROLE.ADMIN);
+  const canSeeOnline = isAppOwner || !!claims?.roles.includes(ROLE.MANAGER);
   // Settings → Settings access decides who sees which page (Hidden / View /
   // Edit); Appearance is open to everyone (settingsAccess.tsx).
   const { levels } = useSettingsAccess();
@@ -79,7 +83,9 @@ export default function Settings() {
   // a module's settings also need the module itself (Module Access)
   const moduleAccess = useModuleAccess();
   const sections = SECTIONS.filter(
-    (x) => x.sub === 'appearance' || (level(x) !== 'Hidden' && (x.tab === 'general' || canOpenModule(moduleAccess.access?.[x.tab]))),
+    (x) =>
+      x.sub === 'appearance' ||
+      (x.sub === 'online' ? canSeeOnline : level(x) !== 'Hidden' && (x.tab === 'general' || canOpenModule(moduleAccess.access?.[x.tab]))),
   );
   const current = sections.find((x) => (activeTab === 'general' ? x.sub === generalSubTab : x.tab === activeTab)) || sections[0];
 
@@ -170,6 +176,7 @@ export default function Settings() {
           {current.sub === 'language' && <ArabicWordsPanel isAppOwner={levels.language === 'Edit'} />}
           {current.sub === 'delegations' && <DelegationsPanel />}
           {current.sub === 'users' && isAppOwner && <AccountsPanel />}
+          {current.sub === 'online' && canSeeOnline && <WhoIsOnlinePanel />}
           {current.sub === 'module-access' && <ModuleAccessPanel readOnly={levels['module-access'] !== 'Edit'} />}
           {current.sub === 'settings-access' && isAppOwner && <SettingsAccessPanel />}
           {current.sub === 'email' && isAppOwner && <EmailSettingsPanel />}
