@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { describeError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { SESSION_ENDED_NOTICE_KEY } from '../auth/sessionEnded';
 import './Auth.css';
 
 export default function Login() {
@@ -12,6 +13,16 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // shown once: why the person is back on this page (sessionEnded.ts)
+  const [notice] = useState<string | null>(() => {
+    try {
+      const n = sessionStorage.getItem(SESSION_ENDED_NOTICE_KEY);
+      if (n) sessionStorage.removeItem(SESSION_ENDED_NOTICE_KEY);
+      return n;
+    } catch {
+      return null;
+    }
+  });
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -38,6 +49,11 @@ export default function Login() {
         </div>
 
         <form className="auth-card" onSubmit={handleSubmit}>
+          {notice && (
+            <p className="auth-hint" role="status" data-testid="signin-notice">
+              {notice}
+            </p>
+          )}
           <label>
             Email
             <input

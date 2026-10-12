@@ -58,6 +58,7 @@ function setUserRoles_(userId, roleIds) {
     roles.forEach(function (roleId) {
       appendRow_(userRolesSheet, { UserId: userId, RoleId: roleId });
     });
+    revokeUserSessions_(userId, 'Roles changed'); // the next sign-in carries the new roles
     return { userId: userId, roles: roles };
   });
 }
@@ -88,6 +89,7 @@ function deleteUser_(session, userId) {
     }
     deleteRowsByColumn_(userRolesSheet, 'UserId', userId);
     deleteRowsByColumn_(usersSheet, 'UserId', userId);
+    revokeUserSessions_(userId, 'Account deleted');
     return { deleted: true, userId: userId, email: String(user.Email || '') };
   });
 }

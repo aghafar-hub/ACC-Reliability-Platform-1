@@ -40,7 +40,7 @@ function safeHandle_(handlerFn) {
       : 'Something went wrong. Please try again, and share this reference if it keeps happening.';
     return jsonResponse_({
       ok: false,
-      error: { message: message, correlationId: correlationId }
+      error: { message: message, correlationId: correlationId, sessionEnded: isSessionEndedError_(err) || /Invalid session token|malformed session token/.test(message) }
     });
   }
 }

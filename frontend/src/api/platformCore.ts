@@ -14,8 +14,10 @@ export function login(email: string, password: string, extra: { device?: string;
   return postAction<LoginResult>(PLATFORM_CORE_URL, 'login', { email, password, ...extra });
 }
 
-export function changePassword(sessionToken: string, newPassword: string): Promise<{ ok: true }> {
-  return postAction(PLATFORM_CORE_URL, 'changePassword', { sessionToken, newPassword });
+// The server checks the rules too and cancels the person's other sign-ins;
+// it answers with a fresh sign-in for this device.
+export function changePassword(sessionToken: string, newPassword: string, currentPassword?: string): Promise<{ ok: true; sessionToken?: string }> {
+  return postAction(PLATFORM_CORE_URL, 'changePassword', { sessionToken, newPassword, ...(currentPassword ? { currentPassword } : {}) });
 }
 
 export type OrgUser = { userId: string; email: string; orgId: string; roles: string[] };

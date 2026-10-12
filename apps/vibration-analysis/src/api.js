@@ -107,6 +107,13 @@ function reportBlocked(message) {
 
 const WRITE_ACTIONS = new Set(["backfillLastReadings", "appendAction", "updateAction", "deleteAction", "sendActionEmail", "saveConfig"]);
 
+// A sign-in that has ended (audit F-02): the shell signs out
+// (frontend/src/auth/sessionEnded.ts listens for this event).
+function noteSessionEnded(json) {
+  if (json && json.sessionEnded && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("acc-session-ended"));
+  return json;
+}
+
 // fetch() attempt with a 90s abort timeout; falls back to JSONP for any
 // non-timeout failure (network error, non-ok status, CORS rejection).
 async function fetchThenJsonp(webhookUrl, action, params) {
@@ -117,12 +124,12 @@ async function fetchThenJsonp(webhookUrl, action, params) {
     const query = new URLSearchParams({ action, ...params }).toString();
     const res = await fetch(`${webhookUrl}?${query}`, { method: "GET", signal: controller.signal });
     clearTimeout(timeoutId);
-    if (res.ok) return await res.json();
+    if (res.ok) return noteSessionEnded(await res.json());
     throw new Error(`HTTP ${res.status}`);
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") throw new Error("__TIMEOUT__");
-    return await jsonpRequest(webhookUrl, { action, ...params });
+    return noteSessionEnded(await jsonpRequest(webhookUrl, { action, ...params }));
   }
 }
 
@@ -341,6 +348,7 @@ async function postVerified(webhookUrl, action, body, { anyPage = false } = {}) 
     throw new Error(`The server returned an unexpected response${serverErrorText(text)}`);
   }
   if (data && data.status === "error") {
+    noteSessionEnded(data);
     const e = new Error(data.error || "Save failed");
     e.problems = data.problems;
     throw e;

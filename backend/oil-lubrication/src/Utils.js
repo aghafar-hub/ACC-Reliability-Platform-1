@@ -24,6 +24,21 @@ function jsonOut(obj) {
 }
 
 
+// Never written to the Debug Log, at any depth (a sheet anyone with view
+// access can read): the shared secret, login tokens, passwords, PDF bytes.
+var LOG_REDACT_KEYS = { secret: 1, sessiontoken: 1, password: 1, newpassword: 1, currentpassword: 1, pdfbase64: 1, token: 1 };
+function logRedact_(v, depth) {
+  if (v === null || typeof v !== "object") return v;
+  if ((depth || 0) > 4) return "[…]";
+  if (Object.prototype.toString.call(v) === "[object Array]") return v.slice(0, 60).map(function (x) { return logRedact_(x, (depth || 0) + 1); });
+  if (Object.prototype.toString.call(v) === "[object Date]") return v;
+  var out = {};
+  Object.keys(v).forEach(function (k) {
+    out[k] = LOG_REDACT_KEYS[String(k).toLowerCase()] ? "[redacted]" : logRedact_(v[k], (depth || 0) + 1);
+  });
+  return out;
+}
+
 function logError(context, err, extra) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -37,7 +52,7 @@ function logError(context, err, extra) {
       context,
       err && err.message ? err.message : String(err),
       err && err.stack ? err.stack : "",
-      extra ? JSON.stringify(extra) : ""
+      extra ? JSON.stringify(logRedact_(extra)).slice(0, 2000) : ""
     ]);
   } catch (e2) { /* never let logging itself break the request */ }
 }

@@ -273,6 +273,23 @@ function createRoutine(ss, data) {
   if (!routeName) return { error: "routeName is required" };
   var items = Array.isArray(data.items) ? data.items : [];
   if (items.length === 0) return { error: "At least one lubrication point is required" };
+  // Audit F-05: every point belongs to the route's contractor (a route of
+  // one contractor can't log oil changes or samples on the other's points).
+  var routeContractor = String(data.contractor || "").trim();
+  if (!routeContractor) {
+    var seenContractors = {};
+    items.forEach(function (it) { var c = resolveLpContractor_(it && it.lpId); if (c) seenContractors[c] = 1; });
+    if (Object.keys(seenContractors).length > 1) return { error: "A route holds the points of one contractor only." };
+  }
+  if (routeContractor) {
+    for (var ic = 0; ic < items.length; ic++) {
+      var itemLp = String((items[ic] && items[ic].lpId) || "").trim();
+      var itemContractor = resolveLpContractor_(itemLp);
+      if (itemContractor && itemContractor !== routeContractor) {
+        return { error: itemLp + " belongs to " + itemContractor + " — a " + routeContractor + " route can only hold " + routeContractor + " points." };
+      }
+    }
+  }
 
   var reason = String(data.reason || "").trim();
   if (routeType === "Emergency Top Up") {

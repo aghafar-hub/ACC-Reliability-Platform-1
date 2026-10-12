@@ -1,3 +1,4 @@
+import { isSessionEnded, reportSessionEnded } from '../auth/sessionEnded';
 import { OIL_ANALYSIS_URL } from '../config';
 
 // A thin, purpose-built client against the Oil Lubrication backend
@@ -194,7 +195,10 @@ async function getJSON(sessionToken: string, params: Record<string, string>): Pr
       } catch {
         throw new RetryableFetchError('Server returned a non-JSON response');
       }
-      if (json && json.error) throw new Error(json.error);
+      if (json && json.error) {
+        if (isSessionEnded(json)) reportSessionEnded();
+        throw new Error(json.error);
+      }
       return json;
     } catch (err) {
       lastErr = err;

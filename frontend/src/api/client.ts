@@ -5,6 +5,8 @@
  * correlationId } } (see each backend's src/Utils.js, safeHandle_/ok_).
  */
 
+import { isSessionEnded, reportSessionEnded } from '../auth/sessionEnded';
+
 export class ApiError extends Error {
   correlationId?: string;
   constructor(message: string, correlationId?: string) {
@@ -13,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-type Envelope<T> = { ok: true; data: T } | { ok: false; error: { message: string; correlationId?: string } };
+type Envelope<T> = { ok: true; data: T } | { ok: false; error: { message: string; correlationId?: string; sessionEnded?: boolean } };
 
 // Reads are safe to repeat: when Google answers a read with its own error
 // page (a passing hiccup delivering the answer), try once more.
@@ -51,6 +53,7 @@ export async function postAction<T>(
   }
 
   if (!envelope.ok) {
+    if (action !== 'login' && action !== 'signOut' && isSessionEnded(envelope.error)) reportSessionEnded();
     throw new ApiError(envelope.error.message, envelope.error.correlationId);
   }
   return envelope.data;

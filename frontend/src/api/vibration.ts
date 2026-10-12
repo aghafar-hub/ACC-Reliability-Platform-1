@@ -1,3 +1,4 @@
+import { isSessionEnded, reportSessionEnded } from '../auth/sessionEnded';
 // Vibration Analysis calls the platform shell makes itself (My Work's
 // vibration route checklist). Everything else lives in the embedded app.
 // Reads and writes both go through the module's GET endpoint (its backend
@@ -35,7 +36,10 @@ export type VibRoute = {
 
 async function call(sessionToken: string, params: Record<string, string>) {
   const json = await moduleGet(VIB, sessionToken, params);
-  if (!json || json.status === 'error' || json.error) throw new Error(json?.error || 'Request failed');
+  if (!json || json.status === 'error' || json.error) {
+    if (isSessionEnded(json)) reportSessionEnded();
+    throw new Error(json?.error || 'Request failed');
+  }
   return json;
 }
 

@@ -103,7 +103,14 @@ function doPost(e) {
 // (VIB_WRITE_ACTIONS in ModuleAccessConfig.js), not by HTTP method.
 function dispatchWithAccess_(action, params) {
   vsApplySettings_(); // ModuleSettings.js: interval / grace / report-due defaults
+  // Audit F-21: without the signing secret no sign-in can be checked, so
+  // nothing is served (the module used to stay open).
+  if (!PropertiesService.getScriptProperties().getProperty('SESSION_SIGNING_SECRET')) {
+    return { status: 'error', error: 'Sign-in checking is not set up on this server (SESSION_SIGNING_SECRET).', accessDenied: true };
+  }
   var session = getSessionOrNull_(params.sessionToken);
+  // a token that is past its end, cancelled, or signed with an old secret
+  if (params.sessionToken && !session) return { status: 'error', error: SESSION_ENDED_MSG, sessionEnded: true, accessDenied: true };
   var request = { action: action };
   for (var k in params) { if (k !== 'action') request[k] = params[k]; }
   // Delegation (ModuleAccess.js): any signed-in person; the rules are inside.
@@ -138,6 +145,16 @@ function dispatchWithAccess_(action, params) {
   }
 
   if (VIB_WRITE_ACTIONS.indexOf(action) !== -1) {
+    // Audit F-04 / F-11: the older save actions get the contractor and
+    // limits checks the newer ones have, and run under the script lock.
+    if (VB_LEGACY_WRITES.indexOf(action) !== -1) {
+      var legacyDenial = vbLegacyWriteDenial_(action, params, session);
+      if (legacyDenial) return { status: 'error', error: legacyDenial, accessDenied: true };
+      var legacy = vlLocked_(function () { return dispatch(action, params, session); });
+      vcBump_();
+      if (legacy && legacy.status === 'ok') vlAudit_(SpreadsheetApp.getActiveSpreadsheet(), session ? session.email : '', 'Vibration data', String(params.equipmentId || params.sheet || params['Equipment ID'] || ''), action);
+      return legacy;
+    }
     var written = dispatch(action, params, session);
     vcBump_(); // Cache.js: every cached read is now out of date
     return written;
@@ -150,10 +167,116 @@ function dispatchWithAccess_(action, params) {
     var result = dispatch(action, params, session);
     if (action === 'readAll' || action === 'getStartupBundle' || action === 'getRmsSpmHistory') {
       result = maFilterSections_(session, result);
+      result = vbScopeLists_(session, result);
     }
     return result;
   });
   return String(params.pack || '') === '1' ? vbPackLists_(read) : read;
+}
+
+// The older save actions (handlers that take no session). Limits, registers
+// and module configuration: ACC staff and the App Owner only (limits are
+// ACC's decision, audited). Everything else: a contractor account may change
+// only its own contractor's machines.
+var VB_LEGACY_WRITES = ['append', 'updateRow', 'deleteRow', 'upsertLastRMS', 'upsertLastSPM', 'deleteLastRMS', 'deleteLastSPM',
+  'updateRegisterLimits', 'appendAction', 'updateAction', 'deleteAction', 'saveConfig', 'updateCompliance',
+  'backfillLastReadings', 'markMissingCompliance', 'sendActionEmail'];
+
+function vbLegacyWriteDenial_(action, params, session) {
+  var me = vlActor_(session);
+  var accStaff = maIsAdmin_(session) || (me.acc && !!session);
+  var registerSheet = params.sheet === SHEET_RMS_REG || params.sheet === SHEET_SPM_REG;
+  if (action === 'saveConfig' || action === 'backfillLastReadings' || action === 'updateRegisterLimits' || registerSheet) {
+    return accStaff ? '' : 'Only ACC or the App Owner can change limits, registers and settings.';
+  }
+  if (!me.contractor) return '';
+  if (action === 'markMissingCompliance' || action === 'sendActionEmail') return '';
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var targets = vbLegacyTargets_(ss, action, params);
+  if (!targets) return 'This change can\'t be checked against your contractor. Ask ACC to make it.';
+  var md = vlMasterData_(ss);
+  for (var i = 0; i < targets.length; i++) {
+    var eq = String(targets[i] || '').trim();
+    if (!eq || !md.eq[eq] || md.eq[eq].contractor !== me.contractor) return 'That equipment belongs to a different contractor.';
+  }
+  return '';
+}
+
+// Equipment IDs a legacy save touches (old and new row), or null if unknown.
+function vbLegacyTargets_(ss, action, params) {
+  function eqCol(sheet, sheetName) {
+    var hr = headerRowFor(sheetName);
+    var head = sheet.getRange(hr, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0].map(function (h) { return String(h).trim(); });
+    var c = head.indexOf('Equipment ID');
+    return c === -1 ? 0 : c;
+  }
+  function parse(v) { try { return typeof v === 'string' ? JSON.parse(v) : v; } catch (e) { return null; } }
+  if (['upsertLastRMS', 'upsertLastSPM', 'deleteLastRMS', 'deleteLastSPM', 'updateCompliance'].indexOf(action) !== -1) {
+    return [params.equipmentId];
+  }
+  if (action === 'appendAction' || action === 'updateAction' || action === 'deleteAction') {
+    var out = [];
+    if (action !== 'deleteAction') out.push(params['Equipment ID'] || params.equipmentId || '');
+    if (action !== 'appendAction') {
+      var at = ss.getSheetByName(SHEET_ACTIONS);
+      var idx = at ? findRowIndex(at, [0], [String(params['Action No'] || '').trim()], dataStartRowFor(SHEET_ACTIONS)) : -1;
+      if (idx === -1) return action === 'deleteAction' ? null : out;
+      out.push(at.getRange(idx, 2).getValue());
+    }
+    return out;
+  }
+  if (action === 'append' || action === 'updateRow' || action === 'deleteRow') {
+    var sheet = ss.getSheetByName(params.sheet);
+    if (!sheet) return null;
+    var col = eqCol(sheet, params.sheet);
+    var list = [];
+    if (action !== 'deleteRow') {
+      var row = parse(params.row);
+      if (!row || Object.prototype.toString.call(row) !== '[object Array]') return null;
+      list.push(row[col]);
+    }
+    if (action !== 'append') {
+      var mc = parse(params.matchCols), mv = parse(params.matchValues);
+      if (!mc || !mv) return null;
+      var r = findRowIndex(sheet, mc, mv, dataStartRowFor(params.sheet));
+      if (r === -1) return action === 'deleteRow' ? null : list;
+      list.push(sheet.getRange(r, col + 1).getValue());
+    }
+    return list;
+  }
+  return null;
+}
+
+// Audit F-03 (foundation spec §6.2): a contractor account gets only its own
+// contractor's machines, points, readings and actions in the start-up and
+// full-sync answers. A row is kept when its machine (Equipment ID, or the
+// machine of its VIB ID) belongs to the person's contractor; rows with no
+// machine at all (settings) are kept; ACC accounts get everything.
+function vbScopeLists_(session, result) {
+  if (!result || typeof result !== 'object') return result;
+  var me = vlActor_(session);
+  if (!me.contractor) return result;
+  var md = vlMasterData_(SpreadsheetApp.getActiveSpreadsheet());
+  var vibEq = {};
+  Object.keys(md.vib || {}).forEach(function (v) { vibEq[v] = String((md.vib[v] || {})['Equipment ID'] || '').trim(); });
+  function contractorOf(row) {
+    if (!row || typeof row !== 'object' || Object.prototype.toString.call(row) === '[object Array]') return null;
+    var eq = String(row['Equipment ID'] || row.equipmentId || row['Equipment'] || '').trim();
+    if (!eq && row['VIB ID']) eq = vibEq[String(row['VIB ID']).trim()] || '';
+    if (eq && md.eq[eq]) return md.eq[eq].contractor || '';
+    if (row['Contractor']) return String(row['Contractor']).trim();
+    return eq || row['VIB ID'] ? '' : null; // null: not a machine row
+  }
+  var out = {};
+  Object.keys(result).forEach(function (k) {
+    var v = result[k];
+    if (Object.prototype.toString.call(v) !== '[object Array]') { out[k] = v; return; }
+    out[k] = v.filter(function (row) {
+      var c = contractorOf(row);
+      return c === null || c === me.contractor;
+    });
+  });
+  return out;
 }
 
 // pack=1 (the current app): every long list in the answer is packed

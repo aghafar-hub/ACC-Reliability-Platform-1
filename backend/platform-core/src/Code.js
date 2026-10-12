@@ -20,7 +20,7 @@ function doPost(e) {
       // Presence.js: every sign-in (and failed one) goes into LOGIN_HISTORY
       var signedIn;
       try {
-        signedIn = login_(body.email, body.password);
+        signedIn = login_(body.email, body.password, body.remember !== false);
       } catch (loginErr) {
         loginLog_(String(body.email || '').trim().toLowerCase(), '', '', 'Failed sign-in', body.device, '');
         throw loginErr;
@@ -33,7 +33,7 @@ function doPost(e) {
 
     switch (action) {
       case 'changePassword':
-        return ok_(changePassword_(session.userId, body.newPassword));
+        return ok_(changePassword_(session, body.newPassword, body.currentPassword));
       case 'createUser':
         return ok_(withIdempotency_(body.operationId, action, function () {
           requireAppAdmin_(session.userId);
@@ -103,6 +103,7 @@ function doPost(e) {
       case 'signOut':
         loginLog_(session.email || '', session.userId, session.orgId, 'Signed out', body.device, '');
         try { CacheService.getScriptCache().remove('pres|' + session.userId); } catch (e) {}
+        revokeOneSession_(session.userId, session.sessionId); // this device's sign-in ends now
         return ok_({ signedOut: true });
       // Additional actions (Asset Master, RBAC admin, settings) are wired
       // up as their implementations land — see the open backend tasks.

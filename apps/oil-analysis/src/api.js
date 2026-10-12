@@ -149,7 +149,11 @@ async function getJSON(webhookUrl, params) {
       } catch {
         throw new RetryableFetchError("Server returned a non-JSON response");
       }
-      if (json && json.error) throw new Error(json.error);
+      if (json && json.error) {
+        // the shell signs out (frontend/src/auth/sessionEnded.ts)
+        if (json.sessionEnded && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("acc-session-ended"));
+        throw new Error(json.error);
+      }
       return json;
     } catch (err) {
       lastErr = err;

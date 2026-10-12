@@ -178,7 +178,7 @@ function doGet(e) {
 
   var auth = checkAuth_(e.parameter.secret, e.parameter.sessionToken);
   if (!auth.ok) {
-    result = { error: "Unauthorized" };
+    result = auth.sessionEnded ? { error: SESSION_ENDED_MSG, sessionEnded: true } : { error: auth.notConfigured ? "Sign-in checking is not set up on this server (SESSION_SIGNING_SECRET)." : "Unauthorized" };
     return outputResult_(result, callback);
   }
 
@@ -396,8 +396,8 @@ function doPostInner_(e) {
 
     var auth = checkAuth_(data.secret, data.sessionToken);
     if (!auth.ok) {
-      logError("doPost:unauthorized", "Invalid or missing secret/session", {action: data.action});
-      return jsonOut({status: "error", message: "Unauthorized"});
+      logError("doPost:unauthorized", auth.sessionEnded ? "sign-in ended" : "Invalid or missing secret/session", {action: data.action});
+      return jsonOut(auth.sessionEnded ? {status: "error", message: SESSION_ENDED_MSG, sessionEnded: true} : {status: "error", message: "Unauthorized"});
     }
     // Whoever is logged in via Platform Core, if anyone — "" for a request
     // with no session token (see checkAuth_'s fail-soft rollout comment
@@ -570,7 +570,7 @@ function doPostInner_(e) {
         requirePermission_(auth.session, "Edit");
         requireLpContractorMatch_(auth.session, data.equipmentCode);
         var updateStatus = updateSampleTrackerMonthly(ss, data);
-        logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", {data: data, actingUser: actingUser});
+        logError("doPost:updateSampleTracker", updateStatus ? "ok" : "equipment_not_found", {equipmentCode: data.equipmentCode, sampleDate: data.sampleDate, status: data.status, actingUser: actingUser});
         if (updateStatus) recordAudit_(ss, "Oil Sample Tracker", data.equipmentCode, "update", actingUser, scope || resolveLpContractor_(data.equipmentCode), "Updated monthly sample status");
         return jsonOut({status: updateStatus ? "ok" : "equipment_not_found"});
       }
@@ -1123,7 +1123,7 @@ function doPostInner_(e) {
         return jsonOut(markAllResult.error ? {status: "error", message: markAllResult.error} : {status: "ok"});
       }
 
-      logError("doPost:unknown-action", "no valid action", data);
+      logError("doPost:unknown-action", "no valid action", {action: data.action, actingUser: actingUser});
       return jsonOut({status:"ok", message: "No valid action specified"});
     } finally {
       lock.releaseLock();

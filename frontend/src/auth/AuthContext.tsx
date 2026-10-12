@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { SESSION_ENDED_EVENT, SESSION_ENDED_NOTICE_KEY } from './sessionEnded';
 import { changePassword as apiChangePassword, login as apiLogin, signOut as apiSignOut } from '../api/platformCore';
 
 // device kind for the login history (same rule as presence.ts)
@@ -18,7 +19,7 @@ type AuthState = {
   claims: SessionClaims | null;
   mustChangePassword: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
-  completeChangePassword: (newPassword: string) => Promise<void>;
+  completeChangePassword: (newPassword: string, currentPassword?: string) => Promise<void>;
   logout: () => void;
 };
 
@@ -87,11 +88,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStored({ sessionToken: result.sessionToken, mustChangePassword: result.mustChangePassword });
   }
 
-  async function completeChangePassword(newPassword: string) {
+  async function completeChangePassword(newPassword: string, currentPassword?: string) {
     if (!stored) throw new Error('Not logged in.');
-    await apiChangePassword(stored.sessionToken, newPassword);
-    setStored({ ...stored, mustChangePassword: false });
+    const result = await apiChangePassword(stored.sessionToken, newPassword, currentPassword);
+    // the server cancelled the old sign-in and sent a fresh one for this device
+    setStored({ sessionToken: result.sessionToken || stored.sessionToken, mustChangePassword: false });
   }
+
+  // a backend said this sign-in has ended (sessionEnded.ts): back to Login
+  useEffect(() => {
+    function onEnded() {
+      try {
+        sessionStorage.setItem(SESSION_ENDED_NOTICE_KEY, 'Your sign-in has ended — please sign in again.');
+      } catch {
+        // storage blocked: the Login page just shows no notice
+      }
+      setStored(null);
+    }
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, []);
 
   function logout() {
     // for the login history (Platform Core Presence.js); never waits for it

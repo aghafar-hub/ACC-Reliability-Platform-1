@@ -8,6 +8,7 @@
  * - Admin manually resets a locked-out user's password (no self-service
  *   email reset link).
  * - No 2FA / idle auto-logout / failed-attempt lockout for v1 (decided).
+ * - Every sign-in has an end time and can be cancelled (Session.js).
  *
  * USERS sheet columns:
  *   UserId, Email, PasswordHash, PasswordSalt, MustChangePassword,
@@ -80,7 +81,7 @@ function createUser_(email, orgId, roleIds) {
   });
 }
 
-function login_(email, password) {
+function login_(email, password, remember) {
   var sheet = getSheet_(SHEET_NAMES.USERS);
   var user = findRowByColumn_(sheet, 'Email', email);
   if (!user || user.Status !== 'Active') {
@@ -95,16 +96,42 @@ function login_(email, password) {
     email: user.Email,
     orgId: user.OrgId,
     mustChangePassword: !!user.MustChangePassword,
-    sessionToken: issueSessionToken_(user.UserId)
+    sessionToken: issueSessionToken_(user.UserId, remember)
   };
 }
 
-function changePassword_(userId, newPassword) {
-  return withLock_(function () {
+var PASSWORD_MIN_LENGTH = 10;
+
+// The password rules, checked here on the server (the screen checks the
+// same, but a direct request must not get around them).
+function passwordProblem_(password, email) {
+  var p = String(password == null ? '' : password);
+  if (p.length < PASSWORD_MIN_LENGTH) return 'The new password needs at least ' + PASSWORD_MIN_LENGTH + ' characters.';
+  if (p.length > 200) return 'The new password is too long.';
+  if (!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) return 'The new password needs letters and numbers.';
+  if (email && p.toLowerCase().indexOf(String(email).split('@')[0].toLowerCase()) !== -1) return 'The new password must not contain your email name.';
+  return '';
+}
+
+// session: the signed-in person. currentPassword is required, except for the
+// forced change after an admin-made or reset password. Cancels every other
+// sign-in of this person and returns a fresh token for this device.
+function changePassword_(session, newPassword, currentPassword) {
+  var userId = session.userId;
+  var result = withLock_(function () {
     var sheet = getSheet_(SHEET_NAMES.USERS);
     var rows = readSheetAsObjects_(sheet);
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].UserId === userId) {
+        var problem = passwordProblem_(newPassword, rows[i].Email);
+        if (problem) throw new Error(problem);
+        var forced = rows[i].MustChangePassword === true || String(rows[i].MustChangePassword).toUpperCase() === 'TRUE';
+        if (!forced && hashPassword_(String(currentPassword || ''), rows[i].PasswordSalt) !== rows[i].PasswordHash) {
+          throw new Error('Your current password is not correct.');
+        }
+        if (hashPassword_(String(newPassword), rows[i].PasswordSalt) === rows[i].PasswordHash) {
+          throw new Error('Choose a password different from the current one.');
+        }
         var salt = generateSalt_();
         var rowIndex = i + 2; // +1 header, +1 to move from 0-based to 1-based
         var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
@@ -112,11 +139,16 @@ function changePassword_(userId, newPassword) {
         sheet.getRange(rowIndex, headers.indexOf('PasswordSalt') + 1).setValue(salt);
         sheet.getRange(rowIndex, headers.indexOf('MustChangePassword') + 1).setValue(false);
         sheet.getRange(rowIndex, headers.indexOf('ModifiedDate') + 1).setValue(new Date());
+        revokeUserSessions_(userId, 'Password changed');
         return { ok: true };
       }
     }
     throw new Error('User not found.');
   });
+  // a new sign-in for this device, kept as long as the old one was meant to be
+  var hoursLeft = session.expiresAt ? (session.expiresAt - Date.now()) / 3600000 : 0;
+  result.sessionToken = issueSessionToken_(userId, hoursLeft > SESSION_SHORT_HOURS);
+  return result;
 }
 
 /**
@@ -137,6 +169,7 @@ function adminResetPassword_(userId) {
         sheet.getRange(rowIndex, headers.indexOf('PasswordSalt') + 1).setValue(salt);
         sheet.getRange(rowIndex, headers.indexOf('MustChangePassword') + 1).setValue(true);
         sheet.getRange(rowIndex, headers.indexOf('ModifiedDate') + 1).setValue(new Date());
+        revokeUserSessions_(userId, 'Password reset by admin');
         return { email: rows[i].Email, tempPassword: tempPassword };
       }
     }
