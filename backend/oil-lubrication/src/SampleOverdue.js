@@ -114,13 +114,21 @@ function checkSampleOverdueAndNotify() {
 
   var lastRow = trackerSheet.getLastRow();
   var lastCol = trackerSheet.getLastColumn();
+  var lastSampleCol = trackerLastSampleCol_(trackerSheet); // by header, not column B
+  // the newest lab report per point (Data_Entry) counts too
+  var latestReport = {};
+  readSheet(ss, "Data_Entry", true).forEach(function (row) {
+    var lp = String(row[0] || "").trim();
+    var d = asDate_(row[4]);
+    if (lp && d && (!latestReport[lp] || d.getTime() > latestReport[lp].getTime())) latestReport[lp] = d;
+  });
   var trackerByCode = {}; // code -> { rowIdx (1-based), lastSample }
   if (lastRow >= 2) {
     var trackerVals = trackerSheet.getRange(1, 1, lastRow, Math.max(lastCol, 2)).getValues();
     for (var r = 1; r < trackerVals.length; r++) {
       var code = String(trackerVals[r][0] || "").trim();
       if (!code) continue;
-      trackerByCode[code] = { rowIdx: r + 1, lastSample: trackerVals[r][1] || "" };
+      trackerByCode[code] = { rowIdx: r + 1, lastSample: lastSampleCol ? trackerVals[r][lastSampleCol - 1] || "" : "" };
     }
   }
 
@@ -138,6 +146,9 @@ function checkSampleOverdueAndNotify() {
     if (!months) return;
     var tr = trackerByCode[eq.code];
     var lastSample = tr ? tr.lastSample : "";
+    var sheetDate = asDate_(lastSample);
+    var reportDate = latestReport[eq.code];
+    if (reportDate && (!sheetDate || reportDate.getTime() > sheetDate.getTime())) lastSample = reportDate;
     var status = sampleStatusLabel_(lastSample, months);
     var contractor = eq.contractor || "";
     if (!contractor) return;
@@ -156,10 +167,8 @@ function checkSampleOverdueAndNotify() {
       // Never overwrites a cell that already has something in it — a real
       // sample entered earlier today, or an earlier run's own "Missing"
       // stamp already there.
-      var existingCell = trackerSheet.getRange(rowIdx, monthCol).getValue();
-      if (!existingCell) {
-        trackerSheet.getRange(rowIdx, monthCol).setValue("Missing|" + displayDate);
-      }
+      var monthCell = trackerSheet.getRange(rowIdx, monthCol);
+      if (!monthCell.getValue()) writeTrackerCell_(monthCell, "MISSING", displayDate);
     } else if (status === "OK") {
       var due = sampleDueDate_(lastSample, months);
       if (due) {
