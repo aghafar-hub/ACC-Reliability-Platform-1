@@ -1,7 +1,7 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
-import { formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket, lastSampleDate } from "./parsers";
+import { effectiveOilChangeInterval, oilChangeByCondition, formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket, lastSampleDate } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
 import { actionsForSample, cellMark, changeLabel, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "./labReport";
 import { LAB_GROUPS, LAB_PARAMS, SERIES_LIGHT, buildCycles, cycleSummary, everyText, flagFor, leakWindows, limitsFor, paramValue, toTime, trendWarning } from "./pointHistory";
@@ -2038,7 +2038,7 @@ export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, ch
       ["Equipment", reg?.equipmentId || "—", "Area", reg?.area || "—"],
       ["Lubrication point", reg?.lubricationPoint || "—", "Contractor", reg?.contractor || "—"],
       ["Oil", reg?.lubricant || "—", "Quantity", reg?.lubricantQuantityL ? `${reg.lubricantQuantityL} L` : "—"],
-      ["Oil change interval", intervalMonths(reg?.oilChangeInterval || "") ? `Every ${everyText(reg.oilChangeInterval)}` : "As needed", "Oil analysis", reg?.oilAnalysisRequired === "Yes" ? `Yes — every ${reg?.interval || "—"}` : "No"],
+      ["Oil change interval", oilChangeByCondition(reg) ? "By condition (oil analysis)" : intervalMonths(reg?.oilChangeInterval || "") ? `Every ${everyText(reg.oilChangeInterval)}` : "As needed", "Oil analysis", reg?.oilAnalysisRequired === "Yes" ? `Yes — every ${reg?.interval || "—"}` : "No"],
     ],
     theme: "grid",
     styles: { fontSize: 8.5, cellPadding: 4, lineColor: BRAND.border, lineWidth: 0.4 },
@@ -2140,8 +2140,8 @@ export async function generatePointHistoryPdf({ reg, samples, sameOilSamples, ch
   // Oil change cycles.
   y = needsNewPage(doc, y, 140);
   y = sectionTitle(doc, "Oil change cycles", y);
-  const asNeeded = !intervalMonths(reg?.oilChangeInterval || "");
-  const cycles = buildCycles({ changes: changesAsc, topUps, interval: reg?.oilChangeInterval || "", now });
+  const asNeeded = !intervalMonths(effectiveOilChangeInterval(reg));
+  const cycles = buildCycles({ changes: changesAsc, topUps, interval: effectiveOilChangeInterval(reg), now });
   const sum = cycleSummary(cycles);
   if (!cycles.length) {
     y = summaryParagraph(doc, "No oil changes logged.", y);

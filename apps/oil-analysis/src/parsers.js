@@ -164,6 +164,20 @@ export function overlaySamplesOnTracker(trackerByEquip, samples) {
 // Parses an equipment's sampling interval text ("6 Months", "3 Months",
 // "Monthly", "Oil Analysis", "1 y", "If needed") into a number of months,
 // or null if there's no fixed interval.
+// Oil change by condition (Oct 2026): a point with oil analysis on a real
+// sampling schedule (Oil Analysis Required = Yes, interval e.g. "6 Months")
+// has no calendar oil change — the lab result decides it, and its sampling
+// is what is tracked. Oil analysis "If needed" keeps its Oil_Change_Interval.
+// Mirrors the backend's oilChangeByCondition_ (OilChanges.js).
+export function oilChangeByCondition(reg) {
+  return !!reg && String(reg.oilAnalysisRequired || "").trim() === "Yes" && !!intervalMonths(reg.interval);
+}
+
+// The Oil_Change_Interval that counts: none for a point changed by condition.
+export function effectiveOilChangeInterval(reg) {
+  return reg && !oilChangeByCondition(reg) ? reg.oilChangeInterval || "" : "";
+}
+
 export function intervalMonths(freqText) {
   if (!freqText) return null;
   const t = String(freqText).trim().toLowerCase();
@@ -380,8 +394,8 @@ export function routineSuggestionReason(lpId, routeType, samples, actions, oilCh
   if (openResample) return { kind: "resample", label: "Resample requested" };
 
   if (routeType === "Oil Change") {
-    const months = intervalMonths(reg?.oilChangeInterval);
-    if (!months) return null; // "As needed"/blank — no fixed schedule, never suggested
+    const months = intervalMonths(effectiveOilChangeInterval(reg));
+    if (!months) return null; // by condition / "As needed" / blank — no fixed schedule, never suggested
     const oc = (oilChanges || []).find((o) => o.equipmentCode === lpId);
     if (!oc || !oc.changeDate) return { kind: "missing", label: "No oil change recorded" };
     if (oc.status === "Overdue") return { kind: "overdue", label: "Oil change overdue" };
@@ -707,13 +721,17 @@ export function deriveCurrentOilChanges(registry, events) {
     const changeDate = latest?.eventDate || "";
     // Migrated history rows have no NextDueDate: fall back to the last
     // change + the point's Oil_Change_Interval, or they could never be due.
-    const nextDueDate = latest?.nextDueDate || computeOilChangeNextDue(changeDate, reg.oilChangeInterval);
+    // changed by condition (oil analysis): never a due date, also not one
+    // logged with an older change
+    const byCondition = oilChangeByCondition(reg);
+    const nextDueDate = byCondition ? "" : latest?.nextDueDate || computeOilChangeNextDue(changeDate, reg.oilChangeInterval);
     return {
       equipmentCode: reg.code,
       lpId: reg.code,
       assetName: reg.description || reg.equipmentId || reg.code,
       lubricationPoint: reg.lubricationPoint,
-      frequency: reg.oilChangeInterval,
+      frequency: effectiveOilChangeInterval(reg),
+      byCondition,
       oilType: reg.lubricant,
       brand: reg.lubricantBrand,
       quantity: reg.lubricantQuantityL,

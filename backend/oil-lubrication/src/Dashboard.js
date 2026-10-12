@@ -120,9 +120,10 @@ function getDashboard(scope) {
   var overdueOilChanges = 0;
   var nowMs = Date.now();
   var changeInterval = {};
-  (readEquipmentRegistry().equipment || []).forEach(function (eq) { changeInterval[eq.code] = eq.oilChangeInterval; });
+  var byCondition = {};
+  (readEquipmentRegistry().equipment || []).forEach(function (eq) { changeInterval[eq.code] = eq.oilChangeInterval; byCondition[eq.code] = oilChangeByCondition_(eq); });
   Object.keys(latestDueByLp).forEach(function(lp) {
-    var d = oilChangeNextDue_(latestDueByLp[lp].date, latestDueByLp[lp].due, changeInterval[lp]);
+    var d = oilChangeNextDue_(latestDueByLp[lp].date, latestDueByLp[lp].due, changeInterval[lp], byCondition[lp]);
     if (d && d.getTime() < nowMs) overdueOilChanges++;
   });
 

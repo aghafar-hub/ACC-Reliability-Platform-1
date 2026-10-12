@@ -269,7 +269,7 @@ function computeDueLpIds_(routeType, area, oilType, contractor, registry, sample
       var due = addMonths_(last, months);
       if (due.getTime() <= leadCutoff.getTime()) result.push(reg.code);
     } else {
-      var ocMonths = intervalMonthsForOilChange_(reg.oilChangeInterval);
+      var ocMonths = intervalMonthsForOilChange_(effectiveOilChangeInterval_(reg));
       if (!ocMonths) continue;
       var lastChange = lastChangeByLp[reg.code];
       if (!lastChange) { result.push(reg.code); continue; }

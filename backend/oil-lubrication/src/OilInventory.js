@@ -183,7 +183,7 @@ function getOilInventoryForecast(monthsParam, scope, daysParam) {
     if (qtyPerChange <= 0) return;
 
     var occurrences = 0;
-    var intervalMonths = intervalMonthsForOilChange_(reg.oilChangeInterval);
+    var intervalMonths = intervalMonthsForOilChange_(effectiveOilChangeInterval_(reg));
     var lastChange = lastEventByLp[reg.code];
     if (lastChange && intervalMonths) {
       // Precise: walk forward from the LP's own last logged change, by its

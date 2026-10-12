@@ -504,3 +504,21 @@ Sheets architecture as solid as it can be, in this order:
 - The PDF is only served to people who can see that point (the other
   contractor is refused). First deploy: Apps Script asks once for Drive
   permission — run `checkInstall` from the editor and allow it.
+
+## Oil change by condition (Oct 2026)
+
+A point with **Oil Analysis Required = Yes and a sampling interval** (e.g.
+"6 Months") has **no calendar oil change**: the lab result decides it (a
+Caution / Alert action such as "Change oil" becomes a route), and the point
+is tracked by its sampling (Sample due / overdue). Its Oil_Change_Interval,
+if any, is ignored — never an oil-change due date, never "oil change
+overdue", no calendar oil-change suggestion, and a change logged on it
+writes no NextDueDate. Oil analysis **"If needed"** (no sampling schedule)
+keeps its Oil_Change_Interval (e.g. LP-421.FV770-HY, LP-421.HR700-GB-A/B:
+2 Y). Points without oil analysis are unchanged.
+
+One rule in both places: `oilChangeByCondition()` /
+`effectiveOilChangeInterval()` (parsers.js) and `oilChangeByCondition_` /
+`effectiveOilChangeInterval_` (OilChanges.js). Shown as "By condition (oil
+analysis)" on the point page, Oil Change Log, Settings → intervals (field
+locked) and the equipment PDF.

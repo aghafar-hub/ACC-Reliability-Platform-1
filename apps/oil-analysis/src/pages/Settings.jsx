@@ -1,3 +1,4 @@
+import { oilChangeByCondition } from "../parsers";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
@@ -400,7 +401,18 @@ export default function Settings({ config, onSave, onSync, syncState, equipmentR
                     <td style={{ ...td, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontWeight: 700, whiteSpace: "nowrap" }}>{eq.code}</td>
                     <td style={{ ...td, color: T.textSecondary, minWidth: 160 }}>{[eq.equipmentName || eq.description, eq.area].filter(Boolean).join(" · ")}</td>
                     <td style={td}>{canEdit ? <input style={cell} value={val(eq, "interval")} onChange={(e) => setVal(eq, "interval", e.target.value)} aria-label={`${eq.code} sampling interval`} /> : val(eq, "interval") || "—"}</td>
-                    <td style={td}>{canEdit ? <input style={cell} value={val(eq, "oilChangeInterval")} onChange={(e) => setVal(eq, "oilChangeInterval", e.target.value)} aria-label={`${eq.code} oil change interval`} /> : val(eq, "oilChangeInterval") || "—"}</td>
+                    <td style={td}>
+                      {oilChangeByCondition({ oilAnalysisRequired: eq.oilAnalysisRequired, interval: val(eq, "interval") }) ? (
+                        // oil analysis on a schedule: the lab result decides the oil change
+                        <span style={{ fontSize: 12, color: T.textSecondary }} title="Oil analysis decides when the oil is changed — no calendar oil change" data-testid={`ms-bycondition-${eq.code}`}>
+                          <i className="ti ti-flask" aria-hidden="true" /> By condition
+                        </span>
+                      ) : canEdit ? (
+                        <input style={cell} value={val(eq, "oilChangeInterval")} onChange={(e) => setVal(eq, "oilChangeInterval", e.target.value)} aria-label={`${eq.code} oil change interval`} />
+                      ) : (
+                        val(eq, "oilChangeInterval") || "—"
+                      )}
+                    </td>
                     <td style={{ ...td, color: T.textMuted, whiteSpace: "nowrap" }}>{eq.modifiedDate ? fmtWhen(eq.modifiedDate) : "—"}</td>
                   </tr>
                 );

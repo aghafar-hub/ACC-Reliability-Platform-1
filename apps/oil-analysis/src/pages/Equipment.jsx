@@ -5,7 +5,7 @@ import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
 import EquipmentList from "../components/EquipmentList";
 import { HEALTH_COLOR, healthForLp, indexByLp, pointHealth, worstHealth } from "../equipmentHealth";
-import { formatDate, intervalMonths, isActionOverdue, actionDaysOverdue, ROUTE_STATUS } from "../parsers";
+import { formatDate, intervalMonths, oilChangeByCondition, isActionOverdue, actionDaysOverdue, ROUTE_STATUS } from "../parsers";
 import { statusColor } from "../theme";
 import * as api from "../api";
 import EditSampleModal from "../components/EditSampleModal";
@@ -1209,7 +1209,13 @@ export default function Equipment({
                   {[
                     {
                       label: "Next oil change",
-                      value: lpOilChangeState?.nextDueDate ? formatDate(lpOilChangeState.nextDueDate) : reg?.oilChangeInterval ? "no change logged yet" : "as needed",
+                      value: oilChangeByCondition(reg)
+                        ? "by condition (oil analysis)"
+                        : lpOilChangeState?.nextDueDate
+                          ? formatDate(lpOilChangeState.nextDueDate)
+                          : reg?.oilChangeInterval
+                            ? "no change logged yet"
+                            : "as needed",
                       color: oilChangeOverdue ? "danger" : null,
                       extra: oilChangeOverdue ? "overdue" : "",
                     },
@@ -1581,7 +1587,7 @@ export default function Equipment({
                 ["Quantity (L)", reg?.lubricantQuantityL],
                 ["Oil Analysis Required", reg?.oilAnalysisRequired],
                 ["Sampling Interval", reg?.interval],
-                ["Oil Change Interval", reg?.oilChangeInterval],
+                ["Oil Change Interval", oilChangeByCondition(reg) ? `By condition (oil analysis)${reg?.oilChangeInterval ? ` — ${reg.oilChangeInterval} not used` : ""}` : reg?.oilChangeInterval],
                 ["Area", reg?.area],
                 ["Contractor", reg?.contractor],
                 ["Status", reg?.status],

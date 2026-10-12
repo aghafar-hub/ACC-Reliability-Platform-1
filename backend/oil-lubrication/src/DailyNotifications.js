@@ -97,7 +97,7 @@ function lpsDueSoon_(ss, today, days) {
   equipment.forEach(function (eq) {
     if (!eq.code || !eq.contractor) return;
     var nc = nextChange[eq.code];
-    if (nc) nc = { ev: nc.ev, next: oilChangeNextDue_(nc.ev, nc.next, eq.oilChangeInterval) };
+    if (nc) nc = { ev: nc.ev, next: oilChangeNextDue_(nc.ev, nc.next, eq.oilChangeInterval, oilChangeByCondition_(eq)) };
     if (nc && nc.next && nc.next.getTime() >= today.getTime() && nc.next.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Oil Change"]) {
       out.push({ code: eq.code, contractor: eq.contractor, type: "Oil change", due: nc.next });
     }

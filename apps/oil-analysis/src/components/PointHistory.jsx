@@ -4,7 +4,7 @@ import { useTheme } from "../ThemeContext";
 import { pickSamples } from "../labReport";
 import LabTrendCharts, { LabCountControls } from "./LabTrendCharts";
 import useIsMobile from "../hooks/useIsMobile";
-import { formatDate, intervalMonths } from "../parsers";
+import { effectiveOilChangeInterval, formatDate, intervalMonths } from "../parsers";
 import {
   DAY,
   LAB_GROUPS,
@@ -354,7 +354,7 @@ export default function PointHistory({ reg, samples, sameOilSamples, changes, to
   );
   const lastChangeTime = changesAsc.length ? changesAsc[changesAsc.length - 1]._t : null;
   const labShown = pickSamples(samplesAsc, { count: labCount, sinceChange: labSinceChange, lastChangeTime });
-  const interval = reg?.oilChangeInterval || "";
+  const interval = effectiveOilChangeInterval(reg); // none when changed by condition
   const asNeeded = !intervalMonths(interval);
   const sampled = reg?.oilAnalysisRequired === "Yes" || samplesAsc.length > 0;
   const showCycles = changesAsc.length > 0 || !asNeeded;

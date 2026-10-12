@@ -38,7 +38,7 @@ function logOilChangeEvent(ss, data) {
   // (logged by hand) the product picked; otherwise the registered oil.
   var usedOil = routineItemId ? routineItemOil_(ss, routineItemId, "", "") : null;
   var usedProduct = productById_(ss, (usedOil && usedOil.productId) || String(data.productId || "").trim());
-  var months = intervalMonthsForOilChange_(reg ? reg.oilChangeInterval : "");
+  var months = intervalMonthsForOilChange_(effectiveOilChangeInterval_(reg));
   var nextDueDate = months ? addMonths_(eventDate, months) : "";
 
   var quantityUsed = data.quantityUsed || (reg ? reg.lubricantQuantityL : "") || "";
@@ -107,6 +107,8 @@ function findRegistryEntryForOilChange_(ss, lpId) {
         lubricant:          String(vals[i][11] || "").trim(),
         lubricantBrand:     String(vals[i][12] || "").trim(),
         lubricantQuantityL: String(vals[i][13] || "").trim(),
+        oilAnalysisRequired: String(vals[i][14] || "").trim(),
+        interval:           String(vals[i][15] || "").trim(),
         oilChangeInterval:  String(vals[i][16] || "").trim(),
         contractor:         canonicalContractor_(vals[i][17]),
       };
@@ -122,12 +124,29 @@ function findRegistryEntryForOilChange_(ss, lpId) {
 // NextDueDate is set).
 // A point's next oil change: the NextDueDate logged with its latest change,
 // or (migrated history rows have none) that change + Oil_Change_Interval.
-function oilChangeNextDue_(eventDate, storedNext, intervalText) {
+// byCondition: an oil-analysis point (oilChangeByCondition_) — its oil is
+// changed when a lab result calls for it, so it never has a due date.
+function oilChangeNextDue_(eventDate, storedNext, intervalText, byCondition) {
+  if (byCondition) return null;
   var stored = asDate_(storedNext);
   if (stored) return stored;
   var ev = asDate_(eventDate);
   var months = intervalMonthsForOilChange_(intervalText);
   return ev && months ? addMonths_(ev, months) : null;
+}
+
+// Oil change by condition (Oct 2026): a point with oil analysis on a real
+// sampling schedule (Oil_Analysis_Required = Yes and an interval such as
+// "6 Months") has no calendar oil change — the lab result decides it, and
+// sampling is what is tracked. Oil analysis "If needed" keeps its
+// Oil_Change_Interval. Mirrors parsers.js oilChangeByCondition().
+function oilChangeByCondition_(reg) {
+  return !!reg && String(reg.oilAnalysisRequired || "").trim() === "Yes" && !!intervalMonthsForSampling_(reg.interval);
+}
+
+// The Oil_Change_Interval that counts: none for a point changed by condition.
+function effectiveOilChangeInterval_(reg) {
+  return reg && !oilChangeByCondition_(reg) ? reg.oilChangeInterval : "";
 }
 
 function intervalMonthsForOilChange_(freqText) {

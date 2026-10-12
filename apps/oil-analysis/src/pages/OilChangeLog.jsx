@@ -162,7 +162,7 @@ function ChipCard({ p, color, onClick }) {
           </span>
         )}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color }}>{dueText(p.days)}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color }}>{p.oilChange?.byCondition ? "by condition (oil analysis)" : dueText(p.days)}</div>
     </button>
   );
 }
