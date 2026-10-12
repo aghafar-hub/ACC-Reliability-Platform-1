@@ -77,7 +77,7 @@ function requireSession_(sessionToken) {
   var dot = sessionToken.indexOf('.');
   var payloadB64 = sessionToken.substring(0, dot);
   var signature = sessionToken.substring(dot + 1);
-  if (!sameText_(signPayload_(payloadB64), signature)) { // constant time (Auth.js)
+  if (!sessionSigEqual_(signPayload_(payloadB64), signature)) {
     throw new Error('Invalid session token.');
   }
   var payload = JSON.parse(base64UrlDecode_(payloadB64));
@@ -192,3 +192,11 @@ function isSessionEndedError_(err) {
   return !!err && String(err.message || err).indexOf(SESSION_ENDED_MSG) !== -1;
 }
 
+// Same time whatever position the first difference is at (audit I-01). Kept
+// in this file so it works whatever version of Auth.js is pasted.
+function sessionSigEqual_(a, b) {
+  a = String(a == null ? '' : a); b = String(b == null ? '' : b);
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
