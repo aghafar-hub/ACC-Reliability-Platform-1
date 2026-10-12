@@ -80,8 +80,8 @@ function teamCollect_(from, to) {
     var title = lp + (r[LAB_COL.UID] ? " · " + r[LAB_COL.UID] : "");
     var link = { page: "oilreport", recordId: "" };
     if (r[LAB_COL.UPLOADED_BY] && r[LAB_COL.UPLOADED_DATE]) ev(r[LAB_COL.UPLOADED_BY], r[LAB_COL.UPLOADED_DATE], "lab-uploaded", "Lab report uploaded", title, c, "Contractor", link, null);
-    if (r[LAB_COL.VALIDATED_BY] && r[LAB_COL.VALIDATED_DATE]) ev(r[LAB_COL.VALIDATED_BY], r[LAB_COL.VALIDATED_DATE], "lab-validated", "Lab report validated", title, c, "Contractor", link, teamDayDiff_(r[LAB_COL.UPLOADED_DATE], r[LAB_COL.VALIDATED_DATE]));
-    if (r[LAB_COL.RETURNED_BY] && r[LAB_COL.RETURNED_DATE]) ev(r[LAB_COL.RETURNED_BY], r[LAB_COL.RETURNED_DATE], "lab-returned", "Lab report returned", title, c, "Contractor", link, teamDayDiff_(r[LAB_COL.UPLOADED_DATE], r[LAB_COL.RETURNED_DATE]));
+    if (r[LAB_COL.VALIDATED_BY] && r[LAB_COL.VALIDATED_DATE]) ev(r[LAB_COL.VALIDATED_BY], r[LAB_COL.VALIDATED_DATE], "lab-validated", "Lab report validated", title, c, "ACC", link, teamDayDiff_(r[LAB_COL.UPLOADED_DATE], r[LAB_COL.VALIDATED_DATE]));
+    if (r[LAB_COL.RETURNED_BY] && r[LAB_COL.RETURNED_DATE]) ev(r[LAB_COL.RETURNED_BY], r[LAB_COL.RETURNED_DATE], "lab-returned", "Lab report returned", title, c, "ACC", link, teamDayDiff_(r[LAB_COL.UPLOADED_DATE], r[LAB_COL.RETURNED_DATE]));
     if (String(r[LAB_COL.STATUS] || "").trim() === LAB_STATUS.PENDING) { team(c).waiting++; if (c) { team(c).open++; team(c).openReports++; } }
   });
 

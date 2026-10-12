@@ -605,7 +605,7 @@ export function closeAction(webhookUrl, action, closingComment) {
   );
 }
 
-// ── Phase 4: lab report review — validate (contractor engineer) / return (ACC)
+// ── Phase 4: lab report review — validate / return (ACC Engineer)
 async function labReviewStep(webhookUrl, sample, body, check, failText) {
   await postBlind(webhookUrl, { ...body, sampleUid: sample.sampleUid || "", equipmentCode: sample.unitId || "", sampleId: sample.sampleId || "" });
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
@@ -621,7 +621,7 @@ export function validateLabReport(webhookUrl, sample) {
   return labReviewStep(
     webhookUrl, sample, { action: "validateLabReport" },
     (sm) => sm.validationStatus === "Validated",
-    "The validation wasn't confirmed — only this contractor's engineer can validate, after opening the lab report. Please try again."
+    "The validation wasn't confirmed — only an ACC Engineer can validate, after opening the lab report. Please try again."
   );
 }
 

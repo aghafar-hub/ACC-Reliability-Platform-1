@@ -2,11 +2,12 @@
 //
 //  1. Either engineer (ACC or the contractor's) uploads the lab report
 //     (a Data_Entry row, through Add Report). It starts as "Pending
-//     Validation"; the contractor's engineers are asked to validate it and
-//     the ACC engineers are informed.
-//  2. The contractor's Contractor Engineer validates it — also when ACC
-//     uploaded it. Only then does a Caution/Alert result create the Draft
-//     action (ActionWorkflow.js's applyLabResultRule_).
+//     Validation"; the ACC Engineers are asked to validate it and the
+//     contractor's engineers are informed.
+//  2. An ACC Engineer validates it (after opening the lab's PDF, when one
+//     is kept) — also when ACC uploaded it. Only then does a Caution/Alert
+//     result create the Draft action (ActionWorkflow.js's
+//     applyLabResultRule_).
 //  3. An ACC Engineer can return a missing or incorrect report with a
 //     reason; the uploader and the contractor's engineers are told. Saving
 //     the corrected report puts it back to Pending Validation.
@@ -14,8 +15,8 @@
 // Rows from before Phase 4 have no status and count as validated.
 //
 //  4. A validated report can only be changed by an ACC Engineer, and any
-//     real change sends it back to Pending Validation: the contractor's
-//     engineers validate it again (and a Caution/Alert then makes its
+//     real change sends it back to Pending Validation: an ACC Engineer
+//     validates it again (and a Caution/Alert then makes its
 //     Draft action). Reports from before Phase 4 follow the same rule but
 //     never make a Draft — old results already have their actions.
 //
@@ -234,8 +235,8 @@ function onLabReportSaved_(ss, row, actingUser, isNew, reopen) {
       var reMsg = "Lab report " + sampleLabel_(found.row) + " was changed by " + (actingUser || "an ACC Engineer") + " after validation" +
         (found.row[5] ? " (result now " + found.row[5] + ")" : "") + ". Please validate it again.";
       recordInAppNotificationForEach_(ss, getNotifyReviewers_(contractor), "lab-report-reopened", reMsg, contractor, "oilreport", String(found.row[0] || ""));
-      var ceList = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
-      if (ceList.length) sendNotificationEmail_({ to: ceList.join(","), subject: "Oil Lubrication: lab report changed — validate again — " + sampleLabel_(found.row), body: reMsg }, 'labReport');
+      var accList = maResponsibleEmails_(MA_RESP.ACC, "");
+      if (accList.length) sendNotificationEmail_({ to: accList.join(","), subject: "Oil Lubrication: lab report changed — validate again — " + sampleLabel_(found.row), body: reMsg }, 'labReport');
     } catch (e) {
       logError("onLabReportSaved_:reopen", e, {});
     }
@@ -245,7 +246,7 @@ function onLabReportSaved_(ss, row, actingUser, isNew, reopen) {
   }
   try {
     var msg = (isNew ? "Lab report uploaded for " : "Corrected lab report for ") + sampleLabel_(found.row) +
-      (found.row[5] ? " — " + found.row[5] : "") + (actingUser ? " by " + actingUser : "") + ". Waiting for the contractor engineer to validate.";
+      (found.row[5] ? " — " + found.row[5] : "") + (actingUser ? " by " + actingUser : "") + ". Waiting for an ACC Engineer to validate.";
     recordInAppNotificationForEach_(ss, getNotifyReviewers_(contractor), "lab-report-uploaded", msg, contractor, "oilreport", String(found.row[0] || ""));
   } catch (e) {
     logError("onLabReportSaved_:notify", e, {});

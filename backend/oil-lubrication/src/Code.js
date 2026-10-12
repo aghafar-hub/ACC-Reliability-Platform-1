@@ -842,11 +842,10 @@ function doPostInner_(e) {
         return jsonOut(rescheduleActionResult.error ? {status: "error", message: rescheduleActionResult.error} : {status: "ok"});
       }
 
-      // ── Phase 4: lab report — contractor engineer validates, ACC returns ─
+      // ── Phase 4: lab report — an ACC Engineer validates or returns it ───
       if (data.action === "validateLabReport" || data.action === "returnLabReport") {
         var labContractor = getSampleContractor_(ss, data);
-        if (data.action === "validateLabReport") requireRouteEngineer_(auth.session, labContractor, "validate this lab report");
-        else requireAccEngineer_(auth.session);
+        requireAccEngineer_(auth.session, data.action === "validateLabReport" ? "validate a lab report" : "return a lab report");
         data.actingUser = actingUser;
         var labResult = data.action === "validateLabReport" ? validateLabReport(ss, data) : returnLabReport(ss, data);
         if (!labResult.error) invalidateDashboardCache();

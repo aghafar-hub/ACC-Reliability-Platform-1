@@ -490,6 +490,9 @@ Sheets architecture as solid as it can be, in this order:
   Property `LAB_PDF_FOLDER_ID`, created on first use, never shared). Each
   sample saved from it holds the file key in Data_Entry column 61 (0-based
   60, "Report PDF"). Re-importing an older report attaches its PDF too.
+- **Who:** the contractor's engineer or an ACC Engineer uploads; an **ACC
+  Engineer validates** (or returns). The contractor's engineers see
+  returned reports in My Work, to correct.
 - **Open report.** The review list (Oil Analysis Report → Lab reports to
   review) has an **Open report** button per row: the lab's PDF (every page)
   beside the values saved in the app, with **Validate** in the viewer.

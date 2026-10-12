@@ -83,9 +83,9 @@ function getMyWork(session) {
   var routes = readSheet(ss, "ROUTINES", true).filter(function (r) { return String(r[0] || "").trim() && inScope(String(r[3] || "").trim()); });
   var actions = readSheet(ss, "Action Tracker", true).filter(function (r) { return String(r[ACTION_COL.AC_NO] || "").trim() && inScope(actionContractor_(r)); });
   var lpContractor = getLpContractorMap_();
-  var labPending = readSheet(ss, "Data_Entry", true).filter(function (r) {
-    return String(r[LAB_COL.STATUS] || "").trim() === LAB_STATUS.PENDING && inScope(lpContractor[String(r[0] || "").trim()] || "");
-  });
+  var labRows = readSheet(ss, "Data_Entry", true).filter(function (r) { return inScope(lpContractor[String(r[0] || "").trim()] || ""); });
+  var labPending = labRows.filter(function (r) { return String(r[LAB_COL.STATUS] || "").trim() === LAB_STATUS.PENDING; });
+  var labReturned = labRows.filter(function (r) { return String(r[LAB_COL.STATUS] || "").trim() === LAB_STATUS.RETURNED; });
 
   function routeItem(r, extra) {
     var id = String(r[0] || "").trim();
@@ -134,7 +134,7 @@ function getMyWork(session) {
       getSuggestions(scope, false).suggestions.map(function (sg) {
         return { id: "sg|" + sg.suggestionId, title: sg.lpId + " · " + sg.workType, subtitle: sg.reason, meta: sg.requiredDate ? "needed by " + sg.requiredDate.slice(0, 10) : "", flag: "", link: { page: "routines", recordId: "" } };
       })));
-    sections.push(section_("lab-validate", "Lab reports to validate", "Check each report against the lab's PDF.", "action", labPending.map(labItem)));
+    sections.push(section_("lab-returned", "Lab reports returned for correction", "ACC returned them — correct and save; they go back for validation.", "action", labReturned.map(labItem)));
     sections.push(section_("draft-actions", "Draft actions to submit", "Fill in the agreed action, person, due date and duration, then Submit.", "action",
       actions.filter(function (r) { return normActionStatus_(r[ACTION_COL.STATUS]) === ACTION_STATUS.DRAFT; })
         .map(function (r) { return actionItem(r, String(r[ACTION_COL.RULE] || "").trim() ? "made by rule: " + r[ACTION_COL.RULE] : "draft"); })));
@@ -165,7 +165,7 @@ function getMyWork(session) {
       actions.filter(function (r) {
         return normActionStatus_(r[ACTION_COL.STATUS]) === ACTION_STATUS.CLOSURE_REQUESTED && !String(r[ACTION_COL.DECISION] || "").trim();
       }).map(function (r) { return actionItem(r, "requested by " + String(r[ACTION_COL.CLOSURE_BY] || "—")); })));
-    sections.push(section_("lab-review", "Lab reports to review", "Waiting for the contractor's validation — return any that are wrong or missing.", "info", labPending.map(labItem)));
+    sections.push(section_("lab-validate", "Lab reports to validate", "Open each report and check its values against the lab's PDF — validate, or return it if wrong or missing.", "action", labPending.map(labItem)));
     sections.push(section_("auto-drafts", "New automatic Drafts", "Made by the lab and leakage rules — waiting to be submitted.", "info",
       actions.filter(function (r) { return normActionStatus_(r[ACTION_COL.STATUS]) === ACTION_STATUS.DRAFT && String(r[ACTION_COL.RULE] || "").trim(); })
         .map(function (r) { return actionItem(r, String(r[ACTION_COL.RULE])); })));

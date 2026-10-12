@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
+import { useIsAccEngineer } from "../SessionContext";
 import { useLabWorkflow } from "../ActionWorkflowContext";
 import LabReportViewer from "./LabReportViewer";
 
-// Phase 4 — lab reports waiting for review. The contractor's engineer
-// validates (a Caution/Alert result then creates the Draft action); an ACC
-// Engineer can return a missing or incorrect report with a reason. A
+// Phase 4 — lab reports waiting for review. Either engineer uploads; an ACC
+// Engineer validates (a Caution/Alert result then creates the Draft
+// action) or returns a missing or incorrect report with a reason. A
 // returned report goes back here as Pending Validation once it's corrected
 // and saved.
 export default function LabReviewPanel({ samples, equipmentRegistry }) {
@@ -32,7 +32,7 @@ export default function LabReviewPanel({ samples, equipmentRegistry }) {
         Lab reports to review ({list.length})
       </p>
       <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
-        The contractor's engineer validates each report after opening it and checking its values against the lab's PDF. An ACC Engineer can return a missing or incorrect one.
+        An ACC Engineer validates each report after opening it and checking its values against the lab's PDF, or returns a missing or incorrect one.
       </p>
       <div style={{ overflowX: "auto" }}>
         <table style={s.table}>
@@ -60,7 +60,7 @@ export default function LabReviewPanel({ samples, equipmentRegistry }) {
 function ReviewRow({ sample, contractor }) {
   const { T, s } = useTheme();
   const run = useLabWorkflow();
-  const canValidate = useIsRouteEngineerFor(contractor);
+  const canValidate = useIsAccEngineer();
   const canReturn = useIsAccEngineer();
   const [returning, setReturning] = useState(false);
   const [reason, setReason] = useState("");
@@ -139,7 +139,7 @@ function ReviewRow({ sample, contractor }) {
                 Return
               </button>
             )}
-            {!canValidate && !canReturn && <span style={{ fontSize: 12, color: T.textSecondary }}>Waiting for {contractor || "the contractor"}'s engineer</span>}
+            {!canValidate && !canReturn && <span style={{ fontSize: 12, color: T.textSecondary }}>Waiting for ACC validation</span>}
           </div>
         )}
         {pending && returning && (

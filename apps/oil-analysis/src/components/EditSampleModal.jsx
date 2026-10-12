@@ -71,7 +71,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
         {(sample.validationStatus === "Validated" || !sample.validationStatus) && (
           <div style={{ ...s.infoBar, borderColor: T.warning, marginBottom: 14, fontSize: 12.5 }} data-testid="reopen-warning">
             <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.warning, marginRight: 6 }} />
-            This report is validated. Saving a change sends it back to <strong>Pending Validation</strong> — the contractor's engineer
+            This report is validated. Saving a change sends it back to <strong>Pending Validation</strong> — an ACC Engineer
             validates it again.
           </div>
         )}

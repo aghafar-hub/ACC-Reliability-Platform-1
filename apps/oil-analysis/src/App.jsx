@@ -645,7 +645,7 @@ function AppShell({ config, setConfig, navBridge }) {
     [config.webhookUrl, pushToast]
   );
 
-  // Phase 4 — lab report review: "validate" (contractor engineer) or
+  // Phase 4 — lab report review: "validate" (ACC Engineer) or
   // "return" (ACC, with a reason). Validating a Caution/Alert result makes a
   // Draft action on the server, so a sync follows.
   const runLabStep = useCallback(

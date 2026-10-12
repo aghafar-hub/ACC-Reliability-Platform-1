@@ -26,12 +26,15 @@ setup is in `test-copy-setup.md`.
 
 ## Phase 4: lab report flow
 
-- A newly added lab report (Add Report) is **Pending Validation**. The
-  contractor's engineers are asked to validate it, and the ACC engineers
-  are informed.
-- The contractor's **Contractor Engineer validates** it, even when ACC
-  uploaded it. Only after validation does a Caution or Alert result
-  create the Draft action from Phase 2.
+- Either engineer uploads a lab report: the contractor's Contractor
+  Engineer or an ACC Engineer. A newly added report (Add Report) is
+  **Pending Validation**; the ACC engineers are asked to validate it and
+  the contractor's engineers are informed.
+- An **ACC Engineer validates** it (changed Oct 2026 — it was the
+  contractor's engineer before), also a report ACC uploaded, after opening
+  the lab's PDF (see oil-lubrication-migration-notes.md). Only after
+  validation does a Caution or Alert result create the Draft action from
+  Phase 2.
 - An **ACC Engineer can return** a report with a reason. The uploader and
   the contractor's engineers are told. Saving the corrected report puts
   it back to Pending Validation.

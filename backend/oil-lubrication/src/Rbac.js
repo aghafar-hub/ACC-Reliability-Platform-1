@@ -102,8 +102,9 @@ function isAccEngineer_(session) {
   return !!session && session.orgId === ORG_ACC && hasPermission_(session, 'Approve');
 }
 
-function requireAccEngineer_(session) {
-  if (!isAccEngineer_(session)) throw new Error('Only an ACC Engineer can approve or reject a closure.');
+// what: e.g. "validate this lab report" (default: the closure decision)
+function requireAccEngineer_(session, what) {
+  if (!isAccEngineer_(session)) throw new Error('Only an ACC Engineer can ' + (what || 'approve or reject a closure') + '.');
 }
 
 // Same ORG-ACC id Platform Core's own Config.js uses.
