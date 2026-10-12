@@ -664,7 +664,7 @@ function AppShell({ config, setConfig, navBridge }) {
         pushToast(kind === "reject" ? "Lab report rejected and removed." : "Returned lab report removed.", "success");
         return null;
       }
-      const saved = kind === "validate" ? await api.validateLabReport(config.webhookUrl, sample) : await api.returnLabReport(config.webhookUrl, sample, text);
+      const saved = kind === "validate" ? await api.validateLabReport(config.webhookUrl, sample, text) : await api.returnLabReport(config.webhookUrl, sample, text);
       setSamples((prev) => {
         const next = prev.map((sm) => (sm._id === sample._id ? saved : sm));
         writeCache("samples", next);
@@ -812,15 +812,20 @@ function AppShell({ config, setConfig, navBridge }) {
   // details (account, asset, bottle…). Never adds a sample.
   // The imported PDFs, uploaded before their samples are saved so each
   // sample can point to its lab report.
+  // Returns the keys of the PDFs the server didn't confirm: their samples
+  // are not saved (a report must keep its PDF to be validated — audit F-09).
   const onUploadReportPdfs = useCallback(
     async (pdfs) => {
+      const failed = new Set();
       for (const p of pdfs) {
         try {
           await api.uploadLabReportPdf(config.webhookUrl, p.fileKey, p.file);
         } catch (err) {
-          pushToast(`${p.file?.name || "Lab report"}: the PDF wasn't kept — ${err.message}`, "error");
+          failed.add(p.fileKey);
+          pushToast(`${p.file?.name || "Lab report"}: the PDF couldn't be stored — ${err.message}. Its samples were not saved; import it again.`, "error");
         }
       }
+      return failed;
     },
     [config.webhookUrl, pushToast]
   );

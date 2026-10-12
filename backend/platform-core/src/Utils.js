@@ -153,3 +153,47 @@ function deleteRowsByColumn_(sheet, columnName, value) {
   }
   return deleted;
 }
+
+// ── Text that would run as a spreadsheet formula (audit F-12) ──────────
+// Google Sheets runs a cell that starts with = + - or @ as a formula, so a
+// comment like =HYPERLINK(...) would become a live link. Every request's
+// values pass through here first: such text gets a leading ' (Sheets
+// keeps the text and hides the '; reading the cell back gives the
+// original text). Numbers like -5 and keys used to find rows are left as
+// they are.
+var NO_FORMULA_SKIP_KEYS = { action: 1, secret: 1, sessionToken: 1, password: 1, newPassword: 1, currentPassword: 1,
+  operationId: 1, matchCols: 1, matchValues: 1, callback: 1, q: 1 };
+
+function noFormulaText_(s) {
+  if (typeof s !== 'string' || !/^\s*[=+\-@]/.test(s)) return s;
+  if (/^\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*$/.test(s)) return s; // a number
+  if (/^\s*-+\s*$/.test(s)) return s; // "-" used as "none"
+  return "'" + s;
+}
+
+function noFormulasIn_(v, depth) {
+  depth = depth || 0;
+  if (depth > 8 || v === null || v === undefined) return v;
+  if (typeof v === 'string') {
+    // some modules send a row as a JSON text (e.g. row: '["A","=1+1"]')
+    if (/^\s*[\[{]/.test(v) && v.length < 200000) {
+      try {
+        var parsed = JSON.parse(v);
+        var cleaned = noFormulasIn_(parsed, depth + 1);
+        var again = JSON.stringify(cleaned);
+        return again === JSON.stringify(parsed) ? v : again;
+      } catch (e) { return v; }
+    }
+    return noFormulaText_(v);
+  }
+  if (Array.isArray(v)) return v.map(function (x) { return noFormulasIn_(x, depth + 1); });
+  if (typeof v === 'object' && !(v instanceof Date)) {
+    var out = {};
+    for (var k in v) {
+      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+      out[k] = (NO_FORMULA_SKIP_KEYS[k] || /base64/i.test(k)) ? v[k] : noFormulasIn_(v[k], depth + 1);
+    }
+    return out;
+  }
+  return v;
+}

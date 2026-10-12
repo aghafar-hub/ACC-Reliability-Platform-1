@@ -73,6 +73,9 @@ function ReviewRow({ sample, contractor }) {
   // lab's PDF next to the saved values) — the server checks it too.
   const [viewing, setViewing] = useState(false);
   const [opened, setOpened] = useState(false);
+  // the PDF kept with this report can't be found: Validate needs a reason
+  const [pdfMissing, setPdfMissing] = useState(false);
+  const [missingReason, setMissingReason] = useState("");
   const pending = sample.validationStatus === "Pending Validation";
 
   async function go(kind) {
@@ -80,10 +83,15 @@ function ReviewRow({ sample, contractor }) {
       setError(kind === "reject" ? "Write why it's rejected." : "Write why it's returned.");
       return;
     }
+    if (kind === "validate" && pdfMissing && !missingReason.trim()) {
+      setViewing(true);
+      setError("The PDF is missing — write why you validate without it.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await run(kind, sample, reason.trim());
+      await run(kind, sample, kind === "validate" ? missingReason.trim() : reason.trim());
       setViewing(false);
       setReturning(false);
       setReason("");
@@ -204,7 +212,10 @@ function ReviewRow({ sample, contractor }) {
           <LabReportViewer
             sample={sample}
             loadPdf={(sm) => run("pdf", sm)}
-            onOpened={() => setOpened(true)}
+            onOpened={(info) => {
+              setOpened(true);
+              if (info && info.missing) setPdfMissing(true);
+            }}
             onClose={() => setViewing(false)}
             actions={
               <>
@@ -212,6 +223,16 @@ function ReviewRow({ sample, contractor }) {
                 <button style={s.btn} onClick={() => setViewing(false)}>
                   Close
                 </button>
+                {pending && canValidate && pdfMissing && (
+                  <input
+                    style={{ ...s.input, flex: 1, minWidth: 200 }}
+                    placeholder="Why validate without the PDF (e.g. checked against the emailed report)"
+                    aria-label="Reason to validate without the PDF"
+                    value={missingReason}
+                    onChange={(e) => setMissingReason(e.target.value)}
+                    data-testid="lab-missing-reason"
+                  />
+                )}
                 {pending && canValidate && (
                   <button style={s.btnPrimary} disabled={busy || !opened} onClick={() => go("validate")} data-testid="lab-viewer-validate">
                     {busy ? "…" : opened ? "Values checked — Validate" : "Loading…"}

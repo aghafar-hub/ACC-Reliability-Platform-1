@@ -12,7 +12,7 @@
 
 function doPost(e) {
   return safeHandle_(function () {
-    var body = JSON.parse(e.postData.contents);
+    var body = noFormulasIn_(JSON.parse(e.postData.contents));
     var action = body.action;
 
     // login is the one action allowed without an existing session.

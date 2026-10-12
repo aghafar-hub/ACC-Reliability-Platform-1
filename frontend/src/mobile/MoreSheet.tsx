@@ -279,6 +279,10 @@ export default function MoreSheet({ open, onClose, startModule }: { open: boolea
                     <Icon name="settings" size={18} />
                     Settings
                   </button>
+                  <button type="button" className="more-action" onClick={() => goRoute('/change-password', 'Change password', 'settings')} data-testid="more-change-password">
+                    <TablerIcon className="ti-lock" size={18} />
+                    Password
+                  </button>
                   <LangToggle className="more-action more-lang" testid="more-lang" />
                   <button type="button" className="more-action more-signout" onClick={logout} data-testid="more-logout">
                     <Icon name="logout" size={18} />

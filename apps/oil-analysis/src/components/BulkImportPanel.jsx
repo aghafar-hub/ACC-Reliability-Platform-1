@@ -53,7 +53,13 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
       // the PDFs these samples / fill-ins point to go up first
       const keys = new Set([...selectedSamples.map((sm) => sm.reportFile), ...fills.map((f) => f.labInfo?.reportFile), ...fixes.map((f) => f.labInfo?.reportFile)].filter(Boolean));
       const pdfs = (parsedReports || []).filter((r) => r.ok && keys.has(r.reportFile)).map((r) => ({ fileKey: r.reportFile, file: r.file }));
-      if (pdfs.length && onUploadReportPdfs) await onUploadReportPdfs(pdfs);
+      const failedPdfs = pdfs.length && onUploadReportPdfs ? (await onUploadReportPdfs(pdfs)) || new Set() : new Set();
+      // nothing is saved from a PDF that couldn't be stored
+      const keep = (key) => !key || !failedPdfs.has(key);
+      const skipped = selectedSamples.filter((sm) => !keep(sm.reportFile)).length;
+      selectedSamples = selectedSamples.filter((sm) => keep(sm.reportFile));
+      fills = fills.filter((f) => keep(f.labInfo?.reportFile));
+      fixes = fixes.filter((f) => keep(f.labInfo?.reportFile));
       const result = selectedSamples.length
         ? await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }))
         : { saved: 0, failed: 0 };
@@ -69,7 +75,8 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
           (filled ? ` · filled in report details for ${filled} saved sample${filled === 1 ? "" : "s"}` : "") +
           (corrected ? ` · corrected ${corrected} saved sample${corrected === 1 ? "" : "s"} from the report (waiting for validation)` : "") +
           (learned ? ` · ${learned} Report Equipment ID${learned === 1 ? "" : "s"} saved to the registry` : "") +
-          (result.failed ? ` — ${result.failed} failed, see toasts for details` : "")
+          (result.failed ? ` — ${result.failed} failed, see toasts for details` : "") +
+          (skipped ? ` — ${skipped} not saved because their PDF couldn't be stored; import ${failedPdfs.size === 1 ? "that PDF" : "those PDFs"} again` : "")
       );
     } finally {
       setSaving(false);

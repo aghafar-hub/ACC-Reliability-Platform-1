@@ -102,6 +102,7 @@ function doPost(e) {
 // well as doPost, so reads and writes are told apart by action name
 // (VIB_WRITE_ACTIONS in ModuleAccessConfig.js), not by HTTP method.
 function dispatchWithAccess_(action, params) {
+  params = noFormulasIn_(params || {});
   vsApplySettings_(); // ModuleSettings.js: interval / grace / report-due defaults
   // Audit F-21: without the signing secret no sign-in can be checked, so
   // nothing is served (the module used to stay open).

@@ -172,6 +172,7 @@ function doGet(e) {
   // Install check (InstallCheck.js): open <web app address>?action=installCheck
   // in a browser to see whether this deployment runs the latest files.
   if (e && e.parameter && e.parameter.action === 'installCheck') return ContentService.createTextOutput(checkInstall());
+  e.parameter = noFormulasIn_(e.parameter || {});
   var callback = e.parameter.callback || "";
   var action   = e.parameter.action   || "readAll";
   var result;
@@ -391,7 +392,7 @@ function doPostInner_(e) {
       return jsonOut({status: "error", message: "No post data received"});
     }
 
-    var data = JSON.parse(raw);
+    var data = noFormulasIn_(JSON.parse(raw));
     var ss   = SpreadsheetApp.getActiveSpreadsheet();
 
     var auth = checkAuth_(data.secret, data.sessionToken);
@@ -487,7 +488,7 @@ function doPostInner_(e) {
           try { syncSuggestionsForAction_(ss, data.row[0], data.row[1], actingUser); } catch (sgErr) { logError("syncSuggestionsForAction_", sgErr, {}); }
         }
         invalidateDashboardCache();
-        logError("doPost:append:ok", "success", {sheet: data.sheet, row: data.row, actingUser: actingUser});
+        logError("doPost:append:ok", "success", {sheet: data.sheet, id: data.row && data.row[0], actingUser: actingUser});
         // Phase 4: a new lab report waits for the contractor engineer's
         // validation (the Caution/Alert Draft action comes at validation).
         if (data.sheet === "Data_Entry") {
@@ -888,7 +889,7 @@ function doPostInner_(e) {
         logError("doPost:" + data.action, labResult.error || "ok", {sampleUid: data.sampleUid, actingUser: actingUser});
         if (!labResult.error && !labResult.unchanged) {
           recordAudit_(ss, "Data_Entry", data.equipmentCode || "", "update", actingUser, labContractor,
-            data.action === "validateLabReport" ? "Validated lab report" :
+            data.action === "validateLabReport" ? "Validated lab report" + (labResult.pdfMissing ? " without its PDF (missing): " + String(data.pdfMissingReason || "").trim() : "") :
             data.action === "rejectLabReport" ? "Rejected and removed lab report " + (data.sampleId || "") + ": " + String(data.reason || "").trim() :
             "Returned lab report for correction: " + String(data.reason || "").trim());
         }

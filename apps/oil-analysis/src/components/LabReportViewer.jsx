@@ -24,7 +24,7 @@ export default function LabReportViewer({ sample, loadPdf, onOpened, actions, on
         if (pdf.none) {
           setState({ none: true, missing: pdf.missing });
           // nothing kept to show: the saved values are, to check by hand
-          onOpened?.();
+          onOpened?.({ missing: !!pdf.missing });
           return;
         }
         const canvases = await renderPdfPages(pdf.bytes);
@@ -83,7 +83,7 @@ export default function LabReportViewer({ sample, loadPdf, onOpened, actions, on
           {state.none && (
             <div style={{ ...s.infoBar, fontSize: 13 }} data-testid="lab-pdf-none">
               {state.missing
-                ? "The PDF kept with this report can't be found any more. Compare the values with the lab's report you received."
+                ? "PDF missing — the lab's PDF of this report wasn't stored. Compare the values with the lab's report you received; to validate, write why below (or return the report so it is imported again)."
                 : "No PDF is kept with this report (entered by hand, or imported before PDFs were kept). Compare the values with the lab's report you received."}
             </div>
           )}

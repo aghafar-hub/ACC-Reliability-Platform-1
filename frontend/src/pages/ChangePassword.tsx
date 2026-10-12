@@ -89,6 +89,11 @@ export default function ChangePassword() {
         <button type="submit" disabled={submitting}>
           {submitting ? 'Saving…' : 'Save password'}
         </button>
+        {!mustChangePassword && (
+          <button type="button" className="auth-secondary" onClick={() => navigate(-1)} disabled={submitting}>
+            Cancel
+          </button>
+        )}
       </form>
     </div>
   );

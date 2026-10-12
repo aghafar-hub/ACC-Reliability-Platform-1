@@ -7,7 +7,8 @@
  * - Forced password change on first login.
  * - Admin manually resets a locked-out user's password (no self-service
  *   email reset link).
- * - No 2FA / idle auto-logout / failed-attempt lockout for v1 (decided).
+ * - No 2FA / idle auto-logout for v1 (decided). 5 wrong passwords in a row
+ *   make that email wait 15 minutes (owner decision, October 2026 audit).
  * - Every sign-in has an end time and can be cancelled (Session.js).
  *
  * USERS sheet columns:
@@ -17,25 +18,125 @@
 
 var SALT_BYTES = 16;
 
+// Stored hashes look like "v2$<rounds>$<hex>": HMAC-SHA256 repeated <rounds>
+// times, so a copied USERS sheet is slow to guess against. Hashes made
+// before this (one HMAC, no prefix) still work and are upgraded the next
+// time that person signs in.
+var PASSWORD_HASH_ROUNDS = 2000;
+
+function bytesToHex_(bytes) {
+  return bytes.map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+function hashPasswordOnce_(password, salt) {
+  return bytesToHex_(Utilities.computeHmacSha256Signature(password, salt));
+}
+
+function hashPasswordRounds_(password, salt, rounds) {
+  var key = Utilities.newBlob(String(salt)).getBytes();
+  var d = Utilities.computeHmacSha256Signature(Utilities.newBlob(String(password)).getBytes(), key);
+  for (var i = 1; i < rounds; i++) d = Utilities.computeHmacSha256Signature(d, key);
+  return 'v2$' + rounds + '$' + bytesToHex_(d);
+}
+
+// The hash to store for a new password.
 function hashPassword_(password, salt) {
-  var digest = Utilities.computeHmacSha256Signature(password, salt);
-  return digest.map(function (b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+  return hashPasswordRounds_(password, salt, PASSWORD_HASH_ROUNDS);
+}
+
+// Same time whatever position the first difference is at.
+function sameText_(a, b) {
+  a = String(a); b = String(b);
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
+function passwordMatches_(password, user) {
+  var stored = String(user.PasswordHash || '');
+  if (!stored || !user.PasswordSalt) return false;
+  var m = /^v2\$(\d+)\$/.exec(stored);
+  if (m) return sameText_(hashPasswordRounds_(String(password), user.PasswordSalt, Number(m[1])), stored);
+  return sameText_(hashPasswordOnce_(String(password), user.PasswordSalt), stored);
+}
+
+// Random bytes from Google's secure UUIDs (Math.random is guessable).
+function secureRandomBytes_(n) {
+  var out = [];
+  while (out.length < n) {
+    var d = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Utilities.getUuid());
+    for (var i = 0; i < d.length && out.length < n; i++) out.push(d[i] & 0xFF);
+  }
+  return out;
 }
 
 function generateSalt_() {
-  var bytes = [];
-  for (var i = 0; i < SALT_BYTES; i++) bytes.push(Math.floor(Math.random() * 256));
-  return Utilities.base64Encode(bytes);
+  return Utilities.base64Encode(secureRandomBytes_(SALT_BYTES));
 }
 
 function generateTempPassword_() {
-  // Human-relayable: avoids ambiguous characters (0/O, 1/l/I).
-  var alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  var pwd = '';
-  for (var i = 0; i < 10; i++) {
-    pwd += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+  // Human-relayable: avoids ambiguous characters (0/O, 1/l/I). Two digits
+  // are always included so it also meets the password rules.
+  var letters = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+  var digits = '23456789';
+  var pick = function (alphabet, count) {
+    var s = '', limit = 256 - (256 % alphabet.length);
+    while (s.length < count) {
+      secureRandomBytes_(count * 2).forEach(function (b) {
+        if (s.length < count && b < limit) s += alphabet.charAt(b % alphabet.length);
+      });
+    }
+    return s;
+  };
+  return pick(letters, 4) + pick(digits, 2) + pick(letters, 4);
+}
+
+// ── Too many wrong passwords ─────────────────────────────────────────
+// 5 wrong passwords for one email within 15 minutes → that email waits
+// 15 minutes, even with the right password. A successful sign-in or an
+// admin reset clears the count.
+var SIGNIN_MAX_FAILURES = 5;
+var SIGNIN_WAIT_MINUTES = 15;
+
+function signinThrottleKey_(email) {
+  return 'signin|' + String(email || '').trim().toLowerCase();
+}
+
+function signinThrottleState_(email) {
+  try {
+    var raw = CacheService.getScriptCache().get(signinThrottleKey_(email));
+    return raw ? JSON.parse(raw) : { n: 0, until: 0 };
+  } catch (e) { return { n: 0, until: 0 }; }
+}
+
+function signinWaitError_(email) {
+  var st = signinThrottleState_(email);
+  if (st.until && st.until > Date.now()) {
+    var mins = Math.max(1, Math.ceil((st.until - Date.now()) / 60000));
+    return 'Too many wrong passwords. Try again in ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the App Owner to reset your password.';
   }
-  return pwd;
+  return '';
+}
+
+function signinFailed_(email) {
+  var st = signinThrottleState_(email);
+  if (st.until && st.until <= Date.now()) st = { n: 0, until: 0 };
+  st.n = (st.n || 0) + 1;
+  if (st.n >= SIGNIN_MAX_FAILURES) st.until = Date.now() + SIGNIN_WAIT_MINUTES * 60000;
+  try { CacheService.getScriptCache().put(signinThrottleKey_(email), JSON.stringify(st), SIGNIN_WAIT_MINUTES * 60); } catch (e) {}
+}
+
+function signinCleared_(email) {
+  try { CacheService.getScriptCache().remove(signinThrottleKey_(email)); } catch (e) {}
+}
+
+// Writes a new hash + salt for the user's row (row index from readSheetAsObjects_).
+function writePasswordHash_(sheet, rowIndex, password) {
+  var salt = generateSalt_();
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  sheet.getRange(rowIndex, headers.indexOf('PasswordHash') + 1).setValue(hashPassword_(password, salt));
+  sheet.getRange(rowIndex, headers.indexOf('PasswordSalt') + 1).setValue(salt);
+  return headers;
 }
 
 /**
@@ -82,14 +183,23 @@ function createUser_(email, orgId, roleIds) {
 }
 
 function login_(email, password, remember) {
+  var wait = signinWaitError_(email);
+  if (wait) throw new Error(wait);
   var sheet = getSheet_(SHEET_NAMES.USERS);
-  var user = findRowByColumn_(sheet, 'Email', email);
-  if (!user || user.Status !== 'Active') {
-    throw new Error('Invalid email or password.');
+  var rows = readSheetAsObjects_(sheet);
+  var idx = -1;
+  for (var i = 0; i < rows.length; i++) if (rows[i].Email === email) { idx = i; break; }
+  var user = idx === -1 ? null : rows[idx];
+  if (!user || user.Status !== 'Active' || !passwordMatches_(password, user)) {
+    signinFailed_(email);
+    throw new Error(signinWaitError_(email) || 'Invalid email or password.');
   }
-  var hash = hashPassword_(password, user.PasswordSalt);
-  if (hash !== user.PasswordHash) {
-    throw new Error('Invalid email or password.');
+  signinCleared_(email);
+  // an older one-round hash is replaced by the slower kind now that we know the password
+  if (String(user.PasswordHash).indexOf('v2$') !== 0) {
+    try {
+      withLock_(function () { writePasswordHash_(sheet, idx + 2, String(password)); });
+    } catch (e) { /* the sign-in still works; the upgrade is retried next time */ }
   }
   return {
     userId: user.UserId,
@@ -126,17 +236,19 @@ function changePassword_(session, newPassword, currentPassword) {
         var problem = passwordProblem_(newPassword, rows[i].Email);
         if (problem) throw new Error(problem);
         var forced = rows[i].MustChangePassword === true || String(rows[i].MustChangePassword).toUpperCase() === 'TRUE';
-        if (!forced && hashPassword_(String(currentPassword || ''), rows[i].PasswordSalt) !== rows[i].PasswordHash) {
-          throw new Error('Your current password is not correct.');
+        if (!forced) {
+          var wait = signinWaitError_(rows[i].Email);
+          if (wait) throw new Error(wait);
+          if (!passwordMatches_(String(currentPassword || ''), rows[i])) {
+            signinFailed_(rows[i].Email);
+            throw new Error('Your current password is not correct.');
+          }
         }
-        if (hashPassword_(String(newPassword), rows[i].PasswordSalt) === rows[i].PasswordHash) {
+        if (passwordMatches_(String(newPassword), rows[i])) {
           throw new Error('Choose a password different from the current one.');
         }
-        var salt = generateSalt_();
         var rowIndex = i + 2; // +1 header, +1 to move from 0-based to 1-based
-        var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-        sheet.getRange(rowIndex, headers.indexOf('PasswordHash') + 1).setValue(hashPassword_(newPassword, salt));
-        sheet.getRange(rowIndex, headers.indexOf('PasswordSalt') + 1).setValue(salt);
+        var headers = writePasswordHash_(sheet, rowIndex, String(newPassword));
         sheet.getRange(rowIndex, headers.indexOf('MustChangePassword') + 1).setValue(false);
         sheet.getRange(rowIndex, headers.indexOf('ModifiedDate') + 1).setValue(new Date());
         revokeUserSessions_(userId, 'Password changed');
@@ -162,11 +274,9 @@ function adminResetPassword_(userId) {
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].UserId === userId) {
         var tempPassword = generateTempPassword_();
-        var salt = generateSalt_();
         var rowIndex = i + 2;
-        var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-        sheet.getRange(rowIndex, headers.indexOf('PasswordHash') + 1).setValue(hashPassword_(tempPassword, salt));
-        sheet.getRange(rowIndex, headers.indexOf('PasswordSalt') + 1).setValue(salt);
+        var headers = writePasswordHash_(sheet, rowIndex, tempPassword);
+        signinCleared_(rows[i].Email);
         sheet.getRange(rowIndex, headers.indexOf('MustChangePassword') + 1).setValue(true);
         sheet.getRange(rowIndex, headers.indexOf('ModifiedDate') + 1).setValue(new Date());
         revokeUserSessions_(userId, 'Password reset by admin');

@@ -515,9 +515,15 @@ function validateLabReport(ss, data) {
   var status = labStatusOf_(found.row);
   if (status === LAB_STATUS.VALIDATED || status === "") return { status: "ok", unchanged: true };
   if (status !== LAB_STATUS.PENDING) return { error: "This report was returned for correction — it has to be corrected first" };
-  // the lab's PDF is kept with this report: it must have been opened first
-  if (labPdfKeyOf_(found) && !CacheService.getScriptCache().get(labPdfViewKey_(data.actingUser, found.row))) {
-    return { error: "Open the lab report (PDF) and check its values before validating." };
+  // the lab's PDF is kept with this report: it must have been opened first.
+  // If its file can't be found (the upload failed), the ACC Engineer
+  // validates against the values with a written reason (audit F-09).
+  var pdfMissing = false;
+  var pdfKey = labPdfKeyOf_(found);
+  if (pdfKey && !CacheService.getScriptCache().get(labPdfViewKey_(data.actingUser, found.row))) {
+    if (labPdfFile_(pdfKey)) return { error: "Open the lab report (PDF) and check its values before validating." };
+    if (!String(data.pdfMissingReason || "").trim()) return { error: "The lab's PDF of this report is missing — write why you validate without it, or return the report so it is imported again." };
+    pdfMissing = true;
   }
   ensureLabHeaders_(found.sheet);
   found.sheet.getRange(found.rowIdx, LAB_COL.STATUS + 1, 1, 1).setValue(LAB_STATUS.VALIDATED);
@@ -530,7 +536,7 @@ function validateLabReport(ss, data) {
   if (found.row[LAB_COL.UPLOADED_DATE]) {
     try { applyLabResultRule_(ss, fresh); } catch (e) { logError("validateLabReport:applyLabResultRule_", e, {}); }
   }
-  return { status: "ok" };
+  return { status: "ok", pdfMissing: pdfMissing };
 }
 
 function returnLabReport(ss, data) {

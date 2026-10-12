@@ -227,6 +227,31 @@ async function postBlind(webhookUrl, body) {
   }
 }
 
+// Like postBlind, but reads the server's answer (text/plain → no CORS
+// preflight), so a refused or failed save shows its real message instead of
+// looking saved (audit F-10). Used where there's no row to read back.
+async function postAnswer(webhookUrl, body) {
+  guardWrite(body);
+  markDirty();
+  const payload = { ...body, secret: API_SECRET };
+  if (currentSessionToken) payload.sessionToken = currentSessionToken;
+  let res;
+  try {
+    res = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
+  } catch (err) {
+    throw new NetworkError(`Network error while saving: ${err.message}`);
+  }
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    throw new SaveVerificationError("The server's answer couldn't be read — reload to check what was saved.");
+  }
+  if (json && json.sessionEnded && typeof window !== "undefined") window.dispatchEvent(new CustomEvent("acc-session-ended"));
+  if (!json || json.status === "error" || json.error) throw new SaveVerificationError((json && (json.message || json.error)) || "Not saved — please try again.");
+  return json;
+}
+
 // dateIndices gets the sameCalendarDay() fallback on a string mismatch —
 // scoped to columns we know hold dates. JS's own Date parser reads plenty
 // of non-date text as "valid" (e.g. new Date("0-6") or new Date("MOBIL SHC
@@ -483,8 +508,10 @@ export async function updateEquipmentRegistryEntry(webhookUrl, equipment) {
 // exactly the "STATUS|DATE" format parseTrackerRows() already expects.
 // Best-effort: like applyOilChangeSideEffect, a failure here doesn't undo
 // the sample save, it's surfaced as a separate toast by the caller.
+// { status: "ok" } or { status: "equipment_not_found" } — a point that isn't
+// on the tracker (e.g. a one-off sample) has nothing to update.
 export async function updateSampleTracker(webhookUrl, { equipmentCode, sampleDate, status }) {
-  await postBlind(webhookUrl, { action: "updateSampleTracker", equipmentCode, sampleDate, status });
+  return postAnswer(webhookUrl, { action: "updateSampleTracker", equipmentCode, sampleDate, status });
 }
 
 export async function getEquipmentRows(webhookUrl, equipmentCode) {
@@ -621,9 +648,10 @@ async function labReviewStep(webhookUrl, sample, body, check, failText) {
   return saved;
 }
 
-export function validateLabReport(webhookUrl, sample) {
+// pdfMissingReason: only when the PDF kept with this report can't be found.
+export function validateLabReport(webhookUrl, sample, pdfMissingReason) {
   return labReviewStep(
-    webhookUrl, sample, { action: "validateLabReport" },
+    webhookUrl, sample, { action: "validateLabReport", ...(pdfMissingReason ? { pdfMissingReason } : {}) },
     (sm) => sm.validationStatus === "Validated",
     "The validation wasn't confirmed — only an ACC Engineer can validate, after opening the lab report. Please try again."
   );
@@ -661,7 +689,7 @@ export function removeLabReport(webhookUrl, sample, reason) {
 // A re-imported lab PDF whose values differ from the saved sample: the saved
 // one is corrected (every copy on that point) and waits for validation again.
 export async function correctLabReport(webhookUrl, sampleId, lpId, values, labInfo) {
-  await postBlind(webhookUrl, { action: "correctLabReport", sampleId, lpId, values, labInfo: labInfo || {} });
+  return postAnswer(webhookUrl, { action: "correctLabReport", sampleId, lpId, values, labInfo: labInfo || {} });
 }
 
 export async function deleteAction(webhookUrl, action) {
@@ -1414,7 +1442,7 @@ export async function getModuleResponsibilities(webhookUrl) {
 }
 
 export async function setModuleResponsibility(webhookUrl, data) {
-  await postBlind(webhookUrl, {
+  await postAnswer(webhookUrl, {
     action: "setModuleResponsibility",
     module: data.module || "Oil Lubrication",
     contractor: data.contractor || "",
@@ -1480,7 +1508,7 @@ async function fileToBase64(file) {
 }
 
 export async function uploadLabReportPdf(webhookUrl, fileKey, file) {
-  await postBlind(webhookUrl, { action: "saveLabReportPdf", fileKey, fileName: file.name || "", pdfBase64: await fileToBase64(file) });
+  return postAnswer(webhookUrl, { action: "saveLabReportPdf", fileKey, fileName: file.name || "", pdfBase64: await fileToBase64(file) });
 }
 
 // { none: true } when no PDF is kept with this sample (entered by hand, or
@@ -1500,13 +1528,13 @@ export async function getLabReportPdf(webhookUrl, sample) {
 // (Mg, and readings of 0), filled only where the saved cell is empty
 // (server: LabReports.js fillLabReportInfo_).
 export async function fillLabInfo(webhookUrl, sampleId, labInfo, results, lpId) {
-  await postBlind(webhookUrl, { action: "fillLabInfo", sampleId, lpId: lpId || "", labInfo, ...(results && Object.keys(results).length ? { results } : {}) });
+  return postAnswer(webhookUrl, { action: "fillLabInfo", sampleId, lpId: lpId || "", labInfo, ...(results && Object.keys(results).length ? { results } : {}) });
 }
 
 // A lab Unit ID matched to a point by hand on import: saved as that point's
 // Report Equipment ID when it has none (EquipmentRegistry.js).
 export async function learnReportEquipmentId(webhookUrl, lpId, reportEquipmentId) {
-  await postBlind(webhookUrl, { action: "learnReportEquipmentId", lpId, reportEquipmentId });
+  return postAnswer(webhookUrl, { action: "learnReportEquipmentId", lpId, reportEquipmentId });
 }
 
 // Pages read these through the device cache (dataCache.js): the last answer

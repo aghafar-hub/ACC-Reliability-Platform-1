@@ -137,6 +137,12 @@
   margin-top: var(--space-1);
 }
 
+.auth-card button.auth-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
 .auth-card button:disabled {
   opacity: 0.6;
   cursor: default;

@@ -34,6 +34,7 @@ function recordAudit_(ss, sheetName, recordId, actionType, actingUser, contracto
       contractor || "",
       summary || ""
     ]);
+    trimLogSheet_(sheet, AUDIT_LOG_MAX_ROWS);
   } catch (e2) { /* never let audit logging itself break the request — same convention as logError */ }
 }
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { SESSION_ENDED_EVENT, SESSION_ENDED_NOTICE_KEY } from './sessionEnded';
+import { clearModuleDeviceData, forgetPreviousPerson, unsentWorkCount } from './deviceData';
 import { changePassword as apiChangePassword, login as apiLogin, signOut as apiSignOut } from '../api/platformCore';
 
 // device kind for the login history (same rule as presence.ts)
@@ -20,7 +21,7 @@ type AuthState = {
   mustChangePassword: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   completeChangePassword: (newPassword: string, currentPassword?: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -84,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string, remember: boolean) {
     const result = await apiLogin(email, password, { device: loginDevice(), remember });
+    // another person used this device before: their module data goes first
+    await forgetPreviousPerson(decodeSessionClaims(result.sessionToken)?.email || email);
     rememberRef.current = remember;
     setStored({ sessionToken: result.sessionToken, mustChangePassword: result.mustChangePassword });
   }
@@ -104,15 +107,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // storage blocked: the Login page just shows no notice
       }
       setStored(null);
+      // the module data goes; unsent work stays for when this person signs in again
+      clearModuleDeviceData(false).finally(() => window.location.reload());
     }
     window.addEventListener(SESSION_ENDED_EVENT, onEnded);
     return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
   }, []);
 
-  function logout() {
+  async function logout() {
+    const unsent = unsentWorkCount();
+    if (
+      unsent &&
+      !window.confirm(
+        `${unsent} entr${unsent === 1 ? 'y' : 'ies'} saved on this device ${unsent === 1 ? "hasn't" : "haven't"} reached the server yet (no connection when saved). Signing out deletes ${unsent === 1 ? 'it' : 'them'}. Sign out anyway?`
+      )
+    )
+      return;
     // for the login history (Platform Core Presence.js); never waits for it
     if (stored?.sessionToken) apiSignOut(stored.sessionToken, loginDevice()).catch(() => {});
     setStored(null);
+    // nothing of this person's stays on the device (shared plant PCs), and
+    // a reload clears what the modules hold in memory
+    await clearModuleDeviceData(true);
+    window.location.reload();
   }
 
   const value: AuthState = {

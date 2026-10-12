@@ -151,7 +151,17 @@ export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
               <NavLink to="/settings" className="shell-topbar-user-menu-item" onClick={() => setMenuOpen(false)}>
                 <Icon name="settings" size={15} /> Settings
               </NavLink>
-              <button type="button" className="shell-topbar-user-menu-item" onClick={logout}>
+              <NavLink to="/change-password" className="shell-topbar-user-menu-item" onClick={() => setMenuOpen(false)} data-testid="menu-change-password">
+                <TablerIcon className="ti-lock" size={15} /> Change password
+              </NavLink>
+              <button
+                type="button"
+                className="shell-topbar-user-menu-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  void logout();
+                }}
+              >
                 <Icon name="logout" size={15} /> Sign out
               </button>
             </div>
