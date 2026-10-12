@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import pdfWorkerFile from "./pdfWorkerFile.js";
 
 // Separate build target from vite.config.js's normal standalone-app build.
 // Produces one self-contained ES module (this app's own React 18 + every
@@ -8,7 +9,7 @@ import react from "@vitejs/plugin-react";
 // that the shared frontend loads at runtime to mount this app in place —
 // see src/embed.jsx and frontend/src/pages/EmbeddedOilAnalysis.tsx.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pdfWorkerFile()],
   // Vite's library mode (unlike a normal app build) doesn't replace
   // process.env.NODE_ENV automatically — react-dom checks it at runtime,
   // and there's no Node `process` global in a browser, so without this

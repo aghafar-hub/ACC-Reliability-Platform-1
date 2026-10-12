@@ -26,6 +26,14 @@ jobs:
         with:
           node-version: 20
 
+      # Security tests (tests/security.test.cjs): the real backend code with
+      # made-up data — sign-ins end and can be cancelled, contractor
+      # separation, password rules, no tokens in logs. A failure stops the
+      # deploy, so the live site keeps its last good version.
+      - name: Security tests
+        if: hashFiles('tests/security.test.cjs') != ''
+        run: node --test tests/security.test.cjs
+
       - name: Install dependencies (all three projects)
         run: |
           npm install --prefix frontend
@@ -125,6 +133,8 @@ jobs:
             echo "::error::The test branch has no frontend/src/storagePrefix.ts — the test copy was not built."
             exit 1
           fi
+          # the test copy's own security tests first: a failure leaves /test/ unbuilt
+          if [ -f test-copy/tests/security.test.cjs ]; then node --test test-copy/tests/security.test.cjs; fi
           npm install --prefix test-copy/frontend
           npm install --prefix test-copy/apps/oil-analysis
           npm install --prefix test-copy/apps/vibration-analysis

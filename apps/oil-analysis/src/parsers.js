@@ -704,7 +704,7 @@ export function rowToTopUpEvent(row) {
 // (per LP_ID), even for points with no logged events yet.
 //
 // `equipmentCode` is set to LP_ID, not Equipment_ID — matches `reg.code`
-// (see equipmentRegistryDefault.js) and, today, the value Data_Entry/Action
+// (the Equipment Registry's LP_ID) and, today, the value Data_Entry/Action
 // Tracker rows already yield for `.unitId`/`.equipmentCode` (their own
 // column-shift fix is a separate, not-yet-done step, but LP_ID already sits
 // in their first column) — so every existing cross-reference by

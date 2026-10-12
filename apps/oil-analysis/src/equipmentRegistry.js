@@ -1,12 +1,8 @@
-import { DEFAULT_EQUIPMENT_REGISTRY } from "./equipmentRegistryDefault";
-
-// Matches the original app's own architecture: the equipment registry is
-// NOT part of the regular sample/action/oil-change sync. It's a hardcoded
-// default list — pulled from the live "Equipment Registry" sheet tab, one
-// row per LP_ID — that a user can override by explicitly running "Sync
-// Equipment Registry" in Settings → Configuration, which persists the
-// result under this same localStorage key so it survives across sessions
-// independent of the sample/action cache.
+// The equipment registry (one row per LP_ID) comes with the startup data
+// from the server — only this person's contractor's points — and is kept
+// under this localStorage key for the next start. There is no built-in
+// list any more (audit F-13): it was 0.6 MB of every contractor's points in
+// every download; until the first answer the list is just empty.
 const KEY = "oilapp_equipment_registry";
 
 export function loadEquipmentRegistry() {
@@ -17,9 +13,9 @@ export function loadEquipmentRegistry() {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {
-    // ignore — fall through to default
+    // ignore — nothing kept yet
   }
-  return DEFAULT_EQUIPMENT_REGISTRY;
+  return [];
 }
 
 export function saveEquipmentRegistry(list) {

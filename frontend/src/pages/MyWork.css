@@ -511,8 +511,9 @@
 }
 .wq-flag--overdue,
 .wq-flag--returned {
-  color: #ef4444;
-  background: #ef44441c;
+  /* mixed toward the text colour: at least 4.5:1 in every theme (WCAG AA) */
+  color: color-mix(in srgb, var(--shell-danger, #ef4444) 65%, var(--shell-text));
+  background: color-mix(in srgb, var(--shell-danger, #ef4444) 11%, transparent);
 }
 .wq-flag--due {
   color: var(--shell-accent, #00b4d8);

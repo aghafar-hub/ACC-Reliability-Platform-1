@@ -249,7 +249,8 @@
 }
 .plant-modtag--Oil {
   background: color-mix(in srgb, var(--plant-oil) 18%, transparent);
-  color: color-mix(in srgb, var(--plant-oil) 70%, var(--shell-text));
+  /* 45%: at least 4.5:1 on its tinted background in every theme (audit F-19) */
+  color: color-mix(in srgb, var(--plant-oil) 45%, var(--shell-text));
 }
 .plant-module-head {
   display: flex;

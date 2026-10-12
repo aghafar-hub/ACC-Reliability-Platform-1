@@ -224,7 +224,7 @@
 @media (max-width: 860px) {
   /* a small tag on the header's bottom edge, clear of the page content */
   .env-ribbon {
-    font-size: 10px;
+    font-size: 11px;
     padding: 0 8px;
     bottom: auto;
     top: calc(var(--topbar-h, 54px) - 8px);

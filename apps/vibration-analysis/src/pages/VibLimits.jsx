@@ -134,7 +134,7 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment, 
                           <StatePill tone={e.status === "Inactive" ? T.warning : T.success}>{e.status}</StatePill>
                         </td>
                         <td style={s.td}>
-                          <button type="button" style={{ ...s.btnGhost, padding: "4px 10px" }} onClick={() => setEditing(e)} data-testid={`vlim-edit-${e.equipmentId}`}>
+                          <button type="button" style={{ ...s.btnGhost, padding: "4px 10px", minHeight: 28 }} onClick={() => setEditing(e)} data-testid={`vlim-edit-${e.equipmentId}`}>
                             {canEdit ? "Edit" : "View"}
                           </button>
                         </td>

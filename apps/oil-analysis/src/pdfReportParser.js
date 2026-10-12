@@ -21,11 +21,22 @@
 // each cell's position, since there's no reliable way to parse fill colors
 // out of the raw content stream across however this PDF was generated.
 
-import * as pdfjsLib from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { shortenRecommendation } from "./labRecommendation";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// pdf.js (and its worker, a separate file next to this bundle — see
+// vite configs, pdfWorkerFile) loads only when a PDF is read or shown, not
+// with the app: it is most of the Oil download.
+const PDF_WORKER_FILE = "pdf.worker.min.mjs";
+let pdfjsPromise = null;
+function loadPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import("pdfjs-dist").then((lib) => {
+      lib.GlobalWorkerOptions.workerSrc = new URL(PDF_WORKER_FILE, import.meta.url).href;
+      return lib;
+    });
+  }
+  return pdfjsPromise;
+}
 
 // Row label (normalized, case-insensitive prefix match) -> schema field +
 // how to coerce it. Order doesn't matter; matching is by prefix so minor
@@ -313,6 +324,7 @@ async function extractRecommendationSections(pdf) {
 // the visible table, latest included).
 export async function parsePdfReport(file) {
   const buf = await file.arrayBuffer();
+  const pdfjsLib = await loadPdfjs();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   const page1 = await pdf.getPage(1);
   const tc = await page1.getTextContent();
@@ -436,6 +448,7 @@ export async function parsePdfReport(file) {
 // drawn to a canvas — works the same on a phone, where a PDF in a frame
 // shows only its first page.
 export async function renderPdfPages(bytes, scale = 1.6) {
+  const pdfjsLib = await loadPdfjs();
   const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
   const pages = [];
   for (let p = 1; p <= pdf.numPages; p++) {

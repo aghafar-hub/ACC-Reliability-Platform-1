@@ -391,7 +391,7 @@ export function buildStyles(T) {
     btnGhost: btn,
     btnSecondary: btn,
     btnDanger: { ...btn, background: "transparent", color: T.danger, border: `1px solid ${T.danger}`, fontWeight: 600 },
-    btnSm: { ...btnPrimary, padding: "5px 10px", fontSize: 12 },
+    btnSm: { ...btnPrimary, padding: "5px 10px", fontSize: 12, minHeight: 28 },
     input: {
       width: "100%",
       background: T.inputBg,

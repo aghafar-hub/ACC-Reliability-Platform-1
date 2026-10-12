@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { lazy, Suspense, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useFreshTick } from "./dataCache";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import { DEFAULT_THEME } from "./theme";
@@ -9,16 +9,18 @@ import Dashboard from "./pages/Dashboard";
 import Equipment from "./pages/Equipment";
 import OilReportSearch from "./pages/OilReportSearch";
 import ActionTracker from "./pages/ActionTracker";
-import AddSample from "./pages/AddSample";
 import OilChangeLog from "./pages/OilChangeLog";
 import Routines from "./pages/Routines";
-import OilInventory from "./pages/OilInventory";
-import Activity from "./pages/Activity";
-import Reports from "./pages/Reports";
-import TeamWorkload from "./pages/TeamWorkload";
 import SampleTracker from "./pages/SampleTracker";
-import HowToUse from "./pages/HowToUse";
-import Settings from "./pages/Settings";
+// Pages opened less often load on first visit, not with the app (audit F-13).
+const AddSample = lazy(() => import("./pages/AddSample"));
+const OilInventory = lazy(() => import("./pages/OilInventory"));
+const Activity = lazy(() => import("./pages/Activity"));
+const Reports = lazy(() => import("./pages/Reports"));
+const TeamWorkload = lazy(() => import("./pages/TeamWorkload"));
+const HowToUse = lazy(() => import("./pages/HowToUse"));
+const Settings = lazy(() => import("./pages/Settings"));
+const pageLoading = <p style={{ padding: 24, opacity: 0.7 }}>Loading…</p>;
 import { SessionProvider } from "./SessionContext";
 import { ActionWorkflowProvider, LabWorkflowProvider } from "./ActionWorkflowContext";
 import { loadConfig, saveConfig, readCache, writeCache } from "./config";
@@ -1153,6 +1155,10 @@ function AppShell({ config, setConfig, navBridge }) {
   // The pages see each point's area as the platform's official name
   // (Settings → Equipment & IDs → Areas); Settings keeps the stored name.
   const resolveArea = useAreaNames();
+  // Dashboard charts and tiles leave out lab reports Returned for
+  // correction: their values are known to be wrong (audit I-02). They still
+  // show in the Oil Analysis Report's review list.
+  const dashboardSamples = useMemo(() => samples.filter((sm) => sm.validationStatus !== "Returned"), [samples]);
   const registryView = useMemo(
     () =>
       equipmentRegistry.map((e) => {
@@ -1410,7 +1416,7 @@ function AppShell({ config, setConfig, navBridge }) {
           {visitedPages.has("dashboard") && (
             <div style={{ display: page === "dashboard" ? undefined : "none" }}>
               <Dashboard
-                samples={samples}
+                samples={dashboardSamples}
                 actions={actions}
                 oilChangeEvents={oilChangeEvents}
                 oilChanges={oilChanges}
@@ -1475,17 +1481,19 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {visitedPages.has("upload") && (
             <div style={{ display: page === "upload" ? undefined : "none" }}>
-              <AddSample
-                equipmentOptions={equipmentOptions}
-                equipmentRegistry={registryView}
-                existingSamples={samples}
-                onAdd={onAddSample}
-                onBulkAdd={onBulkAddSamples}
-                onFillLabInfo={onFillLabInfo}
-                onCorrectLabReports={onCorrectLabReports}
-                onLearnReportIds={onLearnReportIds}
-                onUploadReportPdfs={onUploadReportPdfs}
-              />
+              <Suspense fallback={pageLoading}>
+                <AddSample
+                  equipmentOptions={equipmentOptions}
+                  equipmentRegistry={registryView}
+                  existingSamples={samples}
+                  onAdd={onAddSample}
+                  onBulkAdd={onBulkAddSamples}
+                  onFillLabInfo={onFillLabInfo}
+                  onCorrectLabReports={onCorrectLabReports}
+                  onLearnReportIds={onLearnReportIds}
+                  onUploadReportPdfs={onUploadReportPdfs}
+                />
+              </Suspense>
             </div>
           )}
           {visitedPages.has("actions") && (
@@ -1534,30 +1542,38 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {visitedPages.has("inventory") && (
             <div style={{ display: page === "inventory" ? undefined : "none" }}>
-              <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={registryView} pushToast={pushToast} />
+              <Suspense fallback={pageLoading}>
+                <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={registryView} pushToast={pushToast} />
+              </Suspense>
             </div>
           )}
           {visitedPages.has("team") && (
             <div style={{ display: page === "team" ? undefined : "none" }}>
-              <TeamWorkload webhookUrl={config.webhookUrl} />
+              <Suspense fallback={pageLoading}>
+                <TeamWorkload webhookUrl={config.webhookUrl} />
+              </Suspense>
             </div>
           )}
           {visitedPages.has("reports") && (
             <div style={{ display: page === "reports" ? undefined : "none" }}>
-              <Reports
-                webhookUrl={config.webhookUrl}
-                actions={actions}
-                oilChanges={oilChanges}
-                oilChangeEvents={oilChangeEvents}
-                samples={samples}
-                equipmentRegistry={registryView}
-                trackerByEquip={trackerByEquip}
-              />
+              <Suspense fallback={pageLoading}>
+                <Reports
+                  webhookUrl={config.webhookUrl}
+                  actions={actions}
+                  oilChanges={oilChanges}
+                  oilChangeEvents={oilChangeEvents}
+                  samples={samples}
+                  equipmentRegistry={registryView}
+                  trackerByEquip={trackerByEquip}
+                />
+              </Suspense>
             </div>
           )}
           {visitedPages.has("activity") && (
             <div style={{ display: page === "activity" ? undefined : "none" }}>
-              <Activity webhookUrl={config.webhookUrl} registry={registryView} />
+              <Suspense fallback={pageLoading}>
+                <Activity webhookUrl={config.webhookUrl} registry={registryView} />
+              </Suspense>
             </div>
           )}
           {visitedPages.has("tracker") && (
@@ -1567,22 +1583,26 @@ function AppShell({ config, setConfig, navBridge }) {
           )}
           {visitedPages.has("howto") && (
             <div style={{ display: page === "howto" ? undefined : "none" }}>
-              <HowToUse />
+              <Suspense fallback={pageLoading}>
+                <HowToUse />
+              </Suspense>
             </div>
           )}
           {visitedPages.has("settings") && (
             <div style={{ display: page === "settings" ? undefined : "none" }}>
-              <Settings
-                config={config}
-                onSave={updateConfig}
-                onSync={runSync}
-                syncState={syncState}
-                syncMsg={syncMsg}
-                equipmentRegistry={equipmentRegistry}
-                onRegistryChange={setEquipmentRegistry}
-                actionRegistry={actionRegistry}
-                onActionRegistryChange={setActionRegistry}
-              />
+              <Suspense fallback={pageLoading}>
+                <Settings
+                  config={config}
+                  onSave={updateConfig}
+                  onSync={runSync}
+                  syncState={syncState}
+                  syncMsg={syncMsg}
+                  equipmentRegistry={equipmentRegistry}
+                  onRegistryChange={setEquipmentRegistry}
+                  actionRegistry={actionRegistry}
+                  onActionRegistryChange={setActionRegistry}
+                />
+              </Suspense>
             </div>
           )}
         </div>

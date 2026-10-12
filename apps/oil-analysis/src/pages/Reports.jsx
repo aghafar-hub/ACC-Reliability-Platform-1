@@ -1,15 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { lastSampleDate, sampleTrackerStatus } from "../parsers";
 import NewReport from "./NewReport";
-import {
-  generateContractorActionReport,
-  generateOilChangeContractorReport,
-  generateSampleOverdueReport,
-  generateMonthlyActivitySummary,
-  exportMonthlyActivityCsv,
-  monthlyActivityPreview,
-} from "../reportGenerators";
+// reportGenerators.js (jsPDF, ExcelJS) loads when this page opens, not with the app
+const loadGenerators = () => import("../reportGenerators");
 
 const FOCUS_STATUSES = ["Draft", "Open", "Waiting Stoppage", "Closure Requested"];
 const ALL = "All";
@@ -180,14 +174,27 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
   const oilChangePreview = useMemo(() => oilChangeCounts(oilChangeContractor), [oilChanges, equipmentRegistry, oilChangeContractor]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const samplePreview = useMemo(() => sampleCounts(sampleContractor), [trackerByEquip, equipmentRegistry, sampleContractor]);
+  const [gen, setGen] = useState(null);
+  useEffect(() => {
+    let live = true;
+    loadGenerators().then((m) => live && setGen(m));
+    return () => {
+      live = false;
+    };
+  }, []);
   const monthlyPreview = useMemo(
-    () => monthlyActivityPreview({ samples, oilChangeEvents, actions, equipmentRegistry, contractor: monthlyContractor, month }),
-    [samples, oilChangeEvents, actions, equipmentRegistry, monthlyContractor, month]
+    () =>
+      gen
+        ? gen.monthlyActivityPreview({ samples, oilChangeEvents, actions, equipmentRegistry, contractor: monthlyContractor, month })
+        : { samplesTaken: "…", oilChangesDone: "…", actionsClosed: "…", stillOpen: "…" },
+    [gen, samples, oilChangeEvents, actions, equipmentRegistry, monthlyContractor, month]
   );
 
   async function handleGenerate(kind) {
     setGenerating(kind);
     try {
+      const { generateContractorActionReport, generateOilChangeContractorReport, generateSampleOverdueReport, generateMonthlyActivitySummary } =
+        await loadGenerators();
       if (kind === "action") await generateContractorActionReport({ actions, equipmentRegistry, contractor: actionContractor });
       else if (kind === "oilchange")
         await generateOilChangeContractorReport({ oilChanges, equipmentRegistry, actions, contractor: oilChangeContractor });
@@ -198,7 +205,8 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
       setGenerating(null);
     }
   }
-  function handleExportMonthlyCsv() {
+  async function handleExportMonthlyCsv() {
+    const { exportMonthlyActivityCsv } = await loadGenerators();
     exportMonthlyActivityCsv({ samples, oilChangeEvents, actions, equipmentRegistry, contractor: monthlyContractor, month });
   }
 

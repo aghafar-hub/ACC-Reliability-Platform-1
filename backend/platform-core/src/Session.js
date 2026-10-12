@@ -77,7 +77,7 @@ function requireSession_(sessionToken) {
   var dot = sessionToken.indexOf('.');
   var payloadB64 = sessionToken.substring(0, dot);
   var signature = sessionToken.substring(dot + 1);
-  if (signPayload_(payloadB64) !== signature) {
+  if (!sameText_(signPayload_(payloadB64), signature)) { // constant time (Auth.js)
     throw new Error('Invalid session token.');
   }
   var payload = JSON.parse(base64UrlDecode_(payloadB64));

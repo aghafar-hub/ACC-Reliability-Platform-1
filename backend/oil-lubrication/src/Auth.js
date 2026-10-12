@@ -21,8 +21,17 @@
 function checkSecret_(providedSecret) {
   var expected = PropertiesService.getScriptProperties().getProperty("API_SECRET");
   if (!expected) return true;
-  return providedSecret === expected;
+  return timingSafeEqual_(providedSecret, expected);
 }
+
+// Same time whatever position the first difference is at (audit I-01).
+function timingSafeEqual_(a, b) {
+  a = String(a == null ? "" : a); b = String(b == null ? "" : b);
+  var diff = a.length ^ b.length;
+  for (var i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
+
 
 
 
@@ -62,7 +71,7 @@ function requireSession_(sessionToken) {
   var dot = sessionToken.indexOf('.');
   var payloadB64 = sessionToken.substring(0, dot);
   var signature = sessionToken.substring(dot + 1);
-  if (signPayload_(payloadB64) !== signature) {
+  if (!timingSafeEqual_(signPayload_(payloadB64), signature)) {
     throw new Error('Invalid session token.');
   }
   var payload = JSON.parse(base64UrlDecode_(payloadB64));

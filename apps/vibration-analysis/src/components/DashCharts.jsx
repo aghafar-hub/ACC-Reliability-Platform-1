@@ -278,7 +278,7 @@ export function StackedBars({ T, rows, onRow, activeLabel, labelWidth = 110 }) {
   const [hover, setHover] = useState(null);
   const max = Math.max(1, ...rows.map((r) => r.parts.reduce((n, p) => n + p.value, 0)));
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {rows.map((r) => {
         const total = r.parts.reduce((n, p) => n + p.value, 0);
         const active = activeLabel === r.label;
@@ -295,7 +295,8 @@ export function StackedBars({ T, rows, onRow, activeLabel, labelWidth = 110 }) {
               alignItems: "center",
               gap: 8,
               border: 0,
-              padding: "2px 4px",
+              padding: "6px 4px",
+              minHeight: 32,
               borderRadius: 6,
               background: active ? T.accent + "14" : "none",
               cursor: onRow ? "pointer" : "default",

@@ -26,6 +26,7 @@ export default function ContractorChips({ value, onChange, options = CONTRACTORS
             style={{
               ...s.btn,
               padding: pad,
+              minHeight: size === "sm" ? 28 : 32,
               fontSize: 12.5,
               borderRadius: 999,
               borderColor: on ? T.accent : T.border,

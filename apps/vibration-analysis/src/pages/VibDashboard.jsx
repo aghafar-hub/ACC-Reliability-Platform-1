@@ -89,7 +89,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
 
   // share of machines measured that month: ≥ 90 % green, ≥ 70 % amber, below red; none due → light
   const cellStyle = (c) => {
-    const base = { width: "100%", height: 26, borderRadius: 6, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700 };
+    const base = { width: "100%", height: 28, borderRadius: 6, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 };
     if (c.pct == null) return { ...base, background: `${T.textMuted || T.textSecondary}22`, color: T.textSecondary };
     if (c.pct >= 90) return { ...base, background: T.success, color: "#fff" };
     if (c.pct >= 70) return { ...base, background: T.warning, color: "#fff" };
@@ -213,7 +213,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
                               aria-label={`${areaLabel(g.area)} ${monthLabel(c.month)}: ${text}`}
                               onClick={() => onOpenPage("compliance")}
                               data-testid={`vd-cell-${g.area}-${c.month}`}
-                              style={{ padding: 0, border: 0, background: "none", cursor: "pointer" }}
+                              style={{ padding: 0, border: 0, background: "none", cursor: "pointer", display: "block", width: "100%", minHeight: 28 }}
                             >
                               <span style={cellStyle(c)}>{c.pct == null || period > 6 ? "" : c.pct}</span>
                             </button>

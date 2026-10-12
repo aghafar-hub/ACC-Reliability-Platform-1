@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
+import { REPORT_GROUPS } from "./reportSections";
 import { effectiveOilChangeInterval, oilChangeByCondition, formatDate, sampleTrackerStatus, intervalMonths, todayISO, conditionBucket, lastSampleDate } from "./parsers";
 import logoUrl from "./assets/arabian-cement-logo.png";
 import { actionsForSample, cellMark, changeLabel, reviewOf, viscCellTemp, viscTempLabel, visibleGroups } from "./labReport";
@@ -1770,12 +1771,7 @@ function excelForecast({ inventoryForecast, contractor }) {
 // ── The single registry both NewReport.jsx's checklist and the two
 // generate functions below read from — one place that knows every
 // section's id, label, group, and how to render it in each format. ─────
-export const REPORT_GROUPS = [
-  { id: "condition", label: "Condition Based Oil", icon: "ti-flask", iconColor: "accent" },
-  { id: "time", label: "Time Based Oil", icon: "ti-clock", iconColor: "warning" },
-  { id: "inventory", label: "Inventory Status", icon: "ti-package", iconColor: "success" },
-  { id: "forecast", label: "Forecast", icon: "ti-chart-line", iconColor: "danger" },
-];
+export { REPORT_GROUPS };
 
 export const REPORT_SECTIONS = [
   { id: "condition-open-actions", group: "condition", label: "Open Actions", pdfTitle: "Open Actions", pdf: (doc, d, y) => buildActionSection(doc, d, y), excel: excelOpenActions },

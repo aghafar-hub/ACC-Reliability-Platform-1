@@ -116,6 +116,8 @@ export default function TopBar({ onOpenMenu }: { onOpenMenu?: () => void }) {
               className="shell-topbar-sync-btn"
               onClick={() => moduleId && embeddedNav.triggerSync(moduleId)}
               disabled={syncInfo.syncState === 'loading'}
+              aria-label={syncInfo.syncState === 'loading' ? 'Syncing…' : 'Sync now'}
+              title="Sync now"
             >
               <TablerIcon className={syncInfo.syncState === 'loading' ? 'ti-loader shell-topbar-sync-spin' : 'ti-refresh'} size={14} />
               <span>{syncInfo.syncState === 'loading' ? '…' : 'Sync'}</span>

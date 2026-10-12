@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import * as api from "../api";
 import useIsMobile from "../hooks/useIsMobile";
-import { REPORT_GROUPS, REPORT_SECTIONS, generateOilReportPdf, generateOilReportExcel } from "../reportGenerators";
+import { REPORT_GROUPS, REPORT_SECTION_LIST as REPORT_SECTIONS } from "../reportSections";
 
 // Mirrors Routines.jsx's own "Create Route" -> NewRoutine.jsx pattern
 // (internal `view` state swap in the parent, not a new App.jsx `page`) —
@@ -82,6 +82,8 @@ export default function NewReport({ webhookUrl, actions, oilChanges, samples, eq
     if (sectionIds.length === 0) return;
     setGenerating(format);
     try {
+      // the generators (jsPDF, ExcelJS) load only now
+      const { generateOilReportPdf, generateOilReportExcel } = await import("../reportGenerators");
       if (format === "pdf") await generateOilReportPdf({ sectionIds, contractor, data });
       else await generateOilReportExcel({ sectionIds, contractor, data });
     } finally {

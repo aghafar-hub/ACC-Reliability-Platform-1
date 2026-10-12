@@ -176,7 +176,7 @@ export default function MeasurementTracker({ webhookUrl, onOpenEquipment }) {
                   </span>
                   <span style={{ display: "flex", gap: 4 }}>
                     {months.slice(-6).map((mo) => (
-                      <span key={mo} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 10.5, color: T.textSecondary }}>
+                      <span key={mo} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, fontSize: 11, color: T.textSecondary }}>
                         <MeasureCell c={m.cells[mo]} month={mo} size={24} />
                         {short(mo).split(" ")[0]}
                       </span>
