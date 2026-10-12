@@ -120,8 +120,11 @@ function findSampleRowById_(ss, sampleId) {
   return { error: "Lab report not found" };
 }
 
-// Data_Entry result columns (0-based) a re-import may fill when empty.
-var LAB_FILL_RESULTS = { Mg: 32 };
+// Data_Entry result columns (0-based) a re-import may fill when empty:
+// particle counts … Zn (9–34). The import used to miss Mg and save a 0
+// reading as an empty cell; the client sends { "<column>": value }.
+var LAB_FILL_RESULT_FIRST = 9;
+var LAB_FILL_RESULT_LAST = 34;
 
 function fillLabReportInfo_(found, info) {
   ensureLabInfoHeaders_(found.sheet);
@@ -138,10 +141,12 @@ function fillLabReportInfo_(found, info) {
   // Results the PDF import used to miss (Mg was never read before the
   // fix): an empty cell is filled from the re-imported report; a value
   // already there is never changed.
-  Object.keys(LAB_FILL_RESULTS).forEach(function (k) {
-    var v = info.results ? info.results[k] : undefined;
+  Object.keys(info.results || {}).forEach(function (k) {
+    var col = Number(k);
+    if (!(col >= LAB_FILL_RESULT_FIRST && col <= LAB_FILL_RESULT_LAST) || Math.floor(col) !== col) return;
+    var v = info.results[k];
     if (v === undefined || v === null || String(v).trim() === "" || isNaN(Number(v))) return;
-    var cell = found.sheet.getRange(found.rowIdx, LAB_FILL_RESULTS[k] + 1);
+    var cell = found.sheet.getRange(found.rowIdx, col + 1);
     if (String(cell.getValue()).trim() !== "") return;
     cell.setValue(Number(v));
     filled++;

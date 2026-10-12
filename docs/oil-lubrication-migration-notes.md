@@ -468,9 +468,13 @@ Sheets architecture as solid as it can be, in this order:
 - **Mg (Magnesium) was never read from PDF reports.** On the lab's PDF the
   "(ppm)" under "Additive" sits on the Mg line, and the reader took it for
   that line's label. Fixed in `pdfReportParser.js` (`SECTION_HEADER_RE`).
-  Reports saved before the fix have an empty Mg cell; importing the same PDF
-  again fills **only empty** Mg cells (`LabReports.js` `LAB_FILL_RESULTS`) —
-  a value already there is never changed.
+  Reports saved before the fix have an empty Mg cell.
+- **A reading of 0 was saved as an empty cell** (`sampleToRow` used
+  `value || ""`), so "nothing detected" looked like "not measured". Fixed
+  (`keep0`).
+- Importing the same PDF again fills **only empty** result cells (columns
+  9–34, particle counts to Zn) from the report (`LabReports.js`
+  `fillLabReportInfo_`) — a value already there is never changed.
 - **ISO Code (4/6/14)** (ISO 4406 cleanliness, e.g. `22/21/19`) is read from
   the report and saved in Data_Entry column 60 (0-based 59, header
   "ISO Code (4/6/14)", written as text so Sheets doesn't turn it into a

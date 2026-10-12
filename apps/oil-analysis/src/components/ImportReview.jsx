@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
-import { formatDate } from "../parsers";
+import { formatDate, sampleToRow } from "../parsers";
 import { RATING_OPTIONS } from "../theme";
 import { cellMark, viscCellTemp, visibleGroups } from "../labReport";
 import { LAB_INFO_KEYS } from "../api";
@@ -236,10 +236,15 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
       LAB_INFO_KEYS.forEach((k) => {
         if (c.sample[k] && !saved[k]) labInfo[k] = String(c.sample[k]);
       });
-      // Mg: the import didn't read it before (its row had "(ppm)" as label)
+      // Results the old import missed (Mg was never read; a 0 was saved as
+      // an empty cell): every empty result cell (Data_Entry columns 9–34)
+      // the report has a value for. The server fills empty cells only.
       const results = {};
-      const blank = (v) => v === "" || v === null || v === undefined;
-      if (!blank(c.sample.additives?.Mg) && blank(saved.additives?.Mg)) results.Mg = c.sample.additives.Mg;
+      const mine = sampleToRow(c.sample);
+      const have = sampleToRow(saved);
+      for (let col = 9; col <= 34; col++) {
+        if (mine[col] !== "" && mine[col] !== null && mine[col] !== undefined && (have[col] === "" || have[col] === null || have[col] === undefined)) results[col] = mine[col];
+      }
       return { key: c._key, sampleId: c.sample.sampleId, labInfo, results };
     })
     .filter((f) => Object.keys(f.labInfo).length || Object.keys(f.results).length);

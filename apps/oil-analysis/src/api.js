@@ -1430,8 +1430,9 @@ export async function listOrgUsers(platformCoreUrl, sessionToken) {
 
 // Re-importing a report already saved: fill in its report details where they
 // are still empty (the server never overwrites, see LabReports.js).
-// results: { Mg } — a result the old import missed, filled only where the
-// saved cell is empty (server: LabReports.js LAB_FILL_RESULTS).
+// results: { "<Data_Entry column>": value } — results the old import missed
+// (Mg, and readings of 0), filled only where the saved cell is empty
+// (server: LabReports.js fillLabReportInfo_).
 export async function fillLabInfo(webhookUrl, sampleId, labInfo, results) {
   await postBlind(webhookUrl, { action: "fillLabInfo", sampleId, labInfo, ...(results && Object.keys(results).length ? { results } : {}) });
 }
