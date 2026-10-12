@@ -58,6 +58,38 @@ setup is in `test-copy-setup.md`.
   automatically. If anything is already in those columns, the app stops
   and names the column instead of overwriting it.
 
+### Re-import, correct, reject, remove, edit (lab reports)
+
+- **Saving never overwrites a row.** A new sample goes after the last row that
+  has anything in it, not after the last Lub ID. A row typed into the sheet
+  without a Lub ID used to be overwritten by the next app save.
+- **Re-importing a saved report** matches the saved sample by Sample ID *and*
+  point (every copy of it on that point, never another point's sample).
+  - Empty cells (results, the report status and the three ratings, ISO code,
+    report details) are filled in. Nothing else changes and the report keeps
+    its status.
+  - Values that **differ** from the lab's PDF are listed ("Al: 5 → 59"). With
+    "Correct N saved samples from the report" ticked, they are replaced by the
+    report's values, the PDF is linked to the sample, and the report goes back
+    to **Pending Validation**. A validated report is corrected by an ACC
+    Engineer only. A saved "<0.003" / "NotDetected" counts as the report's 0.
+- **Reject** (ACC Engineer, on a pending or returned report): the report is
+  removed. Its row moves to the **Lab Reports Removed** sheet with who, when
+  and why, so nothing is lost. The uploader and the contractor's engineers
+  are told.
+- **Returned** reports are corrected (import the PDF again, or edit) or
+  **removed** by the contractor. One still returned **30 days** after it was
+  returned is removed by the daily run (`runDailyOilNotifications`), so
+  returned reports don't pile up.
+- **Edit / delete on the Oil Analysis Report** (under each sample's date):
+  - The App Owner and ACC Engineers edit every value (particle counts, PQ,
+    contaminants, additives, ISO code, ratings). An empty box stays empty.
+  - An ACC Engineer's change is validated again. The App Owner's correction
+    keeps the report validated; every changed value is written to Activity
+    ("Fe 307→999").
+  - The App Owner deletes. The row is kept in Lab Reports Removed.
+  - A contractor can't delete a validated report.
+
 ## Phase 5: inventory
 
 - **Opening Balance:** a new product's first movement can be an Opening

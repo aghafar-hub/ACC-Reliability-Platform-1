@@ -5,6 +5,7 @@ import { formatDate, sampleToRow } from "../parsers";
 import { RATING_OPTIONS } from "../theme";
 import { cellMark, viscCellTemp, visibleGroups } from "../labReport";
 import { LAB_INFO_KEYS } from "../api";
+import { useIsAccEngineer } from "../SessionContext";
 
 // Lab report import — the review tab (not a pop-up). A side bar lists every
 // report: refused files with their reason, then each point's samples with a
@@ -21,6 +22,23 @@ const norm = (v) =>
     .trim()
     .toUpperCase();
 const NEXT_MARK = { "": "Caution", Caution: "Alert", Alert: "" };
+
+// Data_Entry columns 5–34 (see parsers.js sampleToRow): what a re-import
+// fills when empty, or corrects when it differs from the lab's PDF.
+const RESULT_COLS = ["Report status", "Contamination", "Equipment", "Lubricant", "PC >4µm", "PC >6µm", "PC >14µm", "PQ", "Visc", "TAN",
+  "Oxidation", "Water", "Ag", "Al", "Cr", "Cu", "Fe", "Mo", "Ni", "Pb", "Sn", "K", "Na", "Si", "B", "Ba", "Ca", "Mg", "P", "Zn"];
+const colName = (col) => RESULT_COLS[col - 5] || `#${col}`;
+const blank = (v) => v === "" || v === null || v === undefined;
+// The saved value and the report's agree? Numbers by value, words by
+// spelling; a saved "<0.003" / "NotDetected" is the report's 0.
+function sameValue(saved, pdf) {
+  if (typeof pdf === "number") {
+    const n = Number(saved);
+    if (String(saved).trim() !== "" && !isNaN(n)) return Math.abs(n - pdf) < 1e-9;
+    return pdf === 0 && /^(<|not\s*detected|nd$)/i.test(String(saved).trim());
+  }
+  return String(saved).trim().toLowerCase() === String(pdf).trim().toLowerCase();
+}
 const MARK_COLOR = { Caution: "warning", Alert: "danger" };
 
 function setPath(obj, path, value) {
@@ -193,9 +211,21 @@ function StatusPill({ T, status }) {
 export default function ImportReview({ parsedReports, equipmentRegistry, existingSamples, onSubmit, onDiscard, saving, progress }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
+  const isAccEngineer = useIsAccEngineer();
   const existingIds = useMemo(() => new Set((existingSamples || []).map((x) => norm(x.sampleId)).filter(Boolean)), [existingSamples]);
-  const existingById = useMemo(() => new Map((existingSamples || []).map((x) => [norm(x.sampleId), x])), [existingSamples]);
+  // every saved copy of a Sample ID (a copy can have been typed into the sheet)
+  const existingById = useMemo(() => {
+    const m = new Map();
+    (existingSamples || []).forEach((x) => {
+      const id = norm(x.sampleId);
+      if (!id) return;
+      if (!m.has(id)) m.set(id, []);
+      m.get(id).push(x);
+    });
+    return m;
+  }, [existingSamples]);
   const [fillDetails, setFillDetails] = useState(true);
+  const [fixValues, setFixValues] = useState(true);
   const [raw, setRaw] = useState(() => {
     const list = buildCandidates(parsedReports, equipmentRegistry);
     // start ticked unless already saved / no Sample ID (a point still to be
@@ -228,28 +258,55 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
   const included = candidates.filter((c) => c.include);
   // Already-saved samples whose saved row is missing report details this
   // report has: those get filled in (only the empty ones) — never re-added.
-  const fillable = candidates
+  // Matched by Sample ID AND point: a Sample ID saved on another point is
+  // never filled or changed from this report.
+  const savedCopies = (c) => (existingById.get(norm(c.sample.sampleId)) || []).filter((x) => x.unitId === c.unitId);
+  const compared = candidates
     .filter((c) => c.duplicate && existingById.has(norm(c.sample.sampleId)))
     .map((c) => {
-      const saved = existingById.get(norm(c.sample.sampleId));
-      const labInfo = {};
-      LAB_INFO_KEYS.forEach((k) => {
-        if (c.sample[k] && !saved[k]) labInfo[k] = String(c.sample[k]);
-      });
-      // Results the old import missed (Mg was never read; a 0 was saved as
-      // an empty cell): every empty result cell (Data_Entry columns 9–34)
-      // the report has a value for. The server fills empty cells only.
-      const results = {};
+      const copies = savedCopies(c);
       const mine = sampleToRow(c.sample);
-      const have = sampleToRow(saved);
-      for (let col = 9; col <= 34; col++) {
-        if (mine[col] !== "" && mine[col] !== null && mine[col] !== undefined && (have[col] === "" || have[col] === null || have[col] === undefined)) results[col] = mine[col];
-      }
-      return { key: c._key, sampleId: c.sample.sampleId, labInfo, results };
-    })
-    .filter((f) => Object.keys(f.labInfo).length || Object.keys(f.results).length);
+      const labInfo = {};
+      const results = {};
+      const diffs = {}; // col → { saved, pdf }
+      copies.forEach((saved) => {
+        LAB_INFO_KEYS.forEach((k) => {
+          if (c.sample[k] && !saved[k]) labInfo[k] = String(c.sample[k]);
+        });
+        // Results the old import missed (Mg was never read; a 0 was saved as
+        // an empty cell): every empty result cell the report has a value
+        // for. The server fills empty cells only.
+        const have = sampleToRow(saved);
+        for (let col = 5; col <= 34; col++) {
+          if (blank(mine[col])) continue;
+          if (blank(have[col])) results[col] = mine[col];
+          else if (!sameValue(have[col], mine[col])) diffs[col] = { saved: have[col], pdf: mine[col] };
+        }
+      });
+      const isoDiff = c.sample.isoCode && copies.some((x) => x.isoCode && String(x.isoCode).replace(/^'/, "") !== c.sample.isoCode);
+      // a validated report (or one from before validation) is corrected by an ACC Engineer only
+      const locked = copies.some((x) => !x.validationStatus || x.validationStatus === "Validated") && !isAccEngineer;
+      return { c, copies, labInfo, results, diffs, isoDiff, locked, otherPoint: copies.length === 0 };
+    });
+  const comparedByKey = new Map(compared.map((x) => [x.c._key, x]));
+  const fillable = compared
+    .filter((x) => Object.keys(x.labInfo).length || Object.keys(x.results).length)
+    .map((x) => ({ key: x.c._key, sampleId: x.c.sample.sampleId, lpId: x.c.unitId, labInfo: x.labInfo, results: x.results }));
   const fillKeys = new Set(fillable.map((f) => f.key));
   const fills = fillDetails ? fillable : [];
+  // Saved values that differ from the lab's PDF: corrected from the report,
+  // and the report waits for validation again.
+  const fixable = compared
+    .filter((x) => (Object.keys(x.diffs).length || x.isoDiff) && !x.locked)
+    .map((x) => ({
+      key: x.c._key,
+      sampleId: x.c.sample.sampleId,
+      lpId: x.c.unitId,
+      values: Object.fromEntries(Object.keys(x.diffs).map((col) => [col, x.diffs[col].pdf])),
+      labInfo: { ...(x.isoDiff ? { isoCode: x.c.sample.isoCode } : {}), ...(x.c.sample.reportFile ? { reportFile: x.c.sample.reportFile } : {}) },
+    }));
+  const fixKeys = new Set(fixable.map((f) => f.key));
+  const fixes = fixValues ? fixable : [];
   // The registry "learns" a report's Unit ID: when the user picks the point
   // for an ID no point has, saving writes it as that point's Report
   // Equipment ID (only if the point has none) so the next import matches it.
@@ -298,8 +355,9 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
         reportEquipmentId: c.sample.reportEquipmentId || c.sample.unitId,
         recommendations: (c.sample.recommendations || []).map((r) => String(r).trim()).filter(Boolean),
       })),
-      fills.map(({ sampleId, labInfo, results }) => ({ sampleId, labInfo, results })),
-      learns
+      fills.map(({ sampleId, lpId, labInfo, results }) => ({ sampleId, lpId, labInfo, results })),
+      learns,
+      fixes.map(({ sampleId, lpId, values, labInfo }) => ({ sampleId, lpId, values, labInfo }))
     );
   }
 
@@ -435,6 +493,13 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
                         Its missing report details will be filled in
                       </span>
                     )}
+                    {c.duplicate && comparedByKey.get(c._key) && Object.keys(comparedByKey.get(c._key).diffs).length > 0 && (
+                      <span style={{ display: "block", fontSize: 12, color: T.warning, fontWeight: 600 }} data-testid={`import-diff-${c.sample.sampleId}`}>
+                        <i className="ti ti-arrows-diff" aria-hidden="true" /> {Object.keys(comparedByKey.get(c._key).diffs).length} saved value
+                        {Object.keys(comparedByKey.get(c._key).diffs).length === 1 ? "" : "s"} differ from this report
+                        {fixKeys.has(c._key) ? (fixValues ? " — will be corrected" : "") : " — an ACC Engineer can correct"}
+                      </span>
+                    )}
                     {c.noSampleId && (
                       <span style={{ display: "block", fontSize: 12, color: T.warning, fontWeight: 700 }}>No Sample ID</span>
                     )}
@@ -491,6 +556,15 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
           <button type="button" style={s.btn} onClick={onDiscard} disabled={saving}>
             Discard
           </button>
+          {fixable.length > 0 && (
+            <label
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}
+              title="Saved values that differ from the lab's PDF are replaced by the report's; those reports wait for an ACC Engineer to validate them again"
+            >
+              <input type="checkbox" checked={fixValues} onChange={(e) => setFixValues(e.target.checked)} data-testid="import-fix" />
+              Correct {fixable.length} saved sample{fixable.length === 1 ? "" : "s"} from the report
+            </label>
+          )}
           {fillable.length > 0 && (
             <label
               style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}
@@ -504,15 +578,17 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
             type="button"
             style={s.btnPrimary}
             onClick={submit}
-            disabled={saving || (included.length === 0 && fills.length === 0)}
+            disabled={saving || (included.length === 0 && fills.length === 0 && fixes.length === 0)}
             data-testid="import-submit"
           >
             <i className="ti ti-upload" aria-hidden="true" />{" "}
             {saving
               ? "Saving…"
-              : included.length || !fills.length
+              : included.length || (!fills.length && !fixes.length)
                 ? `Submit ${included.length} sample${included.length === 1 ? "" : "s"}`
-                : `Fill in details for ${fills.length}`}
+                : fixes.length
+                  ? `Correct ${fixes.length}${fills.length ? ` · fill in ${fills.length}` : ""}`
+                  : `Fill in details for ${fills.length}`}
           </button>
         </div>
       </div>
@@ -551,6 +627,8 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
               onMark={cycleMark}
               onText={setText}
               canFill={fillKeys.has(current._key)}
+              compare={comparedByKey.get(current._key)}
+              willFix={fixValues && fixKeys.has(current._key)}
             />
           )}
         </div>
@@ -576,6 +654,8 @@ function SampleView({
   onMark,
   onText,
   canFill,
+  compare,
+  willFix,
 }) {
   const columns = file.items;
   const latestItem = columns.find((x) => x.latest);
@@ -736,6 +816,39 @@ function SampleView({
               ? "; the report details missing from the saved one (account, asset, bottle…) can be filled in — see the box at the top."
               : "."}
           </p>
+        )}
+        {c.duplicate && compare?.otherPoint && (
+          <p style={{ ...s.infoBar, margin: "8px 0 0", fontSize: 12.5, borderColor: T.warning }} data-testid="import-other-point">
+            This Sample ID is saved on another point, not {c.unitId} — nothing is filled in or changed from this report.
+          </p>
+        )}
+        {c.duplicate && compare && (Object.keys(compare.diffs).length > 0 || compare.isoDiff) && (
+          <div style={{ ...s.infoBar, margin: "8px 0 0", fontSize: 12.5, borderColor: T.warning, display: "block" }} data-testid="import-diff-note">
+            <p style={{ margin: "0 0 6px", fontWeight: 700 }}>
+              <i className="ti ti-arrows-diff" aria-hidden="true" style={{ color: T.warning }} /> The saved sample
+              {compare.copies.length > 1 ? ` (saved ${compare.copies.length} times)` : ""} differs from this report:
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontFamily: "'IBM Plex Mono', ui-monospace, monospace", fontSize: 12 }}>
+              {Object.entries(compare.diffs).map(([col, d]) => (
+                <span key={col}>
+                  {colName(Number(col))}: <span style={{ color: T.danger, textDecoration: "line-through" }}>{String(d.saved)}</span> →{" "}
+                  <strong>{String(d.pdf)}</strong>
+                </span>
+              ))}
+              {compare.isoDiff && (
+                <span>
+                  ISO: → <strong>{smp.isoCode}</strong>
+                </span>
+              )}
+            </div>
+            <p style={{ margin: "6px 0 0", color: T.textSecondary }}>
+              {compare.locked
+                ? "This report is validated — an ACC Engineer can correct it (import this PDF, or edit it on the Oil Analysis Report)."
+                : willFix
+                  ? "These will be corrected from the report when you submit; the report then waits for an ACC Engineer to validate it again."
+                  : "Tick “Correct … from the report” at the top to fix them."}
+            </p>
+          </div>
         )}
         {c.noSampleId && (
           <p style={{ ...s.infoBar, margin: "10px 0 0", fontSize: 12.5, borderColor: T.warning }}>

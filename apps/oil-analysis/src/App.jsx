@@ -653,6 +653,17 @@ function AppShell({ config, setConfig, navBridge }) {
       // "pdf": the lab's own PDF kept with this sample (opening it is what
       // lets this person validate — checked on the server too)
       if (kind === "pdf") return api.getLabReportPdf(config.webhookUrl, sample);
+      // "reject" (ACC) / "remove" (a returned one): the sample leaves the list
+      if (kind === "reject" || kind === "remove") {
+        await (kind === "reject" ? api.rejectLabReport : api.removeLabReport)(config.webhookUrl, sample, text);
+        setSamples((prev) => {
+          const next = prev.filter((sm) => sm._id !== sample._id);
+          writeCache("samples", next);
+          return next;
+        });
+        pushToast(kind === "reject" ? "Lab report rejected and removed." : "Returned lab report removed.", "success");
+        return null;
+      }
       const saved = kind === "validate" ? await api.validateLabReport(config.webhookUrl, sample) : await api.returnLabReport(config.webhookUrl, sample, text);
       setSamples((prev) => {
         const next = prev.map((sm) => (sm._id === sample._id ? saved : sm));
@@ -819,7 +830,25 @@ function AppShell({ config, setConfig, navBridge }) {
       let done = 0;
       for (const f of fills) {
         try {
-          await api.fillLabInfo(config.webhookUrl, f.sampleId, f.labInfo, f.results);
+          await api.fillLabInfo(config.webhookUrl, f.sampleId, f.labInfo, f.results, f.lpId);
+          done++;
+        } catch (err) {
+          pushToast(`${f.sampleId}: ${err.message}`, "error");
+        }
+      }
+      if (done) await runSync();
+      return done;
+    },
+    [config.webhookUrl, pushToast, runSync]
+  );
+
+  // Saved samples whose values differ from the re-imported lab PDF.
+  const onCorrectLabReports = useCallback(
+    async (fixes) => {
+      let done = 0;
+      for (const f of fixes) {
+        try {
+          await api.correctLabReport(config.webhookUrl, f.sampleId, f.lpId, f.values, f.labInfo);
           done++;
         } catch (err) {
           pushToast(`${f.sampleId}: ${err.message}`, "error");
@@ -1072,7 +1101,7 @@ function AppShell({ config, setConfig, navBridge }) {
   );
 
   const onDeleteSample = useCallback(
-    async (sample) => {
+    async (sample, reason) => {
       let removedSample;
       let removedIndex = -1;
       setSamples((prev) => {
@@ -1086,7 +1115,7 @@ function AppShell({ config, setConfig, navBridge }) {
       });
       pushToast("Sample deleted.", "success");
       try {
-        await api.deleteSample(config.webhookUrl, sample);
+        await api.deleteSample(config.webhookUrl, sample, reason);
       } catch (err) {
         if (removedSample) {
           setSamples((prev) => {
@@ -1432,6 +1461,8 @@ function AppShell({ config, setConfig, navBridge }) {
                 trackerByEquip={trackerByEquip}
                 onAddAction={onAddAction}
                 onUpdateAction={onUpdateAction}
+                onEditSample={onEditSample}
+                onDeleteSample={onDeleteSample}
                 initialCode={oilReportCode}
                 focus={oilReportFocus}
               />
@@ -1446,6 +1477,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 onAdd={onAddSample}
                 onBulkAdd={onBulkAddSamples}
                 onFillLabInfo={onFillLabInfo}
+                onCorrectLabReports={onCorrectLabReports}
                 onLearnReportIds={onLearnReportIds}
                 onUploadReportPdfs={onUploadReportPdfs}
               />

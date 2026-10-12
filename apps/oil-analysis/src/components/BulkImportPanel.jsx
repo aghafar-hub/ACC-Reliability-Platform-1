@@ -8,7 +8,7 @@ const MAX_FILES = 30;
 
 // Upload + parse; the review then opens as its own tab on the Add Report page
 // (view === "review", see AddSample.jsx) instead of a pop-up.
-export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, onLearnReportIds, onUploadReportPdfs, view = "upload", onReviewReady }) {
+export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, onCorrectLabReports, onLearnReportIds, onUploadReportPdfs, view = "upload", onReviewReady }) {
   const { T, s } = useTheme();
   const [files, setFiles] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -46,18 +46,19 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
     }
   }
 
-  async function handleConfirm(selectedSamples, fills = [], learns = []) {
+  async function handleConfirm(selectedSamples, fills = [], learns = [], fixes = []) {
     setSaving(true);
     setSaveProgress({ done: 0, total: selectedSamples.length, errors: 0 });
     try {
       // the PDFs these samples / fill-ins point to go up first
-      const keys = new Set([...selectedSamples.map((sm) => sm.reportFile), ...fills.map((f) => f.labInfo?.reportFile)].filter(Boolean));
+      const keys = new Set([...selectedSamples.map((sm) => sm.reportFile), ...fills.map((f) => f.labInfo?.reportFile), ...fixes.map((f) => f.labInfo?.reportFile)].filter(Boolean));
       const pdfs = (parsedReports || []).filter((r) => r.ok && keys.has(r.reportFile)).map((r) => ({ fileKey: r.reportFile, file: r.file }));
       if (pdfs.length && onUploadReportPdfs) await onUploadReportPdfs(pdfs);
       const result = selectedSamples.length
         ? await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }))
         : { saved: 0, failed: 0 };
       const filled = fills.length && onFillLabInfo ? await onFillLabInfo(fills) : 0;
+      const corrected = fixes.length && onCorrectLabReports ? await onCorrectLabReports(fixes) : 0;
       // only after the samples are in: teach the registry the report IDs the user matched by hand
       const learned = learns.length && result.saved && onLearnReportIds ? await onLearnReportIds(learns) : 0;
       setParsedReports(null);
@@ -66,6 +67,7 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
       setResultMsg(
         `✓ Added ${result.saved} sample${result.saved === 1 ? "" : "s"}` +
           (filled ? ` · filled in report details for ${filled} saved sample${filled === 1 ? "" : "s"}` : "") +
+          (corrected ? ` · corrected ${corrected} saved sample${corrected === 1 ? "" : "s"} from the report (waiting for validation)` : "") +
           (learned ? ` · ${learned} Report Equipment ID${learned === 1 ? "" : "s"} saved to the registry` : "") +
           (result.failed ? ` — ${result.failed} failed, see toasts for details` : "")
       );

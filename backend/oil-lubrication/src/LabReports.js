@@ -102,32 +102,50 @@ function writeLabReportInfo_(ss, row, info) {
 }
 
 // Re-importing a report that's already saved: fill in its report details
-// where they're still empty (reports saved before the import kept them).
-// Never overwrites a value, never touches the results, so the report isn't
-// sent back for validation. Found by Sample ID; returns { lpId, filled }.
-function findSampleRowById_(ss, sampleId) {
+// and results where they're still empty (reports saved before the import
+// kept them). Never overwrites a value, so the report isn't sent back for
+// validation — a value that differs is corrected with correctLabReport.
+// Found by Sample ID and, when given, the point (lpId): a Sample ID can be
+// saved more than once (a copy typed into the sheet); every copy of it on
+// that point is returned, never a sample of another point.
+function findSampleRowsById_(ss, sampleId, lpId) {
   var sheet = ss.getSheetByName("Data_Entry");
   if (!sheet) return { error: "Data_Entry sheet not found" };
   var id = normSampleId_(sampleId);
   if (!id) return { error: "Sample ID is required" };
+  var lp = String(lpId || "").trim();
   var start = dataStartRowFor("Data_Entry");
   var last = sheet.getLastRow();
   if (last < start) return { error: "Lab report not found" };
-  var ids = sheet.getRange(start, 4, last - start + 1, 1).getValues();
-  for (var i = 0; i < ids.length; i++) {
-    if (normSampleId_(ids[i][0]) === id) {
-      var rowIdx = start + i;
-      return { sheet: sheet, rowIdx: rowIdx, lpId: String(sheet.getRange(rowIdx, 1).getValue() || "").trim() };
-    }
+  var keys = sheet.getRange(start, 1, last - start + 1, 4).getValues();
+  var rows = [];
+  for (var i = 0; i < keys.length; i++) {
+    if (normSampleId_(keys[i][3]) !== id) continue;
+    var rowLp = String(keys[i][0] || "").trim();
+    if (lp && rowLp !== lp) continue;
+    rows.push({ sheet: sheet, rowIdx: start + i, lpId: rowLp });
   }
-  return { error: "Lab report not found" };
+  if (!rows.length) return { error: "Lab report not found" };
+  return { sheet: sheet, rows: rows, lpId: rows[0].lpId, rowIdx: rows[0].rowIdx };
 }
 
-// Data_Entry result columns (0-based) a re-import may fill when empty:
-// particle counts … Zn (9–34). The import used to miss Mg and save a 0
-// reading as an empty cell; the client sends { "<column>": value }.
-var LAB_FILL_RESULT_FIRST = 9;
+// Data_Entry columns (0-based) a re-import may fill when empty, or correct:
+// Report Status and the three ratings (5–8), particle counts … Zn (9–34).
+// The import used to miss Mg and save a 0 reading as an empty cell; the
+// client sends { "<column>": value }.
+var LAB_FILL_RESULT_FIRST = 5;
 var LAB_FILL_RESULT_LAST = 34;
+var LAB_TEXT_RESULT_LAST = 8; // 5–8 are words (Normal / Caution / Alert)
+
+function labResultValue_(col, v) {
+  if (v === undefined || v === null || String(v).trim() === "") return null;
+  if (col <= LAB_TEXT_RESULT_LAST) {
+    var w = String(v).trim().toLowerCase();
+    return w === "normal" ? "Normal" : w === "caution" ? "Caution" : w === "alert" ? "Alert" : null;
+  }
+  var n = Number(v);
+  return isNaN(n) ? null : n;
+}
 
 function fillLabReportInfo_(found, info) {
   ensureLabInfoHeaders_(found.sheet);
@@ -147,14 +165,166 @@ function fillLabReportInfo_(found, info) {
   Object.keys(info.results || {}).forEach(function (k) {
     var col = Number(k);
     if (!(col >= LAB_FILL_RESULT_FIRST && col <= LAB_FILL_RESULT_LAST) || Math.floor(col) !== col) return;
-    var v = info.results[k];
-    if (v === undefined || v === null || String(v).trim() === "" || isNaN(Number(v))) return;
+    var v = labResultValue_(col, info.results[k]);
+    if (v === null) return;
     var cell = found.sheet.getRange(found.rowIdx, col + 1);
     if (String(cell.getValue()).trim() !== "") return;
-    cell.setValue(Number(v));
+    cell.setValue(v);
     filled++;
   });
   return filled;
+}
+
+// POST correctLabReport: a saved sample whose values differ from the lab's
+// report (a typing mistake, a copy typed into the sheet, a lab re-issue) is
+// corrected from the re-imported PDF — every copy of it on that point. The
+// report then waits for an ACC Engineer to validate it again: a Returned
+// one counts as corrected, a Validated one is re-opened (only an ACC
+// Engineer may change that one). data: { sampleId, lpId, values:
+// { "<column>": value } (columns 5–34), labInfo: { isoCode, reportFile } }.
+function correctLabReport_(ss, data, session, actingUser) {
+  var found = findSampleRowsById_(ss, data.sampleId, data.lpId);
+  if (found.error) return found;
+  var values = {};
+  Object.keys(data.values || {}).forEach(function (k) {
+    var col = Number(k);
+    if (!(col >= LAB_FILL_RESULT_FIRST && col <= LAB_FILL_RESULT_LAST) || Math.floor(col) !== col) return;
+    var v = labResultValue_(col, data.values[k]);
+    if (v !== null) values[col] = v;
+  });
+  var info = data.labInfo || {};
+  var iso = labInfoText_(info.isoCode);
+  var pdfKey = LAB_PDF_KEY_RE.test(String(info.reportFile || "")) ? String(info.reportFile) : "";
+  if (!Object.keys(values).length && !iso) return { error: "Nothing to correct" };
+  ensureLabHeaders_(found.sheet);
+  var accEng = isAccEngineer_(session);
+  var changedRows = 0, reopened = false;
+  for (var r = 0; r < found.rows.length; r++) {
+    var row = found.sheet.getRange(found.rows[r].rowIdx, 1, 1, LAB_APP_COLS + LAB_HEADERS.length).getValues()[0];
+    var status = labStatusOf_(row);
+    var diff = Object.keys(values).filter(function (c) { return normLabCell_(row[c]) !== normLabCell_(values[c]); });
+    if (!diff.length && !iso) continue;
+    if ((status === LAB_STATUS.VALIDATED || status === "") && !accEng) {
+      return { error: "Sample " + data.sampleId + " is validated — only an ACC Engineer can correct it." };
+    }
+  }
+  found.rows.forEach(function (f) {
+    var rowIdx = f.rowIdx;
+    var row = found.sheet.getRange(rowIdx, 1, 1, LAB_APP_COLS + LAB_HEADERS.length).getValues()[0];
+    var status = labStatusOf_(row);
+    var diff = Object.keys(values).filter(function (c) { return normLabCell_(row[c]) !== normLabCell_(values[c]); });
+    var isoCell = found.sheet.getRange(rowIdx, LAB_INFO_COL + 12);
+    var isoChanged = iso && String(isoCell.getValue()).replace(/^'/, "") !== iso.replace(/^'/, "");
+    if (!diff.length && !isoChanged) return;
+    diff.forEach(function (c) { found.sheet.getRange(rowIdx, Number(c) + 1).setValue(values[c]); });
+    if (diff.length || isoChanged) {
+      ensureLabInfoHeaders_(found.sheet);
+      if (isoChanged) isoCell.setValue(iso);
+      if (pdfKey) found.sheet.getRange(rowIdx, LAB_PDF_COL + 1).setValue(pdfKey); // the PDF these values come from
+    }
+    if (status !== LAB_STATUS.PENDING) {
+      found.sheet.getRange(rowIdx, LAB_COL.STATUS + 1).setValue(LAB_STATUS.PENDING);
+      if (status !== LAB_STATUS.RETURNED) {
+        found.sheet.getRange(rowIdx, LAB_COL.VALIDATED_BY + 1, 1, 2).setValues([["", ""]]);
+        reopened = true;
+      }
+    }
+    stampLastModified(found.sheet, "Data_Entry", rowIdx);
+    changedRows++;
+  });
+  if (!changedRows) return { status: "ok", unchanged: true, lpId: found.lpId };
+  try {
+    var label = sampleLabel_(found.sheet.getRange(found.rowIdx, 1, 1, LAB_APP_COLS).getValues()[0]);
+    var contractor = resolveLpContractor_(found.lpId);
+    var msg = "Lab report " + label + " was corrected from the lab's PDF by " + (actingUser || "an engineer") +
+      (reopened ? " after validation" : "") + ". Please validate it again.";
+    recordInAppNotificationForEach_(ss, getNotifyReviewers_(contractor), "lab-report-uploaded", msg, contractor, "oilreport", found.lpId);
+  } catch (e) {
+    logError("correctLabReport_:notify", e, {});
+  }
+  return { status: "ok", corrected: changedRows, lpId: found.lpId };
+}
+
+// ── Rejected and returned reports ─────────────────────────────────────────
+// A report that should not be in the system (wrong point, not our sample,
+// a duplicate) is rejected: its row moves to "Lab Reports Removed" (all its
+// values, with who, when and why — nothing is lost) and leaves Data_Entry.
+// A returned report is corrected (re-import its PDF, or edit it) or removed
+// by the contractor; one still returned after LAB_RETURNED_KEEP_DAYS days is
+// removed by the daily run, so returned reports don't pile up.
+var LAB_REMOVED_SHEET = "Lab Reports Removed";
+var LAB_RETURNED_KEEP_DAYS = 30;
+
+function archiveLabReportRow_(ss, sheet, rowIdx, by, why) {
+  var width = LAB_INFO_COL + LAB_INFO_FIELDS.length;
+  var row = sheet.getRange(rowIdx, 1, 1, width).getValues()[0];
+  var arch = ss.getSheetByName(LAB_REMOVED_SHEET);
+  if (!arch) {
+    arch = ss.insertSheet(LAB_REMOVED_SHEET);
+    var head = sheet.getRange(LAB_HEADER_ROW, 1, 1, width).getValues()[0];
+    arch.appendRow(["Removed Date", "Removed By", "Why"].concat(head));
+    arch.setFrozenRows(1);
+  }
+  arch.appendRow([new Date(), by || "", why || ""].concat(row));
+  sheet.deleteRow(rowIdx);
+  return row;
+}
+
+function notifyLabRemoved_(ss, row, msg) {
+  try {
+    var contractor = resolveLpContractor_(row[0]);
+    var people = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
+    var uploader = String(row[LAB_COL.UPLOADED_BY] || "").trim();
+    if (uploader && people.indexOf(uploader) === -1) people.push(uploader);
+    recordInAppNotificationForEach_(ss, people, "lab-report-returned", msg, contractor, "oilreport", String(row[0] || ""));
+    if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: lab report removed — " + sampleLabel_(row), body: msg }, 'labReport');
+  } catch (e) {
+    logError("notifyLabRemoved_", e, {});
+  }
+}
+
+// POST rejectLabReport (ACC Engineer): a Pending or Returned report.
+function rejectLabReport(ss, data) {
+  var reason = String(data.reason || "").trim();
+  if (!reason) return { error: "A reason is required to reject a report" };
+  var found = findSampleRow_(ss, data);
+  if (found.error) return found;
+  var status = labStatusOf_(found.row);
+  if (status !== LAB_STATUS.PENDING && status !== LAB_STATUS.RETURNED) return { error: "Only a report waiting for validation or returned can be rejected" };
+  var row = archiveLabReportRow_(ss, found.sheet, found.rowIdx, data.actingUser, "Rejected: " + reason);
+  notifyLabRemoved_(ss, row, "Lab report " + sampleLabel_(row) + " was rejected by " + (data.actingUser || "ACC") + " and removed: " + reason);
+  return { status: "ok", lpId: String(row[0] || "") };
+}
+
+// POST removeLabReport: the uploader's side gives up a Returned report.
+function removeReturnedLabReport(ss, data) {
+  var found = findSampleRow_(ss, data);
+  if (found.error) return found;
+  if (labStatusOf_(found.row) !== LAB_STATUS.RETURNED) return { error: "Only a returned report can be removed here" };
+  var note = String(data.reason || "").trim();
+  var row = archiveLabReportRow_(ss, found.sheet, found.rowIdx, data.actingUser, "Removed after return" + (note ? ": " + note : ""));
+  return { status: "ok", lpId: String(row[0] || "") };
+}
+
+// Daily: returned reports nobody corrected within LAB_RETURNED_KEEP_DAYS.
+function cleanupReturnedLabReports_(ss) {
+  var sheet = ss.getSheetByName("Data_Entry");
+  if (!sheet) return 0;
+  var start = dataStartRowFor("Data_Entry");
+  var last = sheet.getLastRow();
+  if (last < start) return 0;
+  var vals = sheet.getRange(start, 1, last - start + 1, LAB_APP_COLS + LAB_HEADERS.length).getValues();
+  var limit = Date.now() - LAB_RETURNED_KEEP_DAYS * 86400000;
+  var removed = 0;
+  for (var i = vals.length - 1; i >= 0; i--) { // bottom up: deleting keeps the rows above in place
+    if (labStatusOf_(vals[i]) !== LAB_STATUS.RETURNED) continue;
+    var when = asDate_(vals[i][LAB_COL.RETURNED_DATE]);
+    if (!when || when.getTime() > limit) continue;
+    var row = archiveLabReportRow_(ss, sheet, start + i, "Daily clean-up", "Returned " + LAB_RETURNED_KEEP_DAYS + "+ days ago and not corrected: " + String(vals[i][LAB_COL.RETURN_REASON] || ""));
+    notifyLabRemoved_(ss, row, "Lab report " + sampleLabel_(row) + " was returned " + LAB_RETURNED_KEEP_DAYS + "+ days ago and never corrected, so it was removed. Import it again if the sample is still needed.");
+    removed++;
+  }
+  return removed;
 }
 
 function findSampleRow_(ss, data) {
@@ -212,7 +382,31 @@ function guardLabReportEdit_(session, sheet, rowIdx, newRow) {
   }
   if (!changed) return {};
   if (!isAccEngineer_(session)) return { error: "This lab report is validated — only an ACC Engineer can change it." };
-  return { reopen: true };
+  var changes = labChangedColumns_(current, newRow);
+  // the App Owner fixes data: the report stays validated (the audit keeps
+  // every change); an ACC Engineer's change is validated again
+  if ((session.roles || []).indexOf("ROLE-ADMIN") !== -1) return { admin: true, changes: changes };
+  return { reopen: true, changes: changes };
+}
+
+var LAB_COL_NAMES = ["LP", "Report ID", "Description", "Sample ID", "Sample date", "Report status", "Contamination", "Equipment", "Lubricant",
+  "PC>4", "PC>6", "PC>14", "PQ", "Visc", "TAN", "Oxidation", "Water", "Ag", "Al", "Cr", "Cu", "Fe", "Mo", "Ni", "Pb", "Sn", "K", "Na", "Si",
+  "B", "Ba", "Ca", "Mg", "P", "Zn", "Alert type", "Recommendations", "Lab marks"];
+
+// "Al 5→59, Si 1046→106" — for the audit log.
+function labChangedColumns_(current, newRow) {
+  var out = [];
+  for (var i = 4; i < Math.min(newRow.length, LAB_COL_NAMES.length); i++) {
+    var a = normLabCell_(current[i]), b = normLabCell_(newRow[i]);
+    if (a === b) continue;
+    out.push(LAB_COL_NAMES[i] + (i >= 35 ? " changed" : " " + (a || "—") + "→" + (b || "—")));
+  }
+  return out.join(", ").slice(0, 400);
+}
+
+function setLabIsoCode_(sheet, rowIdx, iso) {
+  ensureLabInfoHeaders_(sheet);
+  sheet.getRange(rowIdx, LAB_INFO_COL + 12).setValue(labInfoText_(iso));
 }
 
 // After the app saves a Data_Entry row (append or edit).
@@ -353,7 +547,8 @@ function returnLabReport(ss, data) {
     var people = maResponsibleEmails_(MA_RESP.CONTRACTOR, contractor);
     var uploader = String(found.row[LAB_COL.UPLOADED_BY] || "").trim();
     if (uploader && people.indexOf(uploader) === -1) people.push(uploader);
-    var msg = "Lab report " + sampleLabel_(found.row) + " was returned for correction by " + (data.actingUser || "ACC") + ": " + reason;
+    var msg = "Lab report " + sampleLabel_(found.row) + " was returned for correction by " + (data.actingUser || "ACC") + ": " + reason +
+      ". Correct it (import the lab's PDF again, or edit it) or remove it within " + LAB_RETURNED_KEEP_DAYS + " days — after that it is removed automatically.";
     recordInAppNotificationForEach_(ss, people, "lab-report-returned", msg, contractor, "oilreport", String(found.row[0] || ""));
     if (people.length) sendNotificationEmail_({ to: people.join(","), subject: "Oil Lubrication: lab report returned — " + sampleLabel_(found.row), body: msg }, 'labReport');
   } catch (e) {

@@ -633,6 +633,33 @@ export function returnLabReport(webhookUrl, sample, reason) {
   );
 }
 
+// Reject (ACC Engineer) or remove a returned report (the uploader's side):
+// the row leaves Data_Entry for the "Lab Reports Removed" sheet.
+async function labRemoveStep(webhookUrl, sample, body, failText) {
+  await postBlind(webhookUrl, { ...body, sampleUid: sample.sampleUid || "", equipmentCode: sample.unitId || "", sampleId: sample.sampleId || "" });
+  const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
+  const still = sample.sampleUid
+    ? findRowByMatch(verify.samples, [SAMPLE_UID_COL], [sample.sampleUid])
+    : findRowByMatch(verify.samples, [0, 3], [sample.unitId || "", sample.sampleId || ""]);
+  if (still) throw new SaveVerificationError(failText);
+}
+
+export function rejectLabReport(webhookUrl, sample, reason) {
+  return labRemoveStep(webhookUrl, sample, { action: "rejectLabReport", reason },
+    "The rejection wasn't confirmed — only an ACC Engineer can reject a report. Please try again.");
+}
+
+export function removeLabReport(webhookUrl, sample, reason) {
+  return labRemoveStep(webhookUrl, sample, { action: "removeLabReport", reason },
+    "The report wasn't confirmed removed — only a returned report can be removed. Please try again.");
+}
+
+// A re-imported lab PDF whose values differ from the saved sample: the saved
+// one is corrected (every copy on that point) and waits for validation again.
+export async function correctLabReport(webhookUrl, sampleId, lpId, values, labInfo) {
+  await postBlind(webhookUrl, { action: "correctLabReport", sampleId, lpId, values, labInfo: labInfo || {} });
+}
+
 export async function deleteAction(webhookUrl, action) {
   const matchCols = action._matchCols || [0, 1];
   const matchValues = action._matchValues || [action.acNo || "", action.equipmentCode || action.unitId || ""];
@@ -790,7 +817,11 @@ export async function updateSample(webhookUrl, sample) {
   const matchCols = sample._matchCols || [0, 3];
   const matchValues = sample._matchValues || [sample.unitId || "", sample.sampleId || ""];
   // Patch 10: same conflict signal as saveAction — see its own comment.
-  await postBlind(webhookUrl, { action: "updateRow", sheet: "Data_Entry", matchCols, matchValues, row, expectedLastModified: sample.lastModified || "" });
+  await postBlind(webhookUrl, {
+    action: "updateRow", sheet: "Data_Entry", matchCols, matchValues, row, expectedLastModified: sample.lastModified || "",
+    // the ISO code lives in a server-owned column
+    ...(sample.isoCode !== undefined ? { labInfo: { isoCode: String(sample.isoCode || "") } } : {}),
+  });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
   const savedRow = findRowByMatch(verify.samples, matchCols, matchValues);
@@ -811,10 +842,10 @@ export async function updateSample(webhookUrl, sample) {
   return rowToSample(savedRow);
 }
 
-export async function deleteSample(webhookUrl, sample) {
+export async function deleteSample(webhookUrl, sample, reason) {
   const matchCols = sample._matchCols || [0, 3];
   const matchValues = sample._matchValues || [sample.unitId || "", sample.sampleId || ""];
-  await postBlind(webhookUrl, { action: "deleteRow", sheet: "Data_Entry", matchCols, matchValues });
+  await postBlind(webhookUrl, { action: "deleteRow", sheet: "Data_Entry", matchCols, matchValues, ...(reason ? { reason } : {}) });
 
   const verify = await getEquipmentRows(webhookUrl, sample.unitId || "");
   const stillThere = !!findRowByMatch(verify.samples, matchCols, matchValues);
@@ -1464,8 +1495,8 @@ export async function getLabReportPdf(webhookUrl, sample) {
 // results: { "<Data_Entry column>": value } — results the old import missed
 // (Mg, and readings of 0), filled only where the saved cell is empty
 // (server: LabReports.js fillLabReportInfo_).
-export async function fillLabInfo(webhookUrl, sampleId, labInfo, results) {
-  await postBlind(webhookUrl, { action: "fillLabInfo", sampleId, labInfo, ...(results && Object.keys(results).length ? { results } : {}) });
+export async function fillLabInfo(webhookUrl, sampleId, labInfo, results, lpId) {
+  await postBlind(webhookUrl, { action: "fillLabInfo", sampleId, lpId: lpId || "", labInfo, ...(results && Object.keys(results).length ? { results } : {}) });
 }
 
 // A lab Unit ID matched to a point by hand on import: saved as that point's

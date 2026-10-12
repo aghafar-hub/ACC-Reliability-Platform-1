@@ -511,13 +511,49 @@ function doPostInner_(e) {
 
       if (data.action === "fillLabInfo") {
         requirePermission_(auth.session, "Edit");
-        var fillFound = findSampleRowById_(ss, data.sampleId);
+        var fillFound = findSampleRowsById_(ss, data.sampleId, data.lpId);
         if (fillFound.error) return jsonOut({status: "error", message: fillFound.error});
         requireLpContractorMatch_(auth.session, fillFound.lpId);
-        var fillCount = fillLabReportInfo_(fillFound, Object.assign({}, data.labInfo || {}, { results: data.results || {} }));
+        var fillCount = 0;
+        fillFound.rows.forEach(function (fr) {
+          fillCount += fillLabReportInfo_(fr, Object.assign({}, data.labInfo || {}, { results: data.results || {} }));
+        });
         if (fillCount) invalidateDashboardCache();
         if (fillCount) recordAudit_(ss, "Data_Entry", fillFound.lpId, "update", actingUser, scope || resolveLpContractor_(fillFound.lpId), "Filled report details for sample " + data.sampleId);
         return jsonOut({status: "ok", filled: fillCount});
+      }
+
+      // Re-imported lab PDF: values that differ from a saved sample are
+      // corrected; the report then waits for validation again (LabReports.js).
+      if (data.action === "correctLabReport") {
+        requirePermission_(auth.session, "Edit");
+        var corrFound = findSampleRowsById_(ss, data.sampleId, data.lpId);
+        if (corrFound.error) return jsonOut({status: "error", message: corrFound.error});
+        requireLpContractorMatch_(auth.session, corrFound.lpId);
+        var corr = correctLabReport_(ss, data, auth.session, actingUser);
+        logError("doPost:correctLabReport", corr.error || "ok", {sampleId: data.sampleId, lpId: data.lpId, actingUser: actingUser});
+        if (corr.error) return jsonOut({status: "error", message: corr.error});
+        if (!corr.unchanged) {
+          invalidateDashboardCache();
+          recordAudit_(ss, "Data_Entry", corr.lpId, "update", actingUser, scope || resolveLpContractor_(corr.lpId),
+            "Corrected sample " + data.sampleId + " from the lab's PDF (" + Object.keys(data.values || {}).length + " values) — waiting for validation");
+        }
+        return jsonOut({status: "ok", corrected: corr.corrected || 0});
+      }
+
+      // A Returned report the uploader's side gives up (archived, not lost).
+      if (data.action === "removeLabReport") {
+        requirePermission_(auth.session, "Edit");
+        var rmContractor = getSampleContractor_(ss, data);
+        var rmScope = getContractorScope_(auth.session);
+        if (rmScope && rmContractor && rmContractor !== rmScope) return jsonOut({status: "error", message: "This lab report belongs to another contractor."});
+        data.actingUser = actingUser;
+        var rm = removeReturnedLabReport(ss, data);
+        logError("doPost:removeLabReport", rm.error || "ok", {sampleUid: data.sampleUid, actingUser: actingUser});
+        if (rm.error) return jsonOut({status: "error", message: rm.error});
+        invalidateDashboardCache();
+        recordAudit_(ss, "Data_Entry", rm.lpId, "delete", actingUser, rmContractor, "Removed returned lab report " + (data.sampleId || ""));
+        return jsonOut({status: "ok"});
       }
 
       if (data.action === "learnReportEquipmentId") {
@@ -843,16 +879,18 @@ function doPostInner_(e) {
       }
 
       // ── Phase 4: lab report — an ACC Engineer validates or returns it ───
-      if (data.action === "validateLabReport" || data.action === "returnLabReport") {
+      if (data.action === "validateLabReport" || data.action === "returnLabReport" || data.action === "rejectLabReport") {
         var labContractor = getSampleContractor_(ss, data);
-        requireAccEngineer_(auth.session, data.action === "validateLabReport" ? "validate a lab report" : "return a lab report");
+        requireAccEngineer_(auth.session, data.action === "validateLabReport" ? "validate a lab report" : data.action === "rejectLabReport" ? "reject a lab report" : "return a lab report");
         data.actingUser = actingUser;
-        var labResult = data.action === "validateLabReport" ? validateLabReport(ss, data) : returnLabReport(ss, data);
+        var labResult = data.action === "validateLabReport" ? validateLabReport(ss, data) : data.action === "rejectLabReport" ? rejectLabReport(ss, data) : returnLabReport(ss, data);
         if (!labResult.error) invalidateDashboardCache();
         logError("doPost:" + data.action, labResult.error || "ok", {sampleUid: data.sampleUid, actingUser: actingUser});
         if (!labResult.error && !labResult.unchanged) {
           recordAudit_(ss, "Data_Entry", data.equipmentCode || "", "update", actingUser, labContractor,
-            data.action === "validateLabReport" ? "Validated lab report" : "Returned lab report for correction: " + String(data.reason || "").trim());
+            data.action === "validateLabReport" ? "Validated lab report" :
+            data.action === "rejectLabReport" ? "Rejected and removed lab report " + (data.sampleId || "") + ": " + String(data.reason || "").trim() :
+            "Returned lab report for correction: " + String(data.reason || "").trim());
         }
         return jsonOut(labResult.error ? {status: "error", message: labResult.error} : {status: "ok"});
       }
@@ -971,9 +1009,13 @@ function doPostInner_(e) {
         invalidateDashboardCache();
         if (ok1 && data.sheet === "Data_Entry") {
           try { onLabReportSaved_(ss, data.row, actingUser, false, !!labGuard.reopen); } catch (labErr2) { logError("onLabReportSaved_", labErr2, {sheet: data.sheet}); }
+          if (data.labInfo && data.labInfo.isoCode !== undefined) {
+            try { setLabIsoCode_(updateSheetObj, updateRowIdx, data.labInfo.isoCode); } catch (isoErr) { logError("setLabIsoCode_", isoErr, {}); }
+          }
         }
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
-        if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId), "Updated " + data.sheet + " entry");
+        if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId),
+          data.sheet === "Data_Entry" && labGuard.changes ? "Edited lab report " + (data.row[3] || "") + ": " + labGuard.changes + (labGuard.admin ? " (App Owner — stays validated)" : "") : "Updated " + data.sheet + " entry");
         return jsonOut({status: ok1 ? "ok" : "row_not_found"});
       }
 
@@ -995,6 +1037,19 @@ function doPostInner_(e) {
         if (data.sheet === "Action Tracker" && deleteRowIdx !== -1 &&
             normActionStatus_(deleteSheetObj.getRange(deleteRowIdx, ACTION_COL.STATUS + 1).getValue()) === ACTION_STATUS.CLOSED) {
           return jsonOut({status: "error", message: ACTION_CLOSED_MSG});
+        }
+        // A lab report: a validated one only by an ACC Engineer / the App
+        // Owner; its row is kept in "Lab Reports Removed" (LabReports.js).
+        if (data.sheet === "Data_Entry" && deleteRowIdx !== -1) {
+          var delStatus = String(deleteSheetObj.getRange(deleteRowIdx, LAB_COL.STATUS + 1).getValue() || "").trim();
+          if ((delStatus === LAB_STATUS.VALIDATED || delStatus === "") && !isAccEngineer_(auth.session)) {
+            return jsonOut({status: "error", message: "This lab report is validated — only an ACC Engineer or the App Owner can delete it."});
+          }
+          var delRow = archiveLabReportRow_(ss, deleteSheetObj, deleteRowIdx, actingUser, "Deleted" + (data.reason ? ": " + String(data.reason).trim() : ""));
+          invalidateDashboardCache();
+          recordAudit_(ss, data.sheet, deleteLpId || String(delRow[0] || ""), "delete", actingUser, scope || resolveLpContractor_(deleteLpId),
+            "Deleted lab report " + String(delRow[3] || "") + " (" + sampleLabel_(delRow) + ")" + (data.reason ? ": " + String(data.reason).trim() : "") + " — kept in " + LAB_REMOVED_SHEET);
+          return jsonOut({status: "ok"});
         }
         var ok2 = deleteRow(ss, data.sheet, data.matchCols, data.matchValues);
         invalidateDashboardCache();

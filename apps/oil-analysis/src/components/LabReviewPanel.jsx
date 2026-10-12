@@ -6,9 +6,12 @@ import LabReportViewer from "./LabReportViewer";
 
 // Phase 4 — lab reports waiting for review. Either engineer uploads; an ACC
 // Engineer validates (a Caution/Alert result then creates the Draft
-// action) or returns a missing or incorrect report with a reason. A
-// returned report goes back here as Pending Validation once it's corrected
-// and saved.
+// action), returns a missing or incorrect report with a reason, or rejects
+// one that should not be in the system (it is removed — kept in the "Lab
+// Reports Removed" sheet). A returned report goes back here as Pending
+// Validation once it's corrected (its PDF imported again, or edited) — or
+// the uploader's side removes it; still returned after 30 days, it is
+// removed by the daily run.
 export default function LabReviewPanel({ samples, equipmentRegistry }) {
   const { T, s } = useTheme();
   const list = useMemo(
@@ -62,7 +65,7 @@ function ReviewRow({ sample, contractor }) {
   const run = useLabWorkflow();
   const canValidate = useIsAccEngineer();
   const canReturn = useIsAccEngineer();
-  const [returning, setReturning] = useState(false);
+  const [returning, setReturning] = useState(false); // false | "return" | "reject" | "remove"
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -73,8 +76,8 @@ function ReviewRow({ sample, contractor }) {
   const pending = sample.validationStatus === "Pending Validation";
 
   async function go(kind) {
-    if (kind === "return" && !reason.trim()) {
-      setError("Write why it's returned.");
+    if ((kind === "return" || kind === "reject") && !reason.trim()) {
+      setError(kind === "reject" ? "Write why it's rejected." : "Write why it's returned.");
       return;
     }
     setBusy(true);
@@ -82,6 +85,8 @@ function ReviewRow({ sample, contractor }) {
     try {
       await run(kind, sample, reason.trim());
       setViewing(false);
+      setReturning(false);
+      setReason("");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -108,7 +113,10 @@ function ReviewRow({ sample, contractor }) {
         {!pending && sample.returnReason && (
           <div style={{ fontSize: 12, color: T.danger, marginTop: 4 }}>
             {sample.returnReason} — {sample.returnedBy}
-            <div style={{ color: T.textSecondary }}>Correct the report and save it; it comes back here for validation.</div>
+            <div style={{ color: T.textSecondary }}>
+              Import its PDF again (Add Report → Import) or edit it — it comes back here for validation — or remove it. Not corrected in 30 days, it is
+              removed automatically.
+            </div>
           </div>
         )}
       </td>
@@ -135,24 +143,56 @@ function ReviewRow({ sample, contractor }) {
               </button>
             )}
             {canReturn && !returning && (
-              <button style={{ ...s.btn, color: T.danger, borderColor: T.danger }} disabled={busy} onClick={() => setReturning(true)}>
+              <button style={{ ...s.btn, color: T.danger, borderColor: T.danger }} disabled={busy} onClick={() => setReturning("return")} title="Send back to be corrected">
                 Return
+              </button>
+            )}
+            {canReturn && !returning && (
+              <button
+                style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
+                disabled={busy}
+                onClick={() => setReturning("reject")}
+                title="Not a report for this point (wrong point, not our sample, a duplicate): remove it"
+                data-testid={`lab-reject-${sample.sampleId}`}
+              >
+                <i className="ti ti-trash" aria-hidden="true" /> Reject
               </button>
             )}
             {!canValidate && !canReturn && <span style={{ fontSize: 12, color: T.textSecondary }}>Waiting for ACC validation</span>}
           </div>
         )}
-        {pending && returning && (
+        {!pending && run && !returning && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+            <button
+              style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
+              disabled={busy}
+              onClick={() => setReturning(canReturn ? "reject" : "remove")}
+              title="Remove this returned report (kept in the Lab Reports Removed sheet)"
+              data-testid={`lab-remove-${sample.sampleId}`}
+            >
+              <i className="ti ti-trash" aria-hidden="true" /> Remove
+            </button>
+          </div>
+        )}
+        {returning && (
           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
             <input
               style={{ ...s.input, flex: 1, minWidth: 140 }}
-              placeholder="What's missing or wrong"
-              aria-label="Return reason"
+              placeholder={returning === "return" ? "What's missing or wrong" : returning === "reject" ? "Why it's rejected" : "Why (optional)"}
+              aria-label={returning === "return" ? "Return reason" : "Reject reason"}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
-            <button style={{ ...s.btn, color: T.danger, borderColor: T.danger }} disabled={busy} onClick={() => go("return")}>
-              Send back
+            <button
+              style={{ ...s.btn, color: T.danger, borderColor: T.danger }}
+              disabled={busy}
+              onClick={() => go(returning)}
+              data-testid={`lab-confirm-${returning}-${sample.sampleId}`}
+            >
+              {returning === "return" ? "Send back" : returning === "reject" ? "Reject and remove" : "Remove"}
+            </button>
+            <button style={s.btn} disabled={busy} onClick={() => { setReturning(false); setError(""); }}>
+              Cancel
             </button>
           </div>
         )}

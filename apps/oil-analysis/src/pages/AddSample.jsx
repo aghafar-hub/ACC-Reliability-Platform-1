@@ -62,7 +62,7 @@ function normSampleId(v) {
   return String(v ?? "").trim().toUpperCase();
 }
 
-export default function AddSample({ equipmentOptions, equipmentRegistry, existingSamples, onAdd, onBulkAdd, onFillLabInfo, onLearnReportIds, onUploadReportPdfs }) {
+export default function AddSample({ equipmentOptions, equipmentRegistry, existingSamples, onAdd, onBulkAdd, onFillLabInfo, onCorrectLabReports, onLearnReportIds, onUploadReportPdfs }) {
   const { T, s } = useTheme();
   const [mode, setMode] = useState("manual"); // "manual" | "bulk" | "review"
   const [reviewCount, setReviewCount] = useState(null); // samples waiting in the Review tab
@@ -203,6 +203,7 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
           existingSamples={existingSamples}
           onBulkAdd={onBulkAdd}
           onFillLabInfo={onFillLabInfo}
+          onCorrectLabReports={onCorrectLabReports}
           onLearnReportIds={onLearnReportIds}
           onUploadReportPdfs={onUploadReportPdfs}
           view={mode === "review" ? "review" : "upload"}

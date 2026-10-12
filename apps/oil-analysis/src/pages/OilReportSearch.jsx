@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import EditSampleModal from "../components/EditSampleModal";
+import { useIsAccEngineer, useIsAppOwner } from "../SessionContext";
 import LabReviewPanel from "../components/LabReviewPanel";
 import { useTheme } from "../ThemeContext";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
@@ -43,10 +45,30 @@ export default function OilReportSearch({
   trackerByEquip,
   onAddAction,
   onUpdateAction,
+  onEditSample,
+  onDeleteSample,
   initialCode,
   focus,
 }) {
   const { T, s } = useTheme();
+  // Correcting an imported report: the App Owner and ACC Engineers edit
+  // (an ACC Engineer's change is validated again, the App Owner's stays
+  // validated); the App Owner deletes (kept in "Lab Reports Removed").
+  const isOwner = useIsAppOwner();
+  const isAccEngineer = useIsAccEngineer();
+  const [editing, setEditing] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const sampleTools = onEditSample && (isOwner || isAccEngineer)
+    ? {
+        onEdit: (sm) => setEditing(sm),
+        onDelete: isOwner && onDeleteSample
+          ? (sm) => {
+              const why = window.prompt(`Delete sample ${sm.sampleId} (${formatDate(sm.sampledDate)}) of ${sm.unitId}?\nWhy (kept with the removed report):`);
+              if (why !== null) onDeleteSample(sm, why.trim() || "Deleted by the App Owner").catch(() => {});
+            }
+          : null,
+      }
+    : null;
   const isMobile = useIsMobile();
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   const [equipCode, setEquipCode] = useState(initialCode || "All");
@@ -481,7 +503,7 @@ export default function OilReportSearch({
             ) : (
               <div className="report-layout" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
                 <div style={{ overflowX: "auto", borderRight: `1px solid ${T.border}`, minWidth: 0 }}>
-                  <ParamTable T={T} columns={columns} shown={history} actions={actions} code={equipCode} focusKey={focusKey} />
+                  <ParamTable T={T} s={s} columns={columns} shown={history} actions={actions} code={equipCode} focusKey={focusKey} tools={sampleTools} />
                 </div>
                 <div style={{ padding: 16, minWidth: 0 }}>
                   <LabTrendCharts T={T} history={history} changes={changeEvents} layout="column" testPrefix="report" />
@@ -507,6 +529,24 @@ export default function OilReportSearch({
             actionRegistry={actionRegistry}
           />
         </div>
+      )}
+      {editing && (
+        <EditSampleModal
+          sample={editing}
+          saving={editSaving}
+          onClose={() => setEditing(null)}
+          onSave={async (updated) => {
+            setEditSaving(true);
+            try {
+              await onEditSample(editing, updated);
+              setEditing(null);
+            } catch {
+              /* the toast says why; the form stays open */
+            } finally {
+              setEditSaving(false);
+            }
+          }}
+        />
       )}
     </div>
   );
@@ -744,7 +784,7 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
 // Parameters down the side, one column per sample (newest on the right),
 // with a narrow column wherever the oil was changed. A cell the lab marked
 // yellow / red on its report is tinted the same way.
-function ParamTable({ T, columns, shown, actions, code, focusKey }) {
+function ParamTable({ T, s, columns, shown, actions, code, focusKey, tools }) {
   const focusRef = useRef(null);
   useEffect(() => {
     if (focusRef.current) focusRef.current.scrollIntoView({ block: "nearest", inline: "center" });
@@ -837,6 +877,32 @@ function ParamTable({ T, columns, shown, actions, code, focusKey }) {
                 style={{ ...headStyle, minWidth: 90, boxShadow: focusKey && col.sample._id === focusKey ? `${focusShadow}, inset 0 2px 0 ${T.accent}` : undefined }}
               >
                 {formatDate(col.sample.sampledDate)}
+                {tools && (
+                  <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 4 }}>
+                    <button
+                      type="button"
+                      style={{ ...s.btn, padding: "2px 7px", fontSize: 12 }}
+                      onClick={() => tools.onEdit(col.sample)}
+                      title={`Edit sample ${col.sample.sampleId}`}
+                      aria-label={`Edit sample ${col.sample.sampleId}`}
+                      data-testid={`report-edit-${col.sample.sampleId}`}
+                    >
+                      <i className="ti ti-edit" aria-hidden="true" />
+                    </button>
+                    {tools.onDelete && (
+                      <button
+                        type="button"
+                        style={{ ...s.btn, padding: "2px 7px", fontSize: 12, color: T.danger, borderColor: T.danger }}
+                        onClick={() => tools.onDelete(col.sample)}
+                        title={`Delete sample ${col.sample.sampleId}`}
+                        aria-label={`Delete sample ${col.sample.sampleId}`}
+                        data-testid={`report-delete-${col.sample.sampleId}`}
+                      >
+                        <i className="ti ti-trash" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </th>
             )
           )}

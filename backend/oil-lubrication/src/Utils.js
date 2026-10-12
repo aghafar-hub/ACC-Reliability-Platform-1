@@ -235,19 +235,23 @@ function appendRow(ss, sheetName, row, headers) {
     return sheet.getLastRow();
   }
 
-  // Find the first truly empty row after the data-start row.
-  // This avoids writing after blank gap rows in sheets like Action Tracker
-  // where rows 1-5 are title/header and data starts at row 6.
+  // Write directly after the last row that holds anything in the columns
+  // this row will fill (rows 1-5 of Data_Entry / Action Tracker are title and
+  // header, data starts at row 6). Not just column A: a row with its first
+  // cell empty but other values (a sample typed into the sheet without a
+  // Lub ID) was overwritten by the next app save.
   var dataStart = dataStartRowFor(sheetName);
   var lastRow = sheet.getLastRow();
-  var allVals = sheet.getRange(dataStart, 1, Math.max(lastRow - dataStart + 1, 1), 1).getValues();
+  var width = row.length;
+  if (sheetName === "Data_Entry") width = Math.max(width, LAB_INFO_COL + LAB_INFO_FIELDS.length); // + the server-owned lab columns
+  var allVals = lastRow >= dataStart ? sheet.getRange(dataStart, 1, lastRow - dataStart + 1, width).getValues() : [];
   var firstEmpty = dataStart;
-  for (var i = 0; i < allVals.length; i++) {
-    if (allVals[i][0] !== "" && allVals[i][0] !== null) {
+  for (var i = allVals.length - 1; i >= 0; i--) {
+    if (allVals[i].some(function (v) { return v !== "" && v !== null; })) {
       firstEmpty = dataStart + i + 1;
+      break;
     }
   }
-  // firstEmpty is now the row number directly after the last non-empty row in col A
   sheet.getRange(firstEmpty, 1, 1, row.length).setValues([row]);
   stampLastModified(sheet, sheetName, firstEmpty);
   return firstEmpty;

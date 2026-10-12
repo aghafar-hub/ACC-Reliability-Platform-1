@@ -123,6 +123,10 @@ function runDailyOilNotifications() {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Returned lab reports nobody corrected in time leave Data_Entry
+    // (kept in "Lab Reports Removed" — LabReports.js).
+    try { summary.labReportsRemoved = cleanupReturnedLabReports_(ss); } catch (cleanErr) { logError("cleanupReturnedLabReports_", cleanErr, {}); }
+
     // ── Lubrication points due soon ──────────────────────────────────
     var dueByContractor = {};
     lpsDueSoon_(ss, today, DUE_SOON_NOTIFY_DAYS).forEach(function (it) {

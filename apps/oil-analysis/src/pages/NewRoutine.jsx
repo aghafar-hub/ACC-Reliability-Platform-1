@@ -91,6 +91,10 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
   const [oilType, setOilType] = useState("All");
   const [presetId, setPresetId] = useState("recommended");
   const [search, setSearch] = useState("");
+  // A Sampling route lists the points on the sampling list (Oil analysis =
+  // Yes); a one-off sample of any other point — new equipment, a sample
+  // before a time-based oil change — is picked with this switch on.
+  const [anyPoint, setAnyPoint] = useState(false);
   const [selected, setSelected] = useState([]); // [{ lpId, label, equipmentId, oilType, suggestionReason? }]
   const [reason, setReason] = useState(initialSuggestion?.routeType === "Emergency Top Up" ? initialSuggestion.reason || "" : "");
   // Phase 3: saved Suggestions (from submitted actions) — shown in the same
@@ -294,7 +298,7 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
     // contractor is "" for an ACC account that hasn't picked any equipment
     // yet — show both contractors' equipment until the first pick locks it.
     if (contractor && r.contractor && r.contractor !== contractor) return false;
-    if (routeType === "Sampling" && r.oilAnalysisRequired !== "Yes") return false;
+    if (routeType === "Sampling" && r.oilAnalysisRequired !== "Yes" && !anyPoint && !selected.some((x) => x.lpId === r.code)) return false;
     if (!isEmergencyTopUp && area !== "All" && r.area !== area) return false;
     if (!isEmergencyTopUp && oilType !== "All" && r.lubricant !== oilType) return false;
     if (!q) return true;
@@ -654,6 +658,15 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                   <span style={{ color: T.textSecondary }}>
                     <span style={{ color: T.accent }}>●</span> = suggested
                   </span>
+                  {routeType === "Sampling" && (
+                    <label
+                      style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}
+                      title="New equipment, or a sample before a time-based oil change: points not on the sampling list (Oil analysis = No / not set)"
+                    >
+                      <input type="checkbox" checked={anyPoint} onChange={(e) => setAnyPoint(e.target.checked)} data-testid="route-any-point" />
+                      Also points not on the sampling list (one-off sample)
+                    </label>
+                  )}
                 </div>
               </div>
               <div style={{ maxHeight: 340, overflowY: "auto" }}>
@@ -671,6 +684,9 @@ export default function NewRoutine({ webhookUrl, equipmentRegistry, samples, act
                           {suggestedIds.has(r.code) && <span style={{ color: T.accent, fontSize: 10 }} aria-label="suggested">●</span>}
                           <span style={{ ...mono, fontSize: 12.5 }}>{r.code}</span>
                           {why && <ReasonBadge T={T} reason={why} />}
+                          {routeType === "Sampling" && r.oilAnalysisRequired !== "Yes" && (
+                            <span style={{ fontSize: 12, color: T.warning, fontWeight: 600 }}>one-off sample</span>
+                          )}
                         </span>
                         <span style={{ display: "block", fontSize: 12, color: T.textSecondary }}>
                           {r.lubricationPoint || r.description}
