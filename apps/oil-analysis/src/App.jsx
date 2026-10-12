@@ -650,6 +650,9 @@ function AppShell({ config, setConfig, navBridge }) {
   // Draft action on the server, so a sync follows.
   const runLabStep = useCallback(
     async (kind, sample, text) => {
+      // "pdf": the lab's own PDF kept with this sample (opening it is what
+      // lets this person validate — checked on the server too)
+      if (kind === "pdf") return api.getLabReportPdf(config.webhookUrl, sample);
       const saved = kind === "validate" ? await api.validateLabReport(config.webhookUrl, sample) : await api.returnLabReport(config.webhookUrl, sample, text);
       setSamples((prev) => {
         const next = prev.map((sm) => (sm._id === sample._id ? saved : sm));
@@ -796,6 +799,21 @@ function AppShell({ config, setConfig, navBridge }) {
   // times in a large batch.
   // Re-imported reports that are already saved: fill in their missing report
   // details (account, asset, bottle…). Never adds a sample.
+  // The imported PDFs, uploaded before their samples are saved so each
+  // sample can point to its lab report.
+  const onUploadReportPdfs = useCallback(
+    async (pdfs) => {
+      for (const p of pdfs) {
+        try {
+          await api.uploadLabReportPdf(config.webhookUrl, p.fileKey, p.file);
+        } catch (err) {
+          pushToast(`${p.file?.name || "Lab report"}: the PDF wasn't kept — ${err.message}`, "error");
+        }
+      }
+    },
+    [config.webhookUrl, pushToast]
+  );
+
   const onFillLabInfo = useCallback(
     async (fills) => {
       let done = 0;
@@ -1429,6 +1447,7 @@ function AppShell({ config, setConfig, navBridge }) {
                 onBulkAdd={onBulkAddSamples}
                 onFillLabInfo={onFillLabInfo}
                 onLearnReportIds={onLearnReportIds}
+                onUploadReportPdfs={onUploadReportPdfs}
               />
             </div>
           )}

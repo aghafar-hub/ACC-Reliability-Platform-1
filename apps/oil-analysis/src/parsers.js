@@ -863,6 +863,7 @@ export function rowToSample(row) {
     model: row[57] || "",
     viscTemp: String(row[58] || ""), // "40" | "100" | "" (not recorded)
     isoCode: String(row[59] || "").replace(/^'/, "").trim(), // ISO 4406 cleanliness code, e.g. "22/21/19"
+    reportFile: String(row[60] || "").trim(), // key of the lab's own PDF (api.js getLabReportPdf)
     _id: sampleUid ? `uid_${sampleUid}` : `${unitId}_${sampleId}_${sampledDate}`,
     // Patch 6: a sample created after the Sample_UID column existed gets
     // matched by that alone — always unique, no ambiguity possible. A

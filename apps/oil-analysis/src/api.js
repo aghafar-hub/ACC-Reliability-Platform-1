@@ -621,7 +621,7 @@ export function validateLabReport(webhookUrl, sample) {
   return labReviewStep(
     webhookUrl, sample, { action: "validateLabReport" },
     (sm) => sm.validationStatus === "Validated",
-    "The validation wasn't confirmed — only this contractor's engineer can validate. Please try again."
+    "The validation wasn't confirmed — only this contractor's engineer can validate, after opening the lab report. Please try again."
   );
 }
 
@@ -754,7 +754,7 @@ export async function getOilChangesForLp(webhookUrl, lpId) {
 // future edit/delete instead of by the ambiguous (equipmentCode, sampleId)
 // pair described below. newId() (parsers.js) is the same id generator
 // Routines/Oil Inventory already use for exactly this reason.
-export const LAB_INFO_KEYS = ["accountId", "accountName", "accountAddress", "assetId", "serviceLevel", "bottleId", "testedLubricant", "assetClass", "manufacturer", "model", "viscTemp", "isoCode"];
+export const LAB_INFO_KEYS = ["accountId", "accountName", "accountAddress", "assetId", "serviceLevel", "bottleId", "testedLubricant", "assetClass", "manufacturer", "model", "viscTemp", "isoCode", "reportFile"];
 
 export async function saveSample(webhookUrl, sample, headers) {
   const sampleUid = sample.sampleUid || newId("SMP");
@@ -1430,6 +1430,37 @@ export async function listOrgUsers(platformCoreUrl, sessionToken) {
 
 // Re-importing a report already saved: fill in its report details where they
 // are still empty (the server never overwrites, see LabReports.js).
+// The lab's own PDF, kept with the samples it was imported from (server:
+// LabReports.js saveLabReportPdf_). fileKey: "LRP-<uuid>", saved in each
+// sample's Report PDF column (sample.reportFile).
+export function newLabReportFileKey() {
+  return "LRP-" + (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`);
+}
+
+async function fileToBase64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+export async function uploadLabReportPdf(webhookUrl, fileKey, file) {
+  await postBlind(webhookUrl, { action: "saveLabReportPdf", fileKey, fileName: file.name || "", pdfBase64: await fileToBase64(file) });
+}
+
+// { none: true } when no PDF is kept with this sample (entered by hand, or
+// imported before PDFs were kept); otherwise { fileName, bytes }. Opening it
+// is what lets this person validate the report.
+export async function getLabReportPdf(webhookUrl, sample) {
+  const json = await getJSON(webhookUrl, { action: "getLabReportPdf", sampleUid: sample.sampleUid || "", equipmentCode: sample.unitId || "", sampleId: sample.sampleId || "" });
+  if (!json || json.error) throw new Error((json && json.error) || "The lab report couldn't be loaded.");
+  if (json.none || !json.pdfBase64) return { none: true, missing: !!json.missing };
+  const bin = atob(json.pdfBase64 || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { fileName: json.fileName || "", bytes };
+}
+
 // results: { "<Data_Entry column>": value } — results the old import missed
 // (Mg, and readings of 0), filled only where the saved cell is empty
 // (server: LabReports.js fillLabReportInfo_).

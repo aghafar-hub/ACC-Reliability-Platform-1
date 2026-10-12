@@ -287,6 +287,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getLabReportPdf":
+        result = getLabReportPdf_(SpreadsheetApp.getActiveSpreadsheet(), e.parameter, auth.session, scope);
+        break;
       case "getRoutesForLp":
         result = getRoutesForLp(e.parameter.lpId, scope);
         break;
@@ -496,6 +499,14 @@ function doPostInner_(e) {
         }
         recordAudit_(ss, data.sheet, appendLpId, "create", actingUser, scope || resolveLpContractor_(appendLpId), "New " + data.sheet + " entry added");
         return jsonOut({status:"ok"});
+      }
+
+      // The lab's own PDF, uploaded at import (LabReports.js).
+      if (data.action === "saveLabReportPdf") {
+        requirePermission_(auth.session, "Edit");
+        var pdfSaved = saveLabReportPdf_(data);
+        logError("doPost:saveLabReportPdf", pdfSaved.error || "ok", {fileKey: data.fileKey, fileName: data.fileName, actingUser: actingUser});
+        return jsonOut(pdfSaved.error ? {status: "error", message: pdfSaved.error} : pdfSaved);
       }
 
       if (data.action === "fillLabInfo") {

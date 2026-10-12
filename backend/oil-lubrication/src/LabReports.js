@@ -47,8 +47,9 @@ function ensureLabHeaders_(sheet) {
 // The lab report's own header (account, sample and equipment panels), read
 // by the PDF import and saved with each new sample — so the Oil Analysis
 // Report shows them from the report, not typed into the app. Data_Entry
-// columns after Returned Date (0-based 48–59; 58 = the viscosity test
-// temperature, 40 or 100 °C; 59 = the ISO 4406 code, e.g. "22/21/19").
+// columns after Returned Date (0-based 48–60; 58 = the viscosity test
+// temperature, 40 or 100 °C; 59 = the ISO 4406 code, e.g. "22/21/19";
+// 60 = the key of the lab's own PDF, see saveLabReportPdf_).
 var LAB_INFO_COL = 48;
 var LAB_INFO_FIELDS = [
   ["accountId", "Account ID"],
@@ -62,7 +63,8 @@ var LAB_INFO_FIELDS = [
   ["manufacturer", "Manufacturer"],
   ["model", "Model"],
   ["viscTemp", "Visc Temp (°C)"],
-  ["isoCode", "ISO Code (4/6/14)"]
+  ["isoCode", "ISO Code (4/6/14)"],
+  ["reportFile", "Report PDF"]
 ];
 
 function ensureLabInfoHeaders_(sheet) {
@@ -250,12 +252,78 @@ function onLabReportSaved_(ss, row, actingUser, isNew, reopen) {
   }
 }
 
+// ── The lab's own PDF ─────────────────────────────────────────────────────
+// Kept at import (one file per imported PDF, in this script's Drive folder,
+// never shared) so whoever validates checks every value against the lab's
+// report: Validate is refused until that person has opened it.
+var LAB_PDF_COL = LAB_INFO_COL + 12; // 0-based 60, "Report PDF"
+var LAB_PDF_FOLDER_PROP = "LAB_PDF_FOLDER_ID";
+var LAB_PDF_KEY_RE = /^LRP-[A-Za-z0-9-]{8,60}$/;
+var LAB_PDF_MAX_BYTES = 15 * 1024 * 1024;
+var LAB_PDF_VIEW_SECONDS = 6 * 60 * 60;
+
+function labPdfFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty(LAB_PDF_FOLDER_PROP);
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) { /* deleted: make a new one */ }
+  }
+  var folder = DriveApp.createFolder("Oil Lubrication - lab report PDFs (app)");
+  props.setProperty(LAB_PDF_FOLDER_PROP, folder.getId());
+  return folder;
+}
+
+function labPdfFile_(key) {
+  var it = labPdfFolder_().getFilesByName(key + ".pdf");
+  return it.hasNext() ? it.next() : null;
+}
+
+function saveLabReportPdf_(data) {
+  var key = String(data.fileKey || "").trim();
+  if (!LAB_PDF_KEY_RE.test(key)) return { error: "Invalid report file key" };
+  var b64 = String(data.pdfBase64 || "");
+  if (!b64) return { error: "No PDF received" };
+  var bytes = Utilities.base64Decode(b64);
+  if (bytes.length > LAB_PDF_MAX_BYTES) return { error: "The PDF is too large (over 15 MB)" };
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== "%PDF") return { error: "This file is not a PDF" };
+  if (labPdfFile_(key)) return { status: "ok", unchanged: true };
+  var file = labPdfFolder_().createFile(Utilities.newBlob(bytes, "application/pdf", key + ".pdf"));
+  file.setDescription(String(data.fileName || "").slice(0, 200));
+  return { status: "ok" };
+}
+
+function labPdfViewKey_(email, row) {
+  return "labpdf|" + String(email || "").toLowerCase() + "|" + normSampleId_(row[3]) + "|" + String(row[LAB_COL.UID] || "");
+}
+
+function labPdfKeyOf_(found) {
+  return String(found.sheet.getRange(found.rowIdx, LAB_PDF_COL + 1).getValue() || "").trim();
+}
+
+// GET getLabReportPdf: the PDF of one saved sample (base64). Opening it is
+// what allows this person to validate the report.
+function getLabReportPdf_(ss, params, session, scope) {
+  var found = findSampleRow_(ss, { sampleUid: params.sampleUid, equipmentCode: params.equipmentCode, sampleId: params.sampleId });
+  if (found.error) return { status: "error", error: found.error };
+  if (scope && resolveLpContractor_(found.row[0]) !== scope) return { status: "error", error: "This lab report belongs to another contractor." };
+  var key = labPdfKeyOf_(found);
+  if (!key) return { status: "ok", none: true };
+  var file = labPdfFile_(key);
+  if (!file) return { status: "ok", none: true, missing: true };
+  try { CacheService.getScriptCache().put(labPdfViewKey_(session && session.email, found.row), "1", LAB_PDF_VIEW_SECONDS); } catch (e) { logError("getLabReportPdf_:cache", e, {}); }
+  return { status: "ok", fileName: file.getDescription() || file.getName(), pdfBase64: Utilities.base64Encode(file.getBlob().getBytes()) };
+}
+
 function validateLabReport(ss, data) {
   var found = findSampleRow_(ss, data);
   if (found.error) return found;
   var status = labStatusOf_(found.row);
   if (status === LAB_STATUS.VALIDATED || status === "") return { status: "ok", unchanged: true };
   if (status !== LAB_STATUS.PENDING) return { error: "This report was returned for correction — it has to be corrected first" };
+  // the lab's PDF is kept with this report: it must have been opened first
+  if (labPdfKeyOf_(found) && !CacheService.getScriptCache().get(labPdfViewKey_(data.actingUser, found.row))) {
+    return { error: "Open the lab report (PDF) and check its values before validating." };
+  }
   ensureLabHeaders_(found.sheet);
   found.sheet.getRange(found.rowIdx, LAB_COL.STATUS + 1, 1, 1).setValue(LAB_STATUS.VALIDATED);
   found.sheet.getRange(found.rowIdx, LAB_COL.VALIDATED_BY + 1, 1, 2).setValues([[data.actingUser || "", new Date()]]);

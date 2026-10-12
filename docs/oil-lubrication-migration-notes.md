@@ -481,3 +481,23 @@ Sheets architecture as solid as it can be, in this order:
   date). It shows in the Oil Analysis Report table, the import review and
   Add Report. Only reports where the lab counted particles have one.
   Re-importing an older PDF fills an empty ISO code too.
+
+## Lab report validation: check against the lab's PDF (Oct 2026)
+
+- **The imported PDF is kept.** At import each PDF is uploaded once
+  (`saveLabReportPdf`, `LabReports.js`) into a Drive folder owned by the Oil
+  Apps Script ("Oil Lubrication - lab report PDFs (app)", id in Script
+  Property `LAB_PDF_FOLDER_ID`, created on first use, never shared). Each
+  sample saved from it holds the file key in Data_Entry column 61 (0-based
+  60, "Report PDF"). Re-importing an older report attaches its PDF too.
+- **Open report.** The review list (Oil Analysis Report → Lab reports to
+  review) has an **Open report** button per row: the lab's PDF (every page)
+  beside the values saved in the app, with **Validate** in the viewer.
+- **Validate is locked until the report is opened** — in the app, and on the
+  server: `getLabReportPdf` records that this person opened it (6 h), and
+  `validateLabReport` refuses otherwise. Reports with no PDF kept (entered by
+  hand, or imported before this) open the saved values only and validate as
+  before.
+- The PDF is only served to people who can see that point (the other
+  contractor is refused). First deploy: Apps Script asks once for Drive
+  permission — run `checkInstall` from the editor and allow it.

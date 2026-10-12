@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor } from "../SessionContext";
 import { useLabWorkflow } from "../ActionWorkflowContext";
+import LabReportViewer from "./LabReportViewer";
 
 // Phase 4 — lab reports waiting for review. The contractor's engineer
 // validates (a Caution/Alert result then creates the Draft action); an ACC
@@ -31,7 +32,7 @@ export default function LabReviewPanel({ samples, equipmentRegistry }) {
         Lab reports to review ({list.length})
       </p>
       <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>
-        The contractor's engineer validates each report. An ACC Engineer can return a missing or incorrect one.
+        The contractor's engineer validates each report after opening it and checking its values against the lab's PDF. An ACC Engineer can return a missing or incorrect one.
       </p>
       <div style={{ overflowX: "auto" }}>
         <table style={s.table}>
@@ -65,6 +66,10 @@ function ReviewRow({ sample, contractor }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Validate stays locked until this person has opened the report (the
+  // lab's PDF next to the saved values) — the server checks it too.
+  const [viewing, setViewing] = useState(false);
+  const [opened, setOpened] = useState(false);
   const pending = sample.validationStatus === "Pending Validation";
 
   async function go(kind) {
@@ -76,6 +81,7 @@ function ReviewRow({ sample, contractor }) {
     setError("");
     try {
       await run(kind, sample, reason.trim());
+      setViewing(false);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -107,11 +113,25 @@ function ReviewRow({ sample, contractor }) {
         )}
       </td>
       <td style={{ ...s.td, minWidth: 220 }}>
+        {run && (
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: pending ? 6 : 0 }}>
+            <button style={s.btn} onClick={() => setViewing(true)} data-testid={`lab-open-${sample.sampleId}`} title="The lab's PDF next to the values saved in the app">
+              <i className="ti ti-file-type-pdf" aria-hidden="true" /> {sample.reportFile ? "Open report" : "Check values"}
+              {opened && <i className="ti ti-check" aria-hidden="true" style={{ color: T.success }} />}
+            </button>
+          </div>
+        )}
         {pending && run && (
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {canValidate && (
-              <button style={s.btnPrimary} disabled={busy} onClick={() => go("validate")}>
-                {busy ? "…" : "Validate"}
+              <button
+                style={{ ...s.btnPrimary, ...(opened ? null : { opacity: 0.55, cursor: "not-allowed" }) }}
+                disabled={busy || !opened}
+                onClick={() => go("validate")}
+                title={opened ? "Validate this lab report" : "Open the report and check its values first"}
+                data-testid={`lab-validate-${sample.sampleId}`}
+              >
+                {busy ? "…" : opened ? "Validate" : <><i className="ti ti-lock" aria-hidden="true" /> Validate</>}
               </button>
             )}
             {canReturn && !returning && (
@@ -136,7 +156,31 @@ function ReviewRow({ sample, contractor }) {
             </button>
           </div>
         )}
+        {pending && canValidate && !opened && (
+          <div style={{ fontSize: 12, color: T.textSecondary, marginTop: 4 }}>Open the report and check its values to unlock Validate.</div>
+        )}
         {error && <div style={{ fontSize: 12, color: T.danger, marginTop: 4 }}>{error}</div>}
+        {viewing && (
+          <LabReportViewer
+            sample={sample}
+            loadPdf={(sm) => run("pdf", sm)}
+            onOpened={() => setOpened(true)}
+            onClose={() => setViewing(false)}
+            actions={
+              <>
+                {error && <span style={{ fontSize: 12, color: T.danger, marginRight: "auto" }}>{error}</span>}
+                <button style={s.btn} onClick={() => setViewing(false)}>
+                  Close
+                </button>
+                {pending && canValidate && (
+                  <button style={s.btnPrimary} disabled={busy || !opened} onClick={() => go("validate")} data-testid="lab-viewer-validate">
+                    {busy ? "…" : opened ? "Values checked — Validate" : "Loading…"}
+                  </button>
+                )}
+              </>
+            }
+          />
+        )}
       </td>
     </tr>
   );

@@ -432,6 +432,19 @@ export async function parsePdfReport(file) {
   };
 }
 
+// The lab report viewer (LabReportViewer.jsx): every page of a kept PDF
+// drawn to a canvas — works the same on a phone, where a PDF in a frame
+// shows only its first page.
+export async function renderPdfPages(bytes, scale = 1.6) {
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pages = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const { ctx } = await renderPageCanvas(await pdf.getPage(p), scale);
+    pages.push(ctx.canvas);
+  }
+  return pages;
+}
+
 export async function parsePdfReports(files, onProgress) {
   const results = [];
   for (let i = 0; i < files.length; i++) {

@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { parsePdfReports } from "../pdfReportParser";
+import { newLabReportFileKey } from "../api";
 import ImportReview from "./ImportReview";
 
 const MAX_FILES = 30;
 
 // Upload + parse; the review then opens as its own tab on the Add Report page
 // (view === "review", see AddSample.jsx) instead of a pop-up.
-export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, onLearnReportIds, view = "upload", onReviewReady }) {
+export default function BulkImportPanel({ equipmentRegistry, existingSamples, onBulkAdd, onFillLabInfo, onLearnReportIds, onUploadReportPdfs, view = "upload", onReviewReady }) {
   const { T, s } = useTheme();
   const [files, setFiles] = useState([]);
   const [parsing, setParsing] = useState(false);
@@ -31,7 +32,13 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
     setParsing(true);
     setParseProgress({ done: 0, total: files.length });
     try {
-      const results = await parsePdfReports(files, (done, total) => setParseProgress({ done, total }));
+      const parsed = await parsePdfReports(files, (done, total) => setParseProgress({ done, total }));
+      // each PDF is kept with its samples, so whoever validates can open it
+      const results = parsed.map((r, i) => {
+        if (!r.ok) return r;
+        const reportFile = newLabReportFileKey();
+        return { ...r, file: files[i], reportFile, samples: r.samples.map((sm) => ({ ...sm, reportFile })) };
+      });
       setParsedReports(results);
       onReviewReady?.(results.reduce((n, r) => n + (r.ok ? r.samples.length : 0), 0));
     } finally {
@@ -43,6 +50,10 @@ export default function BulkImportPanel({ equipmentRegistry, existingSamples, on
     setSaving(true);
     setSaveProgress({ done: 0, total: selectedSamples.length, errors: 0 });
     try {
+      // the PDFs these samples / fill-ins point to go up first
+      const keys = new Set([...selectedSamples.map((sm) => sm.reportFile), ...fills.map((f) => f.labInfo?.reportFile)].filter(Boolean));
+      const pdfs = (parsedReports || []).filter((r) => r.ok && keys.has(r.reportFile)).map((r) => ({ fileKey: r.reportFile, file: r.file }));
+      if (pdfs.length && onUploadReportPdfs) await onUploadReportPdfs(pdfs);
       const result = selectedSamples.length
         ? await onBulkAdd(selectedSamples, (done, total, errors) => setSaveProgress({ done, total, errors }))
         : { saved: 0, failed: 0 };

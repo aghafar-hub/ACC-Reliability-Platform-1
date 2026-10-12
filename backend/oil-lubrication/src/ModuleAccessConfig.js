@@ -78,6 +78,7 @@ var MA_CONFIG = {
     getOilInventoryForecast: ["inventory", "dashboard", "reports"],
     getOilInventoryConsumption: ["inventory", "dashboard", "reports"],
     getAuditTrail: ["activity", "equipment", "routines", "inventory"],
+    getLabReportPdf: ["oilreport", "upload", "tracker"],
   },
 
   // Sections of the start-up bundle (readAll / getStartupBundle /
@@ -120,6 +121,7 @@ var MA_CONFIG = {
     setOilEquivalent: ["inventory"],
     returnLabReport: ["oilreport", "upload", "tracker"],
     fillLabInfo: ["upload"],
+    saveLabReportPdf: ["upload"],
     learnReportEquipmentId: ["upload"],
     rescheduleRoutine: ["routines"],
     addRoutineComment: ["routines", "mywork"],
