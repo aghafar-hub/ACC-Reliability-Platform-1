@@ -47,8 +47,8 @@ function ensureLabHeaders_(sheet) {
 // The lab report's own header (account, sample and equipment panels), read
 // by the PDF import and saved with each new sample — so the Oil Analysis
 // Report shows them from the report, not typed into the app. Data_Entry
-// columns after Returned Date (0-based 48–58; 58 = the viscosity test
-// temperature, 40 or 100 °C).
+// columns after Returned Date (0-based 48–59; 58 = the viscosity test
+// temperature, 40 or 100 °C; 59 = the ISO 4406 code, e.g. "22/21/19").
 var LAB_INFO_COL = 48;
 var LAB_INFO_FIELDS = [
   ["accountId", "Account ID"],
@@ -61,7 +61,8 @@ var LAB_INFO_FIELDS = [
   ["assetClass", "Asset Class"],
   ["manufacturer", "Manufacturer"],
   ["model", "Model"],
-  ["viscTemp", "Visc Temp (°C)"]
+  ["viscTemp", "Visc Temp (°C)"],
+  ["isoCode", "ISO Code (4/6/14)"]
 ];
 
 function ensureLabInfoHeaders_(sheet) {
@@ -83,7 +84,8 @@ function ensureLabInfoHeaders_(sheet) {
 // by Sheets as a formula.
 function labInfoText_(v) {
   var s = String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, 200);
-  return /^[=+\-@]/.test(s) ? "'" + s : s;
+  // also "20/18/17": Sheets would read a code like that as a date
+  return /^[=+\-@]/.test(s) || /^\d+\/\d+/.test(s) ? "'" + s : s;
 }
 
 function writeLabReportInfo_(ss, row, info) {
@@ -118,6 +120,9 @@ function findSampleRowById_(ss, sampleId) {
   return { error: "Lab report not found" };
 }
 
+// Data_Entry result columns (0-based) a re-import may fill when empty.
+var LAB_FILL_RESULTS = { Mg: 32 };
+
 function fillLabReportInfo_(found, info) {
   ensureLabInfoHeaders_(found.sheet);
   var range = found.sheet.getRange(found.rowIdx, LAB_INFO_COL + 1, 1, LAB_INFO_FIELDS.length);
@@ -130,6 +135,17 @@ function fillLabReportInfo_(found, info) {
     return current[i];
   });
   if (filled) range.setValues([next]);
+  // Results the PDF import used to miss (Mg was never read before the
+  // fix): an empty cell is filled from the re-imported report; a value
+  // already there is never changed.
+  Object.keys(LAB_FILL_RESULTS).forEach(function (k) {
+    var v = info.results ? info.results[k] : undefined;
+    if (v === undefined || v === null || String(v).trim() === "" || isNaN(Number(v))) return;
+    var cell = found.sheet.getRange(found.rowIdx, LAB_FILL_RESULTS[k] + 1);
+    if (String(cell.getValue()).trim() !== "") return;
+    cell.setValue(Number(v));
+    filled++;
+  });
   return filled;
 }
 

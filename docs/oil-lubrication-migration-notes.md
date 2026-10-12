@@ -462,3 +462,18 @@ Sheets architecture as solid as it can be, in this order:
 4. **Mobile view** (not started) — separate from backend hardening.
 5. **RBAC** (not started) — Option B Phase 2; everyone can still do
    everything once logged in, only identity is tracked so far.
+
+## Lab report import: Mg and ISO code (Oct 2026)
+
+- **Mg (Magnesium) was never read from PDF reports.** On the lab's PDF the
+  "(ppm)" under "Additive" sits on the Mg line, and the reader took it for
+  that line's label. Fixed in `pdfReportParser.js` (`SECTION_HEADER_RE`).
+  Reports saved before the fix have an empty Mg cell; importing the same PDF
+  again fills **only empty** Mg cells (`LabReports.js` `LAB_FILL_RESULTS`) —
+  a value already there is never changed.
+- **ISO Code (4/6/14)** (ISO 4406 cleanliness, e.g. `22/21/19`) is read from
+  the report and saved in Data_Entry column 60 (0-based 59, header
+  "ISO Code (4/6/14)", written as text so Sheets doesn't turn it into a
+  date). It shows in the Oil Analysis Report table, the import review and
+  Add Report. Only reports where the lab counted particles have one.
+  Re-importing an older PDF fills an empty ISO code too.

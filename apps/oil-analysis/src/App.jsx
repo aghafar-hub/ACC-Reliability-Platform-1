@@ -801,7 +801,7 @@ function AppShell({ config, setConfig, navBridge }) {
       let done = 0;
       for (const f of fills) {
         try {
-          await api.fillLabInfo(config.webhookUrl, f.sampleId, f.labInfo);
+          await api.fillLabInfo(config.webhookUrl, f.sampleId, f.labInfo, f.results);
           done++;
         } catch (err) {
           pushToast(`${f.sampleId}: ${err.message}`, "error");

@@ -503,7 +503,8 @@ function doPostInner_(e) {
         var fillFound = findSampleRowById_(ss, data.sampleId);
         if (fillFound.error) return jsonOut({status: "error", message: fillFound.error});
         requireLpContractorMatch_(auth.session, fillFound.lpId);
-        var fillCount = fillLabReportInfo_(fillFound, data.labInfo || {});
+        var fillCount = fillLabReportInfo_(fillFound, Object.assign({}, data.labInfo || {}, { results: data.results || {} }));
+        if (fillCount) invalidateDashboardCache();
         if (fillCount) recordAudit_(ss, "Data_Entry", fillFound.lpId, "update", actingUser, scope || resolveLpContractor_(fillFound.lpId), "Filled report details for sample " + data.sampleId);
         return jsonOut({status: "ok", filled: fillCount});
       }

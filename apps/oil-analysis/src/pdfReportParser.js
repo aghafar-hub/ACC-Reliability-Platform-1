@@ -38,6 +38,8 @@ const FIELD_ROWS = [
   { match: "contamination rating", key: "contaminationRating", type: "text" },
   { match: "equipment rating", key: "equipmentRating", type: "text" },
   { match: "lubricant rating", key: "lubricantRating", type: "text" },
+  // e.g. "22/21/19" — only on reports where the lab counted particles
+  { match: "iso code", key: "isoCode", type: "text" },
   { match: "particle count >4um", key: "particleCount4um", type: "num", flaggable: "PC4" },
   { match: "particle count >6um", key: "particleCount6um", type: "num", flaggable: "PC6" },
   { match: "particle count>14um", key: "particleCount14um", type: "num", flaggable: "PC14" },
@@ -131,7 +133,10 @@ function buildRows(items) {
 // distinct row, but they can land within the same 2pt y-bucket as a real
 // field row by coincidence, which would otherwise make the section header
 // look like that row's label and swallow the real one entirely.
-const SECTION_HEADER_RE = /^(Sample Info|Lubricant|Wear|Contaminant|Additive)(\s*\(ppm\))?$/i;
+// The "(ppm)" under "Contaminant" / "Additive" is its own text item, and
+// under "Additive" it lands on the Mg (Magnesium) row — it must never be
+// taken as that row's label (Mg was never read before this).
+const SECTION_HEADER_RE = /^((Sample Info|Lubricant|Wear|Contaminant|Additive)(\s*\(ppm\))?|\(ppm\))$/i;
 
 function usableItems(row) {
   return row.items.filter((it) => !(it.x < 40 && SECTION_HEADER_RE.test(it.str.trim())));

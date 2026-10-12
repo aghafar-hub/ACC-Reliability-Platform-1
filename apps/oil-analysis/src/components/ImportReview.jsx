@@ -236,9 +236,13 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
       LAB_INFO_KEYS.forEach((k) => {
         if (c.sample[k] && !saved[k]) labInfo[k] = String(c.sample[k]);
       });
-      return { key: c._key, sampleId: c.sample.sampleId, labInfo };
+      // Mg: the import didn't read it before (its row had "(ppm)" as label)
+      const results = {};
+      const blank = (v) => v === "" || v === null || v === undefined;
+      if (!blank(c.sample.additives?.Mg) && blank(saved.additives?.Mg)) results.Mg = c.sample.additives.Mg;
+      return { key: c._key, sampleId: c.sample.sampleId, labInfo, results };
     })
-    .filter((f) => Object.keys(f.labInfo).length);
+    .filter((f) => Object.keys(f.labInfo).length || Object.keys(f.results).length);
   const fillKeys = new Set(fillable.map((f) => f.key));
   const fills = fillDetails ? fillable : [];
   // The registry "learns" a report's Unit ID: when the user picks the point
@@ -289,7 +293,7 @@ export default function ImportReview({ parsedReports, equipmentRegistry, existin
         reportEquipmentId: c.sample.reportEquipmentId || c.sample.unitId,
         recommendations: (c.sample.recommendations || []).map((r) => String(r).trim()).filter(Boolean),
       })),
-      fills.map(({ sampleId, labInfo }) => ({ sampleId, labInfo })),
+      fills.map(({ sampleId, labInfo, results }) => ({ sampleId, labInfo, results })),
       learns
     );
   }

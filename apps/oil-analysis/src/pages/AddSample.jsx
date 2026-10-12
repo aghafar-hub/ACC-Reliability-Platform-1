@@ -16,6 +16,7 @@ const EMPTY = {
   lubricantRating: "Normal",
   visc40C: "",
   viscTemp: "40",
+  isoCode: "",
   tan: "",
   oxidation: "",
   water: "",
@@ -324,6 +325,17 @@ export default function AddSample({ equipmentOptions, equipmentRegistry, existin
               {numField("TAN (mg KOH/g)", "tan")}
               {numField("Oxidation (Ab/cm)", "oxidation")}
               {numField("Water (Vol%)", "water")}
+              <div>
+                <label style={s.label}>ISO Code (4/6/14)</label>
+                <input
+                  style={{ ...s.input, fontSize: 12, padding: "6px 10px" }}
+                  value={form.isoCode}
+                  onChange={(e) => set("isoCode", e.target.value.replace(/[^0-9/]/g, ""))}
+                  placeholder="e.g. 22/21/19"
+                  inputMode="numeric"
+                  data-testid="add-iso"
+                />
+              </div>
             </div>
           </SectionBody>
 
