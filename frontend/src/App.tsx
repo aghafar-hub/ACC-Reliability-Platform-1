@@ -31,6 +31,7 @@ import Settings from './pages/Settings';
 import Activity from './pages/Activity';
 import Team from './pages/Team';
 import TechnicianShell from './pages/TechnicianShell';
+import NotFound from './pages/NotFound';
 import { ShellThemeProvider, useShellTheme } from './shellTheme';
 import './App.css';
 
@@ -155,6 +156,8 @@ function ShellRoot() {
             <Route path="/oil-analysis" element={<OldOilAddress />} />
             {/* The old parked route module was removed (it could approve a route without recording its work). */}
             <Route path="/oil-analysis-new/*" element={<OldOilAddress />} />
+            {/* anything else: "Page not found" (NotFound skips the two module addresses, drawn below) */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
           {/* Rendered unconditionally, outside <Routes> — each mounts itself
               lazily on first visit and then stays mounted (hidden via CSS)
