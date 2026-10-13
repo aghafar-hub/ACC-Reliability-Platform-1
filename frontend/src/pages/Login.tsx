@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { describeError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { SESSION_ENDED_NOTICE_KEY } from '../auth/sessionEnded';
-import './Auth.css';
+import AuthLayout, { AuthField, AuthIcon } from './AuthLayout';
 
 export default function Login() {
   const { login } = useAuth();
@@ -12,6 +12,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
+  const [forgot, setForgot] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // shown once: why the person is back on this page (sessionEnded.ts)
   const [notice] = useState<string | null>(() => {
@@ -41,52 +42,41 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card-wrap">
-        <div className="auth-brand">
-          <img src={`${import.meta.env.BASE_URL}brand/acc-logo-full.png`} alt="ACC Reliability" className="auth-logo" />
-          <p className="auth-tagline">Reliability Platform</p>
-        </div>
-
-        <form className="auth-card" onSubmit={handleSubmit}>
-          {notice && (
-            <p className="auth-hint" role="status" data-testid="signin-notice">
-              {notice}
-            </p>
-          )}
-          <label>
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-              autoComplete="username"
-            />
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </label>
-          <label className="auth-remember">
+    <AuthLayout>
+      <form className="auth-form" onSubmit={handleSubmit}>
+        <div className="auth-eyebrow">ACC Reliability Platform</div>
+        <h1>Welcome back</h1>
+        <p className="auth-sub">Sign in to your workspace</p>
+        {notice && (
+          <p className="auth-notice" role="status" data-testid="signin-notice">
+            <AuthIcon name="info" size={18} />
+            {notice}
+          </p>
+        )}
+        <AuthField label="Email address" icon="mail" type="email" value={email} onChange={setEmail} autoComplete="username" autoFocus placeholder="you@company.com" />
+        <AuthField label="Password" icon="lock" type="password" value={password} onChange={setPassword} autoComplete="current-password" />
+        <div className="auth-row">
+          <label className="auth-check">
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
             Keep me signed in
           </label>
-          {error && <p className="auth-error">{error}</p>}
-          <button type="submit" className="tap-scale" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
+          <button type="button" className="auth-link" onClick={() => setForgot((f) => !f)} aria-expanded={forgot}>
+            Forgot password?
           </button>
-        </form>
-
-        <p className="auth-footer">Arabian Cement Company · Sokhna Plant</p>
-      </div>
-    </div>
+        </div>
+        {forgot && (
+          <p className="auth-notice auth-notice--info" role="note">
+            <AuthIcon name="info" size={18} />
+            Ask the App Owner to reset your password. You get a temporary one and choose your own at the next sign-in.
+          </p>
+        )}
+        {error && <p className="auth-error">{error}</p>}
+        <button type="submit" className="auth-btn tap-scale" disabled={submitting}>
+          {submitting ? 'Signing in…' : 'Sign in'}
+          {!submitting && <AuthIcon name="arrow" />}
+        </button>
+        <p className="auth-need">Need access? Contact the App Owner</p>
+      </form>
+    </AuthLayout>
   );
 }
