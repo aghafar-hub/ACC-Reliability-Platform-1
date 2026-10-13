@@ -3,6 +3,8 @@ import { autoTable } from "jspdf-autotable";
 import logoUrl from "./assets/arabian-cement-logo.png";
 import { LEVEL_RANK, LEVELS } from "./levels";
 import { monthLabel, shortDate } from "./vibModel";
+import { CAT, LV, chartRow, donut, fit, hbars, heat, stackRows, trendGrid } from "./vibPdfCharts";
+import { machineTrends, short } from "./vibReportCharts";
 
 // Printable vibration reports, made in the browser from the same answers
 // the pages already load (no template file to keep in sync):
@@ -204,6 +206,53 @@ export function machinesOf(entries) {
   return Object.values(by).sort((a, b) => (LEVEL_RANK[b.worst] || 0) - (LEVEL_RANK[a.worst] || 0) || a.id.localeCompare(b.id));
 }
 
+
+// reading → how far it is to the alarm limit (1 = at the limit)
+function alarmRatio(e) {
+  const lim = String(e["Limits used (N/C/A)"] || "").split("/").map((n) => parseFloat(n));
+  const v = parseFloat(mainValue(e));
+  return lim.length === 3 && lim[2] > 0 && !Number.isNaN(v) ? v / lim[2] : null;
+}
+
+// Graphs of one survey report: machines by status, the points closest to
+// (or over) their alarm limit, readings per family and status, and how often
+// the contractor's status differs from the one worked out from the limits.
+function reportCharts(doc, y, machines, entries) {
+  const own = entries.filter((e) => !e["Reading kind"] || e["Reading kind"] === "Report reading");
+  if (!own.length) return y;
+  const worst = own
+    .map((e) => ({ e, r: alarmRatio(e) }))
+    .filter((x) => x.r != null)
+    .sort((a, b) => b.r - a.r)
+    .slice(0, 12);
+  const fams = ["RMS", "SPM", "g"].filter((f) => own.some((e) => e.Family === f || (f === "g" && !["RMS", "SPM"].includes(e.Family))));
+  const famOf = (e) => (["RMS", "SPM"].includes(e.Family) ? e.Family : "g");
+  const differ = own.filter((e) => e["Report differs"] === "Yes").length;
+  y = chartRow(doc, y, 30 + Math.max(110, worst.length * 15), [
+    (x, yy, w) => donut(doc, { x, y: yy, w, title: "Machines by status", parts: LEVELS.map((lv) => ({ label: lv, value: machines.filter((m) => m.worst === lv).length, color: LV[lv] })), centerSub: "machines" }),
+    (x, yy, w) =>
+      hbars(doc, {
+        x, y: yy, w,
+        title: "Points closest to the alarm limit",
+        sub: "100 % = alarm",
+        rows: worst.map(({ e, r }) => ({ label: `${e["Equipment ID"]} ${String(e["Point description"] || "").replace(/\s*\(.*\)$/, "")} ${e.Family || ""}`.trim(), value: Math.round(r * 100), text: `${Math.round(r * 100)} %`, color: LV[e["Final status"]] || CAT[0] })),
+        line: { value: 100, label: "alarm" },
+        empty: "No limits on these readings.",
+      }),
+  ]);
+  y = chartRow(doc, y, 130, [
+    (x, yy, w) =>
+      stackRows(doc, {
+        x, y: yy, w,
+        title: "Readings per family",
+        legend: LEVELS.map((lv) => ({ label: lv, color: LV[lv] })),
+        rows: fams.map((f) => ({ label: f === "g" ? "Acceleration (g)" : f, parts: LEVELS.map((lv) => ({ value: own.filter((e) => famOf(e) === f && e["Final status"] === lv).length, color: LV[lv] })) })),
+      }),
+    (x, yy, w) => donut(doc, { x, y: yy, w, title: "Report vs limits", parts: [{ label: "Same status", value: own.length - differ, color: LV.Normal }, { label: "Report differs", value: differ, color: LV.Caution }], centerSub: "readings" }),
+  ]);
+  return y;
+}
+
 function reportSection(doc, y, { report, entries, actions, findings }, single) {
   const r = report;
   const title = `${r.Contractor} · ${r["Report scope"]} · ${monthLabel(r.Month)}`;
@@ -231,6 +280,8 @@ function reportSection(doc, y, { report, entries, actions, findings }, single) {
     ],
     y
   );
+
+  y = reportCharts(doc, y, machines, entries);
 
   y = room(doc, y, 120);
   y = section(doc, "Machines", y);
@@ -330,21 +381,44 @@ export async function generateVibDashboardPdf({ d, contractor, machines, grid, m
   );
   y = para(doc, `Machines measured in ${d.onTime.year}: ${d.onTime.onTime} of ${d.onTime.due} machine-months${d.onTime.due ? ` (${Math.round((d.onTime.onTime / d.onTime.due) * 100)} %)` : ""}. Overdue for measuring now: ${d.measuring.overdue} (${d.measuring.dueNow} due now). Follow-up readings due in 14 days: ${d.followUps.due} (${d.followUps.overdue} overdue). Actions past due: ${d.actions.pastDue}, with no owner: ${d.actions.noOwner}.`, y);
 
-  y = section(doc, "Machines measured (% of the area's machines, per month)", y);
-  autoTable(doc, {
-    ...tableBase,
-    startY: y,
-    head: [["Area", ...months.map((m) => monthLabel(m).replace(/ 20(\d\d)$/, " $1"))]],
-    body: grid.map((g) => [g.area, ...g.cells.filter((c) => months.includes(c.month)).map((c) => (c.pct == null ? "–" : `${c.pct} %`))]),
-    styles: { ...tableBase.styles, fontSize: 7, cellPadding: 3 },
-    didParseCell: (data) => {
-      if (data.section !== "body" || data.column.index === 0) return;
-      const v = data.cell.raw;
-      const n = parseInt(v, 10);
-      data.cell.styles.textColor = isNaN(n) ? C.muted : n >= 90 ? C.Normal : n >= 70 ? C.Caution : C.Danger;
-    },
-  });
-  y = doc.lastAutoTable.finalY + 22;
+  const cond = [...LEVELS, "Not read"];
+  const condOf = (m) => m.status || "Not read";
+  const areas = [...new Set(machines.map((m) => m.area || "Other"))].sort();
+  y = chartRow(doc, y, 30 + Math.max(110, areas.length * 15 + 20), [
+    (x, yy, w) => donut(doc, { x, y: yy, w, title: "Machine condition", parts: cond.map((c) => ({ label: c, value: machines.filter((m) => condOf(m) === c).length, color: LV[c] })), centerSub: "machines" }),
+    (x, yy, w) =>
+      stackRows(doc, {
+        x, y: yy, w,
+        title: "Condition per area",
+        legend: cond.map((c) => ({ label: c, color: LV[c] })),
+        rows: areas.map((a) => ({ label: a, parts: cond.map((c) => ({ value: machines.filter((m) => (m.area || "Other") === a && condOf(m) === c).length, color: LV[c] })) })),
+      }),
+  ]);
+  const stages = d.actions.byStage || [];
+  y = chartRow(doc, y, 140, [
+    (x, yy, w) => donut(doc, { x, y: yy, w, title: "Open actions by stage", parts: stages.map((st, i) => ({ label: st.stage, value: st.count, color: CAT[[3, 0, 2, 1][i] ?? i] })), centerSub: "open" }),
+    (x, yy, w) =>
+      hbars(doc, {
+        x, y: yy, w,
+        title: "Needs follow-up now",
+        rows: [
+          { label: "Overdue for measuring", value: d.measuring.overdue, color: LV.Alert },
+          { label: "Never measured", value: d.measuring.never || 0, color: LV.Danger },
+          { label: "Due now", value: d.measuring.dueNow, color: LV.Caution },
+          { label: "Follow-ups overdue", value: d.followUps.overdue, color: LV.Alert },
+          { label: "Actions past due", value: d.actions.pastDue, color: LV.Alert },
+          { label: "Actions with no owner", value: d.actions.noOwner, color: CAT[3] },
+        ],
+      }),
+  ]);
+  y = fit(doc, y, 60 + grid.length * 13);
+  y = heat(doc, {
+    x: 36, y, w: doc.internal.pageSize.getWidth() - 72,
+    title: "Machines measured", sub: "% of the area's due machines, per month",
+    rowLabels: grid.map((g) => g.area),
+    colLabels: months.map(short),
+    values: grid.map((g) => months.map((m) => g.cells.find((c) => c.month === m)?.pct ?? null)),
+  }) + 18;
 
   y = room(doc, y, 120);
   y = section(doc, "Machines needing attention", y);
@@ -358,6 +432,13 @@ export async function generateVibDashboardPdf({ d, contractor, machines, grid, m
       : [["No machine at Caution or above", "", "", "", "", "", ""]],
     didParseCell: levelCells([3]),
   });
+  y = doc.lastAutoTable.finalY + 24;
+  const trends = machineTrends(worst.map((m) => ({ ...m, cond: m.status })));
+  if (trends.length) {
+    y = fit(doc, y, 120);
+    y = section(doc, "Worst machines — six-month trend of the worst point", y);
+    trendGrid(doc, y, trends);
+  }
   footer(doc);
   doc.save(`Vibration-Dashboard-${d.today}.pdf`);
 }

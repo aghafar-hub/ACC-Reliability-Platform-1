@@ -1,8 +1,10 @@
 import { autoTable } from "jspdf-autotable";
 import ExcelJS from "exceljs";
-import { PDF_COLORS as C, bigHeader, footer, levelCells, newDoc, para, room, stats, tableBase } from "./vibPdf";
+import { PDF_COLORS as C, bigHeader, footer, levelCells, newDoc, para, room, section, stats, tableBase } from "./vibPdf";
 import { ACTIVITY_SECTION, REPORT_SECTIONS, contractorLabel, periodLabel } from "./vibReportData";
 import { monthLabel, shortDate } from "./vibModel";
+import { sectionCharts } from "./vibReportCharts";
+import { chartRow, columns, donut, fit, hbars, heat, stackRows, trendGrid } from "./vibPdfCharts";
 
 // Vibration Reports → PDF / Excel (loaded only when someone downloads, so
 // the page itself stays light). Every section comes from vibReportData.js,
@@ -65,12 +67,43 @@ function barChart(doc, parts, y) {
   return y + parts.length * 18 + 14;
 }
 
+// how tall a chart spec will be (to keep a row of charts on one page)
+function specHeight(sp) {
+  if (!sp) return 0;
+  if (sp.kind === "donut") return 30 + Math.max(96, sp.parts.length * 15);
+  if (sp.kind === "hbars") return 34 + Math.max(sp.rows.length, 1) * 15;
+  if (sp.kind === "stackRows") return 50 + Math.max(sp.rows.length, 1) * 15;
+  if (sp.kind === "columns") return 150;
+  if (sp.kind === "heat") return 50 + sp.rowLabels.length * 13;
+  return 100;
+}
+const DRAW = { donut, hbars, stackRows, columns, heat };
+
+// rows of chart specs (vibReportCharts.js), two per row at most
+export function drawCharts(doc, rows, y) {
+  rows.forEach((row) => {
+    const trends = row.find((sp) => sp?.kind === "trends");
+    if (trends) {
+      if (!trends.items.length) return;
+      y = fit(doc, y, 110);
+      y = section(doc, trends.title, y + 4);
+      y = trendGrid(doc, y, trends.items);
+      return;
+    }
+    const need = Math.max(...row.map(specHeight));
+    y = chartRow(doc, y, need, row.map((sp) => (sp ? (x, yy, w) => DRAW[sp.kind](doc, { ...sp, x, y: yy, w }) : null)));
+  });
+  return y;
+}
+
 function drawSection(doc, sec, data, ctx, y) {
   const t = sec.table(data, ctx);
   y = bigHeader(doc, sec.pdfTitle, y);
   if (t.stats) y = stats(doc, t.stats.map((s) => ({ label: s.label, value: s.value, color: s.level ? C[s.level] || NOT_READ : undefined })), y);
-  if (t.chart?.kind === "stack" && t.chart.parts.some((p) => p.value)) y = stackChart(doc, t.chart.parts, room(doc, y, 60));
-  if (t.chart?.kind === "bars" && t.chart.parts.length) y = barChart(doc, t.chart.parts, room(doc, y, 40 + t.chart.parts.length * 18));
+  const charts = sectionCharts(sec.id, data, ctx);
+  if (charts.length) y = drawCharts(doc, charts, y);
+  else if (t.chart?.kind === "stack" && t.chart.parts.some((p) => p.value)) y = stackChart(doc, t.chart.parts, room(doc, y, 60));
+  else if (t.chart?.kind === "bars" && t.chart.parts.length) y = barChart(doc, t.chart.parts, room(doc, y, 40 + t.chart.parts.length * 18));
   if (t.note) y = para(doc, t.note, y);
   y = room(doc, y, 80);
   autoTable(doc, {
