@@ -12,7 +12,7 @@
 //     recommendation, their actions due.
 //   ACC responsible engineer — reports to review, actions to agree, closures to approve,
 //     overdue reports.
-//   Managers / App Owner — escalations (10+ days late), and a warning when
+//   Managers / Admin — escalations (10+ days late), and a warning when
 //     nobody is responsible today.
 
 var VMW_MAX = 15;

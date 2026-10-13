@@ -52,7 +52,7 @@ const ROLE_LABEL: Record<string, string> = {
   'ROLE-CENG': 'Contractor Engineer',
   'ROLE-MGR': 'ACC Manager',
   'ROLE-CMGR': 'Contractor Manager',
-  'ROLE-ADMIN': 'App Owner',
+  'ROLE-ADMIN': 'Admin',
   'ROLE-TECH': 'Technician',
 };
 const ENGINEER_ROLES = ['ROLE-RENG', 'ROLE-CENG', 'ROLE-MGR', 'ROLE-CMGR', 'ROLE-ADMIN'];
@@ -202,7 +202,7 @@ export default function DelegationsPanel() {
               tone = 'ok';
               line = 'Responsible engineer';
             } else if (m.manager || m.admin) {
-              line = m.admin ? 'App Owner — not listed as engineer' : 'Manager — not listed as engineer';
+              line = m.admin ? 'Admin — not listed as engineer' : 'Manager — not listed as engineer';
             }
             return (
               <div key={m.moduleId} className={`dl-tile dl-tile--${tone}`} data-testid={`dl-tile-${m.moduleId}`}>
@@ -452,7 +452,7 @@ function NewDelegation({
           <div className="dl-read">You ({me}) — you'll get the engineer work in My Work and can approve and close.</div>
         ) : (
           <div className="dl-people" data-testid="dl-colleagues">
-            {colleagues.length === 0 && <p className="dl-muted">No colleague with an engineer or manager account in your company yet — ask the App Owner to add one.</p>}
+            {colleagues.length === 0 && <p className="dl-muted">No colleague with an engineer or manager account in your company yet — ask the Admin to add one.</p>}
             {colleagues.map((c) => (
               <label key={c.email} className={`dl-person-opt${to === c.email ? ' dl-person-opt--on' : ''}${c.away ? ' dl-person-opt--away' : ''}`}>
                 <input type="radio" name="dl-to" value={c.email} checked={to === c.email} disabled={c.away} onChange={() => setTo(c.email)} />

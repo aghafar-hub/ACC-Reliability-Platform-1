@@ -204,7 +204,7 @@ export async function getMyAccess(webhookUrl) {
   return getJSON(webhookUrl, { action: "getMyAccess" });
 }
 
-// Technicians the App Owner listed for this module (and contractor) in
+// Technicians the Admin listed for this module (and contractor) in
 // Module Access. null from a backend without Phase 0 yet.
 export async function getModuleTechnicians(webhookUrl, contractor) {
   const json = await getJSON(webhookUrl, { action: "getModuleTechnicians", contractor: contractor || "" });
@@ -942,13 +942,6 @@ async function getSuggestionsRaw(webhookUrl) {
   return json.suggestions || [];
 }
 
-// Phase 7 — per-contractor workload (routes per technician, actions, lab
-// reports, suggestions, low stock), scoped to the caller's contractor.
-async function getTeamWorkloadRaw(webhookUrl) {
-  const json = await getJSON(webhookUrl, { action: "getTeamWorkload" });
-  return { contractors: json.contractors || [], generatedAt: json.generatedAt || "" };
-}
-
 export async function getRoutineItems(webhookUrl, routineId) {
   const json = await getJSON(webhookUrl, { action: "getRoutineItems", routineId });
   return (json.items || []).filter((r) => Array.isArray(r) && r[0]).map(rowToRoutineItem);
@@ -1546,7 +1539,6 @@ export const getOilInventory = cachedRead("getOilInventory", getOilInventoryRaw)
 export const getAllTopUps = cachedRead("getAllTopUps", getAllTopUpsRaw);
 export const getDashboardSettings = cachedRead("getDashboardSettings", getDashboardSettingsRaw);
 export const getSuggestions = cachedRead("getSuggestions", getSuggestionsRaw);
-export const getTeamWorkload = cachedRead("getTeamWorkload", getTeamWorkloadRaw);
 export const getRouteTemplates = cachedRead("getRouteTemplates", getRouteTemplatesRaw);
 export const getOilInventoryConsumption = cachedRead("getOilInventoryConsumption", getOilInventoryConsumptionRaw);
 export const getOilInventoryForecast = cachedRead("getOilInventoryForecast", getOilInventoryForecastRaw);

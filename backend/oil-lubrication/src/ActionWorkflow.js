@@ -7,7 +7,7 @@
 //  - Save as Draft / Submit: an action stays Draft until someone presses
 //    Submit, which needs the Agreed Action, Assigned To, Due Date and
 //    Duration and is allowed for ACC Engineers, the contractor's engineer
-//    and the App Owner. Submit makes it Open.
+//    and the Admin. Submit makes it Open.
 //  - Overdue: an Open action past Due Date + Duration + 5 days. Waiting
 //    Stoppage is never overdue and never goes back to Open (it goes on to
 //    closure). Rows without a Due Date use Revision Date + 14 days.
@@ -141,7 +141,7 @@ function isActionRowOverdue_(row, now) {
 }
 
 // Submit and Reschedule: ACC Engineers, the action's own contractor's
-// engineer, and the App Owner.
+// engineer, and the Admin.
 function isActionEngineer_(session, contractor) {
   return isAccEngineer_(session) || isRouteEngineerFor_(session, contractor);
 }

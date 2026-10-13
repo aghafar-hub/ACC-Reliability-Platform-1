@@ -89,11 +89,11 @@ export const NAV_ITEMS: NavItem[] = [
   // new module, designed later: a placeholder page for now
   { label: 'Thermography', to: '/thermography', icon: 'thermometer' },
   { label: 'Reliability Measures', to: '/reliability-measures', icon: 'compliance' },
+  { label: 'Compressors', to: '/compressors', icon: 'sync' },
+  // every change in every module — Admin and ACC managers
+  { label: 'Activity', to: '/activity', icon: 'history', roles: ['ROLE-ADMIN', 'ROLE-MGR'] },
   // work waiting and done, every module — managers and ACC engineers (contractor managers: their own)
   { label: 'Team', to: '/team', icon: 'users', roles: ['ROLE-ADMIN', 'ROLE-MGR', 'ROLE-RENG', 'ROLE-CMGR'] },
-  // every change in every module — App Owner and ACC managers
-  { label: 'Activity', to: '/activity', icon: 'history', roles: ['ROLE-ADMIN', 'ROLE-MGR'] },
-  { label: 'Compressors', to: '/compressors', icon: 'sync' },
 ];
 
 // top-level tabs whose pages are still to be designed (ComingSoon); the phone's

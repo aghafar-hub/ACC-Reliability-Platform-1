@@ -11,7 +11,7 @@ import { TablerIcon } from '../icons';
 // name in use (platform list, Oil, Vibration) and the official name it shows
 // as — pick one per name. Below: the official list itself (lines and the
 // areas in each), editable. Nothing in the sheets is renamed; every page
-// shows the official name (areas.ts). App Owner edits; others view.
+// shows the official name (areas.ts). Admin edits; others view.
 
 type Use = { name: string; platform: number; byModule: Record<string, number> };
 

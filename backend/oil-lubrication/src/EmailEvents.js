@@ -1,6 +1,6 @@
 // Email per event — Settings → Email & notifications (Platform Core
 // EMAIL_SETTINGS). Every email this module sends goes through msSendMail_
-// with an event key; the App Owner chooses per event: email now, the daily
+// with an event key; the Admin chooses per event: email now, the daily
 // digest, both, or nothing. Nothing at all is sent until the platform sender
 // is set and "Send emails" is on. The bell in the app is not affected.
 //

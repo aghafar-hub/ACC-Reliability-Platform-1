@@ -125,7 +125,7 @@ export default function NotificationBell({ onOpenRoutine }: { onOpenRoutine?: (r
     }
 
     if (n.linkPage === 'idcheck') {
-      // a module found IDs that don't match the platform list (App Owner)
+      // a module found IDs that don't match the platform list (Admin)
       navigate('/settings?tab=equipment-ids');
     } else if (n.linkPage === 'mywork') {
       // delegation started / ended — the cover shows in My Work

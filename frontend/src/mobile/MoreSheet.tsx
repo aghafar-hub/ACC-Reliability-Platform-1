@@ -21,7 +21,7 @@ import './mobile.css';
 // Back) returns to the hub. A module's page strip "More ▾" opens straight on
 // its pages (event "acc-open-more" { moduleId }, App.tsx).
 const ROLE_LABEL: Record<string, string> = {
-  [ROLE.ADMIN]: 'App Owner',
+  [ROLE.ADMIN]: 'Admin',
   [ROLE.MANAGER]: 'ACC Manager',
   [ROLE.CONTRACTOR_MANAGER]: 'Contractor Manager',
   [ROLE.RELIABILITY_ENGINEER]: 'ACC Engineer',

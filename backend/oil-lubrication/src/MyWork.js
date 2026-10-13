@@ -26,9 +26,9 @@
 //     automatic Drafts, overdue actions (all contractors).
 //   ACC Manager / Contractor Manager — escalations (overdue 10+ days), team
 //     summary, overdue work per technician.
-//   Managers and App Owner also see "Nobody responsible" when no engineer
+//   Managers and Admin also see "Nobody responsible" when no engineer
 //     is available today.
-//   App Owner — the manager sections (+ engineer ones when listed/covering).
+//   Admin — the manager sections (+ engineer ones when listed/covering).
 //   Visitor — nothing.
 
 var MY_WORK_MAX_ITEMS = 15;
@@ -37,7 +37,7 @@ var MY_WORK_DUE_SOON_DAYS = 7;
 // Engineer sections follow responsibility, not job title: only the people
 // listed in Settings → Module Access as responsible engineers for this
 // module (or covering for one through a delegation) get them. Managers
-// keep their escalations; the App Owner gets the manager sections and the
+// keep their escalations; the Admin gets the manager sections and the
 // ACC Engineer ones only when listed or covering.
 function myWorkRoles_(session) {
   var roles = (session && session.roles) || [];

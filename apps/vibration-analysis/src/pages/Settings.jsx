@@ -269,7 +269,7 @@ export default function Settings({ webhookUrl, onSync, onOpenLimits }) {
                 Open Email & notifications →
               </button>
             ) : (
-              <span style={{ fontSize: 12.5, color: T.textMuted }}>Set by the App Owner</span>
+              <span style={{ fontSize: 12.5, color: T.textMuted }}>Set by the Admin</span>
             )}
           </>
         }

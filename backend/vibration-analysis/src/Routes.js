@@ -177,7 +177,7 @@ function handleCreateVibRoute(params, session) {
   var type = VR_TYPES.indexOf(d.type) !== -1 ? d.type : 'Scheduled';
   var contractor = me.contractor || String(d.contractor || '');
   if (!who.engineer && !who.acc) return { status: 'error', error: 'Only a contractor engineer or ACC creates routes.' };
-  // ACC (engineers, App Owner) may plan any route too, for the contractor picked
+  // ACC (engineers, Admin) may plan any route too, for the contractor picked
   if (['RHI', 'ASEC'].indexOf(contractor) === -1) return { status: 'error', error: 'Pick the contractor.' };
   var date = vlDate_(d.plannedDate);
   if (!date) return { status: 'error', error: 'Pick the planned date.' };

@@ -475,7 +475,7 @@ export default function MyWork({
   const deviceKey = `acc.mywork.v1.${(claims?.email || '').toLowerCase()}`;
   const navigate = useNavigate();
   const { access } = useModuleAccess();
-  // Managers and the App Owner also get My team (what their people did).
+  // Managers and the Admin also get My team (what their people did).
   const isManager = !!claims?.roles.some((r) => r === ROLE.ADMIN || r === ROLE.MANAGER || r === ROLE.CONTRACTOR_MANAGER);
   // A responsible engineer (listed or covering) sees technicians: a
   // contractor's sees their own; ACC's sees every contractor's in that module.
@@ -573,7 +573,7 @@ export default function MyWork({
     return (
       <div className="mywork">
         {showHeading && <h1>My Work</h1>}
-        <p className="settings-intro">You don't have any modules with assigned work. Ask the App Owner if this is wrong.</p>
+        <p className="settings-intro">You don't have any modules with assigned work. Ask the Admin if this is wrong.</p>
       </div>
     );
   }

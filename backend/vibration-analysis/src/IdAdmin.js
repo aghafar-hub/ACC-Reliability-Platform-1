@@ -1,4 +1,4 @@
-// ─── App Owner: change, add and delete Equipment IDs and Vib IDs ─────────────
+// ─── Admin: change, add and delete Equipment IDs and Vib IDs ─────────────
 // Called from the platform's Settings → Equipment & IDs (action "idAdmin").
 // A changed ID takes its history with it: every tab below that names it is
 // rewritten. A deleted ID goes with all its history (readings, report

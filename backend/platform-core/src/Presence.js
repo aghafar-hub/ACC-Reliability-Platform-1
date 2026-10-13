@@ -1,5 +1,5 @@
 /**
- * Who's online + login history (App Owner and ACC managers).
+ * Who's online + login history (Admin and ACC managers).
  *
  * heartbeat: while the app is in view, the shell checks in every 2 minutes
  * with the page it shows, the device kind and how long since the person
@@ -126,7 +126,7 @@ function presIso_(v) {
 
 // Everyone with an account: online / idle / earlier today / last seen.
 function listPresence_(session) {
-  if (!presenceAllowed_(session)) throw new Error("Who's online is for the App Owner and ACC managers.");
+  if (!presenceAllowed_(session)) throw new Error("Who's online is for the Admin and ACC managers.");
   var users = readSheetAsObjects_(getSheet_(SHEET_NAMES.USERS)).filter(function (u) { return u.Status === 'Active'; });
   var userRoles = readSheetAsObjects_(getSheet_(SHEET_NAMES.USER_ROLES));
   var cache = CacheService.getScriptCache();
@@ -167,7 +167,7 @@ function listPresence_(session) {
 
 // body.from = ISO date (default 30 days back, at most a year); body.email filters.
 function listLoginHistory_(session, body) {
-  if (!presenceAllowed_(session)) throw new Error('Login history is for the App Owner and ACC managers.');
+  if (!presenceAllowed_(session)) throw new Error('Login history is for the Admin and ACC managers.');
   var from = new Date(String((body && body.from) || ''));
   if (isNaN(from.getTime())) from = new Date(Date.now() - 30 * 86400000);
   var min = new Date(Date.now() - 366 * 86400000);

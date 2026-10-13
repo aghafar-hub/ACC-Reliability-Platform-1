@@ -1,6 +1,6 @@
 /**
  * Arabic word list (mobile app M4). The platform's words live in the
- * TRANSLATIONS sheet so the App Owner can check and change the Arabic
+ * TRANSLATIONS sheet so the Admin can check and change the Arabic
  * directly in the spreadsheet (or later from Settings). The app reads the
  * whole list once at login and keeps a copy on the phone.
  *
@@ -53,7 +53,7 @@ function getTranslations_() {
 }
 
 /**
- * App Owner: add the app's words that aren't in the sheet yet (with a
+ * Admin: add the app's words that aren't in the sheet yet (with a
  * first Arabic suggestion marked Draft). Existing rows are left alone.
  * terms: [{ key, en, ar, area }]
  */
@@ -76,7 +76,7 @@ function addTranslationTerms_(userEmail, terms) {
   });
 }
 
-/** App Owner: change one word's Arabic (and mark it Approved or Draft). */
+/** Admin: change one word's Arabic (and mark it Approved or Draft). */
 function saveTranslation_(userEmail, key, arabic, status) {
   key = String(key || '').trim();
   if (!key) throw new Error('Which word?');

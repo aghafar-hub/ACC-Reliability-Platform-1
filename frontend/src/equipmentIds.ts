@@ -42,7 +42,7 @@ export async function fetchIdChecks(sessionToken: string, fresh = false): Promis
   });
 }
 
-// App Owner: change / delete / add IDs in a module (backend IdAdmin.js).
+// Admin: change / delete / add IDs in a module (backend IdAdmin.js).
 // Throws the module's own message when it refuses.
 export async function idAdmin(sessionToken: string, moduleId: string, body: Record<string, unknown>): Promise<{ status: string; summary?: string; item?: Record<string, string> }> {
   const r = (await modulePost(moduleId, sessionToken, { action: 'idAdmin', ...body })) as { status?: string; error?: string; message?: string; summary?: string; item?: Record<string, string> };

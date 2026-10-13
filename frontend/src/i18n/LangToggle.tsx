@@ -24,7 +24,7 @@ export function LangToggle({ className, testid }: { className: string; testid?: 
   );
 }
 
-// After sign-in: the App Owner's Arabic from Platform Core's TRANSLATIONS
+// After sign-in: the Admin's Arabic from Platform Core's TRANSLATIONS
 // sheet (wins over the draft list); kept on the device for offline use.
 export function TranslationsLoader() {
   const { sessionToken } = useAuth();

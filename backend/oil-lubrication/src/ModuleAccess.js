@@ -175,7 +175,7 @@ function maLoadConfig_() {
   });
   // A role or tab added after the first setup (e.g. the Contractor Manager
   // role, or a new tab) has no saved row yet — it starts at the module's
-  // default until the App Owner changes it.
+  // default until the Admin changes it.
   (MA_CONFIG.roles || []).forEach(function (role) {
     var defs = (MA_CONFIG.defaultRoleLevels || {})[role.id] || {};
     MA_CONFIG.tabs.forEach(function (tabId) {
@@ -264,14 +264,14 @@ function maAnyTabAtLeast_(access, tabIds, level) {
 function maBaseDenial_(access, session) {
   if (!session) return "Please log in again.";
   if (access.status === "Off") return MA_CONFIG.moduleName + " is switched off.";
-  if (!access.member) return "You don't have access to " + MA_CONFIG.moduleName + ". Ask the App Owner to add you.";
+  if (!access.member) return "You don't have access to " + MA_CONFIG.moduleName + ". Ask the Admin to add you.";
   return "";
 }
 
 // Returns "" when the GET may run, otherwise the message to send back.
 function maCheckRead_(session, action) {
   var rule = MA_CONFIG.readRules[action];
-  if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the App Owner can see this.";
+  if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the Admin can see this.";
   // "settings:<page>" — Settings → Settings access decides (PlatformEquipment.js)
   if (typeof rule === "string" && rule.indexOf("settings:") === 0) return maIsAdmin_(session) || psaRank_(psaLevel_(session, rule.slice(9))) >= 1 ? "" : "You do not have permission for this settings page.";
   if (rule === "open" || !maIsEnforced_() || maIsAdmin_(session)) return "";
@@ -289,7 +289,7 @@ function maCheckWrite_(session, data) {
   var action = data.action;
   var rule = MA_ADMIN_ACTIONS.indexOf(action) !== -1 ? "admin" : MA_CONFIG.writeRules[action];
   if (typeof rule === "function") rule = rule(data);
-  if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the App Owner can change this.";
+  if (rule === "admin") return maIsAdmin_(session) ? "" : "Only the Admin can change this.";
   // Settings → Settings access decides who may change a settings page
   if (typeof rule === "string" && rule.indexOf("settings:") === 0) return maIsAdmin_(session) || psaLevel_(session, rule.slice(9)) === "Edit" ? "" : "You can view these settings but not change them.";
   if (rule === "open" || !maIsEnforced_() || maIsAdmin_(session)) return "";
@@ -650,7 +650,7 @@ function maCoveredNow_(contractor) {
 }
 
 // Contractors (and ACC) with nobody responsible, as seen by this person:
-// a manager sees their own side, the App Owner ACC plus every contractor
+// a manager sees their own side, the Admin ACC plus every contractor
 // in MA_CONFIG.orgToContractor. Everyone else: [].
 function maNobodyResponsibleFor_(session) {
   if (!session) return [];
@@ -797,7 +797,7 @@ function maHandleSelfAction_(action, data, session) {
 
 // ─── My team: work history for managers ──────────────────────────────────────
 // A contractor manager sees their own contractor's engineers and
-// technicians; an ACC manager and the App Owner see ACC and every
+// technicians; an ACC manager and the Admin see ACC and every
 // contractor; a contractor's responsible engineer sees their own
 // technicians only; this module's ACC responsible engineer sees every
 // contractor's technicians in it. Each module supplies its events through
@@ -813,7 +813,7 @@ var MA_TEAM_MAX_DAYS = 400;
 function maTeamScope_(session) {
   if (!session) return null;
   var roles = session.roles || [];
-  // Team page: App Owner, ACC managers and ACC engineers see everyone
+  // Team page: Admin, ACC managers and ACC engineers see everyone
   if (maIsAdmin_(session) || roles.indexOf("ROLE-MGR") !== -1 || roles.indexOf("ROLE-RENG") !== -1) return { all: true, contractor: "" };
   if (roles.indexOf("ROLE-CMGR") !== -1) {
     var c = maContractorForOrg_(session.orgId);
@@ -844,7 +844,7 @@ function maCoveringOn_(delegations, email, ymd) {
 
 function maTeamHistory_(data, session) {
   var scope = maTeamScope_(session);
-  if (!scope) return { error: "Only managers, the App Owner and responsible engineers can see team history." };
+  if (!scope) return { error: "Only managers, the Admin and responsible engineers can see team history." };
   if (typeof teamCollect_ !== "function") return { error: MA_CONFIG.moduleName + " doesn't provide team history yet." };
   var today = maToday_();
   var to = maYmd_(data.to) || today;

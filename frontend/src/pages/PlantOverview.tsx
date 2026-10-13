@@ -171,7 +171,7 @@ export default function PlantOverview() {
       <div className="plant-page">
         <h1 className="plant-title">Plant overview</h1>
         <div className="plant-card plant-empty">
-          You don't have access to a module yet. Ask the App Owner to add you in
+          You don't have access to a module yet. Ask the Admin to add you in
           Settings → Module access.
         </div>
       </div>

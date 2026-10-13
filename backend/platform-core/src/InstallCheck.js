@@ -8,17 +8,17 @@
 // After pasting fixes, publish a new version of the deployment.
 
 var INSTALL_CHECK_FILES = {
-  "Activity":{"activityAllowed_":"asrpgn","actIso_":"1y00ss9","actEquipmentDiff_":"m784cs","listPlatformActivity_":"wndapp","actUserEmail_":"nqz66p"},
+  "Activity":{"activityAllowed_":"asrpgn","actIso_":"1y00ss9","actEquipmentDiff_":"m784cs","listPlatformActivity_":"ot5z2q","actUserEmail_":"nqz66p"},
   "AdminSettings":{"getSetting_":"1ktol17","setSetting_":"11irz0l","runScheduledBackup_":"bth9sd","assertMinimumAdminsAfterDeactivation_":"3cpve5","getPlatformHealth_":"13ot872","exportAllData_":"1mfeas8"},
   "Areas":{"arKey_":"pqdqqv","arRead_":"chprba","arClean_":"3xn59q","getAreas_":"hm2kch","arMachines_":"2j1yqg","maybeAppAdmin_":"1bxlg1m","saveAreas_":"1f488fz","arDiff_":"163wqf7"},
   "AssetMaster":{"amKey_":"10lx1wv","amRead_":"23hih1","amOrgs_":"7yb3hc","amText_":"vfar33","amOut_":"13q9d4u","listEquipmentMaster_":"1vxbvr8","amPack_":"b7kxft","saveEquipmentMaster_":"pisx4u","amRenameOrDelete_":"ioyon8","amLog_":"hzjr8e","listEquipmentLog_":"1fmjez5"},
-  "Auth":{"bytesToHex_":"1qezlwg","hashPasswordOnce_":"u1mfg9","hashPasswordRounds_":"ny00s2","hashPassword_":"vfev2p","sameText_":"w3ohjw","passwordMatches_":"1pwerhe","secureRandomBytes_":"1s6ge7t","generateSalt_":"1sxoqhc","generateTempPassword_":"1a4hj3h","signinThrottleKey_":"140boc","signinThrottleState_":"aixiph","signinWaitError_":"175xpph","signinFailed_":"xw7q7l","signinCleared_":"12x0q8p","writePasswordHash_":"uitmgu","createUser_":"ssk2dw","login_":"vwi1aj","passwordProblem_":"sanb6o","changePassword_":"1rr2n94","adminResetPassword_":"5lutqi"},
+  "Auth":{"bytesToHex_":"1qezlwg","hashPasswordOnce_":"u1mfg9","hashPasswordRounds_":"ny00s2","hashPassword_":"vfev2p","sameText_":"w3ohjw","passwordMatches_":"1pwerhe","secureRandomBytes_":"1s6ge7t","generateSalt_":"1sxoqhc","generateTempPassword_":"1a4hj3h","signinThrottleKey_":"140boc","signinThrottleState_":"aixiph","signinWaitError_":"kyim8a","signinFailed_":"xw7q7l","signinCleared_":"12x0q8p","writePasswordHash_":"uitmgu","createUser_":"ssk2dw","login_":"vwi1aj","passwordProblem_":"sanb6o","changePassword_":"1rr2n94","adminResetPassword_":"5lutqi"},
   "Backup":{"backupFolder_":"1w6e1c3","backupSpreadsheetIds_":"tr7j3r","runBackupNow":"mhljkz","installBackupTrigger":"1glzcaq"},
-  "Code":{"doPost":"dh7bp5","doGet":"3a0mlt"},
+  "Code":{"doPost":"5hsm1","doGet":"3a0mlt"},
   "Config":{"getSpreadsheetId_":"182aohm"},
   "EmailSettings":{"emRead_":"19e0wxs","getEmailSettings_":"jybs4u","saveEmailSettings_":"5s5e0c","emWrite_":"1m4jlvb","emailAllowed_":"1qtf346"},
-  "Presence":{"presenceAllowed_":"ykdkmr","presText_":"ln7jjl","presDevice_":"ceg2vu","presToday_":"q3q5va","presSheet_":"jog2xo","loginLog_":"t33pls","heartbeat_":"1xf6ci9","presSave_":"1pn274c","presIso_":"ipdj2h","listPresence_":"1y6uxlc","listLoginHistory_":"15is8nc"},
-  "Rbac":{"hasPermission_":"1mnoeg3","requirePermission_":"khphl8","getContractorScope_":"1hcssoc","requireAppAdmin_":"642o5n","seedRolePermissions_":"aemt8","runSeedRolePermissions":"11w7214","updateRolesPhase7":"m5uum","addContractorManagerRole":"tppggn"},
+  "Presence":{"presenceAllowed_":"ykdkmr","presText_":"ln7jjl","presDevice_":"ceg2vu","presToday_":"q3q5va","presSheet_":"jog2xo","loginLog_":"t33pls","heartbeat_":"1xf6ci9","presSave_":"1pn274c","presIso_":"ipdj2h","listPresence_":"gip4m7","listLoginHistory_":"wh3qh3"},
+  "Rbac":{"hasPermission_":"1mnoeg3","requirePermission_":"khphl8","getContractorScope_":"11vz21v","requireAppAdmin_":"642o5n","seedRolePermissions_":"aemt8","runSeedRolePermissions":"11w7214","updateRolesPhase7":"m5uum","addContractorManagerRole":"tppggn"},
   "SampleTestUsers":{"createSampleTestUsers_":"xnbpk2","resetSampleTestUserPasswords_":"1vxa9ip"},
   "Session":{"getSessionSecret_":"dv51fe","base64UrlEncode_":"i267m8","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","issueSessionToken_":"31jpff","requireSession_":"18ycj0","revokeUserSessions_":"m4p906","revokeOneSession_":"1nab3my","sessionRevokeRow_":"132ar7y","sessionLists_":"1bh34zk","checkSessionAlive_":"1mz53hu","isSessionEndedError_":"emzkap","sessionSigEqual_":"1l0sdxz"},
   "SettingsAccess":{"saRank_":"2pymrt","saClamp_":"110o91p","saSheet_":"9hnswj","saRead_":"o3scce","saLevels_":"1wqd4ug","requireSettingsEdit_":"tikzxt","saCheck_":"1lb7pvd","getSettingsAccess_":"10jd0im","saveSettingsAccess_":"bv6xgx","saWrite_":"1pjj2pv","platformLog_":"1hqeitn"},

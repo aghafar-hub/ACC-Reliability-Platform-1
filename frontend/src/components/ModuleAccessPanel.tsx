@@ -6,7 +6,7 @@ import { MODULE_BACKENDS, moduleGet, modulePost, useModuleAccess, type ModuleSta
 import { OIL_SUB_TABS, VIBRATION_SUB_TABS } from '../navigation';
 import './ModuleAccessPanel.css';
 
-// Settings > General > Module Access (App Owner only). Reads and writes each
+// Settings > General > Module Access (Admin only). Reads and writes each
 // module backend's own access settings (backend/*/src/ModuleAccess.js).
 // After every change it re-reads the settings from the server and shows
 // those, so what's on screen is always what's actually saved.
@@ -261,7 +261,7 @@ function PeopleCard({ config, users, onSave }: { config: Config; users: OrgUser[
       <h3>People</h3>
       <p className="ma-muted">
         Anyone listed below can open {config.moduleName}. What they see inside depends on their role (next section). The
-        App Owner always has full access.
+        Admin always has full access.
       </p>
       {unlisted.length > 0 && (
         <div className="ma-callout">

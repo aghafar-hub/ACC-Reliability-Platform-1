@@ -348,7 +348,7 @@ function doGet(e) {
         result = handleGetModuleSettings(auth.session);
         break;
       case "getIdCheck":
-        // Settings → Equipment & IDs (PlatformEquipment.js); App Owner only (readRules)
+        // Settings → Equipment & IDs (PlatformEquipment.js); Admin only (readRules)
         result = handleGetIdCheck(e.parameter);
         break;
       case "getModuleResponsibilities":
@@ -1016,7 +1016,7 @@ function doPostInner_(e) {
         }
         logError("doPost:updateRow", ok1 ? "ok" : "row_not_found", {sheet: data.sheet, matchCols: data.matchCols, matchValues: data.matchValues, actingUser: actingUser});
         if (ok1) recordAudit_(ss, data.sheet, updateLpId || data.matchValues.join(","), "update", actingUser, scope || resolveLpContractor_(updateLpId),
-          data.sheet === "Data_Entry" && labGuard.changes ? "Edited lab report " + (data.row[3] || "") + ": " + labGuard.changes + (labGuard.admin ? " (App Owner — stays validated)" : "") : "Updated " + data.sheet + " entry");
+          data.sheet === "Data_Entry" && labGuard.changes ? "Edited lab report " + (data.row[3] || "") + ": " + labGuard.changes + (labGuard.admin ? " (Admin — stays validated)" : "") : "Updated " + data.sheet + " entry");
         return jsonOut({status: ok1 ? "ok" : "row_not_found"});
       }
 
@@ -1044,7 +1044,7 @@ function doPostInner_(e) {
         if (data.sheet === "Data_Entry" && deleteRowIdx !== -1) {
           var delStatus = String(deleteSheetObj.getRange(deleteRowIdx, LAB_COL.STATUS + 1).getValue() || "").trim();
           if ((delStatus === LAB_STATUS.VALIDATED || delStatus === "") && !isAccEngineer_(auth.session)) {
-            return jsonOut({status: "error", message: "This lab report is validated — only an ACC Engineer or the App Owner can delete it."});
+            return jsonOut({status: "error", message: "This lab report is validated — only an ACC Engineer or the Admin can delete it."});
           }
           var delRow = archiveLabReportRow_(ss, deleteSheetObj, deleteRowIdx, actingUser, "Deleted" + (data.reason ? ": " + String(data.reason).trim() : ""));
           invalidateDashboardCache();
@@ -1082,7 +1082,7 @@ function doPostInner_(e) {
       }
 
       if (data.action === "idAdmin") {
-        // IdAdmin.js — App Owner changes / deletes / adds IDs
+        // IdAdmin.js — Admin changes / deletes / adds IDs
         requireAdmin_(auth.session);
         return jsonOut(handleIdAdmin(data, actingUser));
       }

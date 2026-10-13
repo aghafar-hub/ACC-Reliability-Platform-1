@@ -20,7 +20,7 @@ var MA_CONFIG = {
     { id: "ROLE-RENG", label: "ACC Engineer" },
     { id: "ROLE-MGR", label: "ACC Manager" },
     { id: "ROLE-CMGR", label: "Contractor Manager" },
-    // Sees what the App Owner allows, never edits (capped at View in ModuleAccess.js).
+    // Sees what the Admin allows, never edits (capped at View in ModuleAccess.js).
     { id: "ROLE-VIEW", label: "Visitor" },
   ],
 
@@ -40,7 +40,7 @@ var MA_CONFIG = {
 
   readRules: {
     getIdCheck: "settings:equipment-ids",
-    getActivityFeed: "open", // App Owner + ACC managers, checked in ActivityFeed.js
+    getActivityFeed: "open", // Admin + ACC managers, checked in ActivityFeed.js
     getModuleSettings: "settings:vibration-analysis",
     test: "open",
     getMyAccess: "open",

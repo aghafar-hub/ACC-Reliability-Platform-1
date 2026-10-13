@@ -11,12 +11,12 @@ import { areaResolver, useAreas } from '../areas';
 import './EquipmentIdsPanel.css';
 import SectionBoundary from './SectionBoundary';
 
-// Settings → Equipment & IDs (App Owner only).
+// Settings → Equipment & IDs (Admin only).
 //   Equipment ID — owned by the platform: this page adds, edits and retires them.
 //   Lub ID       — owned by Oil Lubrication; Vib ID — owned by Vibration Analysis.
 // Every module's Equipment ID must be one of the platform's; the modules use
 // the platform's name, area and contractor, and report what doesn't match
-// ("Not matching"). New problems reach the App Owner every morning (bell +
+// ("Not matching"). New problems reach the Admin every morning (bell +
 // email, the modules' idCheckDaily).
 
 type Tab = 'equipment' | 'areas' | 'lub' | 'vib' | 'problems' | 'log';

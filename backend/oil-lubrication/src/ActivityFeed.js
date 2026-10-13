@@ -1,6 +1,6 @@
 // Platform Activity page (step 4): this module's Audit Log for the shell,
 // which merges it with Vibration's and the platform's own logs.
-// App Owner and ACC managers only. ?from=<ISO date> (default 31 days back,
+// Admin and ACC managers only. ?from=<ISO date> (default 31 days back,
 // at most a year), newest first, at most AF_MAX entries.
 
 var AF_MAX = 3000;
@@ -33,7 +33,7 @@ function afEquipment_(text) {
 }
 
 function handleGetActivityFeed(session, params) {
-  if (!afAllowed_(session)) return { error: "Activity is for the App Owner and ACC managers.", accessDenied: true };
+  if (!afAllowed_(session)) return { error: "Activity is for the Admin and ACC managers.", accessDenied: true };
   var from = afFrom_(params).toISOString();
   var rows = readSheet(SpreadsheetApp.getActiveSpreadsheet(), "Audit Log", true);
   var lpMap = {};

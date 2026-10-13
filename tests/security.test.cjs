@@ -67,7 +67,7 @@ test("F-06 / F-07: password rules, wrong-password wait, slow hash", () => {
   assert.match(pc.post({ action: "login", email, password: "wrong5" }).error.message, /Too many wrong passwords/, "5th wrong password: wait");
   assert.equal(pc.post({ action: "login", email, password: fresh }).ok, false, "even the right password waits");
   const again = resetPassword(pc, "rhiEng");
-  assert.equal(pc.post({ action: "login", email, password: again }).ok, true, "an App Owner reset ends the wait");
+  assert.equal(pc.post({ action: "login", email, password: again }).ok, true, "an Admin reset ends the wait");
 
   // an old one-round hash still signs in and is upgraded
   const salt = "oldsalt==";
@@ -103,7 +103,7 @@ test("F-03 / F-04: Vibration data and older saves stay within the contractor", (
   const acc = vib.vbScopeLists_(session("accEng"), JSON.parse(JSON.stringify(data)));
   assert.equal(acc.rmsRegister.length, 2, "ACC sees everything");
 
-  assert.match(vib.vbLegacyWriteDenial_("updateRegisterLimits", {}, session("rhiEng")), /Only ACC or the App Owner/);
+  assert.match(vib.vbLegacyWriteDenial_("updateRegisterLimits", {}, session("rhiEng")), /Only ACC or the Admin/);
   assert.equal(vib.vbLegacyWriteDenial_("updateRegisterLimits", {}, session("accEng")), "");
   assert.notEqual(vib.vbLegacyWriteDenial_("upsertLastRMS", { equipmentId: "M-ASEC" }, session("rhiEng")), "", "no saving on the other contractor's machine");
   assert.equal(vib.vbLegacyWriteDenial_("upsertLastRMS", { equipmentId: "M-RHI" }, session("rhiEng")), "", "own machine is fine");

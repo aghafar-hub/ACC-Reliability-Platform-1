@@ -1,6 +1,6 @@
 // Platform Activity page (step 4): this module's Vibration Audit tab for the
 // shell, which merges it with Oil's and the platform's own logs.
-// App Owner and ACC managers only. ?from=<ISO date> (default 31 days back,
+// Admin and ACC managers only. ?from=<ISO date> (default 31 days back,
 // at most a year), newest first, at most AF_MAX entries.
 
 var AF_MAX = 3000;
@@ -32,7 +32,7 @@ function afEquipment_(text) {
 }
 
 function handleGetActivityFeed(session, params) {
-  if (!afAllowed_(session)) return { status: "error", error: "Activity is for the App Owner and ACC managers.", accessDenied: true };
+  if (!afAllowed_(session)) return { status: "error", error: "Activity is for the Admin and ACC managers.", accessDenied: true };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var from = afFrom_(params).toISOString();
   // contractor of an action / route by its ID

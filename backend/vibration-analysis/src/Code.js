@@ -66,7 +66,7 @@
  *   ModuleAccessConfig.js Phase 0: this module's tabs + which tabs each request needs
  *   VibrationLog.js       Vibration Log: reports, readings per VIB ID, coverage, 45-day rule
  *   Readings.js           New Reading (one machine, one date) + equipment summary
- *   Limits.js             limits per equipment / VIB ID, interval, Active / Inactive (App Owner only, history kept)
+ *   Limits.js             limits per equipment / VIB ID, interval, Active / Inactive (Admin only, history kept)
  *   VibActions.js         actions: 4-part record, automatic drafts from approved reports, open / closure flow
  *   Routes.js             suggestions, routes, technician checklist, confirm / return, emergency routes
  *   MyWork.js             getMyWork for the platform My Work page, by role
@@ -132,7 +132,7 @@ function dispatchWithAccess_(action, params) {
   if (action === 'getMyAccess') return getMyAccess_(session);
   if (action === 'getModuleAccessConfig') return getModuleAccessConfig_();
   if (isAdminAction) {
-    if (!maIsAdmin_(session)) return { status: 'error', error: 'Only the App Owner can change this.', accessDenied: true };
+    if (!maIsAdmin_(session)) return { status: 'error', error: 'Only the Admin can change this.', accessDenied: true };
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(30000)) return { status: 'error', error: 'Server is busy — please try again.' };
     try {
@@ -176,7 +176,7 @@ function dispatchWithAccess_(action, params) {
 }
 
 // The older save actions (handlers that take no session). Limits, registers
-// and module configuration: ACC staff and the App Owner only (limits are
+// and module configuration: ACC staff and the Admin only (limits are
 // ACC's decision, audited). Everything else: a contractor account may change
 // only its own contractor's machines.
 var VB_LEGACY_WRITES = ['append', 'updateRow', 'deleteRow', 'upsertLastRMS', 'upsertLastSPM', 'deleteLastRMS', 'deleteLastSPM',
@@ -188,7 +188,7 @@ function vbLegacyWriteDenial_(action, params, session) {
   var accStaff = maIsAdmin_(session) || (me.acc && !!session);
   var registerSheet = params.sheet === SHEET_RMS_REG || params.sheet === SHEET_SPM_REG;
   if (action === 'saveConfig' || action === 'backfillLastReadings' || action === 'updateRegisterLimits' || registerSheet) {
-    return accStaff ? '' : 'Only ACC or the App Owner can change limits, registers and settings.';
+    return accStaff ? '' : 'Only ACC or the Admin can change limits, registers and settings.';
   }
   if (!me.contractor) return '';
   if (action === 'markMissingCompliance' || action === 'sendActionEmail') return '';
@@ -369,7 +369,7 @@ function dispatch(action, params, session) {
   if (action==='saveVibReadings')       return vlLocked_(function () { return handleSaveVibReadings(params, session); });
   // Limits.js
   if (action==='getVibLimits')          return handleGetVibLimits(params, session);
-  // Settings → Equipment & IDs (PlatformEquipment.js), App Owner only
+  // Settings → Equipment & IDs (PlatformEquipment.js), Admin only
   if (action==='getIdCheck')            return handleGetIdCheck(params);
   if (action==='saveModuleSettings')    return vlLocked_(function () { return handleSaveModuleSettings(params, session); });
   if (action==='markIdCheck')           return handleMarkIdCheck(params, session && session.email);

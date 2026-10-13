@@ -113,7 +113,7 @@ function signinWaitError_(email) {
   var st = signinThrottleState_(email);
   if (st.until && st.until > Date.now()) {
     var mins = Math.max(1, Math.ceil((st.until - Date.now()) / 60000));
-    return 'Too many wrong passwords. Try again in ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the App Owner to reset your password.';
+    return 'Too many wrong passwords. Try again in ' + mins + ' minute' + (mins === 1 ? '' : 's') + ', or ask the Admin to reset your password.';
   }
   return '';
 }

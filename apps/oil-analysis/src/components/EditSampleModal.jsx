@@ -98,7 +98,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
             <i className="ti ti-alert-triangle" aria-hidden="true" style={{ color: T.warning, marginRight: 6 }} />
             {isOwner ? (
               <>
-                This report is validated. As App Owner your correction keeps it <strong>Validated</strong>; every changed value is recorded in
+                This report is validated. As Admin your correction keeps it <strong>Validated</strong>; every changed value is recorded in
                 Activity.
               </>
             ) : (

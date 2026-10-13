@@ -13,7 +13,7 @@
 //
 // Statuses: Draft → Open → (Waiting Stoppage) → Closure Requested → Closed.
 //   - Open needs the agreed action, an owner (contractor engineer) and a due
-//     date, and is done by ACC (engineer, manager, App Owner).
+//     date, and is done by ACC (engineer, manager, Admin).
 //   - Waiting Stoppage is one way (back to Open is not offered).
 //   - Closure is requested by the contractor with evidence / comment; ACC
 //     closes it (closure date, verifier, evidence and comments are saved) or

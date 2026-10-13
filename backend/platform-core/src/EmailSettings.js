@@ -1,8 +1,8 @@
 /**
- * Email & notifications (Settings → Email & notifications, App Owner only).
+ * Email & notifications (Settings → Email & notifications, Admin only).
  *
  * One platform sender address sends for every module. Everything is OFF
- * until the App Owner adds that address and switches "Send emails" on; the
+ * until the Admin adds that address and switches "Send emails" on; the
  * bell in the app is not affected. Who receives an email comes from Module
  * Access (responsible engineers, managers, technicians).
  *
@@ -52,7 +52,7 @@ var EM_MODULES = [
   ] },
   { id: 'platform', name: 'Platform', events: [
     { key: 'delegation', label: 'Delegation started / ended', to: 'to both people' },
-    { key: 'idCheck', label: 'Equipment IDs not matching (daily)', to: 'to the App Owner' },
+    { key: 'idCheck', label: 'Equipment IDs not matching (daily)', to: 'to the Admin' },
   ] },
 ];
 var EM_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -81,7 +81,7 @@ function emRead_() {
   return out;
 }
 
-/** App Owner: the settings and the event list. */
+/** Admin: the settings and the event list. */
 function getEmailSettings_(session) {
   requireAppAdmin_(session.userId);
   var s = emRead_();
@@ -90,7 +90,7 @@ function getEmailSettings_(session) {
 }
 
 /**
- * App Owner. body.part: 'sender' { senderEmail, senderName } | 'switch' { enabled }
+ * Admin. body.part: 'sender' { senderEmail, senderName } | 'switch' { enabled }
  * | 'events' { events: { module: { event: { email, digest } } }, digestTime }
  */
 function saveEmailSettings_(session, body) {

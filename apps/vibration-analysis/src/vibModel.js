@@ -18,7 +18,7 @@ export function scopeOf(contractor, line) {
 }
 
 // equipmentId → { id, name, line, contractor, scope, rms:[a,b,c], spm:[a,b,c], gs, vibLimits, interval, status, points:[vibPoint] }
-// `limits` (getVibLimits) adds the App Owner's own limits, interval and
+// `limits` (getVibLimits) adds the Admin's own limits, interval and
 // Active / Inactive on top of the Registers (backend Limits.js).
 export function buildEquipment(vibPoints, rmsRegister, spmRegister, limits) {
   const eq = {};

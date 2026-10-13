@@ -11,7 +11,7 @@ import './Activity.css';
 
 // Activity (step 4): every change in every module, newest first — the Oil
 // Audit Log, the Vibration Audit tab and the platform's own logs
-// (PLATFORM_LOG, EQUIPMENT_LOG) merged into one list. App Owner and ACC
+// (PLATFORM_LOG, EQUIPMENT_LOG) merged into one list. Admin and ACC
 // managers only (each backend checks it too). Replaces Oil's own Activity tab.
 
 type Source = 'oil' | 'vib' | 'platform';
@@ -236,7 +236,7 @@ export default function Activity() {
     return (
       <div className="act-page">
         <h1>Activity</h1>
-        <p className="act-muted">Activity is for the App Owner and ACC managers.</p>
+        <p className="act-muted">Activity is for the Admin and ACC managers.</p>
       </div>
     );
 

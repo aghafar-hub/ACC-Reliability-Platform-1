@@ -28,7 +28,7 @@ function handleSaveVibReadings(params, session) {
   if (!eq || !eq.vibIds) return { status: 'error', error: 'Unknown equipment, or it has no active VIB IDs: ' + eqId };
   if (me.contractor && eq.contractor !== me.contractor) return { status: 'error', error: 'This equipment belongs to another contractor.' };
   if (!eq.scope) return { status: 'error', error: 'This equipment has no line in the registers, so it has no report scope.' };
-  if (eq.inactive) return { status: 'error', error: eqId + ' is Inactive. The App Owner can make it Active again under Limits & intervals.' };
+  if (eq.inactive) return { status: 'error', error: eqId + ' is Inactive. The Admin can make it Active again under Limits & intervals.' };
   if (!date) return { status: 'error', error: 'Pick the measurement date.' };
   if (date > vlToday_()) return { status: 'error', error: 'The measurement date is in the future.' };
   var filled = list.filter(function (x) {

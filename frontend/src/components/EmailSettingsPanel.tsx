@@ -5,7 +5,7 @@ import { getEmailSettings, saveEmailSettings, type EmailSettings, type EmailTogg
 import { Icon } from '../icons';
 import './EmailSettingsPanel.css';
 
-// Settings → Email & notifications (App Owner). One platform sender for
+// Settings → Email & notifications (Admin). One platform sender for
 // every module; everything is off until the sender exists and "Send
 // emails" is switched on. The bell is not affected. Each card saves on its
 // own and shows who changed it last (also written to Activity).

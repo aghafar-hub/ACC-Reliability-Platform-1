@@ -5,13 +5,13 @@ import { listLoginHistory, listPresence, type LoginEntry, type PresenceList, typ
 import '../pages/Activity.css';
 import './WhoIsOnline.css';
 
-// Settings → Who's online (App Owner + ACC managers; Platform Core
+// Settings → Who's online (Admin + ACC managers; Platform Core
 // Presence.js checks it too): who has the app open now, on which page and
 // device, and the sign-in history.
 
 const ORG: Record<string, string> = { 'ORG-ACC': 'ACC', 'ORG-RHI': 'RHI', 'ORG-ASEC': 'ASEC' };
 const ROLE_LABEL: Record<string, string> = {
-  'ROLE-ADMIN': 'App Owner',
+  'ROLE-ADMIN': 'Admin',
   'ROLE-MGR': 'ACC Manager',
   'ROLE-RENG': 'ACC Engineer',
   'ROLE-CMGR': 'Contractor Manager',

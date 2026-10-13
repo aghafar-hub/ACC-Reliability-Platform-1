@@ -73,8 +73,8 @@ function doPost(e) {
         return ok_(getSettingsAccess_(session));
       case 'saveSettingsAccess':
         return ok_(saveSettingsAccess_(session, body));
-      // Email & notifications (EmailSettings.js): App Owner only, all off by default
-      // Activity page (Activity.js): App Owner + ACC managers
+      // Email & notifications (EmailSettings.js): Admin only, all off by default
+      // Activity page (Activity.js): Admin + ACC managers
       case 'listPlatformActivity':
         return ok_(listPlatformActivity_(session, body));
       case 'getEmailSettings':
@@ -86,14 +86,14 @@ function doPost(e) {
         return ok_(listEquipmentMaster_(session, body));
       case 'saveEquipmentMaster':
         return ok_(saveEquipmentMaster_(session, body));
-      // Areas (Areas.js): the official area names; any user reads, App Owner saves
+      // Areas (Areas.js): the official area names; any user reads, Admin saves
       case 'getAreas':
         return ok_(getAreas_(session));
       case 'saveAreas':
         return ok_(saveAreas_(session, body));
       case 'listEquipmentLog':
         return ok_(listEquipmentLog_(session, body.limit));
-      // Who's online + login history (Presence.js): App Owner + ACC managers
+      // Who's online + login history (Presence.js): Admin + ACC managers
       case 'heartbeat':
         return ok_(heartbeat_(session, body));
       case 'listPresence':

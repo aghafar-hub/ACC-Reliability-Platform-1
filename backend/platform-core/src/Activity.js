@@ -2,7 +2,7 @@
  * Platform Activity page (step 4): the platform's own changes — PLATFORM_LOG
  * (Settings access, Email & notifications, …) and EQUIPMENT_LOG (Equipment
  * IDs). The shell merges these with the modules' audit logs.
- * App Owner and ACC managers only. body.from = ISO date (default 31 days
+ * Admin and ACC managers only. body.from = ISO date (default 31 days
  * back, at most a year); newest first.
  */
 var ACT_MAX = 3000;
@@ -33,7 +33,7 @@ function actEquipmentDiff_(before, after) {
 }
 
 function listPlatformActivity_(session, body) {
-  if (!activityAllowed_(session)) throw new Error('Activity is for the App Owner and ACC managers.');
+  if (!activityAllowed_(session)) throw new Error('Activity is for the Admin and ACC managers.');
   var from = new Date(String((body && body.from) || ''));
   if (isNaN(from.getTime())) from = new Date(Date.now() - 31 * 86400000);
   var min = new Date(Date.now() - 366 * 86400000);

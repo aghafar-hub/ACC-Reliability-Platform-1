@@ -17,7 +17,6 @@ const AddSample = lazy(() => import("./pages/AddSample"));
 const OilInventory = lazy(() => import("./pages/OilInventory"));
 const Activity = lazy(() => import("./pages/Activity"));
 const Reports = lazy(() => import("./pages/Reports"));
-const TeamWorkload = lazy(() => import("./pages/TeamWorkload"));
 const HowToUse = lazy(() => import("./pages/HowToUse"));
 const Settings = lazy(() => import("./pages/Settings"));
 const pageLoading = <p style={{ padding: 24, opacity: 0.7 }}>Loading…</p>;
@@ -1544,13 +1543,6 @@ function AppShell({ config, setConfig, navBridge }) {
             <div style={{ display: page === "inventory" ? undefined : "none" }}>
               <Suspense fallback={pageLoading}>
                 <OilInventory webhookUrl={config.webhookUrl} equipmentRegistry={registryView} pushToast={pushToast} />
-              </Suspense>
-            </div>
-          )}
-          {visitedPages.has("team") && (
-            <div style={{ display: page === "team" ? undefined : "none" }}>
-              <Suspense fallback={pageLoading}>
-                <TeamWorkload webhookUrl={config.webhookUrl} />
               </Suspense>
             </div>
           )}

@@ -55,7 +55,7 @@ export function useSessionContractor() {
 }
 
 // Phase 1: confirming, returning and rescheduling a route belong to that
-// route's own contractor's engineer, and the App Owner — same rule as
+// route's own contractor's engineer, and the Admin — same rule as
 // Rbac.js's isRouteEngineerFor_ on the server. A standalone build (no
 // session) keeps every button, as before.
 export function useIsRouteEngineerFor(contractor) {
@@ -68,9 +68,9 @@ export function useIsRouteEngineerFor(contractor) {
 }
 
 // Phase 2: approving or rejecting an action's closure belongs to ACC
-// Engineers (ACC org, ROLE-RENG/ROLE-MGR) and the App Owner — same rule as
+// Engineers (ACC org, ROLE-RENG/ROLE-MGR) and the Admin — same rule as
 // Rbac.js's isAccEngineer_ on the server.
-// The App Owner (ROLE-ADMIN): fixes lab report data (it stays validated)
+// The Admin (ROLE-ADMIN): fixes lab report data (it stays validated)
 // and deletes reports from the Oil Analysis Report page.
 export function useIsAppOwner() {
   const session = useSession();

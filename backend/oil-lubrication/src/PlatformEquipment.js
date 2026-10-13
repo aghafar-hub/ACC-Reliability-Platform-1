@@ -8,12 +8,12 @@
 // property PLATFORM_CORE_SPREADSHEET_ID to the Platform Core sheet's ID. With
 // no property the module works as before and the check says "not connected".
 //
-// ID check (Settings → Equipment & IDs, App Owner only): what doesn't match —
+// ID check (Settings → Equipment & IDs, Admin only): what doesn't match —
 // Equipment IDs missing from the platform list, retired machines still in
 // use, Lub IDs with no / wrong Equipment ID, duplicates, records whose Lub ID
 // isn't in the registry, a contractor column that differs from the platform.
 // Results are kept in the "ID Check" tab; "Mark OK" there silences one.
-// A daily run (installIdCheck → idCheckDaily) tells the App Owner about new
+// A daily run (installIdCheck → idCheckDaily) tells the Admin about new
 // problems: bell + email.
 
 var PE_TTL = 600;
@@ -125,7 +125,7 @@ function peEquipmentIdProblem_(equipmentId) {
   var id = String(equipmentId || "").trim();
   if (!id) return "Pick an Equipment ID from the platform list.";
   var p = m.byKey[peKey_(id)];
-  if (!p) return id + " is not in the platform equipment list. Ask the App Owner to add it first.";
+  if (!p) return id + " is not in the platform equipment list. Ask the Admin to add it first.";
   if (/retired/i.test(p.status)) return id + " is retired on the platform.";
   return "";
 }
@@ -277,7 +277,7 @@ function peRun_() {
   return { result: result, fresh: fresh.filter(function (p) { return p.status !== "OK"; }) };
 }
 
-/** App Owner: the last check (or a new one with fresh=1). */
+/** Admin: the last check (or a new one with fresh=1). */
 function handleGetIdCheck(params) {
   if (String((params && params.fresh) || "") !== "1") {
     var cached = peCacheGet_("pe|check");
@@ -301,7 +301,7 @@ function peForget_() {
   } catch (e) {}
 }
 
-/** App Owner: mark one problem OK (stops notifications) or open it again. */
+/** Admin: mark one problem OK (stops notifications) or open it again. */
 function handleMarkIdCheck(params, email) {
   var key = String(params.key || "");
   var status = params.status === "Open" ? "Open" : "OK";
@@ -317,7 +317,7 @@ function handleMarkIdCheck(params, email) {
   return { status: "error", error: "Not found: " + key };
 }
 
-/** Daily (installIdCheck): tell the App Owner about new problems — bell + email. */
+/** Daily (installIdCheck): tell the Admin about new problems — bell + email. */
 function idCheckDaily() {
   peForget_();
   var run = peRun_();

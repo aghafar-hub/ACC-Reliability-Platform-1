@@ -1,5 +1,5 @@
 // ─── Limits & intervals (workflow "Equipment Limits") ─────────────────────
-// Only the App Owner (admin) changes limits. Every change is a new row in
+// Only the Admin (admin) changes limits. Every change is a new row in
 // "Vibration Limits" with its reason; the row it replaces is kept with
 // Active = No, so the history is never lost. Readings already saved keep the
 // limits they were judged with ("Limits used" on each entry) — a change
@@ -99,7 +99,7 @@ function handleGetVibLimits(params, session) {
 //           points: {vibId: [a,b,c] | null}, intervalDays, equipmentStatus, reason }
 // Only keys that are sent are changed.
 function handleSaveVibLimits(params, session) {
-  if (session && !maIsAdmin_(session)) return { status: 'error', error: 'Only the App Owner can change limits and intervals.' };
+  if (session && !maIsAdmin_(session)) return { status: 'error', error: 'Only the Admin can change limits and intervals.' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var me = vlActor_(session);
   var d = typeof params.change === 'string' ? JSON.parse(params.change) : (params.change || params);
@@ -181,7 +181,7 @@ function handleSaveVibLimits(params, session) {
 // Each change is a "Point status" row in this tab (Change history).
 // params: { vibIds: [..], status: 'Active' | 'Inactive', reason }
 function handleSetVibPointStatus(params, session) {
-  if (session && !maIsAdmin_(session)) return { status: 'error', error: 'Only the App Owner can switch measuring points on or off.' };
+  if (session && !maIsAdmin_(session)) return { status: 'error', error: 'Only the Admin can switch measuring points on or off.' };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var me = vlActor_(session);
   var ids = typeof params.vibIds === 'string' ? JSON.parse(params.vibIds) : (params.vibIds || []);

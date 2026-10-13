@@ -10,7 +10,7 @@ type SheetTerm = { key: string; en: string; ar: string; area?: string; status?: 
 type Row = { key: string; area: string; en: string; draft: string; sheet: SheetTerm | null };
 const PAGE = 50;
 
-// Settings → Language. Everyone picks English or Arabic; the App Owner
+// Settings → Language. Everyone picks English or Arabic; the Admin
 // also checks the Arabic word list, which lives in Platform Core's
 // TRANSLATIONS sheet (edit here or straight in the spreadsheet).
 export default function ArabicWordsPanel({ isAppOwner }: { isAppOwner: boolean }) {

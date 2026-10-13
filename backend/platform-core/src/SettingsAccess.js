@@ -1,15 +1,15 @@
 /**
  * Settings access — who sees which Settings page (Settings → Settings access,
- * App Owner). Levels per page and role: Hidden · View · Edit, and for a
+ * Admin). Levels per page and role: Hidden · View · Edit, and for a
  * module's settings also "Responsible" (Edit for that module's responsible
  * engineer, View for everyone else with the role). One person can get an
  * exception for one page.
  *
  * Fixed rules (not editable):
  *   Appearance                       everyone, always
- *   Users · Settings access · Email  App Owner only
+ *   Users · Settings access · Email  Admin only
  *   Equipment & IDs                  others View at most (Equipment IDs are owned by the platform)
- *   App Owner                        Edit everywhere
+ *   Admin                        Edit everywhere
  *
  * SETTINGS_ACCESS        Page | Role | Level | Updated_By | Updated_At
  * SETTINGS_ACCESS_PEOPLE Email | Page | Level | Updated_By | Updated_At
@@ -106,7 +106,7 @@ function saCheck_(session, page, need) {
   return ok ? '' : 'You do not have permission for this settings page.';
 }
 
-/** Everyone: my levels. App Owner also gets the whole table to edit. */
+/** Everyone: my levels. Admin also gets the whole table to edit. */
 function getSettingsAccess_(session) {
   var read = saRead_();
   var out = { pages: SA_PAGES, roles: SA_ROLES, ownerOnly: SA_OWNER_ONLY, viewMax: SA_VIEW_MAX, modulePages: SA_MODULE_PAGES, mine: saLevels_(session, read) };
@@ -117,7 +117,7 @@ function getSettingsAccess_(session) {
   return out;
 }
 
-/** App Owner: replace the table and the exceptions. body: { matrix, people } */
+/** Admin: replace the table and the exceptions. body: { matrix, people } */
 function saveSettingsAccess_(session, body) {
   requireAppAdmin_(session.userId);
   var by = session.email || session.userId;

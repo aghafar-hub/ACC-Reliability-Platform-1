@@ -2,7 +2,7 @@
  * Areas — the official area names (Settings → Equipment & IDs → Areas).
  *
  * The modules and the platform equipment list use many names for one place
- * ("CM1", "CementMill1", "Cement Mill 1"). Here the App Owner keeps one
+ * ("CM1", "CementMill1", "Cement Mill 1"). Here the Admin keeps one
  * official list — lines, and areas inside each line — and the other names
  * ("aliases") each one stands for. Every page shows the official name
  * (frontend areas.ts); the sheets themselves are not changed.
@@ -22,7 +22,7 @@
 var AR_SHEET = 'AREAS';
 var AR_HEADERS = ['Kind', 'Name', 'Line', 'Aliases', 'Order', 'Updated_By', 'Updated_At'];
 
-// Proposed from the names in use (with the App Owner's placements: AF#1 Hot
+// Proposed from the names in use (with the Admin's placements: AF#1 Hot
 // Disc, AF#2 Line 2 (AFR), Coal Meal Coal Mill 1, CM L2 Cement Mills 2, Raw
 // Meal and Gypsum on both lines / both cement mills) (platform list Main_Area / Plant_Area, Oil
 // Equipment Registry, Vibration registers). Names not sure enough to place
@@ -103,7 +103,7 @@ function maybeAppAdmin_(session) {
   try { requireAppAdmin_(session.userId); return true; } catch (e) { return false; }
 }
 
-/** App Owner: replace the whole list. body.areas: [{ kind, name, line, aliases }] */
+/** Admin: replace the whole list. body.areas: [{ kind, name, line, aliases }] */
 function saveAreas_(session, body) {
   requireAppAdmin_(session.userId);
   var by = session.email || session.userId;

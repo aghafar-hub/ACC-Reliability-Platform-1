@@ -51,9 +51,9 @@ export default function OilReportSearch({
   focus,
 }) {
   const { T, s } = useTheme();
-  // Correcting an imported report: the App Owner and ACC Engineers edit
-  // (an ACC Engineer's change is validated again, the App Owner's stays
-  // validated); the App Owner deletes (kept in "Lab Reports Removed").
+  // Correcting an imported report: the Admin and ACC Engineers edit
+  // (an ACC Engineer's change is validated again, the Admin's stays
+  // validated); the Admin deletes (kept in "Lab Reports Removed").
   const isOwner = useIsAppOwner();
   const isAccEngineer = useIsAccEngineer();
   const [editing, setEditing] = useState(null);
@@ -64,7 +64,7 @@ export default function OilReportSearch({
         onDelete: isOwner && onDeleteSample
           ? (sm) => {
               const why = window.prompt(`Delete sample ${sm.sampleId} (${formatDate(sm.sampledDate)}) of ${sm.unitId}?\nWhy (kept with the removed report):`);
-              if (why !== null) onDeleteSample(sm, why.trim() || "Deleted by the App Owner").catch(() => {});
+              if (why !== null) onDeleteSample(sm, why.trim() || "Deleted by the Admin").catch(() => {});
             }
           : null,
       }

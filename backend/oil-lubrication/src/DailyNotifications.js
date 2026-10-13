@@ -1,4 +1,4 @@
-// Phase 6 — daily notifications (bell, plus email when the App Owner has
+// Phase 6 — daily notifications (bell, plus email when the Admin has
 // email turned on). One run a day; every item is announced once — what was
 // already sent is kept in OL_NOTIFY_SENT, so running it again the same day
 // (or the next day) doesn't repeat it.

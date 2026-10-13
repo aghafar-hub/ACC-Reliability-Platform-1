@@ -1,7 +1,7 @@
 /**
  * Asset Master — the platform's equipment list (Foundation spec §7).
  *
- * Ownership (agreed with the App Owner):
+ * Ownership (agreed with the Admin):
  *   Equipment ID — owned here (EQUIPMENT_MASTER). Created, edited and retired
  *                  only by the App Admin, from Settings → Equipment & IDs.
  *   Lub ID       — owned by Oil Lubrication (its Equipment Registry).

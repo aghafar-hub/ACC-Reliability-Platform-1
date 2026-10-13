@@ -8,7 +8,7 @@ import { TablerIcon } from '../icons';
 import ShellModal from './ShellModal';
 import './TeamTab.css';
 
-// My Work → My team (managers and the App Owner). What each engineer and
+// My Work → My team (managers and the Admin). What each engineer and
 // technician did in the period, what they still have in hand, and their
 // dated history — from every module at once. A contractor manager gets
 // their own contractor only; a contractor's responsible engineer gets their

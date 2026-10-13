@@ -28,18 +28,18 @@ type Section = { id: string; group: 'Platform' | 'Modules'; label: string; hint:
 const SECTIONS: Section[] = [
   { id: 'appearance', group: 'Platform', label: 'Appearance', hint: 'Colour theme · install the app', icon: 'palette', tab: 'general', sub: 'appearance' },
   { id: 'language', group: 'Platform', label: 'Language', hint: 'English / عربي · Arabic word list', icon: 'share', tab: 'general', sub: 'language' },
-  // Responsible engineers, managers and the App Owner (filtered below).
+  // Responsible engineers, managers and the Admin (filtered below).
   { id: 'delegations', group: 'Platform', label: 'My delegations', hint: 'Cover while you are away', icon: 'users', tab: 'general', sub: 'delegations' },
   { id: 'users', group: 'Platform', label: 'Users', hint: 'Accounts, roles, passwords', icon: 'users', tab: 'general', sub: 'users' },
-  // App Owner + ACC managers (filtered below): who's using the app, login history
+  // Admin + ACC managers (filtered below): who's using the app, login history
   { id: 'online', group: 'Platform', label: "Who's online", hint: 'Online now · login history', icon: 'users', tab: 'general', sub: 'online' },
-  // Phase 0 — App Owner only (filtered below).
+  // Phase 0 — Admin only (filtered below).
   { id: 'module-access', group: 'Platform', label: 'Module Access', hint: 'Who opens which module and tab', icon: 'shield', tab: 'general', sub: 'module-access' },
-  // App Owner only: who sees which Settings page
+  // Admin only: who sees which Settings page
   { id: 'settings-access', group: 'Platform', label: 'Settings access', hint: 'Who sees which settings', icon: 'shield', tab: 'general', sub: 'settings-access' },
   // the platform's Equipment IDs and what doesn't match them
   { id: 'equipment-ids', group: 'Platform', label: 'Equipment & IDs', hint: 'Equipment IDs · Lub / Vib IDs · not matching', icon: 'equipment', tab: 'general', sub: 'equipment-ids' },
-  // App Owner only: platform sender and which events send email (all off for now)
+  // Admin only: platform sender and which events send email (all off for now)
   { id: 'email', group: 'Platform', label: 'Email & notifications', hint: 'Platform sender · what is sent', icon: 'mail', tab: 'general', sub: 'email' },
   { id: 'oil-analysis', group: 'Modules', label: 'Oil Lubrication', hint: 'Intervals, lists, targets', icon: 'droplet', tab: 'oil-analysis' },
   { id: 'vibration-analysis', group: 'Modules', label: 'Vibration Analysis', hint: 'Intervals, lists, targets', icon: 'graphs', tab: 'vibration-analysis' },

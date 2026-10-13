@@ -383,7 +383,7 @@ function guardLabReportEdit_(session, sheet, rowIdx, newRow) {
   if (!changed) return {};
   if (!isAccEngineer_(session)) return { error: "This lab report is validated — only an ACC Engineer can change it." };
   var changes = labChangedColumns_(current, newRow);
-  // the App Owner fixes data: the report stays validated (the audit keeps
+  // the Admin fixes data: the report stays validated (the audit keeps
   // every change); an ACC Engineer's change is validated again
   if ((session.roles || []).indexOf("ROLE-ADMIN") !== -1) return { admin: true, changes: changes };
   return { reopen: true, changes: changes };

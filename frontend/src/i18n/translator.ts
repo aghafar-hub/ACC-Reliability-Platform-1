@@ -9,7 +9,7 @@ import { termKey, TERMS } from './terms';
 // alone. Phrases with numbers use patterns ("{n} machines").
 //
 // The word list: TERMS (draft Arabic) overridden by Platform Core's
-// TRANSLATIONS sheet (see loadSheetTranslations), which the App Owner edits.
+// TRANSLATIONS sheet (see loadSheetTranslations), which the Admin edits.
 
 export type Lang = 'en' | 'ar';
 const LANG_KEY = 'acc.lang';

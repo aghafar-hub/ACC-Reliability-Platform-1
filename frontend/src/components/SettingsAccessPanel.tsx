@@ -8,7 +8,7 @@ import { TablerIcon } from '../icons';
 import IdSearch from './IdSearch';
 import './SettingsAccessPanel.css';
 
-// Settings → Settings access (App Owner): which role sees which Settings
+// Settings → Settings access (Admin): which role sees which Settings
 // page, plus exceptions for one person. Fixed rules shown with a lock.
 
 const PAGE_LABEL: Record<string, string> = {
@@ -76,7 +76,7 @@ export default function SettingsAccessPanel() {
   return (
     <div className="sa-panel" data-testid="settings-access">
       <p className="settings-intro">
-        Choose which Settings pages each role can open, and whether they can only <b>view</b> or also <b>edit</b>. The App Owner can always edit everything. Tap a cell to change it.
+        Choose which Settings pages each role can open, and whether they can only <b>view</b> or also <b>edit</b>. The Admin can always edit everything. Tap a cell to change it.
       </p>
       {msg && <div className={`sa-msg ${msg.ok ? 'sa-msg--ok' : 'sa-msg--error'}`}>{msg.text}</div>}
       <section className="sa-card">
@@ -90,7 +90,7 @@ export default function SettingsAccessPanel() {
             <thead>
               <tr>
                 <th>Settings page</th>
-                <th>App Owner</th>
+                <th>Admin</th>
                 {full.roles.map((r) => (
                   <th key={r}>{ROLE_LABEL[r] || r}</th>
                 ))}
@@ -108,7 +108,7 @@ export default function SettingsAccessPanel() {
                     <>
                       <td>
                         <span className="sa-lvl sa-lvl--Edit">Edit</span>
-                        {fixed(p) && <span title="App Owner only"> 🔒</span>}
+                        {fixed(p) && <span title="Admin only"> 🔒</span>}
                       </td>
                       {full.roles.map((r) => {
                         const l = (matrix?.[p]?.[r] || 'Hidden') as SettingsLevel;
@@ -138,7 +138,7 @@ export default function SettingsAccessPanel() {
           </table>
         </div>
         <p className="sa-muted sa-foot">
-          🔒 fixed: Appearance is open to everyone; Users, Settings access and Email are for the App Owner only; Equipment &amp; IDs can be viewed but only the App Owner changes Equipment IDs. <b>Edit · responsible</b> = edit only for that module's ACC responsible engineer (others with the role can view).
+          🔒 fixed: Appearance is open to everyone; Users, Settings access and Email are for the Admin only; Equipment &amp; IDs can be viewed but only the Admin changes Equipment IDs. <b>Edit · responsible</b> = edit only for that module's ACC responsible engineer (others with the role can view).
         </p>
       </section>
 

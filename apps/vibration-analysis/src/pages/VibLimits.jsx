@@ -13,7 +13,7 @@ import { SCOPES } from "../vibModel";
 
 // Limits & intervals (workflow "Equipment Limits"): what each machine's
 // readings are judged against, how often it is measured and whether it is
-// Active. Only the App Owner changes them, always with a reason; every change
+// Active. Only the Admin changes them, always with a reason; every change
 // is kept (Change history). Readings already saved keep the limits they were
 // judged with.
 
@@ -59,7 +59,7 @@ export default function VibLimits({ webhookUrl, limits, reload, scopeEquipment, 
         right={
           <>
             <ContractorChips value={contractor} onChange={setContractor} options={contractors} testid="vlim-contractor" />
-            {limits && !canEdit && <StatePill tone={T.textSecondary}>View only — the App Owner changes limits</StatePill>}
+            {limits && !canEdit && <StatePill tone={T.textSecondary}>View only — the Admin changes limits</StatePill>}
           </>
         }
       />
@@ -441,7 +441,7 @@ function MeasuringPoints({ webhookUrl, canEdit, vibPoints, scopeEquipment, contr
   return (
     <div data-testid="vlim-points">
       <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 10, maxWidth: 820 }}>
-        A VIB ID switched off is no longer measured: it leaves the machine page, the charts, routes and coverage. Its readings stay in the log. {canEdit ? "Pick an area and a type, tick the VIB IDs, then switch them off or on." : "Only the App Owner switches points on or off."}
+        A VIB ID switched off is no longer measured: it leaves the machine page, the charts, routes and coverage. Its readings stay in the log. {canEdit ? "Pick an area and a type, tick the VIB IDs, then switch them off or on." : "Only the Admin switches points on or off."}
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
         <EquipmentSearch freeText options={[...new Map(all.map((p) => [p.equipmentId, { code: p.equipmentId, description: p.name }])).values()]} value={q} onChange={setQ} placeholder="Equipment, VIB ID or point…" width={240} testid="vpts-find" />

@@ -1,6 +1,6 @@
 // Arabic word list (mobile app M4). Every English phrase the app shows that
 // has an Arabic version: the shell, Oil Lubrication and Vibration. These are
-// the first suggestions ("Draft"); the App Owner checks and changes them in
+// the first suggestions ("Draft"); the Admin checks and changes them in
 // Platform Core's TRANSLATIONS sheet (Settings → Arabic words), and what is
 // in the sheet wins. Codes (Equipment ID, LP, VIB ID), numbers and units stay
 // as they are.
@@ -430,7 +430,7 @@ export const TERMS: TermRow[] = [
   ['Settings', 'Sign in', 'تسجيل الدخول'],
   ['Settings', 'Signing in…', 'جارٍ تسجيل الدخول…'],
   ['Settings', 'Forgot password?', 'نسيت كلمة المرور؟'],
-  ['Settings', 'Ask the App Owner to reset your password. You get a temporary one and choose your own at the next sign-in.', 'اطلب من مالك التطبيق إعادة تعيين كلمة المرور. ستحصل على كلمة مؤقتة وتختار كلمتك الخاصة عند تسجيل الدخول التالي.'],
+  ['Settings', 'Ask the Admin to reset your password. You get a temporary one and choose your own at the next sign-in.', 'اطلب من المسؤول إعادة تعيين كلمة المرور. ستحصل على كلمة مؤقتة وتختار كلمتك الخاصة عند تسجيل الدخول التالي.'],
   ['Settings', 'Reliability', 'الاعتمادية'],
   ['Settings', 'starts here.', 'تبدأ من هنا.'],
   ['Settings', 'One platform. Connected maintenance.', 'منصة واحدة. صيانة مترابطة.'],
@@ -670,7 +670,7 @@ export const TERMS: TermRow[] = [
   ['Vibration', 'VIB ID limits', 'حدود نقاط القياس'],
   ['Vibration', 'Machines with G\'s limits', 'آلات لها حدود G'],
   ['Vibration', 'Inactive machines', 'آلات غير نشطة'],
-  ['Vibration', 'View only — the App Owner changes limits', 'عرض فقط — مالك التطبيق يغير الحدود'],
+  ['Vibration', 'View only — the Admin changes limits', 'عرض فقط — المسؤول يغير الحدود'],
   ['Vibration', 'No limits', 'بلا حدود'],
   ['Vibration', 'Interval', 'الفترة'],
   ['Vibration', 'Last measured', 'آخر قياس'],

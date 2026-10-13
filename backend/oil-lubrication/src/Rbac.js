@@ -79,7 +79,7 @@ function requireAdmin_(session) {
 
 // Phase 1 — confirming, returning and rescheduling a route belong to that
 // route's own contractor's engineer (also for routes an ACC Engineer
-// created), and to the App Owner. ACC Engineers can no longer confirm.
+// created), and to the Admin. ACC Engineers can no longer confirm.
 function isRouteEngineerFor_(session, contractor) {
   var roles = (session && session.roles) || [];
   if (roles.indexOf('ROLE-ADMIN') !== -1) return true;
@@ -95,7 +95,7 @@ function requireRouteEngineer_(session, contractor, what) {
 }
 
 // Phase 2 — approving or rejecting an action's closure belongs to ACC
-// Engineers (ACC org with the Approve grant) and the App Owner.
+// Engineers (ACC org with the Approve grant) and the Admin.
 function isAccEngineer_(session) {
   var roles = (session && session.roles) || [];
   if (roles.indexOf('ROLE-ADMIN') !== -1) return true;

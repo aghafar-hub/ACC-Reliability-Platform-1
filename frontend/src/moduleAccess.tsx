@@ -126,7 +126,7 @@ async function fetchMyAccess(backend: ModuleBackend, sessionToken: string): Prom
 /**
  * Unknown access (still loading, or the backend unreachable with nothing
  * cached) is treated as allowed — the server still has the final say.
- * Off hides the module from everyone, the App Owner included; it's turned
+ * Off hides the module from everyone, the Admin included; it's turned
  * back on from Settings > General > Module Access, which stays reachable.
  */
 export function canOpenModule(a: ModuleAccess | undefined): boolean {

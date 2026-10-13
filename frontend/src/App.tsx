@@ -209,7 +209,7 @@ function AppShell() {
 // login) so it also takes effect immediately if the user's own role ever
 // changes mid-session via a fresh login.
 // A technician-only account normally gets the single-screen My Work view.
-// Once the App Owner gives them any other tab in a module (Settings >
+// Once the Admin gives them any other tab in a module (Settings >
 // General > Module Access), they get the normal shell with its menu instead,
 // so that access actually shows up for them.
 function ShellForUser() {

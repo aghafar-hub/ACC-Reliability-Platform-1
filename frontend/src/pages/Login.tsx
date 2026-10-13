@@ -67,7 +67,7 @@ export default function Login() {
         {forgot && (
           <p className="auth-notice auth-notice--info" role="note">
             <AuthIcon name="info" size={18} />
-            Ask the App Owner to reset your password. You get a temporary one and choose your own at the next sign-in.
+            Ask the Admin to reset your password. You get a temporary one and choose your own at the next sign-in.
           </p>
         )}
         {error && <p className="auth-error">{error}</p>}

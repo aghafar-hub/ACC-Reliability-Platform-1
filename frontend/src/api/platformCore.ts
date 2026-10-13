@@ -159,7 +159,7 @@ export function saveSettingsAccess(sessionToken: string, matrix: SettingsAccess[
   return postAction(PLATFORM_CORE_URL, 'saveSettingsAccess', { sessionToken, matrix, people });
 }
 
-// ─── Email & notifications (App Owner) ─────────────────────────────────────
+// ─── Email & notifications (Admin) ─────────────────────────────────────
 export type EmailEvent = { key: string; label: string; to: string };
 export type EmailModule = { id: string; name: string; events: EmailEvent[] };
 export type EmailToggles = Record<string, Record<string, { email: boolean; digest: boolean }>>;
@@ -186,7 +186,7 @@ export function saveEmailSettings(
 
 // ─── Areas (Platform Core Areas.js) ──────────────────────────────────────────
 // The official area names: lines, areas inside each line, and the other names
-// (aliases) each one stands for. Until the App Owner saves, the proposal.
+// (aliases) each one stands for. Until the Admin saves, the proposal.
 export type AreaEntry = { kind: 'Line' | 'Area'; name: string; line: string; aliases: string[] };
 // machines: Equipment ID → "Plant_Area|Main_Area" from the platform equipment list
 export type AreaList = { areas: AreaEntry[]; proposed: boolean; changed: { by: string; at: string } | null; canEdit: boolean; machines?: Record<string, string> };
@@ -199,7 +199,7 @@ export function saveAreas(sessionToken: string, areas: AreaEntry[]): Promise<Are
   return postAction(PLATFORM_CORE_URL, 'saveAreas', { sessionToken, areas });
 }
 
-// ─── Who's online + login history (Presence.js; App Owner + ACC managers) ──
+// ─── Who's online + login history (Presence.js; Admin + ACC managers) ──
 export type PresenceUser = {
   userId: string;
   email: string;

@@ -8,7 +8,7 @@ import './Team.css';
 // Team (step 5): work waiting and done across every module — replaces Oil's
 // Team Workload and My Work → My team. Each module's getTeamHistory
 // (ModuleAccess.js maTeamHistory_ + TeamHistory.js) decides what this person
-// may see: App Owner, ACC managers and ACC engineers everyone; a contractor
+// may see: Admin, ACC managers and ACC engineers everyone; a contractor
 // manager their own contractor; a contractor's responsible engineer their own
 // technicians. Shown as workload, not as a ranking.
 
