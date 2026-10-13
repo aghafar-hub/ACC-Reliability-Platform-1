@@ -258,7 +258,7 @@ Web App deployment**, bound only to its own spreadsheet(s). Consequences:
 
 *(A second prior-AI document, APP-008, proposed a more granular 7-role
 split — ACC Manager/ACC Engineer/Contractor Manager/Contractor Section
-Head/Contractor Engineer/Contractor Technician/App Owner. Reviewed and
+Head/Contractor Engineer/Contractor Technician/Admin. Reviewed and
 **declined** — the 5-role list below stands.)*
 
 - **App Admin** — full platform control (see §6.3).

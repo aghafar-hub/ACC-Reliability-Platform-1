@@ -12,7 +12,7 @@ are named F-xx. Phase 1 is in `security-phase1.md`.
 | A report whose kept PDF can't be found shows "PDF missing"; the ACC Engineer can validate it after writing a reason, which goes into the Audit Log. While the PDF exists, it must still be opened first | F-09 | Oil `LabReports.js` (`validateLabReport`), `Code.js`; `LabReviewPanel.jsx`, `LabReportViewer.jsx` |
 | Text starting with `=` `+` `-` or `@` is saved as text, never as a spreadsheet formula (all three backends, every request). Numbers like `-5` and a lone `-` are unchanged | F-12 | `noFormulasIn_` in each backend's `Utils.js`, called in `Code.js` |
 | Sign-out removes the modules' data from the device (cached samples, equipment, My Work, read cache) and reloads the page. If entries saved offline haven't been sent yet, it asks first. When a different person signs in on the device, the previous person's data goes, unsent entries included | F-08 | `frontend/src/auth/deviceData.ts`, `AuthContext.tsx` |
-| 5 wrong passwords for one email within 15 minutes → that email waits 15 minutes (even with the right password). A successful sign-in or an App Owner password reset clears it. Wrong current passwords on Change password count too | F-07 | Platform Core `Auth.js` |
+| 5 wrong passwords for one email within 15 minutes → that email waits 15 minutes (even with the right password). A successful sign-in or an Admin password reset clears it. Wrong current passwords on Change password count too | F-07 | Platform Core `Auth.js` |
 | Passwords are stored with a slower hash (2,000 rounds). Existing passwords keep working and are upgraded the next time each person signs in | F-07 | Platform Core `Auth.js` |
 | Salts and temporary passwords come from Google's secure random source; temporary passwords always meet the password rules | F-07 | Platform Core `Auth.js` |
 | Oil Debug Log keeps its newest 5,000 rows, the Audit Log its newest 50,000; saves log the record ID, not the whole row | F-16 | Oil `Utils.js`, `AuditLog.js`, `Code.js` |
@@ -32,7 +32,7 @@ build. Nobody needs to sign in again for Phase 2.
 
 ## How to test (test copy)
 
-- **Wrong passwords:** sign in with a test user and a wrong password 5 times → "Too many wrong passwords. Try again in 15 minutes". The right password is refused too. Reset that user's password as App Owner → they can sign in at once.
+- **Wrong passwords:** sign in with a test user and a wrong password 5 times → "Too many wrong passwords. Try again in 15 minutes". The right password is refused too. Reset that user's password as Admin → they can sign in at once.
 - **Formula text:** add an Oil action with the comment `=1+1`. In the sheet the cell shows `=1+1`, not `2`.
 - **Sign-out on a shared PC:** sign in, open Oil, sign out. Press F12 → Application → Local Storage: no `acc_oilapp_cache_…` entries remain.
 - **Change password link:** user menu (top right) → Change password → Cancel returns.

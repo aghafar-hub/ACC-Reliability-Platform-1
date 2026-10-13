@@ -2,8 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   push:
+    # The live site comes only from this branch: GitHub Pages refuses a
+    # deploy from main (the backup copy), and a main run would only cancel
+    # the live one.
     branches:
-      - main
       - claude/cement-factory-reliability-app-nyl3f1
   workflow_dispatch:
 

@@ -8,7 +8,7 @@ Workload tab and My Work → My team (that button now opens this page).
 
 | Who | Sees |
 |---|---|
-| App Owner, ACC managers, ACC engineers | everyone, every contractor |
+| Admin, ACC managers, ACC engineers | everyone, every contractor |
 | Contractor manager | their own contractor |
 | Contractor responsible engineer | their own technicians (opened from My Work) |
 

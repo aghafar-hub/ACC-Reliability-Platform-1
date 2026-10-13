@@ -82,12 +82,12 @@ setup is in `test-copy-setup.md`.
   returned is removed by the daily run (`runDailyOilNotifications`), so
   returned reports don't pile up.
 - **Edit / delete on the Oil Analysis Report** (under each sample's date):
-  - The App Owner and ACC Engineers edit every value (particle counts, PQ,
+  - The Admin and ACC Engineers edit every value (particle counts, PQ,
     contaminants, additives, ISO code, ratings). An empty box stays empty.
-  - An ACC Engineer's change is validated again. The App Owner's correction
+  - An ACC Engineer's change is validated again. The Admin's correction
     keeps the report validated; every changed value is written to Activity
     ("Fe 307→999").
-  - The App Owner deletes. The row is kept in Lab Reports Removed.
+  - The Admin deletes. The row is kept in Lab Reports Removed.
   - A contractor can't delete a validated report.
 
 ## Phase 5: inventory
@@ -175,7 +175,7 @@ Recipients for route events changed:
   used to re-read the whole Equipment Registry once per action, which hit
   Apps Script's time limit on real data. The registry is now read once
   per request.
-- **Contractors compared:** ACC and the App Owner see a side-by-side
+- **Contractors compared:** ACC and the Admin see a side-by-side
   table of RHI and ASEC at the top of Team Workload. The worse value of
   anything that should be low is in red. Team Workload is live: it is
   counted from the sheets every time it opens, with no separate database.
@@ -287,7 +287,7 @@ module**, not just Oil Lubrication.
   | Contractor Engineer | Routes waiting approval · Draft routes without a technician · suggestions to turn into routes · lab reports to validate · Draft actions to submit · closures approved, to close · actions overdue · low-stock oils · points due within 7 days |
   | ACC Engineer | Closure requests to approve · lab reports to review · new automatic Drafts · actions overdue (all contractors) |
   | ACC Manager / Contractor Manager | Overdue 10+ days (escalations) · team summary · overdue work per technician (a contractor manager sees only their contractor) |
-  | App Owner | ACC Engineer + manager sections |
+  | Admin | ACC Engineer + manager sections |
   | Visitor | Nothing (My Work is hidden for Visitor) |
 
   Someone with several roles gets all of their sections. Each section

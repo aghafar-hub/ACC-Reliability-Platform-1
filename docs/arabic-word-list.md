@@ -8,7 +8,7 @@
   numbers, dates and charts stay as they are, left-to-right.
 - What people type (comments, readings, names) is never translated.
 
-## For the App Owner — checking the Arabic
+## For the Admin — checking the Arabic
 
 The app's words live in Platform Core's spreadsheet, sheet **TRANSLATIONS**:
 

@@ -491,7 +491,7 @@ effort. Read carefully; compared against everything decided so far.
 
 **Conflicts raised and resolved (user chose in every case to keep the
 prior decision from our own discussion, declining APP-008's version):**
-1. **Roles:** APP-008 proposes 7 granular roles (App Owner, ACC Manager,
+1. **Roles:** APP-008 proposes 7 granular roles (Admin, ACC Manager,
    ACC Engineer, Contractor Manager, Contractor Section Head, Contractor
    Engineer, Contractor Technician). **Declined — the 5-role list from
    round 7 stands** (Technician, Contractor Engineer, Reliability

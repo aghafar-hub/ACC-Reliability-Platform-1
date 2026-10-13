@@ -11,7 +11,7 @@
 Rules:
 
 - An Equipment ID is created, changed and retired **only** on the platform:
-  Settings → **Equipment & IDs** (App Owner). Every change is written to
+  Settings → **Equipment & IDs** (Admin). Every change is written to
   `EQUIPMENT_LOG` in the Platform Core sheet (who, when, before → after).
 - Every Equipment ID in a module (Lub IDs, Vib IDs, the RMS / SPM registers,
   readings, actions) must be a copy of one in the platform list.
@@ -54,7 +54,7 @@ connected".
 - **Check now** on the page runs it at once; otherwise the last result
   (up to 6 hours old) is shown.
 - **Every morning at 07:00** (`idCheckDaily`) each module runs the check and,
-  when there are problems it hasn't reported before, sends the App Owner one
+  when there are problems it hasn't reported before, sends the Admin one
   bell notice and one email listing them. The bell opens Settings →
   Equipment & IDs.
 

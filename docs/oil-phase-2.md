@@ -11,7 +11,7 @@ Requested → Closed**. Old **In Progress** actions read as **Open**.
     Draft.
   - **Submit:** needs Agreed Action, Assigned To, Due Date and Duration.
     It makes the action **Open**. Submit is available to ACC Engineers,
-    that contractor's engineer and the App Owner. The server checks all
+    that contractor's engineer and the Admin. The server checks all
     of this too.
 - **Due Date and Duration** are set while the action is a Draft. New
   actions and automatic Drafts default to due in 7 days.

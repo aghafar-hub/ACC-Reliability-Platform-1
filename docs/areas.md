@@ -19,7 +19,7 @@ Each area belongs to a line:
 | Cement Mills 2 (CM2, CM#2, CM L2) | Cement Mill 3 · Cement Mill 4 · Clinker Area 2 · Gypsum Crusher (GyCrusher, Gypsum) · Packing 2 (PackingArea2) |
 | Common | Hydrogen Plant (Hydrogen) |
 
-This is the **proposed** list, shown until the App Owner saves.
+This is the **proposed** list, shown until the Admin saves.
 
 ### One name on two lines
 
@@ -40,7 +40,7 @@ Equipment, Oil Lubrication (all pages and the route lists) and Vibration
 (measurement tracker and dashboard). The modules get the list from the
 platform when they open (`officialAreas.js`).
 
-## Using the page (App Owner; others can only view)
+## Using the page (Admin; others can only view)
 
 1. **Names in use** lists every name found in the platform list, Oil and
    Vibration, with how many machines use it. For each name, pick the
@@ -62,7 +62,7 @@ area of the line. Names not in the list yet are grouped at the end.
 ## Code
 
 - Platform Core `Areas.js`:
-  - `getAreas` (anyone signed in) and `saveAreas` (App Owner).
+  - `getAreas` (anyone signed in) and `saveAreas` (Admin).
   - The sheet `AREAS`: Kind | Name | Line | Aliases | Order, made on the
     first save.
 - Frontend:

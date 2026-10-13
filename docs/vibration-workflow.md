@@ -41,7 +41,7 @@ Four levels, everywhere: **Normal ●, Caution ▲, Alert ◆, Danger ■**
 
 **Workflow**
 - **Draft → ACC review → Approved**, or ACC review → **Returned** with a reason → fixed → ACC review.
-- Only an ACC engineer, manager or the App Owner can approve, return or reopen.
+- Only an ACC engineer, manager or the Admin can approve, return or reopen.
 - The contractor engineer edits only while the report is Draft or Returned.
 
 **Report status** (reports are approved, not chased by date)
@@ -124,13 +124,13 @@ each VIB ID: `Vb-342.BE050-M1-MDE-RMS`, `Vb-342.BE050-M2-MDE-RMS` (position
 ## Limits, intervals and automatic draft actions (step 3)
 
 **Limits & intervals** (More → Limits & intervals)
-- Only the **App Owner** changes them. Everyone else sees the page view only.
+- Only the **Admin** changes them. Everyone else sees the page view only.
 - Every change needs a **reason** and adds a row to `Vibration Limits`. The replaced row is kept with Active = No, so nothing is overwritten.
 - Readings already saved keep the limits they were judged with (*Limits used* on each reading). A change applies to new readings only.
 
 **Measuring points** (Limits & intervals → Measuring points tab)
 - Switches VIB IDs off when a measurement is no longer taken, for example SPM in the cement mills, gypsum crusher and packing, where only G's is measured now.
-- Pick an area and a type (RMS / SPM / G's), tick the VIB IDs (or "Tick all"), then **Switch off** or **Switch on**, with a reason. App Owner only.
+- Pick an area and a type (RMS / SPM / G's), tick the VIB IDs (or "Tick all"), then **Switch off** or **Switch on**, with a reason. Admin only.
 - Switching off sets the VIB ID Registry's Status column to `Inactive`. The point then leaves the machine page, its charts, routes and coverage. Its readings stay in the log.
 - Each change adds a "Point status" row to `Vibration Limits` and shows in **Change history**.
 

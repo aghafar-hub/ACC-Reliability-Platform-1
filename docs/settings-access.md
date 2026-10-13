@@ -1,6 +1,6 @@
 # Settings access
 
-Settings → **Settings access** (App Owner) decides who sees which Settings
+Settings → **Settings access** (Admin) decides who sees which Settings
 page, and whether they can only **view** it or also **edit** it.
 
 | Level | Meaning |
@@ -13,9 +13,9 @@ page, and whether they can only **view** it or also **edit** it.
 Fixed rules (cannot be changed on the page):
 
 - **Appearance** is open to everyone, always.
-- **Users**, **Settings access** and **Email & notifications** are App Owner only.
+- **Users**, **Settings access** and **Email & notifications** are Admin only.
 - **Equipment & IDs**: others can view at most (Equipment IDs are owned by the platform).
-- The App Owner can edit everything.
+- The Admin can edit everything.
 
 Defaults (until the first save): Language view for all roles; My delegations
 edit for ACC managers / engineers and contractor managers / engineers; Module
@@ -39,7 +39,7 @@ follow the same rules on the server, not only in the menu.
 
 # Email & notifications
 
-Settings → **Email & notifications** (App Owner only). **Everything is off.**
+Settings → **Email & notifications** (Admin only). **Everything is off.**
 
 - **Platform sender** — one address sends for every module (to be created;
   leave it empty until it exists). *Send test email* is switched on in a
@@ -82,7 +82,7 @@ queued for them, then empties the queue.
 
 ## Who's online + login history (Oct 2026)
 
-Settings → **Who's online** — App Owner and ACC managers only (Platform Core
+Settings → **Who's online** — Admin and ACC managers only (Platform Core
 `Presence.js` checks it too; it is not part of the Settings-access matrix).
 
 - **Check-in:** while the app is in view the shell sends `heartbeat` every

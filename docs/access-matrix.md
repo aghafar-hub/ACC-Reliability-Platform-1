@@ -9,7 +9,7 @@ Two layers decide what a person can do (audit I-04):
 2. **Server rules that no tab level can open up**, listed after the tables. They are
    checked on the server for every request.
 
-The App Owner (App Admin) has Edit on everything.
+The Admin (role App Admin) has Edit on everything.
 
 ## Tab levels (defaults)
 
@@ -56,10 +56,10 @@ The App Owner (App Admin) has Edit on everything.
 |---|---|---|
 | Sees and changes only their own contractor's points, machines, samples, readings, actions and routes | Contractor manager, engineer, technician (RHI, ASEC) | Oil `getContractorScope_`, `requireLpContractorMatch_`; Vibration `vbScopeLists_`, `vbLegacyWriteDenial_` |
 | A route holds one contractor's points only | everyone | Oil `createRoutine` |
-| Validates, returns or rejects a lab report; corrects a validated one | ACC Engineer (and App Owner) | Oil `requireAccEngineer_` |
-| Approves or rejects an action closure | ACC Engineer (and App Owner) | Oil and Vibration action workflow |
-| Changes vibration limits, registers and module settings | ACC staff and App Owner | Vibration `vbLegacyWriteDenial_`, Limits |
-| Users, roles, password resets, equipment list, areas, email settings | App Owner only | Platform Core `requireAppAdmin_` |
+| Validates, returns or rejects a lab report; corrects a validated one | ACC Engineer (and Admin) | Oil `requireAccEngineer_` |
+| Approves or rejects an action closure | ACC Engineer (and Admin) | Oil and Vibration action workflow |
+| Changes vibration limits, registers and module settings | ACC staff and Admin | Vibration `vbLegacyWriteDenial_`, Limits |
+| Users, roles, password resets, equipment list, areas, email settings | Admin only | Platform Core `requireAppAdmin_` |
 | Settings pages (module settings, ID check, module access) | whoever Settings → Settings access allows | `settings:*` read rules |
 | A Visitor never edits, whatever the tab level | Visitor | ModuleAccess.js (capped at View) |
 | Every sign-in ends (12 h, or 30 days with "Keep me signed in") and is cancelled on sign-out, role change, password change or reset, user deletion | everyone | `checkSessionAlive_` in the three backends |

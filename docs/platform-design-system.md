@@ -161,7 +161,7 @@ security check.
 |---|---|
 | `ORG-ACC` | Arabian Cement (owner) staff |
 | `ORG-RHI`, `ORG-ASEC` | The two contractors (shown as **RHI**, **ASEC**) |
-| `ROLE-ADMIN` | App Owner — everything, incl. Settings |
+| `ROLE-ADMIN` | Admin — everything, incl. Settings |
 | `ROLE-MGR` | ACC Manager |
 | `ROLE-RENG` | ACC (Reliability) Engineer |
 | `ROLE-CMGR` | Contractor Manager (own contractor + team view) |
@@ -597,7 +597,7 @@ plus its own `ModuleAccessConfig.js`:
 - `MA_CONFIG = { moduleId, moduleName, peopleSheet, tabAccessSheet, tabs,
   roles, defaultRoleLevels, orgToContractor, readRules }`.
 - Tab levels: **Hidden / View / Edit**. Module status: **Active /
-  Maintenance / Off**. The App Owner changes them in Settings → Module
+  Maintenance / Off**. The Admin changes them in Settings → Module
   Access; people can be added to a module with a responsibility (ACC,
   Contractor, Technician, Member, ACC Manager, Contractor Manager) and
   delegate while away (Settings → My delegations).

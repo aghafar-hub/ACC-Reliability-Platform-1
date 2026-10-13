@@ -19,10 +19,10 @@ Engineer sections in My Work follow **responsibility**, not job title.
   `covering: [{ from, until, id }]`.
 - Managers (ACC Manager, Contractor Manager) keep their escalations and team
   sections.
-- The App Owner gets the manager sections. They get the ACC engineer
+- The Admin gets the manager sections. They get the ACC engineer
   sections only when listed or covering.
 - **Nobody responsible.** Managers see a "Nobody responsible" warning when
-  their side has no engineer available today. The App Owner sees it for ACC
+  their side has no engineer available today. The Admin sees it for ACC
   and for every contractor in `MA_CONFIG.orgToContractor`. "No engineer
   available" means every listed engineer is away and no cover is in place.
 
@@ -30,13 +30,13 @@ Engineer sections in My Work follow **responsibility**, not job title.
 
 | Rule | Detail |
 |---|---|
-| Who sets it up | The engineer (if listed), or a manager of the same contractor. For ACC, the manager is an ACC manager. The App Owner can also set one up. |
+| Who sets it up | The engineer (if listed), or a manager of the same contractor. For ACC, the manager is an ACC manager. The Admin can also set one up. |
 | Who covers | A colleague with a platform account in the **same contractor**; ACC delegates to ACC. The rule is checked when the delegation is created (against the people list) and again every time the cover is used (against the colleague's own organisation). |
 | Manager covers himself | When no engineer is free, a manager can delegate to himself. "Engineer away" can be left empty in that case. |
 | One at a time | An engineer can have only one delegation over the same dates. |
 | No delegating to someone away | You can't delegate to a colleague who has delegated their own work on those dates. |
 | Length | Up to 120 days. The end date can't be in the past. |
-| End early | The engineer, the colleague, the person who set it up, a manager of the same contractor, or the App Owner. |
+| End early | The engineer, the colleague, the person who set it up, a manager of the same contractor, or the Admin. |
 | What the colleague can do | Everything the engineer can do, including approve and close. An ACC manager covering for an engineer can approve in Vibration. |
 
 Notifications go out when a delegation starts and when it ends. They go in the
@@ -54,7 +54,7 @@ The person who made the change is not notified.
 `frontend/src/components/DelegationsPanel.tsx` asks every module for
 `getMyDelegations` and shows the answers together.
 
-- **Who sees it:** engineers, managers and the App Owner. Technicians and
+- **Who sees it:** engineers, managers and the Admin. Technicians and
   visitors don't.
 - **Your responsibility:** one tile per module. It shows one of
   "Responsible engineer", "Covering for X until …", "Away — Y covers until …"
@@ -89,7 +89,7 @@ The person who made the change is not notified.
   others.
 - **Work by module:** the same sections as before, now with a count per
   module.
-- **My work / My team tabs:** managers, the App Owner and responsible
+- **My work / My team tabs:** managers, the Admin and responsible
   engineers (ACC and contractor) get both.
 
 ## My team (managers, `components/TeamTab.tsx`)
@@ -102,7 +102,7 @@ platform started isn't there.
 
 - **Who sees whom:**
   - A contractor manager sees their own contractor.
-  - An ACC manager and the App Owner see ACC and every contractor, with
+  - An ACC manager and the Admin see ACC and every contractor, with
     company chips.
   - A contractor's responsible engineer (listed, or covering) sees only
     their own contractor's technicians, and only in the modules where they
@@ -158,7 +158,7 @@ These requests are open to any signed-in person. The rules above are checked
 inside each one.
 
 - `getMyDelegations`: returns your side, your contractor, whether you are
-  listed, whether you are a manager or the App Owner, who you are covering,
+  listed, whether you are a manager or the Admin, who you are covering,
   the list of engineers, the delegations you can see, and `nobodyResponsible`.
 - `maCreateDelegation`: takes `from`, `to`, `startDate`, `endDate` and
   `reason`. Leave out `from` to mean yourself; send `""` for a manager

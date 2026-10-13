@@ -81,7 +81,7 @@ only changes the test copy, not their real password.
 
 ## Part C — What to try in Phase 0
 
-1. **Settings → General → Module Access** (App Owner only):
+1. **Settings → General → Module Access** (Admin only):
    - The people who were already getting Oil alerts appear as responsible
      engineers.
    - **Add them all** gives every existing account access, with

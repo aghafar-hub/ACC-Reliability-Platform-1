@@ -1,6 +1,6 @@
 # Activity (platform page)
 
-`/activity` — every change in every module, newest first. **App Owner and
+`/activity` — every change in every module, newest first. **Admin and
 ACC managers only** (menu item hidden for others; each backend refuses too).
 It replaces Oil Lubrication's own Activity tab.
 

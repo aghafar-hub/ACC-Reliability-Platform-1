@@ -221,7 +221,7 @@ Empty spaces in a card row get filled with a useful chart, not left blank.
   they can be translated; put numbers in their own element or use a
   `{n}` pattern in the word list.
 - New UI words go into `i18n/terms.ts` with a first Arabic suggestion; the
-  App Owner adds them to the sheet from Settings → Language.
+  Admin adds them to the sheet from Settings → Language.
 - Mark anything that must never be translated with `data-no-translate`.
 - Codes and numbers stay left-to-right (monospace codes, `.plant-code`,
   charts); every line keeps its own reading order (`unicode-bidi:

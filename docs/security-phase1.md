@@ -13,7 +13,7 @@ are named F-xx.
 | All three backends refuse an ended or cancelled sign-in with "Your sign-in has ended — please sign in again." The app then goes back to the Login page and shows that message | F-02 | `checkSessionAlive_` in the three backends; `frontend/src/auth/sessionEnded.ts` |
 | Passwords: at least 10 characters with letters and numbers, checked on the server. A normal change needs the current password; the forced first change doesn't | F-06 | Platform Core `Auth.js`; `ChangePassword.tsx` |
 | Vibration start-up and full-sync data only hold the person's own contractor's machines, points, readings and actions | F-03 | Vibration `Code.js` (`vbScopeLists_`) |
-| Vibration's older save actions: limits, registers and settings are ACC / App Owner only; other changes only on the person's own contractor's machines; they run under the script lock and are written to the Vibration audit | F-04, F-11 | Vibration `Code.js` (`vbLegacyWriteDenial_`) |
+| Vibration's older save actions: limits, registers and settings are ACC / Admin only; other changes only on the person's own contractor's machines; they run under the script lock and are written to the Vibration audit | F-04, F-11 | Vibration `Code.js` (`vbLegacyWriteDenial_`) |
 | An Oil route can only hold points of its own contractor | F-05 | Oil `Routines.js` (`createRoutine`) |
 | Without `SESSION_SIGNING_SECRET` the Oil and Vibration backends serve nothing (they used to stay open) | F-21 | Oil `Auth.js`, Vibration `Code.js` |
 
