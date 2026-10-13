@@ -354,12 +354,6 @@ html[lang='ar'] .auth-page {
   border-color: #aeb9c7;
   color: var(--auth-ink);
 }
-.auth-need {
-  margin: 22px 0 0;
-  text-align: center;
-  font-size: 15px;
-  color: var(--auth-ink2);
-}
 .auth-foot {
   padding-top: 16px;
   border-top: 1px solid var(--auth-soft);

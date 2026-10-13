@@ -75,7 +75,6 @@ export default function Login() {
           {submitting ? 'Signing in…' : 'Sign in'}
           {!submitting && <AuthIcon name="arrow" />}
         </button>
-        <p className="auth-need">Need access? Contact the App Owner</p>
       </form>
     </AuthLayout>
   );

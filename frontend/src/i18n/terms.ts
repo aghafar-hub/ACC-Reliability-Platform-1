@@ -408,7 +408,6 @@ export const TERMS: TermRow[] = [
   ['Settings', 'Signing in…', 'جارٍ تسجيل الدخول…'],
   ['Settings', 'Forgot password?', 'نسيت كلمة المرور؟'],
   ['Settings', 'Ask the App Owner to reset your password. You get a temporary one and choose your own at the next sign-in.', 'اطلب من مالك التطبيق إعادة تعيين كلمة المرور. ستحصل على كلمة مؤقتة وتختار كلمتك الخاصة عند تسجيل الدخول التالي.'],
-  ['Settings', 'Need access? Contact the App Owner', 'تحتاج إلى صلاحية؟ تواصل مع مالك التطبيق'],
   ['Settings', 'Reliability', 'الاعتمادية'],
   ['Settings', 'starts here.', 'تبدأ من هنا.'],
   ['Settings', 'One platform. Connected maintenance.', 'منصة واحدة. صيانة مترابطة.'],
