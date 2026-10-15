@@ -128,14 +128,17 @@ function findMachine(m, equipment, rep) {
   const id = canonId(m.eq);
   // the registers can hold one ID twice ("741.CP110" and "741.CP.110"):
   // the spelling that has VIB IDs wins
-  const byId = all.filter((x) => canonId(x.id) === id);
-  let hit = byId.find((x) => x.points.length) || equipment[m.eq] || equipment[id] || byId[0];
+  // no ID in the report (e.g. "Clinker Crusher"): matched by name below
+  const byId = id ? all.filter((x) => canonId(x.id) === id) : [];
+  let hit = id ? byId.find((x) => x.points.length) || equipment[m.eq] || equipment[id] || byId[0] : null;
   let how = "id";
   if (!hit && m.name) {
     // by name, inside the report's contractor + scope first
+    // the same name can be in the registers twice; the machine with VIB IDs wins
     const same = (x) => norm(x.name) === norm(m.name);
-    const mine = all.filter((x) => same(x) && x.contractor === rep.Contractor && x.scope === rep["Report scope"]);
-    const any = all.filter(same);
+    const named = all.filter(same);
+    const any = named.some((x) => x.points.length) ? named.filter((x) => x.points.length) : named;
+    const mine = any.filter((x) => x.contractor === rep.Contractor && x.scope === rep["Report scope"]);
     hit = mine.length === 1 ? mine[0] : any.length === 1 ? any[0] : null;
     how = "name";
   }
@@ -223,10 +226,10 @@ export function matchImport(merged, rep, equipment, existing = []) {
     else if (!hit.points.length) out.machineProblem = "This machine has no VIB IDs in the VIB ID Registry — add them first (or skip)";
     else if (hit.contractor && hit.contractor !== rep.Contractor) {
       out.machineProblem = `Belongs to ${hit.contractor}, not ${rep.Contractor} — skipped`;
-      out.skipMachine = true;
+      out.skipMachine = out.outOfScope = true;
     } else if (hit.scope && hit.scope !== rep["Report scope"]) {
       out.machineProblem = `In ${hit.scope}, not ${rep["Report scope"]} — skipped`;
-      out.skipMachine = true;
+      out.skipMachine = out.outOfScope = true;
     }
     if (m.condition && !out.condition) out.machineProblem ||= `Condition "${m.condition}" not understood — pick one`;
     out.rows = m.readings.map((r) => buildRow(r, hit, month, reportRows));
@@ -323,7 +326,8 @@ export function refreshMachine(mach, equipment) {
 export function rowsToSave(machines) {
   const out = [];
   machines.forEach((m) => {
-    if (m.skipMachine || !m.eqId) return;
+    // another line's or contractor's machine never goes into this report
+    if (m.skipMachine || m.outOfScope || !m.eqId) return;
     m.rows.forEach((r) => {
       if (r.skip || !r.vibId || r.problem || !["add", "replace"].includes(r.action)) return;
       out.push({ vibId: r.vibId, date: r.date, ...r.vals, reportStatus: r.reportStatus || "", notes: [r.note, "Imported from report"].filter(Boolean).join(" · ") });
@@ -357,15 +361,16 @@ export function setMachine(mach, eqId, equipment, rep) {
   mach.eqName = hit?.name || "";
   mach.matchedBy = hit ? "picked" : "";
   mach.skipMachine = false;
+  mach.outOfScope = false;
   mach.machineProblem = "";
   if (!hit) mach.machineProblem = "Machine not found in the app (VIB ID Registry) — pick it or skip it";
   else if (!hit.points.length) mach.machineProblem = "This machine has no VIB IDs in the VIB ID Registry — add them first (or skip)";
   else if (hit.contractor && hit.contractor !== rep.Contractor) {
     mach.machineProblem = `Belongs to ${hit.contractor}, not ${rep.Contractor} — skipped`;
-    mach.skipMachine = true;
+    mach.skipMachine = mach.outOfScope = true;
   } else if (hit.scope && hit.scope !== rep["Report scope"]) {
     mach.machineProblem = `In ${hit.scope}, not ${rep["Report scope"]} — skipped`;
-    mach.skipMachine = true;
+    mach.skipMachine = mach.outOfScope = true;
   }
   mach.rows.forEach((r) => {
     if (r.manual || r.family === "RMS?") return;

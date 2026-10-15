@@ -176,3 +176,25 @@ test("Backend: the contractor's report file is kept with the report and given ba
   rep["Workflow status"] = "Approved";
   assert.match(save("rhiEng").error, /Draft or Returned/, "a sent report takes no new file from the contractor");
 });
+
+test("Import match: another line's machine stays out even if un-skipped; a name finds the machine with VIB IDs", () => {
+  const P = (vibId, eq, area, contractor = "RHI") => ({ vibId, equipmentId: eq, positionCode: "MDE", family: "RMS", description: "Motor DE", readingColumns: "Axial, Horizontal, Vertical", contractor, status: "Active", reportArea: area, area });
+  const reg = [
+    { equipmentId: "998.FN100", equipment: "Other Fan", line: "Line 1" },
+    { equipmentId: "999.FN100", equipment: "Test Fan", line: "Line 2" },
+    { equipmentId: "999.CR999", equipment: "Test Crusher", line: "Line 2" }, // same name, no VIB IDs
+    { equipmentId: "", equipment: "", line: "" }, // a blank register row
+    { equipmentId: "999.CR100", equipment: "Test Crusher", line: "Line 2" },
+  ];
+  const eq = buildEquipment([P("V-OTHER", "998.FN100", "Line 1"), P("V-FAN", "999.FN100", "Line 2"), P("V-CR", "999.CR100", "Line 2")], reg, [], null);
+  const parsed = { contractor: "RHI", scope: "Line 2", month: "2026-09", warnings: [], machines: [
+    { eq: "998.FN.100", name: "Other Fan", condition: "", recommendation: "", readings: [{ point: "Motor DE", family: "RMS", sub: "", vals: { H: 1 }, date: "2026-09-07" }] },
+    { eq: "", name: "Test Crusher", condition: "", recommendation: "", readings: [{ point: "Motor DE", family: "RMS", sub: "", vals: { H: 2 }, date: "2026-09-07" }] },
+  ] };
+  const ms = matchImport(mergeParsed([parsed]), { Contractor: "RHI", "Report scope": "Line 2", Month: "2026-09", "Report ID": "R" }, eq, []);
+  const other = ms.find((m) => m.eqIn === "998.FN.100");
+  assert.ok(other.skipMachine && other.outOfScope);
+  other.skipMachine = false; // ticked off by hand on the check screen
+  assert.equal(ms.find((m) => m.nameIn === "Test Crusher").eqId, "999.CR100");
+  assert.equal(rowsToSave(ms).map((r) => r.vibId).join(), "V-CR", "the Line 1 machine is never sent with a Line 2 report");
+});

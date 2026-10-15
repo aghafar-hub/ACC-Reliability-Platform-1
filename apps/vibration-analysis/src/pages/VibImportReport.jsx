@@ -319,7 +319,18 @@ function MachineCard({ m, T, s, month, picks, equipment, edit, onPick, isMobile 
         )}
         {m.machineProblem && <span style={{ fontSize: 12.5, color: m.skipMachine ? T.textSecondary : T.warning }}>{m.machineProblem}</span>}
         <label style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", fontSize: 12.5, color: T.textSecondary }}>
-          <input type="checkbox" checked={m.skipMachine} onChange={(e) => { const v = e.target.checked; edit(m.key, (c) => (c.skipMachine = v)); }} data-testid={`vimp-skipm-${m.eqIn}`} /> Skip machine
+          <input
+            type="checkbox"
+            checked={m.skipMachine}
+            disabled={!!m.outOfScope}
+            title={m.outOfScope ? "This machine belongs to another line or contractor in the app, so its readings can't go into this report. Pick another machine, or correct its line / contractor in the database." : undefined}
+            onChange={(e) => {
+              const v = e.target.checked;
+              edit(m.key, (c) => (c.skipMachine = v));
+            }}
+            data-testid={`vimp-skipm-${m.eqIn}`}
+          />{" "}
+          Skip machine
         </label>
       </div>
 
