@@ -12,6 +12,7 @@ function rdInput_(e) {
     vibId: e['VIB ID'], date: vlDate_(e['Measurement date']),
     h: e['Horizontal (mm/s)'], v: e['Vertical (mm/s)'], a: e['Axial (mm/s)'],
     hdm: e['HDm (dBsv)'], hdc: e['HDc (dBsv)'], g: e["G's (g)"],
+    gh: e['Horizontal (g)'], gv: e['Vertical (g)'], ga: e['Axial (g)'],
     reportStatus: e['Report status'], notes: e['Notes'],
   };
 }

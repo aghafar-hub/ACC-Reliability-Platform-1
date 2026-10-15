@@ -34,7 +34,8 @@ var VENTRY_HEADERS = [
   'Entry ID','Report ID','Month','Contractor','Report scope','Line','Equipment ID','Equipment name','VIB ID',
   'Family','Position','Point description','Measurement date','Reading kind','Horizontal (mm/s)','Vertical (mm/s)',
   'Axial (mm/s)','Max velocity (mm/s)','HDm (dBsv)','HDc (dBsv)',"G's (g)",'Limits used (N/C/A)','System status',
-  'Report status','Final status','Report differs','Source row','Notes'
+  'Report status','Final status','Report differs','Source row','Notes',
+  'Horizontal (g)','Vertical (g)','Axial (g)'
 ];
 var VCOVER_HEADERS = [
   'Report ID','Month','Contractor','Report scope','Line','Equipment ID','Equipment name',
@@ -498,6 +499,7 @@ function handleSaveVibEntries(params, session) {
     seen[key] = true;
     var fam = p['Family'];
     var H = vlNum_(x.h), V = vlNum_(x.v), A = vlNum_(x.a), HDm = vlNum_(x.hdm), HDc = vlNum_(x.hdc), G = vlNum_(x.g);
+    var GH = vlNum_(x.gh), GV = vlNum_(x.gv), GA = vlNum_(x.ga);
     var maxV = null, sys = '', lim = null;
     if (fam === 'RMS') {
       [H, V, A].forEach(function (n) { if (n !== null && (maxV === null || n > maxV)) maxV = n; });
@@ -508,6 +510,12 @@ function handleSaveVibEntries(params, session) {
       if (HDm === null && HDc === null) { problems.push(line + 'no HDm / HDc value.'); return; }
       lim = lmFor_(master, eq, vibId, 'SPM'); sys = vlBand_(HDm, lim);
     } else {
+      // RHI gives G's per direction (H / V / A in g): the highest is the G's value
+      if (fam === 'Gs' && (GH !== null || GV !== null || GA !== null)) {
+        if ([GH, GV, GA].some(function (n) { return n !== null && n < 0; })) { problems.push(line + 'G\'s can\'t be negative.'); return; }
+        G = null;
+        [GH, GV, GA].forEach(function (n) { if (n !== null && (G === null || n > G)) G = n; });
+      }
       if (G === null) { problems.push(line + 'no G\'s value.'); return; }
       lim = lmFor_(master, eq, vibId, 'Gs');
       sys = lim ? vlBand_(G, lim) : 'No limits';
@@ -521,6 +529,7 @@ function handleSaveVibEntries(params, session) {
       'Measurement date': date, 'Reading kind': 'Report reading',
       'Horizontal (mm/s)': H, 'Vertical (mm/s)': V, 'Axial (mm/s)': A, 'Max velocity (mm/s)': maxV,
       'HDm (dBsv)': HDm, 'HDc (dBsv)': HDc, "G's (g)": G,
+      'Horizontal (g)': fam === 'Gs' ? GH : null, 'Vertical (g)': fam === 'Gs' ? GV : null, 'Axial (g)': fam === 'Gs' ? GA : null,
       'Limits used (N/C/A)': lim ? lim.join('/') : '', 'System status': sys, 'Report status': rs,
       'Final status': fin, 'Report differs': rs && sys && sys !== 'No limits' && rs !== sys ? 'Yes' : '',
       'Source row': 'App', 'Notes': String(x.notes || ''),

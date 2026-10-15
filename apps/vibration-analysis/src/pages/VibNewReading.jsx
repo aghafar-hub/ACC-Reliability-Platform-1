@@ -14,7 +14,7 @@ import { fieldsFor, systemStatus } from "../vibModel";
 // only, a VIB ID already read on that date needs "Replace" — every change
 // is in the report's history.
 
-const LABEL = { h: "H", v: "V", a: "A", hdm: "HDm", hdc: "HDc", g: "G's" };
+const LABEL = { h: "H", v: "V", a: "A", hdm: "HDm", hdc: "HDc", g: "G's", gh: "H (g)", gv: "V (g)", ga: "A (g)" };
 
 export default function NewReadingModal({ webhookUrl, machines, me, presetEquipmentId, onClose, onSaved }) {
   const { T, s } = useTheme();
@@ -35,7 +35,7 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
     setDupe(false);
     setVals((p) => ({ ...p, [vib]: { ...(p[vib] || {}), [k]: v } }));
   };
-  const filled = Object.entries(vals).filter(([, r]) => ["h", "v", "a", "hdm", "hdc", "g"].some((k) => r[k] !== "" && r[k] != null));
+  const filled = Object.entries(vals).filter(([, r]) => Object.keys(LABEL).some((k) => r[k] !== "" && r[k] != null));
   const machineOptions = list.map((x) => ({ code: x.id, description: x.name }));
 
   const save = async (replace = false) => {
@@ -135,7 +135,7 @@ export default function NewReadingModal({ webhookUrl, machines, me, presetEquipm
                               <input
                                 type="number"
                                 inputMode="decimal"
-                                step={k === "hdm" || k === "hdc" ? "1" : "0.01"}
+                                step={k === "hdm" || k === "hdc" ? "1" : k[0] === "g" ? "0.001" : "0.01"}
                                 style={cell}
                                 value={r[k] ?? ""}
                                 onChange={(e) => set(p.vibId, k, e.target.value)}

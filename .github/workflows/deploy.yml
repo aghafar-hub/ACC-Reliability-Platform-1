@@ -28,13 +28,14 @@ jobs:
         with:
           node-version: 20
 
-      # Security tests (tests/security.test.cjs): the real backend code with
+      # Tests (tests/*.test.*): the real backend and import code with
       # made-up data — sign-ins end and can be cancelled, contractor
-      # separation, password rules, no tokens in logs. A failure stops the
-      # deploy, so the live site keeps its last good version.
-      - name: Security tests
+      # separation, password rules, no tokens in logs, vibration report
+      # import (Word layout, G's per direction). A failure stops the deploy,
+      # so the live site keeps its last good version.
+      - name: Tests
         if: hashFiles('tests/security.test.cjs') != ''
-        run: node --test tests/security.test.cjs
+        run: node --test tests/*.test.cjs tests/*.test.mjs
 
       - name: Install dependencies (all three projects)
         run: |

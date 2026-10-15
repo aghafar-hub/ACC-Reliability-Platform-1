@@ -7,11 +7,11 @@ import { FormSection } from "../components/ModalShell";
 import Tile from "../components/Tile";
 import { LevelPill, StatePill } from "../components/Level";
 import { LEVELS } from "../levels";
-import { monthLabel } from "../vibModel";
+import { monthLabel, fieldsFor } from "../vibModel";
 import { readReportFile } from "../import/readReportFile";
 import { matchImport, mergeParsed, refreshMachine, rowsToSave, counts, setMachine, checkRow } from "../import/matchReport";
 
-// Import a contractor report (PDF) into this report: read → check → save.
+// Import a contractor report (PDF, or RHI's Word file) into this report: read → check → save.
 // The check screen lists every machine of the file(s): the machine and VIB
 // ID each reading goes to, the values (editable), system status, the
 // report's condition (goes on the machine's worst point) and its
@@ -20,7 +20,9 @@ import { matchImport, mergeParsed, refreshMachine, rowsToSave, counts, setMachin
 // skipped. ASEC may send one month in one or two files: pick both.
 
 const FIELDS = { RMS: ["h", "v", "a"], SPM: ["hdm", "hdc"], Gs: ["g"], "RMS?": ["h", "v", "a"] };
-const LABEL = { h: "H", v: "V", a: "A", hdm: "HDm", hdc: "HDc", g: "G's" };
+const LABEL = { h: "H", v: "V", a: "A", hdm: "HDm", hdc: "HDc", g: "G's", gh: "H", gv: "V", ga: "A" };
+// G's fields of a read row: H / V / A in g (RHI) or one value (ASEC)
+const gsFields = (r) => (["gh", "gv", "ga"].some((k) => r.vals[k] !== undefined || r.raw?.["g" + k.slice(1).toUpperCase()] !== undefined) ? ["gh", "gv", "ga"] : ["g"]);
 const ACTION = { add: ["New", "info"], replace: ["Replaces", "warning"], same: ["Already in the app", "muted"], other: ["Other value saved", "warning"] };
 
 export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipment, onCancel, onSaved }) {
@@ -153,17 +155,17 @@ export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipme
             data-testid="vimp-drop"
           >
             <i className="ti ti-file-upload" style={{ fontSize: 32, color: T.accent }} aria-hidden="true" />
-            <div style={{ fontWeight: 700, marginTop: 8 }}>Drop the report PDF here, or click to choose</div>
+            <div style={{ fontWeight: 700, marginTop: 8 }}>Drop the report file here (PDF or Word), or click to choose</div>
             <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 4 }}>
-              {rep.Contractor === "ASEC" ? "ASEC may send the month in one or two files — pick all of them." : "One file per line (save the Word report as PDF)."} Read here in your browser; nothing is saved until you check it.
+              {rep.Contractor === "ASEC" ? "ASEC may send the month in one or two files — pick all of them." : "One file per line — RHI's Word file (.docx) reads best."} Read here in your browser; nothing is saved until you check it.
             </div>
-            <input type="file" accept="application/pdf,.pdf" multiple style={{ display: "none" }} onChange={(e) => { setFiles(Array.from(e.target.files || [])); e.target.value = ""; }} data-testid="vimp-file" />
+            <input type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple style={{ display: "none" }} onChange={(e) => { setFiles(Array.from(e.target.files || [])); e.target.value = ""; }} data-testid="vimp-file" />
           </label>
           {files.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 12 }}>
               {files.map((f) => (
                 <span key={f.name} style={{ fontSize: 12.5, background: T.cardSubBg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "3px 8px" }}>
-                  <i className="ti ti-file-type-pdf" aria-hidden="true" /> {f.name}
+                  <i className={`ti ti-file-type-${/\.docx$/i.test(f.name) ? "docx" : "pdf"}`} aria-hidden="true" /> {f.name}
                 </span>
               ))}
             </div>
@@ -195,7 +197,7 @@ export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipme
       <FormSection
         icon="list-check"
         title="Check the report before saving"
-        hint={isMobile ? "" : results.filter((r) => r.ok).map((r) => `${r.file} · ${r.pages} pages`).join(" + ")}
+        hint={isMobile ? "" : results.filter((r) => r.ok).map((r) => (r.pages ? `${r.file} · ${r.pages} pages` : r.file)).join(" + ")}
         right={
           <button type="button" style={{ ...s.btnGhost, padding: "5px 10px", fontSize: 12.5 }} onClick={() => exportIssues(machines, rep, results)} data-testid="vimp-issues-xlsx">
             <i className="ti ti-file-spreadsheet" aria-hidden="true" /> Issues (Excel)
@@ -204,7 +206,7 @@ export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipme
       >
         {isMobile && (
           <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 8, overflowWrap: "anywhere" }}>
-            {results.filter((r) => r.ok).map((r) => `${r.file} · ${r.pages} pages`).join(" + ")}
+            {results.filter((r) => r.ok).map((r) => (r.pages ? `${r.file} · ${r.pages} pages` : r.file)).join(" + ")}
           </div>
         )}
         {results.flatMap((r) => (r.ok ? r.notes : [])).concat(results.filter((r) => !r.ok).map((r) => `${r.file}: ${r.error}`)).map((n) => (
@@ -404,7 +406,8 @@ function rowParts(r, m, machine, month, edit, T, s, cell, phone) {
   const fam = r.family === "RMS?" ? "RMS" : r.family;
   const opts = (machine?.points || []).filter((p) => p.family === fam);
   const p = opts.find((x) => x.vibId === r.vibId);
-  const fields = p ? (fam === "RMS" ? ["h", "v", "a"] : FIELDS[fam]) : FIELDS[r.family];
+  const fields = fam === "Gs" ? (p ? fieldsFor(p) : gsFields(r)) : p ? (fam === "RMS" ? ["h", "v", "a"] : FIELDS[fam]) : FIELDS[r.family];
+  const undirected = r.raw?.U ?? r.raw?.gU;
   const set = (fn) =>
     edit(m.key, (c) => {
       const x = c.rows.find((y) => y.key === r.key);
@@ -431,6 +434,9 @@ function rowParts(r, m, machine, month, edit, T, s, cell, phone) {
           set((x) => {
             x.vibId = v;
             x.manual = true;
+            // a value with no direction in the report: into the one the VIB ID takes
+            const np = opts.find((o) => o.vibId === v);
+            if (np && undirected !== undefined && fieldsFor(np).length === 1) x.vals = { [fieldsFor(np)[0]]: undirected };
           });
         }}
         aria-label={`VIB ID for ${r.pointIn}`}
@@ -461,6 +467,8 @@ function rowParts(r, m, machine, month, edit, T, s, cell, phone) {
     values: (
       <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
         {r.family === "RMS?" && <span style={{ fontSize: 12, color: T.textSecondary, marginRight: 4 }}>report: {r.raw?.X}</span>}
+        {undirected !== undefined && <span style={{ fontSize: 12, color: T.textSecondary, marginRight: 4 }}>report (no direction): {undirected}</span>}
+        {fam === "Gs" && fields[0] !== "g" && <span style={{ fontSize: 12, color: T.textSecondary }}>g</span>}
         {fields.map((k) => (
           <label key={k} style={{ display: "inline-flex", alignItems: "center", gap: 3, marginRight: 4, fontSize: 12, color: T.textSecondary }}>
             {LABEL[k]}

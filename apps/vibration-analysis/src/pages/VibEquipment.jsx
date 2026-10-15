@@ -558,6 +558,11 @@ function MachinePage({ webhookUrl, version, eqId, row, info, onBack, onAdd, onOp
                   {["Horizontal (mm/s)", "Vertical (mm/s)", "Axial (mm/s)", "HDm (dBsv)", "HDc (dBsv)", "G's (g)"].map((k) => (
                     <td key={k} style={{ ...s.td, color: e[k] === "" ? T.textMuted : T.textPrimary }}>
                       {e[k] === "" ? "–" : e[k]}
+                      {k === "G's (g)" && ["Horizontal (g)", "Vertical (g)", "Axial (g)"].some((d) => e[d] !== "" && e[d] != null) && (
+                        <div style={{ fontSize: 11, color: T.textMuted, whiteSpace: "nowrap" }}>
+                          H / V / A {["Horizontal (g)", "Vertical (g)", "Axial (g)"].map((d) => (e[d] === "" || e[d] == null ? "–" : e[d])).join(" / ")}
+                        </div>
+                      )}
                     </td>
                   ))}
                   <td style={s.td}>{e["System status"] === "No limits" ? <span style={{ fontSize: 12, color: T.textSecondary }}>No limits</span> : <LevelPill level={e["System status"]} />}</td>

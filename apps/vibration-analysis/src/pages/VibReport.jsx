@@ -19,7 +19,11 @@ import VibImportReport from "./VibImportReport";
 // history. Workflow: Draft → ACC review → Approved (or Returned).
 
 const STEPS = ["Draft", "ACC review", "Approved"];
-const NUM = { h: "Horizontal (mm/s)", v: "Vertical (mm/s)", a: "Axial (mm/s)", hdm: "HDm (dBsv)", hdc: "HDc (dBsv)", g: "G's (g)" };
+const NUM = { h: "Horizontal (mm/s)", v: "Vertical (mm/s)", a: "Axial (mm/s)", hdm: "HDm (dBsv)", hdc: "HDc (dBsv)", g: "G's (g)", gh: "Horizontal (g)", gv: "Vertical (g)", ga: "Axial (g)" };
+const KEYS = ["h", "v", "a", "hdm", "hdc", "g", "gh", "gv", "ga"];
+// "0.12 / 0.30 / 0.08" for a G's entry read per direction, else ""
+const gsDirs = (e) => (["gh", "gv", "ga"].some((k) => e[NUM[k]] !== "" && e[NUM[k]] != null) ? ["gh", "gv", "ga"].map((k) => (e[NUM[k]] === "" || e[NUM[k]] == null ? "–" : (+e[NUM[k]]).toFixed(3))).join(" / ") : "");
+const pick = (src, get) => Object.fromEntries(KEYS.map((k) => [k, get(src, k)]));
 
 export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment }) {
   const { T, s } = useTheme();
@@ -413,7 +417,10 @@ function GroupRows({ T, s, g, muted }) {
             <td style={{ ...s.td, ...(rms ? {} : muted) }}>{rms ? fmt(e[NUM.a]) : "–"}</td>
             <td style={{ ...s.td, ...(spm ? {} : muted) }}>{spm ? fmt(e[NUM.hdm], 0) : "–"}</td>
             <td style={{ ...s.td, ...(spm ? {} : muted) }}>{spm ? fmt(e[NUM.hdc], 0) : "–"}</td>
-            <td style={{ ...s.td, ...(fam === "Gs" ? {} : muted) }}>{fam === "Gs" ? fmt(e[NUM.g], 3) : "–"}</td>
+            <td style={{ ...s.td, ...(fam === "Gs" ? {} : muted) }} title={fam === "Gs" && gsDirs(e) ? `H / V / A ${gsDirs(e)} g` : undefined}>
+              {fam === "Gs" ? fmt(e[NUM.g], 3) : "–"}
+              {fam === "Gs" && gsDirs(e) && <div style={{ fontSize: 11, color: T.textMuted, whiteSpace: "nowrap" }}>H / V / A {gsDirs(e)}</div>}
+            </td>
             <td style={s.td}>{e["System status"] === "No limits" ? <span style={{ fontSize: 12, color: T.textSecondary }}>No limits</span> : <LevelPill level={e["System status"]} />}</td>
             <td style={s.td}>
               <LevelPill level={toLevel(e["Report status"])} />
@@ -562,7 +569,9 @@ function ReadingsEditor({ webhookUrl, rep, entries, scopeEquipment, onCancel, on
     entries
       .filter((e) => e["Reading kind"] === "Report reading" || !e["Reading kind"])
       .forEach((e) => {
-        m[e["VIB ID"]] = { date: e["Measurement date"], h: e[NUM.h] ?? "", v: e[NUM.v] ?? "", a: e[NUM.a] ?? "", hdm: e[NUM.hdm] ?? "", hdc: e[NUM.hdc] ?? "", g: e[NUM.g] ?? "", reportStatus: toLevel(e["Report status"]), notes: e.Notes || "" };
+        // H / V / A in g given: the G's value is worked out from them
+        const dir = ["gh", "gv", "ga"].some((k) => e[NUM[k]] !== "" && e[NUM[k]] != null);
+        m[e["VIB ID"]] = { date: e["Measurement date"], ...pick(e, (x, k) => (k === "g" && dir ? "" : x[NUM[k]] ?? "")), reportStatus: toLevel(e["Report status"]), notes: e.Notes || "" };
       });
     return m;
   }, [entries]);
@@ -575,7 +584,7 @@ function ReadingsEditor({ webhookUrl, rep, entries, scopeEquipment, onCancel, on
   const earlier = entries.filter((e) => e["Reading kind"] === "Earlier reading in month");
 
   const set = (vib, k, v) => setVals((p) => ({ ...p, [vib]: { ...(p[vib] || {}), [k]: v } }));
-  const filled = (r) => r && ["h", "v", "a", "hdm", "hdc", "g"].some((k) => r[k] !== "" && r[k] != null);
+  const filled = (r) => r && KEYS.some((k) => r[k] !== "" && r[k] != null);
   const count = Object.values(vals).filter(filled).length;
   const searchMatch = idTextMatch(search, machines.map((m) => m.id));
   const list = machines.filter((m) => searchMatch(m.id, m.name));
@@ -586,9 +595,9 @@ function ReadingsEditor({ webhookUrl, rep, entries, scopeEquipment, onCancel, on
     const out = [];
     Object.entries(vals).forEach(([vibId, r]) => {
       if (!filled(r)) return;
-      out.push({ vibId, date: r.date || defDate, h: r.h, v: r.v, a: r.a, hdm: r.hdm, hdc: r.hdc, g: r.g, reportStatus: r.reportStatus, notes: r.notes });
+      out.push({ vibId, date: r.date || defDate, ...pick(r, (x, k) => x[k]), reportStatus: r.reportStatus, notes: r.notes });
     });
-    earlier.forEach((e) => out.push({ vibId: e["VIB ID"], date: e["Measurement date"], h: e[NUM.h], v: e[NUM.v], a: e[NUM.a], hdm: e[NUM.hdm], hdc: e[NUM.hdc], g: e[NUM.g], reportStatus: toLevel(e["Report status"]), notes: e.Notes }));
+    earlier.forEach((e) => out.push({ vibId: e["VIB ID"], date: e["Measurement date"], ...pick(e, (x, k) => x[NUM[k]]), reportStatus: toLevel(e["Report status"]), notes: e.Notes }));
     const noDate = out.filter((x) => !x.date);
     if (noDate.length) return setError(`${noDate.length} reading(s) have no measurement date — set "Date for all" or a date on each row.`);
     setBusy(true);
@@ -690,7 +699,20 @@ function EditorMachine({ T, s, m, vals, set, cell, defDate }) {
             <td style={s.td}>{input("a")}</td>
             <td style={s.td}>{input("hdm", "1")}</td>
             <td style={s.td}>{input("hdc", "1")}</td>
-            <td style={s.td}>{input("g", "0.001")}</td>
+            <td style={s.td}>
+              {fields.includes("gh") || fields.includes("gv") || fields.includes("ga") ? (
+                <span style={{ display: "inline-flex", gap: 3, alignItems: "center", fontSize: 11.5, color: T.textSecondary }}>
+                  {["gh", "gv", "ga"].filter((k) => fields.includes(k)).map((k) => (
+                    <label key={k} style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>
+                      {k.slice(1).toUpperCase()}
+                      {input(k, "0.001")}
+                    </label>
+                  ))}
+                </span>
+              ) : (
+                input("g", "0.001")
+              )}
+            </td>
             <td style={s.td}>{sys === "No limits" ? <span style={{ fontSize: 12, color: T.textSecondary }}>No limits</span> : <LevelPill level={sys} />}</td>
             <td style={s.td}>
               <select style={{ ...s.select, padding: "5px 6px" }} value={r.reportStatus || ""} onChange={(e) => set(p.vibId, "reportStatus", e.target.value)} aria-label={`${p.vibId} report status`}>

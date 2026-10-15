@@ -4,7 +4,7 @@
 // Pure: no React, no network — tested in Node.
 import { canonId } from "./rhiReport.js";
 import { band, toLevel, LEVEL_RANK } from "../levels.js";
-import { limitsFor, scopeOf } from "../vibModel.js";
+import { limitsFor, scopeOf, fieldsFor, gsValue } from "../vibModel.js";
 
 // Merge several read files of one month (ASEC may send one or two).
 export function mergeParsed(list) {
@@ -104,12 +104,32 @@ function driveOf(eqIn, equipment) {
   return null;
 }
 
+// "351.BE.340 M2": the report names one drive of a two-drive machine by an
+// ID of the machine (its own, or the report ID of one of its drives) and the
+// motor number (RHI Word layout): only that drive's points.
+function namedDrive(m, equipment) {
+  if (!m.drive) return null;
+  const id = canonId(m.eq);
+  const ofMachine = (e) => canonId(e.id) === id || e.points.some((p) => p.reportEq && canonId(p.reportEq) === id);
+  const x = Object.values(equipment || {}).find((e) => ofMachine(e) && e.points.some((p) => String(p.positionCode).toUpperCase().startsWith(m.drive + "-")));
+  if (!x) return null;
+  const pts = x.points.filter((p) => String(p.positionCode).toUpperCase().startsWith(m.drive + "-"));
+  const strip = (p) => ({ ...p, positionCode: String(p.positionCode || "").replace(/^M\d+-/i, ""), description: String(p.description || "").replace(/^M\d+\s+/i, "") });
+  const area = pts.find((p) => p.reportArea)?.reportArea;
+  return { ...x, points: pts.map(strip), scope: (area && scopeOf(x.contractor, area)) || x.scope, drive: m.drive };
+}
+
 function findMachine(m, equipment, rep) {
+  const named = namedDrive(m, equipment);
+  if (named) return { hit: named, how: "drive" };
   const drive = driveOf(m.eq, equipment);
   if (drive) return { hit: drive, how: "drive" };
   const all = Object.values(equipment || {});
   const id = canonId(m.eq);
-  let hit = equipment[m.eq] || equipment[id] || all.find((x) => canonId(x.id) === id);
+  // the registers can hold one ID twice ("741.CP110" and "741.CP.110"):
+  // the spelling that has VIB IDs wins
+  const byId = all.filter((x) => canonId(x.id) === id);
+  let hit = byId.find((x) => x.points.length) || equipment[m.eq] || equipment[id] || byId[0];
   let how = "id";
   if (!hit && m.name) {
     // by name, inside the report's contractor + scope first
@@ -122,9 +142,9 @@ function findMachine(m, equipment, rep) {
   return { hit, how };
 }
 
-const VAL_KEYS = { H: "h", V: "v", A: "a", HDm: "hdm", HDc: "hdc", G: "g" };
-const TOL = { h: 0.011, v: 0.011, a: 0.011, hdm: 0.6, hdc: 0.6, g: 0.0011 };
-const NUM = { h: "Horizontal (mm/s)", v: "Vertical (mm/s)", a: "Axial (mm/s)", hdm: "HDm (dBsv)", hdc: "HDc (dBsv)", g: "G's (g)" };
+const VAL_KEYS = { H: "h", V: "v", A: "a", HDm: "hdm", HDc: "hdc", G: "g", gH: "gh", gV: "gv", gA: "ga" };
+const TOL = { h: 0.011, v: 0.011, a: 0.011, hdm: 0.6, hdc: 0.6, g: 0.0011, gh: 0.0011, gv: 0.0011, ga: 0.0011 };
+const NUM = { h: "Horizontal (mm/s)", v: "Vertical (mm/s)", a: "Axial (mm/s)", hdm: "HDm (dBsv)", hdc: "HDc (dBsv)", g: "G's (g)", gh: "Horizontal (g)", gv: "Vertical (g)", ga: "Axial (g)" };
 
 export function valuesOf(r) {
   const o = {};
@@ -165,8 +185,9 @@ export function systemOf(point, machine, vals) {
     return n.length ? band(Math.max(...n), lim) : "";
   }
   if (point.family === "SPM") return vals.hdm === undefined ? "" : band(vals.hdm, lim);
-  if (vals.g === undefined) return "";
-  return lim ? band(vals.g, lim) : "No limits";
+  const g = gsValue(vals);
+  if (g === null) return "";
+  return lim ? band(g, lim) : "No limits";
 }
 
 let seq = 0;
@@ -246,11 +267,24 @@ function buildRow(r, machine, month, reportRows) {
     const f = findVib(machine, r.family, r.point, r.sub, r.pointRaw);
     row.vibId = f.vibId || "";
     row.problem = f.problem || "";
+    if (row.vibId) undirected(row, machine.points.find((p) => p.vibId === row.vibId));
   }
   if (!row.date) row.problem ||= "No measurement date";
   else if (month && row.date.slice(0, 7) > month) row.problem ||= `Measured ${row.date}, after the report month`;
   row.existing = reportRows;
   return row;
+}
+
+// A value with no direction in the report (gearbox HSS / rim gear points):
+// it goes to the one direction the VIB ID takes.
+function undirected(row, point) {
+  const u = row.raw?.U ?? row.raw?.gU;
+  if (u === undefined || !point) return;
+  const fields = fieldsFor(point);
+  if (fields.length === 1) {
+    row.vals = { [fields[0]]: u };
+    row.note = [row.note, "no direction in the report"].filter(Boolean).join("; ");
+  } else row.problem ||= `No direction in the report and ${row.vibId} takes ${fields.length} values — type it in the right one`;
 }
 
 // Re-check one machine after an edit: statuses, duplicates, report status.
@@ -338,6 +372,7 @@ export function setMachine(mach, eqId, equipment, rep) {
     const f = hit ? findVib(hit, r.family, r.pointIn, r.sub, r.pointRaw) : {};
     r.vibId = f.vibId || "";
     r.problem = f.problem || (r.date ? "" : "No measurement date");
+    if (r.vibId) undirected(r, hit.points.find((p) => p.vibId === r.vibId));
   });
   return refreshMachine(mach, equipment);
 }

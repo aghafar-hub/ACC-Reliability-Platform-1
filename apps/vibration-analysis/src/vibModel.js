@@ -65,16 +65,25 @@ export function familyOrder(f) {
   return { RMS: 0, SPM: 1, Gs: 2 }[f] ?? 3;
 }
 
-// What a VIB ID takes: RMS → which of H/V/A, SPM → HDm/HDc, Gs → G's.
+// What a VIB ID takes: RMS → which of H/V/A, SPM → HDm/HDc, Gs → one G's
+// value (ASEC PeakVue) or H/V/A in g (RHI, Reading columns "… (g)").
 export function fieldsFor(point) {
   if (point.family === "SPM") return ["hdm", "hdc"];
-  if (point.family === "Gs") return ["g"];
   const c = String(point.readingColumns || "").toLowerCase();
   const f = [];
   if (c.includes("horiz")) f.push("h");
   if (c.includes("vert")) f.push("v");
   if (c.includes("axial")) f.push("a");
+  if (point.family === "Gs") return f.length ? f.map((k) => "g" + k) : ["g"];
   return f.length ? f : ["h", "v", "a"];
+}
+
+// G's value of a reading: the one value, or the highest of H / V / A in g
+export function gsValue(r) {
+  const own = parseFloat(r.g);
+  if (!isNaN(own)) return own;
+  const n = [r.gh, r.gv, r.ga].map((x) => parseFloat(x)).filter((x) => !isNaN(x));
+  return n.length ? Math.max(...n) : null;
 }
 
 // System status of one reading against the equipment's limits.
@@ -93,8 +102,8 @@ export function systemStatus(point, eqInfo, r) {
     return vals.length ? band(Math.max(...vals), lim) : "";
   }
   if (point.family === "SPM") return band(r.hdm, lim);
-  const has = r.g !== "" && r.g != null && !isNaN(parseFloat(r.g));
-  return has ? (lim ? band(r.g, lim) : "No limits") : "";
+  const g = gsValue(r);
+  return g !== null ? (lim ? band(g, lim) : "No limits") : "";
 }
 
 export function monthLabel(m) {
