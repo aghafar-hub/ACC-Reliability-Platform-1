@@ -9,7 +9,9 @@ import useBackClose from "../hooks/useBackClose";
 // a footer that stays in view with the buttons. On a phone it fills the
 // screen like a sheet. Esc or the ✕ closes it. Drawn on <body> so the
 // shade covers the whole app (top bar and tabs too).
-export default function ModalShell({ icon, title, subtitle, badge, headerExtra, onClose, footer, width = 780, testid, children }) {
+// `split`: the popup takes the full height and the body does not scroll
+// itself, so the child can scroll its own columns side by side.
+export default function ModalShell({ icon, title, subtitle, badge, headerExtra, onClose, footer, width = 780, testid, split = false, children }) {
   const { T } = useTheme();
   const isMobile = useIsMobile();
   // phone back gesture / Android back closes the popup
@@ -51,6 +53,7 @@ export default function ModalShell({ icon, title, subtitle, badge, headerExtra, 
           width: "100%",
           maxWidth: isMobile ? "100%" : width,
           maxHeight: isMobile ? "100%" : "92vh",
+          ...(split && !isMobile ? { height: "92vh" } : {}),
           display: "flex",
           flexDirection: "column",
           boxShadow: "0 18px 48px rgba(8, 15, 28, 0.28)",
@@ -84,7 +87,17 @@ export default function ModalShell({ icon, title, subtitle, badge, headerExtra, 
             <i className="ti ti-x" aria-hidden="true" />
           </button>
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "14px 16px" : "18px 22px", background: T.appBg }}>{children}</div>
+        <div
+          style={{
+            flex: 1,
+            overflowY: split && !isMobile ? "hidden" : "auto",
+            ...(split && !isMobile ? { minHeight: 0, display: "flex", flexDirection: "column" } : {}),
+            padding: isMobile ? "14px 16px" : "18px 22px",
+            background: T.appBg,
+          }}
+        >
+          {children}
+        </div>
         {footer && (
           <div
             data-acc-modal-foot=""

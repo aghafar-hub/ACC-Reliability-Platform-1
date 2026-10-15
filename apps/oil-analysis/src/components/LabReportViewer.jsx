@@ -71,9 +71,18 @@ export default function LabReportViewer({ sample, loadPdf, onOpened, actions, on
       width={1180}
       testid="lab-report-viewer"
       footer={actions}
+      split
     >
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 300px", gap: 16, alignItems: "start" }}>
-        <div style={{ minWidth: 0 }}>
+      {/* desktop: the report and the saved values scroll on their own, so
+          both can be lined up for comparing */}
+      <div
+        style={
+          isMobile
+            ? { display: "grid", gridTemplateColumns: "1fr", gap: 16 }
+            : { display: "grid", gridTemplateColumns: "minmax(0, 1fr) 300px", gridTemplateRows: "minmax(0, 1fr)", gap: 16, flex: 1, minHeight: 0 }
+        }
+      >
+        <div style={{ minWidth: 0, ...(isMobile ? {} : { overflowY: "auto", minHeight: 0, paddingRight: 4 }) }} data-testid="lab-report-scroll">
           {state.loading && (
             <p style={{ color: T.textSecondary, fontSize: 13 }} data-testid="lab-pdf-loading">
               <i className="ti ti-file-type-pdf" aria-hidden="true" /> Loading the lab's PDF…
@@ -94,7 +103,7 @@ export default function LabReportViewer({ sample, loadPdf, onOpened, actions, on
           )}
           <div ref={pagesRef} data-testid="lab-pdf-pages" />
         </div>
-        <div style={{ ...s.card, marginBottom: 0, padding: 14, position: isMobile ? "static" : "sticky", top: 0 }} data-testid="lab-saved-values">
+        <div style={{ ...s.card, marginBottom: 0, padding: 14, ...(isMobile ? {} : { overflowY: "auto", minHeight: 0 }) }} data-testid="lab-saved-values">
           <p style={{ fontWeight: 700, fontSize: 13, margin: "0 0 2px" }}>Saved in the app</p>
           <p style={{ fontSize: 12, color: T.textSecondary, margin: "0 0 10px" }}>Check each value against the lab's report.</p>
           {rows.map((g) => (
