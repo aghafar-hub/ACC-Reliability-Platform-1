@@ -212,3 +212,14 @@ test("Import match: a drive named in the report (\"… M02\") keeps to that driv
   setMachine(m, "999.BE050", eq, rep);
   assert.equal(m.rows[0].vibId, "V-M2", "picked by hand: drive M2's Motor DE");
 });
+
+test("Import match: an unknown report ID is not matched by name to another machine", () => {
+  const eq = buildEquipment([{ vibId: "V-BL", equipmentId: "998.BL310", positionCode: "MDE", family: "RMS", description: "Motor DE", readingColumns: "Axial, Horizontal, Vertical", contractor: "RHI", status: "Active", reportArea: "Line 2", area: "Line 2" }],
+    [{ equipmentId: "998.BL310", equipment: "BL310", line: "Line 2" }], [], null);
+  const parsed = { contractor: "RHI", scope: "Line 2", month: "2026-09", warnings: [], machines: [
+    { eq: "997.BL.310", name: "BL310", condition: "", recommendation: "", readings: [{ point: "Motor DE", family: "RMS", sub: "", vals: { H: 1 }, date: "2026-09-27" }] },
+  ] };
+  const [m] = matchImport(mergeParsed([parsed]), { Contractor: "RHI", "Report scope": "Line 2", Month: "2026-09", "Report ID": "R" }, eq, []);
+  assert.equal(m.eqId, "", "997.BL.310 is not 998.BL310");
+  assert.match(m.machineProblem, /not found/);
+});

@@ -132,7 +132,10 @@ function findMachine(m, equipment, rep) {
   const byId = id ? all.filter((x) => canonId(x.id) === id) : [];
   let hit = id ? byId.find((x) => x.points.length) || equipment[m.eq] || equipment[id] || byId[0] : null;
   let how = "id";
-  if (!hit && m.name) {
+  // by name only when the report gives no ID: a report ID the app doesn't
+  // know is a machine to add, not another machine with the same name
+  // ("352.BL.310" must not land on 342.BL310 "BL310")
+  if (!hit && m.name && !id) {
     // by name, inside the report's contractor + scope first
     // the same name can be in the registers twice; the machine with VIB IDs wins
     const same = (x) => norm(x.name) === norm(m.name);
