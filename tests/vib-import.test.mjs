@@ -198,3 +198,17 @@ test("Import match: another line's machine stays out even if un-skipped; a name 
   assert.equal(ms.find((m) => m.nameIn === "Test Crusher").eqId, "999.CR100");
   assert.equal(rowsToSave(ms).map((r) => r.vibId).join(), "V-CR", "the Line 1 machine is never sent with a Line 2 report");
 });
+
+test("Import match: a drive named in the report (\"… M02\") keeps to that drive when the machine is picked by hand", async () => {
+  const { setMachine } = await import(SRC + "import/matchReport.js");
+  const P = (vibId, pos) => ({ vibId, equipmentId: "999.BE050", positionCode: pos, family: "RMS", description: pos.replace(/^M(\d)-/, "M$1 ").replace("MDE", "Motor DE"), readingColumns: "Axial, Horizontal, Vertical", contractor: "RHI", status: "Active", reportArea: "Line 2", area: "Line 2" });
+  const eq = buildEquipment([P("V-M1", "M1-MDE"), P("V-M2", "M2-MDE")], [{ equipmentId: "999.BE050", equipment: "Test Elevator", line: "Line 2" }], [], null);
+  const rep = { Contractor: "RHI", "Report scope": "Line 2", Month: "2026-09", "Report ID": "R" };
+  const parsed = { contractor: "RHI", scope: "Line 2", month: "2026-09", warnings: [], machines: [
+    { eq: "999.BE.040 M2", drive: "M2", name: "Bucket Elevator", condition: "", recommendation: "", readings: [{ point: "Motor DE", family: "RMS", sub: "", vals: { H: 3 }, date: "2026-09-27" }] },
+  ] };
+  const [m] = matchImport(mergeParsed([parsed]), rep, eq, []);
+  assert.equal(m.eqId, "", "the report's ID is wrong: not found");
+  setMachine(m, "999.BE050", eq, rep);
+  assert.equal(m.rows[0].vibId, "V-M2", "picked by hand: drive M2's Motor DE");
+});

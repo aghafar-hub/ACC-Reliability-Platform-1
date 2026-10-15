@@ -213,6 +213,7 @@ export function matchImport(merged, rep, equipment, existing = []) {
       eqName: hit?.name || "",
       matchedBy: hit ? how : "",
       drive: hit?.drive || "",
+      driveIn: m.drive || "", // "M2" when the report names the drive ("342.BE.040 M02")
       machineProblem: "",
       skipMachine: false,
       conditionRaw: m.condition || "",
@@ -356,7 +357,8 @@ export function counts(machines) {
 // The user picked the app machine for a report machine: check it and match
 // its rows again (rows whose VIB ID was picked by hand keep it).
 export function setMachine(mach, eqId, equipment, rep) {
-  const hit = equipment[eqId];
+  // the report named a drive (M01 / M02): only that drive's points of the picked machine
+  const hit = (mach.driveIn && namedDrive({ eq: eqId, drive: mach.driveIn }, equipment)) || equipment[eqId];
   mach.eqId = hit ? hit.id : "";
   mach.eqName = hit?.name || "";
   mach.matchedBy = hit ? "picked" : "";
