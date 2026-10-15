@@ -371,6 +371,7 @@ function handleGetVibReport(params, session) {
     return { equipmentId: k, condition: recMap[k].condition, recommendation: recMap[k].recommendation };
   });
   return { status: 'ok', report: vlReportOut_(rep, vlToday_()), entries: entries, coverage: coverage, history: audit, recommendations: recommendations,
+    files: vfList_(ss, id),
            me: { contractor: me.contractor, acc: me.acc, canApprove: me.canApprove } };
 }
 

@@ -364,6 +364,9 @@ function dispatch(action, params, session) {
   if (action==='saveVibReport')         return vlLocked_(function () { return handleSaveVibReport(params, session); });
   if (action==='saveVibEntries')        return vlLocked_(function () { return handleSaveVibEntries(params, session); });
   if (action==='vibReportTransition')   return vlLocked_(function () { return handleVibReportTransition(params, session); });
+  // ReportFiles.js: the contractor's own report file
+  if (action==='saveVibReportFile')     return vlLocked_(function () { return handleSaveVibReportFile(params, session); });
+  if (action==='getVibReportFile')      return handleGetVibReportFile(params, session);
   // Readings.js
   if (action==='getVibEquipmentSummary') return handleGetVibEquipmentSummary(params, session);
   if (action==='saveVibReadings')       return vlLocked_(function () { return handleSaveVibReadings(params, session); });

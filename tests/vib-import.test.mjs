@@ -151,3 +151,28 @@ test("Backend: a G's reading per direction is saved with the highest as G's (g)"
   assert.equal(row["Axial (g)"], 0.12);
   assert.equal(row["System status"], "No limits");
 });
+
+test("Backend: the contractor's report file is kept with the report and given back", () => {
+  const vib = moduleBackend("vibration-analysis", platformCore());
+  const rep = { "Report ID": "VL-2026-09-RHI-L9", Month: "2026-09", Contractor: "RHI", "Report scope": "Line 9", "Workflow status": "Draft" };
+  vib.vlFindReport_ = () => ({ rep });
+  const s = (who) => vib.getSessionOrNull_(signIn(who));
+  const word = Buffer.concat([Buffer.from("PK\x03\x04"), Buffer.from("made-up word file")]).toString("base64");
+  const save = (who, extra = {}) => vib.handleSaveVibReportFile({ reportId: rep["Report ID"], fileKey: "VRF-0000-1111-2222", fileName: "Line 9 report.docx", base64: word, ...extra }, s(who));
+  assert.match(save("asecEng").error, /another contractor/);
+  assert.match(save("rhiEng", { fileName: "x.exe" }).error, /PDF or Word/);
+  assert.match(save("rhiEng", { fileName: "x.pdf" }).error, /not a PDF/);
+  const ok = save("rhiEng");
+  assert.equal(ok.status, "ok", JSON.stringify(ok));
+  assert.equal(ok.files.length, 1);
+  // the same name again replaces it
+  const again = save("rhiEng", { fileKey: "VRF-0000-1111-3333" });
+  assert.equal(again.files.map((f) => f.key).join(), "VRF-0000-1111-3333");
+  const got = vib.handleGetVibReportFile({ reportId: rep["Report ID"], fileKey: "VRF-0000-1111-3333" }, s("accEng"));
+  assert.equal(got.status, "ok", JSON.stringify(got));
+  assert.equal(got.fileName, "Line 9 report.docx");
+  assert.equal(got.base64, word);
+  assert.match(vib.handleGetVibReportFile({ reportId: rep["Report ID"], fileKey: "VRF-0000-1111-2222" }, s("accEng")).error, /not kept/, "the replaced copy is gone");
+  rep["Workflow status"] = "Approved";
+  assert.match(save("rhiEng").error, /Draft or Returned/, "a sent report takes no new file from the contractor");
+});

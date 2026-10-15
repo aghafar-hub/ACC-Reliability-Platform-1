@@ -412,6 +412,26 @@ export function saveVibEntries(webhookUrl, reportId, entries, opts = {}) {
   if (opts.merge) body.mode = "merge";
   return postVerified(webhookUrl, "saveVibEntries", body);
 }
+// The contractor's own report file, kept with the report (ReportFiles.js).
+async function fileToBase64(file) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+export async function saveVibReportFile(webhookUrl, reportId, file) {
+  const fileKey = "VRF-" + (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`);
+  return postVerified(webhookUrl, "saveVibReportFile", { reportId, fileKey, fileName: file.name || "report", base64: await fileToBase64(file) });
+}
+// → { fileName, blob }
+export async function getVibReportFile(webhookUrl, reportId, fileKey) {
+  const data = await verifiedGet(webhookUrl, "getVibReportFile", { reportId, fileKey });
+  if (!data || data.status === "error" || data.error) throw new Error((data && data.error) || "The file couldn't be loaded.");
+  const bin = atob(data.base64 || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { fileName: data.fileName, blob: new Blob([bytes], { type: data.mime || "application/octet-stream" }) };
+}
 export function vibReportTransition(webhookUrl, fields) {
   return postVerified(webhookUrl, "vibReportTransition", fields);
 }

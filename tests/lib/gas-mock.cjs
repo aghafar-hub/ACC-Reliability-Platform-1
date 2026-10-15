@@ -76,7 +76,7 @@ function createContext({ props = {}, sheets = {} } = {}) {
     Utilities: {
       base64DecodeWebSafe: (s) => Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64"),
       base64EncodeWebSafe: (s) => Buffer.from(s).toString("base64").replace(/\+/g, "-").replace(/\//g, "_"),
-      newBlob: (data) => { const buf = Buffer.isBuffer(data) ? data : typeof data === "string" ? Buffer.from(data, "utf8") : Buffer.from(data); return { _buf: buf, getBytes: () => buf, getDataAsString: () => buf.toString("utf8") }; },
+      newBlob: (data, type, name) => { const buf = Buffer.isBuffer(data) ? data : typeof data === "string" ? Buffer.from(data, "utf8") : Buffer.from(data); return { _buf: buf, _name: name, getBytes: () => buf, getDataAsString: () => buf.toString("utf8") }; },
       gzip: (blob) => { const buf = require("zlib").gzipSync(blob._buf); return { _buf: buf, getBytes: () => buf }; },
       ungzip: (blob) => { const buf = require("zlib").gunzipSync(blob._buf); return { _buf: buf, getBytes: () => buf, getDataAsString: () => buf.toString("utf8") }; },
       base64Encode: (bytes) => Buffer.from(bytes).toString("base64"),
@@ -89,6 +89,19 @@ function createContext({ props = {}, sheets = {} } = {}) {
     },
     ContentService: { createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }), MimeType: { JSON: "json", JAVASCRIPT: "js" } },
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {} }) },
+    // Drive: folders and files in memory (report files kept by the app)
+    DriveApp: (() => {
+      const folders = {};
+      let n = 0;
+      const folderOf = (id, name) => {
+        const files = [];
+        const it = (list) => { let i = 0; return { hasNext: () => i < list.length, next: () => list[i++] }; };
+        return (folders[id] = { _files: files, getId: () => id, getName: () => name,
+          createFile: (blob) => { let desc = ""; let trashed = false; const f = { getName: () => blob._name, getBlob: () => blob, getId: () => "F" + ++n, setDescription: (d) => { desc = d; }, getDescription: () => desc, setTrashed: (t) => { trashed = t; }, isTrashed: () => trashed }; files.push(f); return f; },
+          getFilesByName: (nm) => it(files.filter((f) => f.getName() === nm && !f.isTrashed())) });
+      };
+      return { createFolder: (name) => folderOf("D" + ++n, name), getFolderById: (id) => { if (!folders[id]) throw new Error("no folder"); return folders[id]; } };
+    })(),
     MailApp: { sent: [], sendEmail(p) { this.sent.push(p); } },
     Session: { getScriptTimeZone: () => "UTC", getEffectiveUser: () => ({ getEmail: () => "owner@example.test" }) },
     ScriptApp: { triggers: [], getProjectTriggers() { return this.triggers; }, deleteTrigger() {}, newTrigger(fn) { const t = { fn, timeBased: () => t, everyDays: () => t, atHour: () => t, create: () => { ctx.ScriptApp.triggers.push({ getHandlerFunction: () => fn }); } }; return t; } },

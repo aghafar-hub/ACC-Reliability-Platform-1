@@ -11,6 +11,7 @@ import { LevelSymbol, StatePill } from "../components/Level";
 import { levelColor } from "../levels";
 import { monthLabel, reportId, SCOPES, shortDate } from "../vibModel";
 import VibReport from "./VibReport";
+import { readReportFile } from "../import/readReportFile";
 import { reportTone, workflowTone } from "../tones";
 
 // Vibration Log: the timeline of contractor reports (one card per
@@ -37,6 +38,8 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
   const [statusFilter, setStatusFilter] = useState("All");
   const [view, setView] = useState("Timeline");
   const [adding, setAdding] = useState(null);
+  const [uploading, setUploading] = useState(null); // "Upload report" form (preset)
+  const [startImport, setStartImport] = useState(null); // files to read when the report opens
   const [skipping, setSkipping] = useState(null);
   const [pdfOpen, setPdfOpen] = useState(false);
 
@@ -119,7 +122,9 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
       <VibReport
         webhookUrl={webhookUrl}
         reportId={openReportId}
+        startImport={startImport}
         onBack={() => {
+          setStartImport(null);
           setOpenReportId(null);
           load();
         }}
@@ -147,8 +152,13 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
               <i className="ti ti-download" aria-hidden="true" /> Month PDF
             </button>
             {(me.acc || me.contractor) && (
-              <button type="button" style={s.btnPrimary} onClick={() => setAdding({})} data-testid="vlog-add">
+              <button type="button" style={s.btnGhost} onClick={() => setAdding({})} data-testid="vlog-add">
                 <i className="ti ti-plus" aria-hidden="true" /> Add report
+              </button>
+            )}
+            {(me.acc || me.contractor) && (
+              <button type="button" style={s.btnPrimary} onClick={() => setUploading({})} data-testid="vlog-upload">
+                <i className="ti ti-file-upload" aria-hidden="true" /> Upload report
               </button>
             )}
           </>
@@ -233,7 +243,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
           </div>
 
           {view === "Timeline" ? (
-            <Timeline T={T} s={s} months={visibleMonths} scopesCount={Math.max(1, scopes.length)} me={me} isMobile={isMobile} onOpen={setOpenReportId} onAdd={setAdding} onSkip={setSkipping} />
+            <Timeline T={T} s={s} months={visibleMonths} scopesCount={Math.max(1, scopes.length)} me={me} isMobile={isMobile} onOpen={setOpenReportId} onAdd={setAdding} onUpload={setUploading} onSkip={setSkipping} />
           ) : (
             <LogTable T={T} s={s} rows={yearReports.filter((r) => statusFilter === "All" || r["Report status"] === statusFilter || r["Workflow status"] === statusFilter)} onOpen={setOpenReportId} />
           )}
@@ -249,6 +259,22 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
           onClose={() => setAdding(null)}
           onSaved={(id) => {
             setAdding(null);
+            setOpenReportId(id);
+          }}
+        />
+      )}
+      {uploading && (
+        <UploadReportModal
+          webhookUrl={webhookUrl}
+          me={me}
+          scopes={data?.scopes || []}
+          reports={reports}
+          preset={uploading}
+          thisMonth={thisMonth}
+          onClose={() => setUploading(null)}
+          onReady={(id, files) => {
+            setUploading(null);
+            setStartImport({ files });
             setOpenReportId(id);
           }}
         />
@@ -269,7 +295,7 @@ export default function VibrationLog({ webhookUrl, openReportId, setOpenReportId
   );
 }
 
-function Timeline({ T, s, months, scopesCount, me, isMobile, onOpen, onAdd, onSkip }) {
+function Timeline({ T, s, months, scopesCount, me, isMobile, onOpen, onAdd, onUpload, onSkip }) {
   if (!months.length) return <div style={{ ...s.card, color: T.textSecondary }}>No reports match these filters.</div>;
   return (
     <div style={{ position: "relative", paddingLeft: 26 }} data-testid="vlog-timeline">
@@ -280,7 +306,7 @@ function Timeline({ T, s, months, scopesCount, me, isMobile, onOpen, onAdd, onSk
           <div style={{ fontWeight: 700, fontSize: 14.5, color: T.textPrimary, marginBottom: 8 }}>{monthLabel(month)}</div>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : `repeat(${Math.min(scopesCount, 3)}, minmax(0, 1fr))` }}>
             {cells.map((c) => (
-              <ReportCard key={c.contractor + c.scope} T={T} s={s} cell={c} me={me} onOpen={onOpen} onAdd={onAdd} onSkip={onSkip} />
+              <ReportCard key={c.contractor + c.scope} T={T} s={s} cell={c} me={me} onOpen={onOpen} onAdd={onAdd} onUpload={onUpload} onSkip={onSkip} />
             ))}
           </div>
         </section>
@@ -301,7 +327,7 @@ function ScopeHead({ T, cell, right }) {
   );
 }
 
-function ReportCard({ T, s, cell, me, onOpen, onAdd, onSkip }) {
+function ReportCard({ T, s, cell, me, onOpen, onAdd, onUpload, onSkip }) {
   const r = cell.report;
   const tone = reportTone(T, cell.status);
   const canAddHere = me.acc || me.contractor === cell.contractor;
@@ -316,8 +342,13 @@ function ReportCard({ T, s, cell, me, onOpen, onAdd, onSkip }) {
         {(canAddHere || me.canApprove) && (
           <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
             {canAddHere && (
+              <button type="button" style={{ ...s.btnPrimary, padding: "5px 10px" }} onClick={() => onUpload({ month: cell.month, contractor: cell.contractor, scope: cell.scope })} data-testid={`${testid}-upload`}>
+                <i className="ti ti-file-upload" aria-hidden="true" /> Upload report
+              </button>
+            )}
+            {canAddHere && (
               <button type="button" style={{ ...s.btnGhost, padding: "5px 10px" }} onClick={() => onAdd({ month: cell.month, contractor: cell.contractor, scope: cell.scope })}>
-                Add report
+                Add by hand
               </button>
             )}
             {me.canApprove && (
@@ -694,6 +725,155 @@ function MonthPdfModal({ webhookUrl, reports, onClose }) {
       </FormSection>
       {error && (
         <div role="alert" style={{ color: T.danger, fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// "Upload report": pick the contractor's file(s); the app reads which
+// contractor, line and month it is, makes (or opens) that month's report
+// and goes straight to checking the readings. The file is kept with it.
+function UploadReportModal({ webhookUrl, me, scopes, reports, preset, thisMonth, onClose, onReady }) {
+  const { T, s } = useTheme();
+  const [files, setFiles] = useState([]);
+  const [contractor, setContractor] = useState(me.contractor || preset.contractor || "RHI");
+  const [scope, setScope] = useState(preset.scope || "");
+  const [month, setMonth] = useState(preset.month || "");
+  const [found, setFound] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const scopeOptions = scopes.filter((sc) => sc.contractor === contractor).map((sc) => sc.scope);
+  useEffect(() => {
+    if (scopeOptions.length && !scopeOptions.includes(scope)) setScope(scopeOptions[0]);
+  }, [contractor]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // what the file says: contractor, line, month
+  const pick = async (list) => {
+    setFiles(list);
+    setError("");
+    setFound("");
+    if (!list.length) return;
+    setBusy("Reading the file…");
+    try {
+      const r = await readReportFile(list[0], contractor);
+      const said = [];
+      if (r.contractor && !me.contractor && ["RHI", "ASEC"].includes(r.contractor)) {
+        setContractor(r.contractor);
+        said.push(r.contractor);
+      }
+      if (r.scope) {
+        setScope(r.scope);
+        said.push(r.scope);
+      }
+      if (r.month) {
+        setMonth(r.month);
+        said.push(monthLabel(r.month));
+      }
+      setFound(said.length ? `The file says: ${said.join(" · ")}` : "");
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const id = scope && month ? reportId(month, contractor, scope) : "";
+  const existing = reports.find((r) => r["Report ID"] === id);
+  const wf = existing?.["Workflow status"] || "";
+  const blank = !existing || (wf === "Historic" && existing["Report status"] === "Missing");
+  const open = existing && (["Draft", "Returned"].includes(wf) || (wf === "ACC review" && me.acc));
+
+  const go = async () => {
+    setError("");
+    if (!files.length) return setError("Pick the report file.");
+    if (!scope || !month) return setError("Pick the line and the month.");
+    if (!blank && !open) return setError(`The ${contractor} ${scope} report of ${monthLabel(month)} is already ${wf === "Historic" ? "in the history" : wf.toLowerCase()} — it can't take a new file. Open it from the log.`);
+    setBusy("Opening the report…");
+    try {
+      if (blank) await saveVibReport(webhookUrl, { contractor, scope, month, reportFile: files.map((f) => f.name).join("; ") });
+      onReady(id, files);
+    } catch (e) {
+      setError(String(e.message || e));
+      setBusy("");
+    }
+  };
+  const label = { ...s.label, fontSize: 12 };
+  return (
+    <ModalShell
+      icon="file-upload"
+      title="Upload vibration report"
+      subtitle="The contractor's PDF or Word file. Its readings are checked before anything is saved; the file is kept with the report."
+      onClose={onClose}
+      width={640}
+      testid="vlog-upload-modal"
+      footer={
+        <>
+          <button type="button" style={s.btnGhost} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" style={s.btnPrimary} onClick={go} disabled={!!busy || !files.length} data-testid="vlog-upload-go">
+            {busy || "Check the readings"} {!busy && <i className="ti ti-arrow-right" aria-hidden="true" />}
+          </button>
+        </>
+      }
+    >
+      <FormSection icon="file-upload" title="Report file">
+        <label
+          style={{ display: "block", border: `2px dashed ${T.border}`, borderRadius: 10, textAlign: "center", padding: 22, cursor: "pointer", background: T.cardSubBg }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            pick(Array.from(e.dataTransfer.files || []));
+          }}
+        >
+          <i className="ti ti-file-upload" style={{ fontSize: 30, color: T.accent }} aria-hidden="true" />
+          <div style={{ fontWeight: 700, marginTop: 6 }}>{files.length ? files.map((f) => f.name).join(", ") : "Drop the file here, or click to choose"}</div>
+          <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 4 }}>PDF or Word (.docx). ASEC may send a month in two files — pick both.</div>
+          <input
+            type="file"
+            multiple
+            accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              pick(Array.from(e.target.files || []));
+              e.target.value = "";
+            }}
+            data-testid="vlog-upload-file"
+          />
+        </label>
+        {found && (
+          <div style={{ fontSize: 12.5, color: T.textSecondary, marginTop: 8 }} data-testid="vlog-upload-found">
+            <i className="ti ti-sparkles" aria-hidden="true" /> {found}
+          </div>
+        )}
+      </FormSection>
+      <FormSection icon="building-factory-2" title="Which report">
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))" }}>
+          {me.contractor ? (
+            <ReadValue label="Contractor">{me.contractor}</ReadValue>
+          ) : (
+            <div>
+              <span style={label}>Contractor</span>
+              <ContractorChips value={contractor} onChange={setContractor} allLabel={null} testid="vlog-upload-contractor" />
+            </div>
+          )}
+          <div>
+            <span style={label}>Report scope</span>
+            <ContractorChips value={scope} onChange={setScope} options={scopeOptions} allLabel={null} label="Scope" testid="vlog-upload-scope" />
+          </div>
+          <label>
+            <span style={label}>Report month</span>
+            <input type="month" style={s.input} value={month} max={thisMonth} onChange={(e) => setMonth(e.target.value)} data-testid="vlog-upload-month" />
+          </label>
+          <ReadValue label="Report" hint={!id ? "" : blank ? "A new draft is made for it." : open ? "Its draft is opened." : "Already sent — it can't take a new file."}>
+            {id || "—"}
+          </ReadValue>
+        </div>
+      </FormSection>
+      {error && (
+        <div role="alert" style={{ color: T.danger, fontSize: 13, whiteSpace: "pre-wrap" }}>
           {error}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
-import { getVibActions, getVibReport, peekCached, saveVibEntries, vibReportTransition } from "../api";
+import { getVibActions, getVibReport, getVibReportFile, peekCached, saveVibEntries, vibReportTransition } from "../api";
 import { generateVibReportPdf } from "../vibPdf";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
@@ -25,7 +25,7 @@ const KEYS = ["h", "v", "a", "hdm", "hdc", "g", "gh", "gv", "ga"];
 const gsDirs = (e) => (["gh", "gv", "ga"].some((k) => e[NUM[k]] !== "" && e[NUM[k]] != null) ? ["gh", "gv", "ga"].map((k) => (e[NUM[k]] === "" || e[NUM[k]] == null ? "–" : (+e[NUM[k]]).toFixed(3))).join(" / ") : "");
 const pick = (src, get) => Object.fromEntries(KEYS.map((k) => [k, get(src, k)]));
 
-export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment }) {
+export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment, startImport = null }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [data, setData] = useState(() => peekCached("getVibReport", { reportId }));
@@ -34,10 +34,12 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   const [filter, setFilter] = useState("All");
   const [family, setFamily] = useState("All");
   const [editing, setEditing] = useState(false);
-  const [importing, setImporting] = useState(false);
+  // opened from "Upload report" on the Vibration Log: straight to the import, with the files picked there
+  const [importing, setImporting] = useState(!!startImport);
   const [step, setStep] = useState(null);
   const [notice, setNotice] = useState("");
   const [busyPdf, setBusyPdf] = useState(false);
+  const [fileBusy, setFileBusy] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -52,6 +54,25 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
   }, [load]);
 
   const rep = data?.report;
+  const files = data?.files || [];
+  const download = async (f) => {
+    setFileBusy(f.key);
+    try {
+      const { fileName, blob } = await getVibReportFile(webhookUrl, reportId, f.key);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setFileBusy("");
+    }
+  };
   const me = data?.me || {};
   const entries = useMemo(() => data?.entries || [], [data]);
   const wf = rep?.["Workflow status"] || "";
@@ -111,14 +132,14 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
           <i className="ti ti-download" aria-hidden="true" /> {busyPdf ? "Making PDF…" : "PDF"}
         </button>
       )}
-      {rep["Report file"] && (
+      {/^https?:\/\//.test(rep["Report file"] || "") && !files.length && (
         <a href={rep["Report file"]} target="_blank" rel="noreferrer" style={{ ...s.btnGhost, textDecoration: "none" }}>
           <i className="ti ti-file-type-pdf" aria-hidden="true" /> Report file
         </a>
       )}
       {canEdit && !editing && !importing && (
-        <button type="button" style={s.btnGhost} onClick={() => { setNotice(""); setImporting(true); }} data-testid="vrep-import">
-          <i className="ti ti-file-import" aria-hidden="true" /> Import report file
+        <button type="button" style={entries.length ? s.btnGhost : s.btnPrimary} onClick={() => { setNotice(""); setImporting(true); }} data-testid="vrep-import">
+          <i className="ti ti-file-upload" aria-hidden="true" /> Upload report file
         </button>
       )}
       {canEdit && !editing && !importing && (
@@ -189,6 +210,27 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
             right={buttons}
           />
           {wf !== "Historic" && wf !== "Closed" && <StepTrail steps={STEPS} current={wf === "Returned" ? "Draft" : wf} testid="vrep-steps" />}
+          {files.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14, fontSize: 13 }} data-testid="vrep-files">
+              <span style={{ color: T.textSecondary }}>
+                <i className="ti ti-paperclip" aria-hidden="true" /> Original report:
+              </span>
+              {files.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  style={{ ...s.btnGhost, padding: "5px 10px", fontSize: 12.5 }}
+                  onClick={() => download(f)}
+                  disabled={fileBusy === f.key}
+                  title={`Uploaded by ${f.by || "—"} · ${f.at ? shortDate(String(f.at).slice(0, 10)) : ""} · ${f.sizeKb} KB`}
+                  data-testid={`vrep-file-${f.key}`}
+                >
+                  <i className={`ti ti-file-type-${/\.docx?$/i.test(f.name) ? "docx" : "pdf"}`} aria-hidden="true" /> {fileBusy === f.key ? "Loading…" : f.name}
+                  <i className="ti ti-download" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          )}
           {notice && (
             <div role="status" data-testid="vrep-notice" style={{ ...s.card, marginBottom: 14, borderLeft: `4px solid ${T.info}`, color: T.textPrimary }}>
               {notice}
@@ -203,6 +245,7 @@ export default function VibReport({ webhookUrl, reportId, onBack, scopeEquipment
           {importing ? (
             <VibImportReport
               webhookUrl={webhookUrl}
+              initialFiles={startImport?.files}
               rep={rep}
               entries={entries}
               scopeEquipment={scopeEquipment}

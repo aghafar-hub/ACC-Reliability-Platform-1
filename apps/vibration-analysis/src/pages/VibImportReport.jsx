@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { getVibEntriesFor, saveVibEntries } from "../api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getVibEntriesFor, saveVibEntries, saveVibReportFile } from "../api";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import EquipmentSearch from "../components/EquipmentSearch";
@@ -25,11 +25,11 @@ const LABEL = { h: "H", v: "V", a: "A", hdm: "HDm", hdc: "HDc", g: "G's", gh: "H
 const gsFields = (r) => (["gh", "gv", "ga"].some((k) => r.vals[k] !== undefined || r.raw?.["g" + k.slice(1).toUpperCase()] !== undefined) ? ["gh", "gv", "ga"] : ["g"]);
 const ACTION = { add: ["New", "info"], replace: ["Replaces", "warning"], same: ["Already in the app", "muted"], other: ["Other value saved", "warning"] };
 
-export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipment, onCancel, onSaved }) {
+export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipment, onCancel, onSaved, initialFiles }) {
   const { T, s } = useTheme();
   const isMobile = useIsMobile();
   const [stage, setStage] = useState("pick");
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState(() => initialFiles || []);
   const [results, setResults] = useState([]);
   const [machines, setMachines] = useState([]);
   const [warnings, setWarnings] = useState([]);
@@ -110,6 +110,14 @@ export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipme
     }
   };
 
+  // files picked on the Vibration Log ("Upload report"): read them at once
+  const autoRead = useRef(!!initialFiles?.length);
+  useEffect(() => {
+    if (!autoRead.current || !scopeEquipment) return;
+    autoRead.current = false;
+    read();
+  }, [scopeEquipment]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const c = useMemo(() => counts(machines), [machines]);
   const toSave = useMemo(() => rowsToSave(machines), [machines]);
   const usable = (m) => !m.skipMachine && m.eqId && scopeEquipment?.[m.eqId]?.points.length;
@@ -129,12 +137,19 @@ export default function VibImportReport({ webhookUrl, rep, entries, scopeEquipme
     setBusy("Saving…");
     const source = results.filter((r) => r.ok).map((r) => r.file).join(", ");
     try {
+      // the contractor's own file is kept with the report first (download on the report page)
+      const keep = files.filter((f) => results.some((r) => r.ok && r.file === f.name));
+      for (const f of keep) {
+        setBusy(`Keeping ${f.name} with the report…`);
+        await saveVibReportFile(webhookUrl, rep["Report ID"], f);
+      }
+      setBusy("Saving readings…");
       // merge: only the new and corrected readings go; the report keeps its others
       await saveVibEntries(webhookUrl, rep["Report ID"], toSave, {
         merge: true,
         recommendations: recs.map((m) => ({ equipmentId: m.eqId, condition: m.condition, recommendation: m.recommendation.trim(), source })),
       });
-      onSaved(`Imported ${toSave.length} readings${recs.length ? ` and ${recs.length} recommendations` : ""} from ${source}.`);
+      onSaved(`Imported ${toSave.length} readings${recs.length ? ` and ${recs.length} recommendations` : ""} from ${source}. The original file is kept with this report.`);
     } catch (e) {
       setError(String(e.message || e) + (e.problems?.length > 8 ? "\n" + e.problems.slice(8).join("\n") : ""));
       setBusy("");
