@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
 import { formatDate, ACTION_STATUS, ACTION_STATUSES, isActionOverdue, actionDaysOverdue, actionDueDate } from "../parsers";
@@ -10,6 +10,9 @@ import useIsMobile from "../hooks/useIsMobile";
 import { Donut, StackedBars } from "../components/DashCharts";
 import { SERIES_DARK, SERIES_LIGHT, isDarkSurface } from "../pointHistory";
 import ContractorChips from "../components/ContractorChips";
+import { CommentCount } from "../components/ActionComments";
+import { actionCommentKey, getActionCommentCounts } from "../api";
+import { loadConfig } from "../config";
 
 // Phase 2 statuses (old "In Progress" rows are read as Open).
 const STATUS_COLOR_KEY = { Draft: "warning", Open: "danger", "Waiting Stoppage": "accent", "Closure Requested": "info", Closed: "success" };
@@ -97,6 +100,13 @@ export default function ActionTracker({
   // is — tap the card, change Status in the modal, Save — so this tab just
   // picks which one column's cards to list, full width, one at a time.
   const [mobileStatusTab, setMobileStatusTab] = useState("Open");
+  // comments per action ("AC No|LP ID" → n), read again when a popup closes
+  const [commentCounts, setCommentCounts] = useState({});
+  const loadCounts = useCallback(() => {
+    const url = loadConfig().webhookUrl;
+    if (url) getActionCommentCounts(url).then(setCommentCounts).catch(() => {});
+  }, []);
+  useEffect(loadCounts, [loadCounts]);
 
   const registry = useMemo(() => equipmentRegistry || [], [equipmentRegistry]);
   const registryByCode = useMemo(() => {
@@ -321,7 +331,10 @@ export default function ActionTracker({
                   : days == null ? "—" : `${days}d open`}
             </span>
           )}
-          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textMuted }}>{a.acNo}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <CommentCount n={commentCounts[actionCommentKey(a)]} />
+            <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textMuted }}>{a.acNo}</span>
+          </span>
         </div>
       </div>
     );
@@ -741,7 +754,10 @@ export default function ActionTracker({
           oilChanges={oilChanges}
           equipmentRegistry={registry}
           actionRegistry={actionRegistry}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            loadCounts();
+          }}
           onSave={handleSave}
           onDelete={editing.isNew ? null : handleDelete}
         />

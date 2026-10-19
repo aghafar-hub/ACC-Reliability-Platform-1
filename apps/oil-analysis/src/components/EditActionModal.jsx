@@ -9,6 +9,9 @@ import EquipmentSearch from "./EquipmentSearch";
 import MultiSelectTags from "./MultiSelectTags";
 import TechnicianPicker from "./TechnicianPicker";
 import ModalShell, { FormSection, StepTrail } from "./ModalShell";
+import ActionComments from "./ActionComments";
+import { actionCommentKey, addActionComment, deleteActionComment, getActionComments } from "../api";
+import { loadConfig } from "../config";
 
 // Phase 2: the status picker only moves between these; Closure Requested
 // and Closed are reached through the Closure section below.
@@ -475,6 +478,8 @@ export default function EditActionModal({
         {!isNew && !isDraft && <RescheduleSection action={action} contractor={actionContractor} onDone={onClose} />}
         {!isNew && <ClosureSection action={action} contractor={actionContractor} onDone={onClose} />}
       </fieldset>
+      {/* outside the fieldset: comments stay open on a closed action */}
+      {!isNew && action.acNo && <OilActionComments action={action} />}
 
       {sampleTakenBy && !lockedClosed && (
         <div data-testid="action-sample-taken" style={{ ...s.infoBar, borderColor: T.danger, marginBottom: 0, fontSize: 12.5, color: T.textPrimary }}>
@@ -685,5 +690,19 @@ function RescheduleSection({ action, contractor, onDone }) {
       </div>
       {error && <p style={{ fontSize: 12, color: T.danger, margin: "6px 0 0" }}>{error}</p>}
     </div>
+  );
+}
+
+// Comments on this action, one per person (ActionComments.jsx).
+function OilActionComments({ action }) {
+  const url = loadConfig().webhookUrl;
+  const key = actionCommentKey(action);
+  return (
+    <ActionComments
+      load={() => getActionComments(url, key)}
+      add={(text) => addActionComment(url, key, text)}
+      remove={(id) => deleteActionComment(url, id)}
+      testid="oa-comments"
+    />
   );
 }

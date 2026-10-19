@@ -53,6 +53,7 @@ var MA_CONFIG = {
     getVibEquipmentHistory: ["equipment", "log", "dashboard", "trends"],
     getVibEntriesFor: ["log"],
     getVibActions: ["actions", "dashboard", "equipment", "reports"],
+    getVibActionComments: ["actions", "dashboard", "equipment", "reports"],
     getVibRoutes: ["routes", "mywork", "dashboard", "reports"],
     getVibRoute: ["routes", "mywork"],
     getMyWork: ["mywork"],
@@ -103,6 +104,9 @@ var MA_CONFIG = {
     setVibPointStatus: ["limits"],
     saveVibAction: ["actions"],
     vibActionTransition: ["actions"],
+    // anyone who can see actions may comment (checked in ActionComments.js)
+    addVibActionComment: "open",
+    deleteVibActionComment: "open",
     createVibRoute: ["routes"],
     saveVibRouteProgress: ["routes", "mywork"],
     vibRouteTransition: ["routes", "mywork"],

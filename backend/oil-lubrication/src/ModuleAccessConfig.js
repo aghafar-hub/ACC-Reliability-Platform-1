@@ -56,6 +56,7 @@ var MA_CONFIG = {
     getModuleAccessConfig: "settings:module-access",
     getDashboard: ["dashboard"],
     getActions: ["actions", "dashboard", "equipment", "reports"],
+    getActionComments: ["actions", "dashboard", "equipment", "reports"],
     getOilChanges: ["oilchange", "equipment", "dashboard", "routines", "reports", "inventory"],
     getOilChangesForLp: ["oilchange", "equipment", "dashboard", "routines", "reports", "inventory"],
     getTopUpsForLp: ["oilchange", "equipment", "dashboard", "routines", "reports", "inventory"],
@@ -116,6 +117,9 @@ var MA_CONFIG = {
     decideActionClosure: ["actions"],
     closeAction: ["actions"],
     rescheduleAction: ["actions"],
+    // anyone who can see actions may comment (checked in Code.js / ActionComments.js)
+    addActionComment: "open",
+    deleteActionComment: "open",
     validateLabReport: ["oilreport", "upload", "tracker"],
     setProductLowStockLevel: ["inventory"],
     setOilEquivalent: ["inventory"],

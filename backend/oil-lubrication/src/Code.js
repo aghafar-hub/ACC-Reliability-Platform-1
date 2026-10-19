@@ -288,6 +288,9 @@ function doGet(e) {
           result.count = result.templates.length;
         }
         break;
+      case "getActionComments": // ActionComments.js
+        result = getActionComments_(SpreadsheetApp.getActiveSpreadsheet(), e.parameter, auth.session, scope);
+        break;
       case "getLabReportPdf":
         result = getLabReportPdf_(SpreadsheetApp.getActiveSpreadsheet(), e.parameter, auth.session, scope);
         break;
@@ -860,6 +863,21 @@ function doPostInner_(e) {
             data.action === "closeAction" ? "Closed action " + data.acNo : "Requested closure of action " + data.acNo + ": " + String(data.comment || "").trim());
         }
         return jsonOut(closureResult.error ? {status: "error", message: closureResult.error} : {status: "ok"});
+      }
+
+      // Comments on an action, per person (ActionComments.js): anyone who can see actions
+      if (data.action === "addActionComment" || data.action === "deleteActionComment") {
+        if (maCheckRead_(auth.session, "getActionComments")) throw new Error("You do not have access to Oil actions.");
+        var acmResult = data.action === "addActionComment"
+          ? acmAdd_(ss, auth.session, { actionKey: data.actionKey, text: data.text })
+          : acmDelete_(ss, auth.session, { commentId: data.commentId });
+        logError("doPost:" + data.action, acmResult.error || "ok", {actionKey: data.actionKey, commentId: data.commentId, actingUser: actingUser});
+        if (acmResult.status === "ok") {
+          rcBump_();
+          recordAudit_(ss, "Action Comments", String(data.actionKey || data.commentId || ""), data.action === "addActionComment" ? "create" : "delete", actingUser, scope || "",
+            data.action === "addActionComment" ? "Comment on " + String(data.actionKey || "") + ": " + String(data.text || "").slice(0, 200) : "Deleted comment " + data.commentId);
+        }
+        return jsonOut(acmResult.status === "error" ? {status: "error", message: acmResult.error} : acmResult);
       }
 
       // Phase 2: move an Open / Waiting Stoppage action's due date, with a reason.

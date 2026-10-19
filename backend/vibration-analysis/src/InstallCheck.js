@@ -8,12 +8,13 @@
 // After pasting fixes, publish a new version of the deployment.
 
 var INSTALL_CHECK_FILES = {
+  "ActionComments":{"acmSheet_":"839mrp","acmRows_":"7n1fr1","acmOut_":"h6u9nt","acmList_":"1r1yw68","acmCounts_":"r3r5dj","acmIsVisitor_":"1fobewg","acmAuthorName_":"reu7gb","acmAdd_":"riw6t3","acmDelete_":"wepzsq","acmAction_":"u7v1hg","acmOrg_":"83pbf8","acmNotify_":"1js81ge","handleGetVibActionComments":"1olv0sx","handleAddVibActionComment":"btyzjd","handleDeleteVibActionComment":"11gbj8b"},
   "ActionTracker":{"handleReadActions":"1bflvsu","readActionsRaw":"fw7u1q","handleReadLastActionNo":"35ypas","handleAppendAction":"9baijw","handleUpdateAction":"1ab5svx","handleDeleteAction":"1dvaxlk","handleSendActionEmail":"1hknath","generateActionNo":"3f659g","buildActionRow":"r2vsl5"},
   "ActivityFeed":{"afAllowed_":"1l4jjh9","afFrom_":"s0zgf","afIso_":"1lde3c8","afEquipment_":"mhuosy","handleGetActivityFeed":"14l4tqp"},
   "Auth":{"getSessionSecret_":"dv51fe","base64UrlDecode_":"fqj3g5","signPayload_":"ex5cc1","requireSession_":"18pd7s9","getSessionOrNull_":"126wvym","sessionLists_":"1bh34zk","checkSessionAlive_":"1mz53hu","isSessionEndedError_":"emzkap","timingSafeEqual_":"523n85"},
   "BackfillLastReadings":{"handleBackfillLastReadings":"1prs4hx"},
   "Cache":{"vcVersion_":"djx6jf","vcBump_":"1pv3ctc","vcKey_":"12pwdxh","vcGet_":"1j9t0sd","vcPut_":"15u21bn","vcRead_":"bkcg02"},
-  "Code":{"doGet":"ppntla","doPost":"njvvsa","dispatchWithAccess_":"1imtih4","vbLegacyWriteDenial_":"1hsb7w5","vbLegacyTargets_":"1amc5zd","vbScopeLists_":"zxesw","vbPackLists_":"19gtcov","vbPack_":"9x5nru","dispatch":"pcoyj8","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
+  "Code":{"doGet":"ppntla","doPost":"njvvsa","dispatchWithAccess_":"1imtih4","vbLegacyWriteDenial_":"1hsb7w5","vbLegacyTargets_":"1amc5zd","vbScopeLists_":"zxesw","vbPackLists_":"19gtcov","vbPack_":"9x5nru","dispatch":"19jbx8w","jsonOut":"9p2l8f","readAll":"r64y82","getStartupBundle":"1njtmew","getRmsSpmHistory":"8pzhna"},
   "Compliance":{"readCompliance":"16ondc1","parseLabelToYearMonth":"1tddnt5","handleUpdateCompliance":"1v8uziw","handleMarkMissingCompliance":"14me95i"},
   "Config":{"dataStartRowFor":"wb5qrr","headerRowFor":"1z00e4k","worstStatus":"1lkh80x"},
   "Dashboard":{"handleGetVibDashboard":"1t0phdg"},
@@ -37,7 +38,7 @@ var INSTALL_CHECK_FILES = {
   "TeamHistory":{"vteamDays_":"1fqn579","teamCollect_":"1gw9pey"},
   "Triggers":{"onEdit":"vdpe09"},
   "Utils":{"readSheet":"18ilvyo","handleAppend":"dvk8h4","handleUpdateRow":"1ar8pln","handleDeleteRow":"ulj4n3","findRowIndex":"1vthplw","getAllRowsForEquip":"2f3egu","updateMachineStatusCol":"ezz5yk","recalcMachineStatus":"1o0vxit","noFormulaText_":"1cayx92","noFormulasIn_":"ye5sk6"},
-  "VibActions":{"vaOut_":"1pnoiib","vaWrite_":"ylm08s","vaNextId_":"1sh20us","vaPointsText_":"1kmvbr2","vaApplyFindings_":"u72icm","handleGetVibActions":"glysa8","handleGetVibActionHistory":"1lu0pej","vaFind_":"7617fs","handleSaveVibAction":"3qn2er","handleVibActionTransition":"2evx19"},
+  "VibActions":{"vaOut_":"1pnoiib","vaWrite_":"ylm08s","vaNextId_":"1sh20us","vaPointsText_":"1kmvbr2","vaApplyFindings_":"u72icm","handleGetVibActions":"detkvl","handleGetVibActionHistory":"1lu0pej","vaFind_":"7617fs","handleSaveVibAction":"3qn2er","handleVibActionTransition":"2evx19"},
   "VibNotifications":{"vnAdd_":"1nl1y99","handleGetVibNotifications":"1sux2i4","handleMarkVibNotificationsRead":"1sapnob","maNotify_":"lala2n"},
   "VibRegistry":{"readVibRegistry":"197kaef"},
   "VibrationLog":{"vlLocked_":"b5ys0d","vlTz_":"34a0kb","vlDate_":"28ilj8","vlMonth_":"jrjxf1","vlToday_":"1fbn5da","vlNowIso_":"1ldpv4a","vlAddDays_":"1qn8ell","vlMonthEnd_":"r0qzvj","vlNum_":"17csnvl","vlBand_":"1as1utb","vlLevel_":"bjqkj0","vlYmdFast_":"1q5ixek","vlRead_":"pgel3a","vlReadSheet_":"1kyort5","vlEnsure_":"7p5btf","vlRowFrom_":"195pn8s","vlAudit_":"17ly45p","vlActor_":"18gfx4h","vlMasterData_":"m98b9f","vlAreaOf_":"dfo94t","vlScopeOf_":"52bf92","vlPointScope_":"y6yw8c","vlScopes_":"9y1sd0","vlDueDate_":"1ayowuk","vlReportStatus_":"g3ygc7","vlReportOut_":"vmz4mi","handleGetVibLog":"1802t6y","vlEntryOut_":"wj1wob","handleGetVibReport":"1rx643y","handleGetVibEquipmentHistory":"1dw7p4e","handleGetVibEntriesFor":"18h6zu","vlFindReport_":"16x01of","vlWriteReport_":"1qdocy4","handleSaveVibReport":"nm70ss","handleSaveVibEntries":"1hqh3rc","vlSaveRecommendations_":"1t71s74","vlRecommendations_":"1nwm8sg","vlCounts_":"vmiscp","vlRecountReports_":"qj7waw","recountVibrationLogDryRun":"19jlr8d","recountVibrationLog":"1ndbxfb","vlWriteCoverage_":"1bl7um","handleVibReportTransition":"xgaynn","vlNotify_":"1p8fz7x"}

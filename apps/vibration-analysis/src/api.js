@@ -457,6 +457,18 @@ export function getVibActions(webhookUrl) {
 export function getVibActionHistory(webhookUrl, actionId) {
   return getChecked(webhookUrl, "getVibActionHistory", { actionId });
 }
+// Comments on an action, per person (backend ActionComments.js). Not cached.
+export async function getVibActionComments(webhookUrl, actionId) {
+  const data = await verifiedGet(webhookUrl, "getVibActionComments", { actionId });
+  if (!data || data.status === "error" || data.error) throw new Error((data && data.error) || "Comments couldn't be loaded.");
+  return data;
+}
+export function addVibActionComment(webhookUrl, actionId, text) {
+  return postVerified(webhookUrl, "addVibActionComment", { actionId, text }, { anyPage: true });
+}
+export function deleteVibActionComment(webhookUrl, commentId) {
+  return postVerified(webhookUrl, "deleteVibActionComment", { commentId }, { anyPage: true });
+}
 export function saveVibAction(webhookUrl, item) {
   return postVerified(webhookUrl, "saveVibAction", { item });
 }

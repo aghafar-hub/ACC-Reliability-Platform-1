@@ -191,6 +191,8 @@ function guardWrite(body) {
   const a = shellAccess();
   if (!a || a.admin || !a.enforced) return;
   if (body.action === "markNotificationRead" || body.action === "markAllNotificationsRead") return;
+  // comments are open to every role that can see actions, view-only pages too
+  if (body.action === "addActionComment" || body.action === "deleteActionComment") return;
   if (a.status === "Maintenance") throw new AccessBlockedError("Oil Lubrication is being updated — changes can't be saved right now.");
   if (currentPage && a.tabs && a.tabs[currentPage] === "View") {
     throw new AccessBlockedError("This page is view only for you — changes can't be saved.");
@@ -1350,6 +1352,26 @@ export async function logOilMovement(webhookUrl, movement) {
     throw new SaveVerificationError(`The movement wasn't confirmed saved to the sheet — please try again.`);
   }
   return saved;
+}
+
+// ── Comments on an action, per person (backend ActionComments.js) ──────
+// An action is "AC No|LP ID". Not cached: the thread is read when opened.
+export const actionCommentKey = (a) => `${a.acNo}|${a.equipmentCode}`;
+export async function getActionComments(webhookUrl, actionKey) {
+  const json = await getJSON(webhookUrl, { action: "getActionComments", actionKey });
+  if (!json || json.status === "error") throw new Error((json && (json.error || json.message)) || "Comments couldn't be loaded.");
+  return json;
+}
+// { "AC No|LP ID": n } for the action cards
+export async function getActionCommentCounts(webhookUrl) {
+  const json = await getJSON(webhookUrl, { action: "getActionComments" });
+  return (json && json.counts) || {};
+}
+export function addActionComment(webhookUrl, actionKey, text) {
+  return postAnswer(webhookUrl, { action: "addActionComment", actionKey, text });
+}
+export function deleteActionComment(webhookUrl, commentId) {
+  return postAnswer(webhookUrl, { action: "deleteActionComment", commentId });
 }
 
 // ── Audit trail (Patch 9, plant-readiness pass) ─────────────────────────

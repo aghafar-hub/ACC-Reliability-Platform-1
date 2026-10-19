@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getVibActionHistory, getVibActions, peekCached, saveVibAction, vibActionTransition } from "../api";
+import { addVibActionComment, deleteVibActionComment, getVibActionComments, getVibActionHistory, getVibActions, peekCached, saveVibAction, vibActionTransition } from "../api";
+import ActionComments, { CommentCount } from "../components/ActionComments";
 import { useTheme } from "../ThemeContext";
 import useIsMobile from "../hooks/useIsMobile";
 import ContractorChips from "../components/ContractorChips";
@@ -267,7 +268,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
               <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 10 }}>
                 {quick || hasFilters ? `Showing ${shown.length} of ${base.length} actions` : `${base.length} actions · tap a card to open it`}
               </div>
-              {view === "Board" ? <Board T={T} s={s} rows={shown} today={today} findingsOf={findingsOf} onOpen={setOpenId} isMobile={isMobile} /> : <ActionTable T={T} s={s} rows={shown} today={today} onOpen={setOpenId} />}
+              {view === "Board" ? <Board T={T} s={s} rows={shown} today={today} findingsOf={findingsOf} commentsOf={(id) => data?.commentCounts?.[id] || 0} onOpen={setOpenId} isMobile={isMobile} /> : <ActionTable T={T} s={s} rows={shown} today={today} onOpen={setOpenId} />}
             </>
           )}
           {tab === "old" && <OldTracker T={T} s={s} rows={(oldActions || []).filter((a) => contractor === "All" || a.contractor === contractor)} />}
@@ -284,6 +285,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
           me={me}
           onClose={() => setOpenId(null)}
           onChanged={load}
+          onComments={(n) => setData((d) => (d ? { ...d, commentCounts: { ...d.commentCounts, [openId]: n } } : d))}
           onOpenReport={onOpenReport}
           onOpenMachine={onOpenMachine}
         />
@@ -311,7 +313,7 @@ export default function VibActions({ webhookUrl, scopeEquipment, oldActions, onO
 
 // Same card as Oil Actions: machine ID, name, the agreed action, owner, then
 // due date and action number; the stage's colour on the left edge.
-function ActionCard({ T, s, a, today, findings, onOpen }) {
+function ActionCard({ T, s, a, today, findings, comments, onOpen }) {
   const late = ["Open", "Waiting Stoppage"].includes(a.Status) && a["Due date"] && a["Due date"] < today;
   const tone = stageTone(T, a.Status);
   const daysLate = late ? Math.round((Date.parse(today) - Date.parse(a["Due date"])) / 864e5) : 0;
@@ -365,7 +367,10 @@ function ActionCard({ T, s, a, today, findings, onOpen }) {
             {late ? `⚠ ${daysLate}d overdue` : a["Due date"] ? `Due ${shortDate(a["Due date"])}` : daysOpen == null ? "—" : `${daysOpen}d open`}
           </span>
         )}
-        <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textMuted }}>{a["Action ID"]}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <CommentCount n={comments} />
+          <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', ui-monospace, monospace", color: T.textMuted }}>{a["Action ID"]}</span>
+        </span>
       </span>
     </button>
   );
@@ -374,7 +379,7 @@ function ActionCard({ T, s, a, today, findings, onOpen }) {
 // Height of a board column before it scrolls inside (like the Oil Change Log).
 const COLUMN_MAX = "min(640px, calc(100vh - 220px))";
 
-function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
+function Board({ T, s, rows, today, findingsOf, commentsOf = () => 0, onOpen, isMobile }) {
   const recentClosed = rows.filter((a) => a.Status === "Closed" && (!a["Closed at"] || String(a["Closed at"]).slice(0, 10) >= new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10)));
   const [stage, setStage] = useState("Open");
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -398,7 +403,7 @@ function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
         {stage === "Closed" && <div style={{ fontSize: 12, color: T.textSecondary, margin: "0 2px 8px" }}>Closed in the last 60 days</div>}
         <div data-testid={`va-col-${stage.replace(/\s+/g, "")}`}>
           {list.slice(0, limit).map((a) => (
-            <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />
+            <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} comments={commentsOf(a["Action ID"])} onOpen={onOpen} />
           ))}
           {!list.length && empty}
           <ShowMore shown={limit} total={list.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} testid="va-more" />
@@ -422,7 +427,7 @@ function Board({ T, s, rows, today, findingsOf, onOpen, isMobile }) {
             </div>
             <div style={{ maxHeight: COLUMN_MAX, overflowY: "auto", paddingRight: 4, overscrollBehavior: "contain" }} data-testid={`va-colbody-${st.replace(/\s+/g, "")}`}>
               {list.map((a) => (
-                <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} onOpen={onOpen} />
+                <ActionCard key={a["Action ID"]} T={T} s={s} a={a} today={today} findings={findingsOf(a["Action ID"])} comments={commentsOf(a["Action ID"])} onOpen={onOpen} />
               ))}
               {!list.length && empty}
             </div>
@@ -538,7 +543,7 @@ function OldTracker({ T, s, rows }) {
   );
 }
 
-function ActionModal({ webhookUrl, action, findings, owners, priorities, phrases = [], me, onClose, onChanged, onOpenReport, onOpenMachine }) {
+function ActionModal({ webhookUrl, action, findings, owners, priorities, phrases = [], me, onClose, onChanged, onComments, onOpenReport, onOpenMachine }) {
   const { T, s } = useTheme();
   const a = action || {};
   const st = a.Status;
@@ -820,6 +825,13 @@ function ActionModal({ webhookUrl, action, findings, owners, priorities, phrases
           <textarea style={{ ...s.input, minHeight: 50 }} value={reason} onChange={(e) => setReason(e.target.value)} data-testid="va-reason" />
         </FormSection>
       )}
+      <ActionComments
+        load={() => getVibActionComments(webhookUrl, actionId)}
+        add={(text) => addVibActionComment(webhookUrl, actionId, text)}
+        remove={(id) => deleteVibActionComment(webhookUrl, id)}
+        onCount={onComments}
+        testid="va-comments"
+      />
       <FormSection icon="history" title="History">
         {hist === null ? (
           <span style={{ fontSize: 13, color: T.textSecondary }}>Loading…</span>

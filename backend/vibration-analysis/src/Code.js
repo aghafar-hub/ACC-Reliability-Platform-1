@@ -384,6 +384,10 @@ function dispatch(action, params, session) {
   if (action==='getVibActionHistory')   return handleGetVibActionHistory(params, session);
   if (action==='saveVibAction')         return vlLocked_(function () { return handleSaveVibAction(params, session); });
   if (action==='vibActionTransition')   return vlLocked_(function () { return handleVibActionTransition(params, session); });
+  // ActionComments.js: comments on an action, per person
+  if (action==='getVibActionComments')  return handleGetVibActionComments(params, session);
+  if (action==='addVibActionComment')   return vlLocked_(function () { return handleAddVibActionComment(params, session); });
+  if (action==='deleteVibActionComment') return vlLocked_(function () { return handleDeleteVibActionComment(params, session); });
   // Routes.js + MyWork.js
   if (action==='getVibRoutes')          return handleGetVibRoutes(params, session);
   if (action==='getVibRoute')           return handleGetVibRoute(params, session);
