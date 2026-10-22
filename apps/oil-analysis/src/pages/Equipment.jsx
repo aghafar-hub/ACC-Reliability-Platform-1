@@ -431,12 +431,12 @@ export default function Equipment({
   const stockProduct = reg && products ? productForPoint(reg, products) : null;
   const stockDays = stockProduct ? daysLeft(stockProduct) : null;
   const stockLow = !!stockProduct && isLow(stockProduct);
-  const criticality = isLpView ? criticalityFor(latest, oilChangeOverdue) : "Normal";
-  const criticalityColor = criticality === "High" ? "danger" : criticality === "Medium" ? "warning" : "success";
   const lpHealth = isLpView && reg
     ? pointHealth({ reg, samples: samplesForEquip, oilChange: lpOilChangeState, actions: actionsForEquip, topUps: topUps.length ? topUps : lpIndex.topUps.get(reg.code) || [], tracker: lpIndex.tracker[reg.code] })
     : null;
   const health = lpHealth?.health || "Good";
+  const criticality = isLpView ? criticalityFor(lpHealth?.current ?? latest, oilChangeOverdue) : "Normal";
+  const criticalityColor = criticality === "High" ? "danger" : criticality === "Medium" ? "warning" : "success";
   // Oil changes are logged from confirmed routes; by hand only by engineers.
   const isContractorEngineerHere = useIsRouteEngineerFor(reg?.contractor || "");
   const canLogByHand = isAccEngineer || isContractorEngineerHere;
@@ -545,7 +545,6 @@ export default function Equipment({
         oilChange: pointOilChange,
         actions: pointActions,
         openActions: pointActions.filter((a) => a.status !== "Closed").length,
-        criticality: criticalityFor(latest, pointOilChange?.status === "Overdue"),
         h: healthForLp(r, lpIndex),
       };
     });
@@ -555,9 +554,10 @@ export default function Equipment({
   const totalSamples = pointSummaries.reduce((sum, p) => sum + p.samples.length, 0);
   const totalOpenActions = pointSummaries.reduce((sum, p) => sum + p.openActions, 0);
   const worst = pointSummaries.reduce((acc, p) => {
-    if (!p.latest) return acc;
-    const sev = STATUS_SEVERITY[p.latest.reportStatus] || 1;
-    return !acc || sev > acc.sev ? { status: p.latest.reportStatus, sev } : acc;
+    const cur = p.h.current;
+    if (!cur) return acc;
+    const sev = STATUS_SEVERITY[cur.reportStatus] || 1;
+    return !acc || sev > acc.sev ? { status: cur.reportStatus, sev } : acc;
   }, null);
   const machineHealth = worstHealth(pointSummaries.map((p) => p.h));
   const machineAttention = pointSummaries.filter((p) => p.h.health !== "Good").length;
@@ -1050,9 +1050,10 @@ export default function Equipment({
                       <span>{p.reg.lubricant || "—"}</span>
                       <span style={{ color: T.textSecondary }}>Latest result</span>
                       <span>
-                        {p.latest ? (
+                        {p.h.current ? (
                           <>
-                            <span style={s.badge(p.latest.reportStatus)}>{p.latest.reportStatus}</span> {formatDate(p.latest.sampledDate)}
+                            <span style={s.badge(p.h.current.reportStatus)}>{p.h.current.reportStatus}</span>{" "}
+                            {p.h.renewedOn ? `oil changed ${formatDate(p.h.renewedOn)} — next report pending` : formatDate(p.h.current.sampledDate)}
                           </>
                         ) : p.reg.oilAnalysisRequired === "Yes" ? (
                           "none yet"
@@ -1175,7 +1176,7 @@ export default function Equipment({
                 <StatusCard T={T} s={s} color={HEALTH_COLOR[health]} icon="ti-heart-rate-monitor" title="Equipment Health" testid="card-health">
                   <BigValue T={T} color={HEALTH_COLOR[health]}>{health}</BigValue>
                   {[
-                    { label: "Oil analysis", value: latest?.reportStatus || "No data", color: latest ? statusColorKey(latest.reportStatus) : "textSecondary", tab: "samples" },
+                    { label: "Oil analysis", value: lpHealth?.renewedOn ? "Normal (oil changed)" : latest?.reportStatus || "No data", color: lpHealth?.current ? statusColorKey(lpHealth.current.reportStatus) : "textSecondary", tab: "samples" },
                     { label: "Oil change", value: lpOilChangeState?.status || "No data", color: oilChangeOverdue ? "danger" : lpOilChangeState?.status ? "success" : "textSecondary", tab: "changes" },
                     { label: "Top up", value: latestTopUp ? "Logged" : "None", color: "textSecondary", tab: "topups" },
                     { label: "Open actions", value: String(openActions.length), color: openActions.length ? "warning" : "success", tab: "actions" },
@@ -1264,6 +1265,11 @@ export default function Equipment({
                       <BigValue T={T}>{formatDate(latest.sampledDate)}</BigValue>
                       <StatusPill T={T} color={statusColorKey(latest.reportStatus)}>{latest.reportStatus || "No result"}</StatusPill>
                       <Detail T={T}>Sample {latest.sampleId}</Detail>
+                      {lpHealth?.renewedOn && (
+                        <Detail T={T}>
+                          Oil changed {formatDate(lpHealth.renewedOn)} — this result was for the old oil. The point counts as Normal until the next report.
+                        </Detail>
+                      )}
                     </>
                   ) : (
                     <Empty T={T}>No samples logged{reg?.oilAnalysisRequired === "Yes" ? "" : " — this point is not sampled"}.</Empty>

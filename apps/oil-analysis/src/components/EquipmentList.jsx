@@ -345,10 +345,10 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
                     {!scopedContractor && <td style={s.td}>{r.reg.contractor || "—"}</td>}
                     <td style={s.td}><HealthCell T={T} health={r.h.health} reasons={r.h.reasons.map((x) => x.text)} /></td>
                     <td style={s.td}>
-                      {r.h.latest ? (
+                      {r.h.current ? (
                         <>
-                          <span style={s.badge(r.h.latest.reportStatus)}>{r.h.latest.reportStatus || "—"}</span>
-                          <div style={{ fontSize: 12, color: T.textSecondary }}>{r.h.latest.sampledDate}</div>
+                          <span style={s.badge(r.h.current.reportStatus)}>{r.h.current.reportStatus || "—"}</span>
+                          <div style={{ fontSize: 12, color: T.textSecondary }}>{r.h.renewedOn ? `oil changed ${r.h.renewedOn}` : r.h.current.sampledDate}</div>
                         </>
                       ) : (
                         <span style={{ color: T.textMuted }}>{r.reg.oilAnalysisRequired === "Yes" ? "none yet" : "not sampled"}</span>

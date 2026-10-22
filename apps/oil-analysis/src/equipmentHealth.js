@@ -8,6 +8,10 @@
 //   3+ top-ups in the last 30 days ..... +2   (possible leak)
 //
 //   0 → Good, 1–2 → Fair, 3+ → Poor. "Needs attention" = not Good.
+//
+// Oil changed after the latest lab sample: that result was for the old oil,
+// so it no longer counts — the point's oil condition is Normal until the
+// next lab report comes in (`current` below; `latest` stays the real one).
 
 import { isActionOverdue, isSampledPoint, lastSampleDate, normActionStatus, ACTION_STATUS, sampleTrackerStatus } from "./parsers";
 
@@ -21,6 +25,14 @@ function toTime(d) {
   return isNaN(t) ? null : t;
 }
 
+// local calendar day, so a change and a sample on the same day compare equal
+function dayOf(d) {
+  const t = toTime(d);
+  if (t == null) return "";
+  const x = new Date(t);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+
 // Everything for one lubrication point, from data the app already holds.
 export function pointHealth({ reg, samples, oilChange, actions, topUps, tracker, now = Date.now() }) {
   const sorted = [...(samples || [])].filter((s) => s.sampledDate).sort((a, b) => toTime(b.sampledDate) - toTime(a.sampledDate));
@@ -28,7 +40,11 @@ export function pointHealth({ reg, samples, oilChange, actions, topUps, tracker,
   const reasons = []; // { text, weight, kind }
   const add = (weight, text, kind) => reasons.push({ weight, text, kind });
 
-  const result = latest?.reportStatus || "";
+  // a change on the sample's own day comes after it (the sample is taken first)
+  const changedOn = dayOf(oilChange?.changeDate);
+  const renewed = !!latest && !!changedOn && changedOn >= dayOf(latest.sampledDate);
+  const current = latest && renewed ? { ...latest, reportStatus: "Normal", renewedOn: oilChange.changeDate } : latest;
+  const result = current?.reportStatus || "";
   if (result === "Alert") add(3, "Latest lab result Alert", "result");
   else if (result === "Caution" || result === "Warning") add(1, `Latest lab result ${result}`, "result");
 
@@ -60,6 +76,8 @@ export function pointHealth({ reg, samples, oilChange, actions, topUps, tracker,
     score,
     reasons,
     latest,
+    current,
+    renewedOn: renewed ? oilChange.changeDate : "",
     sampleState,
     openActions: open.length,
     overdueActions: overdue.length,

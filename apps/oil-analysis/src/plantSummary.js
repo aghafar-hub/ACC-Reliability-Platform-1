@@ -17,17 +17,20 @@ import { healthForLp, indexByLp, worstHealth } from "./equipmentHealth";
 import { isActionOverdue, normActionStatus, ACTION_STATUS } from "./parsers";
 import { alertsWithoutAction } from "./dashboardLogic";
 
+// The local calendar day as YYYY-MM-DD. Not toISOString(): that is UTC,
+// and "01 Oct 2026" (local midnight in Saudi time) would come out 30 Sept.
 const toIso = (d) => {
   if (!d) return "";
+  if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
   const t = new Date(d);
-  return isNaN(t) ? "" : t.toISOString().slice(0, 10);
+  return isNaN(t) ? "" : `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
 };
 const earliest = (dates) => dates.filter(Boolean).sort()[0] || "";
 const latestOf = (dates) => dates.filter(Boolean).sort().slice(-1)[0] || "";
 
 export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, trackerByEquip, now = Date.now() }) {
   const idx = indexByLp({ samples, actions, oilChanges, topUps, trackerByEquip });
-  const today = new Date(now).toISOString().slice(0, 10);
+  const today = toIso(new Date(now));
   const byMachine = new Map();
   (registry || []).forEach((reg) => {
     const id = reg.equipmentId || reg.code;
@@ -54,7 +57,7 @@ export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, 
       }
     });
     const lab = list
-      .map((p) => p.h.latest)
+      .map((p) => p.h.current)
       .filter(Boolean)
       .sort((a, b) => toIso(b.sampledDate).localeCompare(toIso(a.sampledDate)))[0];
     const nextChange = earliest(list.map((p) => toIso(p.oc?.nextDueDate)));

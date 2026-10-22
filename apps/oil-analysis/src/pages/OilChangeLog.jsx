@@ -162,7 +162,9 @@ function ChipCard({ p, color, onClick }) {
           </span>
         )}
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color }}>{p.oilChange?.byCondition ? "by condition (oil analysis)" : dueText(p.days)}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color }}>{p.oilChange?.byCondition
+          ? `by condition (oil analysis)${p.oilChange.changeDate ? ` · changed ${p.oilChange.changeDate}` : ""}`
+          : dueText(p.days)}</div>
     </button>
   );
 }
@@ -261,7 +263,9 @@ export default function OilChangeLog({ webhookUrl, oilChanges, oilChangeEvents, 
 
   // ── Chart 3: Changes done on time vs late, from real history ───────
   const trendData = useMemo(() => {
-    const visibleCodes = new Set(visible.map((p) => p.oilChange.equipmentCode));
+    // oil changed by condition (oil analysis): no due date to be late against —
+    // its changes still count as done (this month's tile, the history)
+    const visibleCodes = new Set(visible.filter((p) => !p.oilChange.byCondition).map((p) => p.oilChange.equipmentCode));
     const relevant = (oilChangeEvents || []).filter((ev) => visibleCodes.has(ev.lpId));
     return monthlyOnTimeTrend(classifyChangeHistory(relevant));
   }, [visible, oilChangeEvents]);
