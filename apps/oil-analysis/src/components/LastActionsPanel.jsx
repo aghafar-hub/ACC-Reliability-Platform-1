@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { formatDate } from "../parsers";
@@ -166,7 +167,7 @@ export default function LastActionsPanel({
         </div>
       )}
 
-      {viewing && !editing && (
+      {viewing && !editing && createPortal(
         <div
           style={{
             position: "fixed",
@@ -229,7 +230,8 @@ export default function LastActionsPanel({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {editing && (

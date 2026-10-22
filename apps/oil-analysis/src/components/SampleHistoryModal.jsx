@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { trackerStatusChip as statusChip } from "../theme";
@@ -16,7 +17,7 @@ export default function SampleHistoryModal({ eq, status, history, oilChangedMont
   const months = Array.from(new Set([...history.map((h) => h.monthLabel), ...oilChangedMonths]));
   const shown = showAll ? months : months.slice(0, 12);
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -139,6 +140,7 @@ export default function SampleHistoryModal({ eq, status, history, oilChangedMont
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

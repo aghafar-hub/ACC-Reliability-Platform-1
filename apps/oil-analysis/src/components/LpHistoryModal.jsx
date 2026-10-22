@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useTheme } from "../ThemeContext";
 import { formatDate } from "../parsers";
 
@@ -18,7 +19,7 @@ export default function LpHistoryModal({ oilChange, events, onClose, onLogChange
   const history = [...(events || [])].sort((a, b) => new Date(b.eventDate) - new Date(a.eventDate));
   const isOverdue = oilChange.status === "Overdue";
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -113,6 +114,7 @@ export default function LpHistoryModal({ oilChange, events, onClose, onLogChange
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

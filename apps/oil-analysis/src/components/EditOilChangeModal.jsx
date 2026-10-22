@@ -4,6 +4,7 @@ import { useSessionEmail, useIsAccEngineer, useIsRouteEngineerFor } from "../Ses
 import * as api from "../api";
 import { computeOilChangeNextDue } from "../parsers";
 import { toISODate } from "../actionAutofill";
+import ModalShell, { FormSection } from "./ModalShell";
 
 // Shared by the Oil Change Log page and the Equipment tab's "Log Oil
 // Change" flow. Logs a NEW event to the Oil Change LOG sheet — it never
@@ -66,107 +67,103 @@ export default function EditOilChangeModal({ oilChange, onClose, onSave, webhook
     });
   }
 
+  const field = { ...s.input, width: "100%", marginBottom: 14 };
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{ background: T.cardBg, border: `1px solid ${T.border}`, borderRadius: 12, padding: 24, width: 360 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p style={{ fontWeight: 700, marginBottom: 16 }}>
-          Log Oil Change by Hand — {oilChange.equipmentCode} / {oilChange.lubricationPoint}
-        </p>
-        {!isEngineer ? (
+    <ModalShell
+      icon="droplet"
+      title="Log oil change by hand"
+      subtitle={`${oilChange.equipmentCode || ""}${oilChange.lubricationPoint ? " / " + oilChange.lubricationPoint : ""}`}
+      onClose={onClose}
+      width={520}
+      testid="manual-oil-change"
+      footer={
+        isEngineer ? (
           <>
-            <p style={{ fontSize: 13, color: T.textSecondary, margin: "0 0 18px" }} data-testid="manual-log-blocked">
-              Oil changes are logged from a confirmed route. Only an engineer can log one by hand — create a route instead.
-            </p>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button style={s.btn} onClick={onClose}>
-                Close
-              </button>
-            </div>
+            <span style={{ flex: 1 }} />
+            <button type="button" style={s.btn} onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" style={s.btnPrimary} onClick={handleSave} data-testid="manual-oil-change-save">
+              Save
+            </button>
           </>
         ) : (
-        <>
-        <p style={{ fontSize: 12, color: T.warning, margin: "0 0 14px" }}>
-          Logged by hand — normally an oil change comes from a confirmed route.
-        </p>
-        <label style={s.label}>Reason *</label>
-        <input
-          style={{ ...s.input, marginBottom: 14 }}
-          type="text"
-          aria-label="Reason for logging by hand"
-          placeholder="e.g. changed during a stoppage, not on a route"
-          value={reason}
-          onChange={(e) => { setReason(e.target.value); setError(""); }}
-        />
-        {oils && oils.length > 0 && (
           <>
-            <label style={s.label}>Oil used *</label>
-            <select
-              style={{ ...s.select, marginBottom: 14 }}
-              aria-label="Oil used"
-              value={productId}
-              onChange={(e) => { setProductId(e.target.value); setError(""); }}
-            >
-              <option value="">Choose…</option>
-              {oils.map((o) => (
-                <option key={o.productId} value={o.productId}>
-                  {o.label}
-                  {o.isEquivalent ? " (approved equivalent)" : ""}
-                </option>
-              ))}
-            </select>
+            <span style={{ flex: 1 }} />
+            <button type="button" style={s.btn} onClick={onClose}>
+              Close
+            </button>
           </>
-        )}
-        <label style={s.label}>Change Date</label>
-        <input
-          style={{ ...s.input, marginBottom: 14 }}
-          type="date"
-          value={form.changeDate || ""}
-          onChange={(e) => setForm((x) => ({ ...x, changeDate: e.target.value }))}
-        />
-        <label style={s.label}>Done By</label>
-        <input
-          style={{ ...s.input, marginBottom: 14 }}
-          type="text"
-          placeholder="Technician or team"
-          value={form.doneBy}
-          onChange={(e) => setForm((x) => ({ ...x, doneBy: e.target.value }))}
-        />
-        <label style={s.label}>Notes</label>
-        <textarea
-          style={{ ...s.input, marginBottom: 14, minHeight: 60, resize: "vertical" }}
-          placeholder="Condition notes (optional)"
-          value={form.conditionNotes}
-          onChange={(e) => setForm((x) => ({ ...x, conditionNotes: e.target.value }))}
-        />
-        <p style={{ fontSize: 12, color: T.textSecondary, marginBottom: 20 }}>
-          Next due: {nextDuePreview ? nextDuePreview : "no fixed interval for this point"}
+        )
+      }
+    >
+      {!isEngineer ? (
+        <p style={{ fontSize: 13, color: T.textSecondary, margin: 0 }} data-testid="manual-log-blocked">
+          Oil changes are logged from a confirmed route. Only an engineer can log one by hand — create a route instead.
         </p>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button style={s.btn} onClick={onClose}>
-            Cancel
-          </button>
-          <button style={s.btnPrimary} onClick={handleSave}>
-            Save
-          </button>
-        </div>
-        {error && <p style={{ color: T.danger, fontSize: 12, margin: "10px 0 0" }}>{error}</p>}
-        </>
-        )}
-      </div>
-    </div>
+      ) : (
+        <FormSection icon="clipboard-text" title="Oil change">
+          <p style={{ fontSize: 12.5, color: T.warning, margin: "0 0 12px" }}>Normally an oil change comes from a confirmed route.</p>
+          <label style={s.label}>Reason *</label>
+          <input
+            style={field}
+            type="text"
+            aria-label="Reason for logging by hand"
+            placeholder="e.g. changed during a stoppage, not on a route"
+            value={reason}
+            onChange={(e) => { setReason(e.target.value); setError(""); }}
+          />
+          {oils && oils.length > 0 && (
+            <>
+              <label style={s.label}>Oil used *</label>
+              <select
+                style={{ ...s.select, width: "100%", marginBottom: 14 }}
+                aria-label="Oil used"
+                value={productId}
+                onChange={(e) => { setProductId(e.target.value); setError(""); }}
+              >
+                <option value="">Choose…</option>
+                {oils.map((o) => (
+                  <option key={o.productId} value={o.productId}>
+                    {o.label}
+                    {o.isEquivalent ? " (approved equivalent)" : ""}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+          <label style={s.label}>Change Date</label>
+          <input
+            style={field}
+            type="date"
+            value={form.changeDate || ""}
+            onChange={(e) => setForm((x) => ({ ...x, changeDate: e.target.value }))}
+          />
+          <label style={s.label}>Done By</label>
+          <input
+            style={field}
+            type="text"
+            placeholder="Technician or team"
+            value={form.doneBy}
+            onChange={(e) => setForm((x) => ({ ...x, doneBy: e.target.value }))}
+          />
+          <label style={s.label}>Notes</label>
+          <textarea
+            style={{ ...field, minHeight: 60, resize: "vertical", fontFamily: "inherit" }}
+            placeholder="Condition notes (optional)"
+            value={form.conditionNotes}
+            onChange={(e) => setForm((x) => ({ ...x, conditionNotes: e.target.value }))}
+          />
+          <p style={{ fontSize: 12, color: T.textSecondary, margin: 0 }}>
+            Next due: {nextDuePreview ? nextDuePreview : "no fixed interval for this point"}
+          </p>
+          {error && (
+            <p role="alert" style={{ color: T.danger, fontSize: 13, margin: "10px 0 0" }}>
+              {error}
+            </p>
+          )}
+        </FormSection>
+      )}
+    </ModalShell>
   );
 }

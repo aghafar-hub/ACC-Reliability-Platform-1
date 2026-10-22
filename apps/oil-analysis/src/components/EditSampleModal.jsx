@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { RATING_OPTIONS } from "../theme";
@@ -59,7 +60,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
     </div>
   );
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -217,6 +218,7 @@ export default function EditSampleModal({ sample, onClose, onSave, saving }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import { toISODate, autofillFromEquipment } from "../actionAutofill";
@@ -95,7 +96,7 @@ export default function GenerateOilChangeActionsModal({ oilChanges, actions, equ
   const createdCount = Object.values(rowStatus).filter((v) => v === "done").length;
   const errorCount = Object.values(rowStatus).filter((v) => v === "error").length;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -213,6 +214,7 @@ export default function GenerateOilChangeActionsModal({ oilChanges, actions, equ
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
