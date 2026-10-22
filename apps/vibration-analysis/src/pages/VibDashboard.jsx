@@ -91,14 +91,15 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
   const cellStyle = (c) => {
     const base = { width: "100%", height: 28, borderRadius: 6, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 };
     if (c.pct == null) return { ...base, background: `${T.textMuted || T.textSecondary}22`, color: T.textSecondary };
-    if (c.pct >= 90) return { ...base, background: T.success, color: "#fff" };
-    if (c.pct >= 70) return { ...base, background: T.warning, color: "#fff" };
-    return { ...base, background: T.dangerBg, border: `2px solid ${T.danger}`, color: T.danger };
+    // solid traffic-light fills (the level colours, as the PDF): easy to tell apart
+    if (c.pct >= 90) return { ...base, background: levelColor(T, "Normal"), color: "#fff" };
+    if (c.pct >= 70) return { ...base, background: levelColor(T, "Caution"), color: "#1a1a1a" };
+    return { ...base, background: levelColor(T, "Alert"), color: "#fff" };
   };
   const legend = [
-    ["90 % or more measured", T.success],
-    ["70–89 %", T.warning],
-    ["Under 70 %", T.danger, true],
+    ["90 % or more measured", levelColor(T, "Normal")],
+    ["70–89 %", levelColor(T, "Caution")],
+    ["Under 70 %", levelColor(T, "Alert")],
     ["No machines due", `${T.textMuted || T.textSecondary}22`],
   ];
 
@@ -215,7 +216,7 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
                               data-testid={`vd-cell-${g.area}-${c.month}`}
                               style={{ padding: 0, border: 0, background: "none", cursor: "pointer", display: "block", width: "100%", minHeight: 28 }}
                             >
-                              <span style={cellStyle(c)}>{c.pct == null || period > 6 ? "" : c.pct}</span>
+                              <span style={cellStyle(c)}>{c.pct == null || (isMobile && period > 6) ? "" : `${c.pct}%`}</span>
                             </button>
                           );
                         })}
