@@ -5,7 +5,7 @@ import LabReviewPanel from "../components/LabReviewPanel";
 import { useTheme } from "../ThemeContext";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
-import { formatDate, intervalMonths, isSampledPoint, lastSampleDate, sampleTrackerStatus, samplingStart } from "../parsers";
+import { formatDate, intervalMonths, isSampledPoint, lastSampleDate, sampleTrackerStatus, samplingStart, sampleWhyText } from "../parsers";
 import LastActionsPanel from "../components/LastActionsPanel";
 import LabTrendCharts, { Chip, LabCountControls } from "../components/LabTrendCharts";
 import { toTime } from "../pointHistory";
@@ -394,6 +394,11 @@ export default function OilReportSearch({
             >
               <span style={{ fontWeight: 800, fontSize: 15, color: statusKey(latest.reportStatus) === "warning" ? "#1a1a1a" : "#fff", letterSpacing: 1 }}>
                 {latest.reportStatus?.toUpperCase() || "NO RESULT"}
+                {sampleWhyText(latest) && (
+                  <span data-testid="report-why" style={{ fontWeight: 600, fontSize: 12, letterSpacing: 0, marginLeft: 10 }}>
+                    {sampleWhyText(latest)}
+                  </span>
+                )}
               </span>
               <span style={{ fontSize: 12, color: statusKey(latest.reportStatus) === "warning" ? "#1a1a1a" : "rgba(255,255,255,0.85)" }}>
                 Asset ID: {latest.assetId || reg?.assetId || "—"}

@@ -5,7 +5,7 @@ import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
 import EquipmentList from "../components/EquipmentList";
 import { HEALTH_COLOR, healthForLp, indexByLp, pointHealth, worstHealth } from "../equipmentHealth";
-import { formatDate, intervalMonths, oilChangeByCondition, isActionOverdue, actionDaysOverdue, ROUTE_STATUS, samplingStart } from "../parsers";
+import { formatDate, intervalMonths, oilChangeByCondition, isActionOverdue, actionDaysOverdue, ROUTE_STATUS, samplingStart, sampleWhyText } from "../parsers";
 import { toISODate } from "../actionAutofill";
 import { statusColor } from "../theme";
 import * as api from "../api";
@@ -1057,6 +1057,7 @@ export default function Equipment({
                           <>
                             <span style={s.badge(p.h.current.reportStatus)}>{p.h.current.reportStatus}</span>{" "}
                             {p.h.renewedOn ? `oil changed ${formatDate(p.h.renewedOn)} — next report pending` : formatDate(p.h.current.sampledDate)}
+                            {!p.h.renewedOn && sampleWhyText(p.h.current) && <div style={{ fontSize: 12, color: T.textSecondary }}>{sampleWhyText(p.h.current)}</div>}
                           </>
                         ) : p.reg.oilAnalysisRequired === "Yes" ? (
                           "none yet"
@@ -1267,6 +1268,11 @@ export default function Equipment({
                     <>
                       <BigValue T={T}>{formatDate(latest.sampledDate)}</BigValue>
                       <StatusPill T={T} color={statusColorKey(latest.reportStatus)}>{latest.reportStatus || "No result"}</StatusPill>
+                      {sampleWhyText(latest) && (
+                        <Detail T={T} testid="sample-why">
+                          Why: {sampleWhyText(latest)}
+                        </Detail>
+                      )}
                       <Detail T={T}>Sample {latest.sampleId}</Detail>
                       {lpHealth?.renewedOn && (
                         <Detail T={T}>

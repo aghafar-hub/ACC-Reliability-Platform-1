@@ -58,3 +58,14 @@ test("fresh oil restarts the sampling clock (no 'sample missing' for the old oil
   assert.equal(fresh.health, "Good", JSON.stringify(fresh.reasons));
   assert.equal(fresh.sampleState.label, "OK");
 });
+
+test("a Caution/Alert sample says why, in a few words", async () => {
+  const { sampleWhyText } = await import(SRC + "parsers.js");
+  assert.equal(sampleWhyText({ reportStatus: "Normal", water: "0.5" }), "");
+  const fromLab = { reportStatus: "Alert", water: "0.15", wear: { Fe: 85 }, flaggedReadings: [{ param: "Water", severity: "Alert" }, { param: "Fe", severity: "Caution" }] };
+  const why = sampleWhyText(fromLab);
+  assert.match(why, /^Water/);
+  assert.match(why, /Fe.*\(Caution\)/);
+  const typed = { reportStatus: "Caution", water: "", wear: { Fe: 35 }, contaminants: { Si: 5 } };
+  assert.equal(sampleWhyText(typed), "Fe 35 ppm");
+});

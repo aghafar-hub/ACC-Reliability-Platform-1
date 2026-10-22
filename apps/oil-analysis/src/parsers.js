@@ -302,6 +302,21 @@ export function sampleTriggerReadings(sm) {
   );
 }
 
+// Why a sample is Caution/Alert, in a few words: "Water 0.15 % (Alert) ·
+// Fe 85 ppm" — the readings that crossed a limit. "" for a Normal sample
+// or when no reading explains it.
+export function sampleWhyText(sm, max = 3) {
+  if (!sm || !/^(alert|caution|warning)/i.test(sm.reportStatus || "")) return "";
+  const list = sampleTriggerReadings(sm);
+  const txt = list.slice(0, max).map((r) => {
+    const v = r.value !== undefined && r.value !== "" && r.value != null ? ` ${r.value}${r.unit ? " " + r.unit : ""}` : "";
+    const sev = r.severity && !new RegExp(`^${r.severity}`, "i").test(sm.reportStatus || "") ? ` (${r.severity})` : "";
+    return `${r.label}${v}${sev}`;
+  });
+  if (list.length > max) txt.push(`+${list.length - max} more`);
+  return txt.join(" · ");
+}
+
 // Equipment stays OK for this many months past its interval before flipping
 // to OVERDUE (amber) — mirrors the old app's ~15-day grace so crossing the
 // interval by a few days doesn't immediately read as an alarm. It then

@@ -14,7 +14,7 @@
 // module's own (the same here). Machines are named by Equipment ID only.
 
 import { healthForLp, indexByLp, worstHealth } from "./equipmentHealth";
-import { isActionOverdue, normActionStatus, ACTION_STATUS } from "./parsers";
+import { isActionOverdue, normActionStatus, ACTION_STATUS, sampleWhyText } from "./parsers";
 import { alertsWithoutAction } from "./dashboardLogic";
 
 // The local calendar day as YYYY-MM-DD. Not toISOString(): that is UTC,
@@ -98,7 +98,7 @@ export function buildOilPlant({ registry, samples, actions, oilChanges, topUps, 
       nextDue: nextChange ? { date: nextChange, label: "Oil change", late: nextChange < today || changeOverdue } : null,
       facts: [
         { label: "Lubrication points", value: `${list.length}${poorPoints ? ` · ${poorPoints} Poor` : ""}`, tone: poorPoints ? "danger" : "" },
-        { label: "Latest lab result", value: lab ? `${lab.reportStatus || "—"} · ${toIso(lab.sampledDate)}` : "No sample yet", tone: lab?.reportStatus === "Alert" ? "danger" : lab?.reportStatus === "Caution" ? "warning" : "" },
+        { label: "Latest lab result", value: lab ? `${lab.reportStatus || "—"} · ${toIso(lab.sampledDate)}${sampleWhyText(lab) ? ` (${sampleWhyText(lab, 2)})` : ""}` : "No sample yet", tone: lab?.reportStatus === "Alert" ? "danger" : lab?.reportStatus === "Caution" ? "warning" : "" },
         { label: "Next oil change", value: nextChange ? `${nextChange}${changeOverdue ? " · overdue" : ""}` : "—", tone: changeOverdue ? "danger" : "" },
         { label: "Last oil change", value: lastChange || "—" },
         { label: "Open actions", value: `${openActions}${overdueActions ? ` · ${overdueActions} overdue` : ""}`, tone: overdueActions ? "danger" : "" },

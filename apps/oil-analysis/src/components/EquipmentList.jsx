@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
 import EquipmentSearch from "./EquipmentSearch";
-import { formatDate } from "../parsers";
+import { formatDate, sampleWhyText } from "../parsers";
 import { HEALTH_COLOR, HEALTH_RANK, healthForLp, worstHealth } from "../equipmentHealth";
 import { Donut, StackedBars } from "./DashCharts";
 import ContractorChips from "./ContractorChips";
@@ -349,6 +349,7 @@ export default function EquipmentList({ registry, idx, scopedContractor, onOpenE
                         <>
                           <span style={s.badge(r.h.current.reportStatus)}>{r.h.current.reportStatus || "—"}</span>
                           <div style={{ fontSize: 12, color: T.textSecondary }}>{r.h.renewedOn ? `oil changed ${r.h.renewedOn}` : r.h.current.sampledDate}</div>
+                          {!r.h.renewedOn && sampleWhyText(r.h.current) && <div style={{ fontSize: 12, color: T.textSecondary }}>{sampleWhyText(r.h.current, 2)}</div>}
                         </>
                       ) : (
                         <span style={{ color: T.textMuted }}>{r.reg.oilAnalysisRequired === "Yes" ? "none yet" : "not sampled"}</span>
