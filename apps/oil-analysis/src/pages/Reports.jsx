@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "../ThemeContext";
-import { lastSampleDate, sampleTrackerStatus } from "../parsers";
+import { lastSampleDate, sampleTrackerStatus, samplingStart } from "../parsers";
 import NewReport from "./NewReport";
 // reportGenerators.js (jsPDF, ExcelJS) loads when this page opens, not with the app
 const loadGenerators = () => import("../reportGenerators");
@@ -161,7 +161,8 @@ export default function Reports({ webhookUrl, actions, oilChanges, oilChangeEven
     let overdue = 0;
     registry.forEach((eq) => {
       const history = (trackerByEquip || {})[eq.code] || [];
-      const status = sampleTrackerStatus(lastSampleDate("", history), eq.interval);
+      const changedOn = (oilChanges || []).find((o) => o.equipmentCode === eq.code)?.changeDate;
+      const status = sampleTrackerStatus(samplingStart(lastSampleDate("", history), changedOn), eq.interval);
       if (status.label === "MISSING") missing++;
       else if (status.label === "OVERDUE") overdue++;
     });

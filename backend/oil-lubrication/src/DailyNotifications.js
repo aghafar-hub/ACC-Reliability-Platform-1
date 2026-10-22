@@ -93,6 +93,7 @@ function lpsDueSoon_(ss, today, days) {
     var d = asDate_(r[4]);
     if (lp && d && (!lastSample[lp] || d.getTime() > lastSample[lp].getTime())) lastSample[lp] = d;
   });
+  var lastChange = latestOilChangeByLp_(ss);
   var out = [];
   equipment.forEach(function (eq) {
     if (!eq.code || !eq.contractor) return;
@@ -103,7 +104,7 @@ function lpsDueSoon_(ss, today, days) {
     }
     if (eq.oilAnalysisRequired === "Yes" && lastSample[eq.code]) {
       var months = intervalMonthsForSampling_(eq.interval);
-      var sDue = months ? sampleDueDate_(lastSample[eq.code], months) : null;
+      var sDue = months ? sampleDueDate_(laterDate_(lastSample[eq.code], lastChange[eq.code]), months) : null;
       if (sDue && sDue.getTime() >= today.getTime() && sDue.getTime() <= soonEnd.getTime() && !(onRoute[eq.code] || {})["Sampling"]) {
         out.push({ code: eq.code, contractor: eq.contractor, type: "Sample", due: sDue });
       }

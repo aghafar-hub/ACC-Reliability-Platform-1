@@ -5,7 +5,7 @@ import LabReviewPanel from "../components/LabReviewPanel";
 import { useTheme } from "../ThemeContext";
 import EquipmentSearch, { idTextMatch } from "../components/EquipmentSearch";
 import useIsMobile from "../hooks/useIsMobile";
-import { formatDate, intervalMonths, isSampledPoint, lastSampleDate, sampleTrackerStatus } from "../parsers";
+import { formatDate, intervalMonths, isSampledPoint, lastSampleDate, sampleTrackerStatus, samplingStart } from "../parsers";
 import LastActionsPanel from "../components/LastActionsPanel";
 import LabTrendCharts, { Chip, LabCountControls } from "../components/LabTrendCharts";
 import { toTime } from "../pointHistory";
@@ -374,7 +374,7 @@ export default function OilReportSearch({
       </div>
 
       {equipCode === "All" && (
-        <PointsList T={T} s={s} isMobile={isMobile} codes={allCodes} samples={samples} registry={registry} trackerByEquip={trackerByEquip} onPick={selectCode} />
+        <PointsList T={T} s={s} isMobile={isMobile} codes={allCodes} samples={samples} registry={registry} trackerByEquip={trackerByEquip} oilChanges={oilChanges} onPick={selectCode} />
       )}
       {equipCode !== "All" && historyAll.length === 0 && (
         <div style={{ textAlign: "center", padding: 40, color: T.textMuted, fontSize: 14 }}>No samples found for this equipment.</div>
@@ -565,7 +565,7 @@ function Info({ T, label, value, color, strong }) {
 
 // With no point picked: every sampled point by its latest result, worst
 // first, with what the lab marked and whether a sample is due.
-function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, onPick }) {
+function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, oilChanges, onPick }) {
   const [filter, setFilter] = useState("all");
   const [text, setText] = useState("");
   const [limit, setLimit] = useState(50);
@@ -582,10 +582,11 @@ function PointsList({ T, s, isMobile, codes, samples, registry, trackerByEquip, 
       const info = byCode.get(code);
       const latest = info?.latest || null;
       const tracker = (trackerByEquip || {})[code] || [];
-      const sampling = isSampledPoint(reg) ? sampleTrackerStatus(lastSampleDate(latest?.sampledDate, tracker), reg.interval) : null;
+      const changedOn = (oilChanges || []).find((o) => o.equipmentCode === code)?.changeDate;
+      const sampling = isSampledPoint(reg) ? sampleTrackerStatus(samplingStart(lastSampleDate(latest?.sampledDate, tracker), changedOn), reg.interval) : null;
       return { code, reg, latest, n: info?.n || 0, sampling, marks: latest?.flaggedReadings || [] };
     });
-  }, [codes, samples, registry, trackerByEquip]);
+  }, [codes, samples, registry, trackerByEquip, oilChanges]);
   const counts = {
     Alert: rows.filter((r) => r.latest?.reportStatus === "Alert").length,
     Caution: rows.filter((r) => ["Caution", "Warning"].includes(r.latest?.reportStatus)).length,

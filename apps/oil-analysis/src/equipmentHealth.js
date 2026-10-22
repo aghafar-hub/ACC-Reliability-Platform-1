@@ -13,7 +13,7 @@
 // so it no longer counts — the point's oil condition is Normal until the
 // next lab report comes in (`current` below; `latest` stays the real one).
 
-import { isActionOverdue, isSampledPoint, lastSampleDate, normActionStatus, ACTION_STATUS, sampleTrackerStatus } from "./parsers";
+import { isActionOverdue, isSampledPoint, lastSampleDate, samplingStart, normActionStatus, ACTION_STATUS, sampleTrackerStatus } from "./parsers";
 
 export const HEALTH_COLOR = { Good: "success", Fair: "warning", Poor: "danger" };
 export const HEALTH_RANK = { Good: 0, Fair: 1, Poor: 2 };
@@ -53,7 +53,7 @@ export function pointHealth({ reg, samples, oilChange, actions, topUps, tracker,
   let sampleState = null;
   // same sampling rule as the Oil Dashboard and the Oil Analysis Report
   if (isSampledPoint(reg)) {
-    const last = lastSampleDate(latest?.sampledDate, tracker);
+    const last = samplingStart(lastSampleDate(latest?.sampledDate, tracker), oilChange?.changeDate);
     sampleState = sampleTrackerStatus(last, reg.interval || "");
     if (sampleState.label === "MISSING") add(2, last ? "Sample missing" : "Never sampled", "sample");
     else if (sampleState.label === "OVERDUE") add(1, "Sample overdue", "sample");

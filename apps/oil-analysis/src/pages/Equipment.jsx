@@ -5,7 +5,8 @@ import { useTheme } from "../ThemeContext";
 import { useIsAccEngineer, useIsRouteEngineerFor, useSessionContractor } from "../SessionContext";
 import EquipmentList from "../components/EquipmentList";
 import { HEALTH_COLOR, healthForLp, indexByLp, pointHealth, worstHealth } from "../equipmentHealth";
-import { formatDate, intervalMonths, oilChangeByCondition, isActionOverdue, actionDaysOverdue, ROUTE_STATUS } from "../parsers";
+import { formatDate, intervalMonths, oilChangeByCondition, isActionOverdue, actionDaysOverdue, ROUTE_STATUS, samplingStart } from "../parsers";
+import { toISODate } from "../actionAutofill";
 import { statusColor } from "../theme";
 import * as api from "../api";
 import EditSampleModal from "../components/EditSampleModal";
@@ -442,12 +443,14 @@ export default function Equipment({
   const canLogByHand = isAccEngineer || isContractorEngineerHere;
   // "What's next" for this point.
   const sampleMonths = reg?.oilAnalysisRequired === "Yes" ? intervalMonths(reg.interval || "") : 0;
+  // from the last sample, or a later oil change (fresh oil: new schedule)
+  const sampleStart = samplingStart(latest?.sampledDate ? toISODate(latest.sampledDate) : "", lpOilChangeState?.changeDate);
   const nextSampleDue = useMemo(() => {
-    if (!sampleMonths || !latest?.sampledDate) return null;
-    const d = new Date(latest.sampledDate);
+    if (!sampleMonths || !sampleStart) return null;
+    const d = new Date(sampleStart + "T00:00:00");
     if (isNaN(d.getTime())) return null;
     return new Date(d.getFullYear(), d.getMonth() + sampleMonths, d.getDate());
-  }, [sampleMonths, latest?.sampledDate]);
+  }, [sampleMonths, sampleStart]);
   const openRoutesForLp = routesForLp.filter((r) => [ROUTE_STATUS.DRAFT, ROUTE_STATUS.ASSIGNED, ROUTE_STATUS.IN_PROGRESS, ROUTE_STATUS.WAITING].includes(r.status));
   const labWaiting = samplesForEquip.filter((sm) => sm.validationStatus === "Pending Validation" || sm.validationStatus === "Returned");
   // Top-up rate over the last 90 days.

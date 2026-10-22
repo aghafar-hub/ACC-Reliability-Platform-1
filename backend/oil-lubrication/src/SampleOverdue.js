@@ -52,6 +52,28 @@ function intervalMonthsForSampling_(freqText) {
   return isNaN(n) ? null : n;
 }
 
+// LP_ID -> date of its latest oil change (Oil Change LOG, "Change" rows).
+// Fresh oil after the last sample: its sampling schedule starts at the
+// change, so it is not "missing" by the old oil's dates (same rule as the
+// app's samplingStart in parsers.js).
+function latestOilChangeByLp_(ss) {
+  var out = {};
+  readSheet(ss, "Oil Change LOG", true).forEach(function (r) {
+    var lp = String(r[1] || "").trim();
+    if (!lp || String(r[3] || "Change").trim() !== "Change") return;
+    var d = asDate_(r[4]);
+    if (d && (!out[lp] || d.getTime() > out[lp].getTime())) out[lp] = d;
+  });
+  return out;
+}
+
+function laterDate_(a, b) {
+  var da = asDate_(a), db = asDate_(b);
+  if (!da) return db || a || "";
+  if (!db) return a;
+  return db.getTime() > da.getTime() ? db : a;
+}
+
 function sampleAgeMonths_(lastDateStr) {
   var last = new Date(lastDateStr);
   if (isNaN(last.getTime())) return null;
@@ -122,6 +144,7 @@ function checkSampleOverdueAndNotify() {
     var d = asDate_(row[4]);
     if (lp && d && (!latestReport[lp] || d.getTime() > latestReport[lp].getTime())) latestReport[lp] = d;
   });
+  var lastChange = latestOilChangeByLp_(ss);
   var trackerByCode = {}; // code -> { rowIdx (1-based), lastSample }
   if (lastRow >= 2) {
     var trackerVals = trackerSheet.getRange(1, 1, lastRow, Math.max(lastCol, 2)).getValues();
@@ -149,6 +172,7 @@ function checkSampleOverdueAndNotify() {
     var sheetDate = asDate_(lastSample);
     var reportDate = latestReport[eq.code];
     if (reportDate && (!sheetDate || reportDate.getTime() > sheetDate.getTime())) lastSample = reportDate;
+    lastSample = laterDate_(lastSample, lastChange[eq.code]);
     var status = sampleStatusLabel_(lastSample, months);
     var contractor = eq.contractor || "";
     if (!contractor) return;

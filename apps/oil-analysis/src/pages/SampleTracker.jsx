@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useTheme } from "../ThemeContext";
-import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket, lastSampleDate } from "../parsers";
+import { sampleTrackerStatus, computeOilChangeNextDue, conditionBucket, lastSampleDate, samplingStart } from "../parsers";
 import EquipmentSearch from "../components/EquipmentSearch";
 import SampleHistoryModal from "../components/SampleHistoryModal";
 import { MonthProgress } from "../components/DashCharts";
@@ -193,15 +193,17 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
     return map;
   }, [oilChanges]);
 
+  const changeDateByEquip = useMemo(() => Object.fromEntries((oilChanges || []).map((o) => [o.equipmentCode, o.changeDate])), [oilChanges]);
   const rows = useMemo(
     () =>
       registry.map((eq) => {
         const history = trackerByEquip[eq.code] || [];
-        const lastDate = lastSampleDate("", history);
-        const status = sampleTrackerStatus(lastDate, eq.interval);
-        return { eq, history, status, oilChangedMonths: oilChangedMonthsByEquip[eq.code] || new Set() };
+        // fresh oil after the last sample: its schedule starts at the change
+        const start = samplingStart(lastSampleDate("", history), changeDateByEquip[eq.code]);
+        const status = sampleTrackerStatus(start, eq.interval);
+        return { eq, history, status, start, oilChangedMonths: oilChangedMonthsByEquip[eq.code] || new Set() };
       }),
-    [registry, trackerByEquip, oilChangedMonthsByEquip]
+    [registry, trackerByEquip, oilChangedMonthsByEquip, changeDateByEquip]
   );
 
   const areas = ["All", ...Array.from(new Set(registry.map((r) => r.area).filter(Boolean)))];
@@ -235,9 +237,9 @@ export default function SampleTracker({ trackerByEquip, oilChanges, equipmentReg
   // nothing to be "soon" against.
   const dueSoon = useMemo(() => {
     return filtered
-      .map(({ eq, history, status }) => {
+      .map(({ eq, status, start }) => {
         if (status.label !== "OK") return null;
-        const lastDate = lastSampleDate("", history);
+        const lastDate = start;
         if (!lastDate) return null;
         const dueDate = computeOilChangeNextDue(lastDate, eq.interval);
         if (!dueDate) return null;

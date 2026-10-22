@@ -390,7 +390,7 @@ export default function Dashboard({ samples, actions, oilChangeEvents, oilChange
       labAlerts: alertsWithoutAction(samples, actions, codes),
       lateRoutes: overdueRoutes(scopedRoutes, "All", now),
       health: oilHealth(samples, codes, periodDays, now),
-      sampling: samplingOnTime(scoped, trackerByEquip, samples),
+      sampling: samplingOnTime(scoped, trackerByEquip, samples, oilChanges),
       routesOT: routesOnTime(scopedRoutes, periodDays, now),
       actionsOpen,
       actionsPastDue: actionsOpen.filter((a) => a.stage.label === "Past due").length,

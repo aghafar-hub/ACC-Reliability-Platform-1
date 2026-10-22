@@ -353,6 +353,15 @@ export function lastSampleDate(latestSampleDate, trackerEntries) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// Where the sampling clock starts: the last sample, or a later oil change —
+// fresh oil gets its first sample one interval after the change, not by the
+// old oil's schedule. YYYY-MM-DD (local day), "" when neither.
+export function samplingStart(lastDate, changeDate) {
+  const d = changeDate ? new Date(changeDate) : null;
+  const ch = d && !isNaN(d) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}` : "";
+  return ch > (lastDate || "") ? ch : lastDate || "";
+}
+
 // Classifies a tracker/sample cell's status text into one of three real
 // lab-result grades — "Missing"/"Pending"/"Awaiting Lab Report" aren't lab results (nothing was
 // analyzed yet), so they're excluded here rather than forced into Normal

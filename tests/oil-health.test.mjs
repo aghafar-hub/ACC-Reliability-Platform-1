@@ -47,3 +47,14 @@ test("plant summary keeps the local calendar day of an oil change", () => {
   assert.ok(text.includes("2026-10-01"), text.slice(0, 400));
   assert.ok(!text.includes("2026-09-30"));
 });
+
+test("fresh oil restarts the sampling clock (no 'sample missing' for the old oil)", () => {
+  const ago = (days) => new Date(Date.now() - days * 864e5).toDateString();
+  const sampled = { code: "LP-T2", oilAnalysisRequired: "Yes", interval: "3 Months" };
+  const lastSample = { unitId: "LP-T2", sampledDate: ago(130), reportStatus: "Alert", sampleId: "S-2" };
+  const old = pointHealth({ reg: sampled, samples: [lastSample], oilChange: { changeDate: ago(200) }, actions: [], topUps: [] });
+  assert.ok(old.reasons.some((r) => r.kind === "sample"), "a sample 130 days old on a 3-month interval: missing");
+  const fresh = pointHealth({ reg: sampled, samples: [lastSample], oilChange: { changeDate: ago(20) }, actions: [], topUps: [] });
+  assert.equal(fresh.health, "Good", JSON.stringify(fresh.reasons));
+  assert.equal(fresh.sampleState.label, "OK");
+});
