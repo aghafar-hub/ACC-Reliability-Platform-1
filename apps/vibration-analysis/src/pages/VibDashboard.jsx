@@ -91,15 +91,15 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
   const cellStyle = (c) => {
     const base = { width: "100%", height: 28, borderRadius: 6, boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 };
     if (c.pct == null) return { ...base, background: `${T.textMuted || T.textSecondary}22`, color: T.textSecondary };
-    // solid traffic-light fills (the level colours, as the PDF): easy to tell apart
-    if (c.pct >= 90) return { ...base, background: levelColor(T, "Normal"), color: "#fff" };
-    if (c.pct >= 70) return { ...base, background: levelColor(T, "Caution"), color: "#1a1a1a" };
-    return { ...base, background: levelColor(T, "Alert"), color: "#fff" };
+    // light traffic-light tints (the level colours, as the PDF) with a border and dark text
+    const lv = c.pct >= 90 ? "Normal" : c.pct >= 70 ? "Caution" : "Alert";
+    return { ...base, ...tint(lv) };
   };
+  const tint = (lv) => ({ background: `${levelColor(T, lv)}40`, border: `1.5px solid ${levelColor(T, lv)}`, color: levelInk(T, lv) });
   const legend = [
-    ["90 % or more measured", levelColor(T, "Normal")],
-    ["70–89 %", levelColor(T, "Caution")],
-    ["Under 70 %", levelColor(T, "Alert")],
+    ["90 % or more measured", "Normal"],
+    ["70–89 %", "Caution"],
+    ["Under 70 %", "Alert"],
     ["No machines due", `${T.textMuted || T.textSecondary}22`],
   ];
 
@@ -225,9 +225,9 @@ export default function VibDashboard({ webhookUrl, onOpenMachine, onOpenPage }) 
                 </div>
               </div>
               <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", marginTop: 12, fontSize: 12.5, color: T.textSecondary }}>
-                {legend.map(([l, c, dashed]) => (
+                {legend.map(([l, c]) => (
                   <span key={l} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                    <span style={{ width: 12, height: 12, borderRadius: 3, background: dashed ? T.dangerBg : c, border: dashed ? `2px dashed ${c}` : "none", boxSizing: "border-box" }} />
+                    <span style={{ width: 12, height: 12, borderRadius: 3, boxSizing: "border-box", ...(LEVELS.includes(c) ? tint(c) : { background: c }) }} />
                     {l}
                   </span>
                 ))}
